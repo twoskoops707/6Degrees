@@ -3,29 +3,35 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@+id/nav_transform">
+    app:startDestination="@+id/nav_search">
 
     <fragment
-        android:id="@+id/nav_transform"
-        android:name="com.example.a6degrees.ui.transform.TransformFragment"
-        android:label="@string/menu_transform"
-        tools:layout="@layout/fragment_transform" />
+        android:id="@+id/nav_search"
+        android:name="com.example.a6degrees.ui.search.SearchFragment"
+        android:label="@string/menu_search"
+        tools:layout="@layout/fragment_search" />
 
     <fragment
-        android:id="@+id/nav_reflow"
-        android:name="com.example.a6degrees.ui.reflow.ReflowFragment"
-        android:label="@string/menu_reflow"
-        tools:layout="@layout/fragment_reflow" />
-
-    <fragment
-        android:id="@+id/nav_slideshow"
-        android:name="com.example.a6degrees.ui.slideshow.SlideshowFragment"
-        android:label="@string/menu_slideshow"
-        tools:layout="@layout/fragment_slideshow" />
+        android:id="@+id/nav_history"
+        android:name="com.example.a6degrees.ui.history.HistoryFragment"
+        android:label="@string/menu_history"
+        tools:layout="@layout/fragment_history" />
 
     <fragment
         android:id="@+id/nav_settings"
         android:name="com.example.a6degrees.ui.settings.SettingsFragment"
         android:label="@string/menu_settings"
         tools:layout="@layout/fragment_settings" />
+
+    <fragment
+        android:id="@+id/nav_results"
+        android:name="com.example.a6degrees.ui.results.ResultsFragment"
+        android:label="@string/results_title"
+        tools:layout="@layout/fragment_results" />
+
+    <fragment
+        android:id="@+id/nav_api_settings"
+        android:name="com.example.a6degrees.ui.settings.ApiSettingsFragment"
+        android:label="@string/api_settings_title"
+        tools:layout="@layout/fragment_api_settings" />
 </navigation>
