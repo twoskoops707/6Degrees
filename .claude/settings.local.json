@@ -6,7 +6,12 @@
       "Bash(git config:*)",
       "Bash(git branch:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git remote:*)",
+      "Bash(git stash:*)",
+      "Bash(git push:*)",
+      "Bash(tail:*)",
+      "Bash(grep java:*)"
     ]
   }
 }
