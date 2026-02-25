@@ -7,7 +7,11 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentHistoryBinding
 
@@ -40,6 +44,14 @@ class HistoryFragment : Fragment() {
         binding.historyToolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
+        binding.btnClearAll.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Clear All Reports")
+                .setMessage("Delete all search history? This cannot be undone.")
+                .setPositiveButton("Delete All") { _, _ -> viewModel.deleteAll() }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
 
     private fun setupRecyclerView() {
@@ -55,18 +67,31 @@ class HistoryFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = historyAdapter
         }
+
+        val swipeCallback = object : ItemTouchHelper.SimpleCallback(
+            0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val report = historyAdapter.currentList[position]
+                viewModel.deleteReport(report)
+                Snackbar.make(binding.root, "Report deleted", Snackbar.LENGTH_LONG)
+                    .setAction("Undo") { viewModel.restoreReport(report) }
+                    .show()
+            }
+        }
+        ItemTouchHelper(swipeCallback).attachToRecyclerView(binding.historyRecycler)
     }
 
     private fun observeViewModel() {
         viewModel.reports.observe(viewLifecycleOwner) { reports ->
             historyAdapter.submitList(reports)
-            if (reports.isEmpty()) {
-                binding.historyContent.visibility = View.GONE
-                binding.emptyState.visibility = View.VISIBLE
-            } else {
-                binding.historyContent.visibility = View.VISIBLE
-                binding.emptyState.visibility = View.GONE
-            }
+            val hasReports = reports.isNotEmpty()
+            binding.historyContent.visibility = if (hasReports) View.VISIBLE else View.GONE
+            binding.emptyState.visibility = if (hasReports) View.GONE else View.VISIBLE
+            binding.btnClearAll.visibility = if (hasReports) View.VISIBLE else View.GONE
         }
     }
 

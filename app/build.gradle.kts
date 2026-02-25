@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.moshi)
+    implementation(libs.retrofit.scalars)
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging)
     implementation(libs.moshi.core)

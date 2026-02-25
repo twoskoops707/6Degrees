@@ -1,6 +1,7 @@
 package com.twoskoops707.sixdegrees.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -12,6 +13,9 @@ import java.util.Date
 interface ReportDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReport(report: OsintReportEntity)
+
+    @Delete
+    suspend fun deleteReport(report: OsintReportEntity)
 
     @Query("SELECT * FROM osint_reports WHERE id = :id")
     suspend fun getReportById(id: String): OsintReportEntity?

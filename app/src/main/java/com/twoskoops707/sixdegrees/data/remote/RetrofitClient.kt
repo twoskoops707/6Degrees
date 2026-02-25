@@ -4,6 +4,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import retrofit2.converter.scalars.ScalarsConverterFactory
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.TimeUnit
@@ -25,6 +26,7 @@ object RetrofitClient {
     fun create(baseUrl: String): Retrofit = Retrofit.Builder()
         .baseUrl(baseUrl)
         .client(httpClient)
+        .addConverterFactory(ScalarsConverterFactory.create())
         .addConverterFactory(MoshiConverterFactory.create(moshi))
         .build()
 
@@ -82,5 +84,21 @@ object RetrofitClient {
 
     val numverifyService: NumverifyService by lazy {
         create("http://apilayer.net/").create(NumverifyService::class.java)
+    }
+
+    val shodanInternetDbService: ShodanInternetDbService by lazy {
+        create("https://internetdb.shodan.io/").create(ShodanInternetDbService::class.java)
+    }
+
+    val greyNoiseService: GreyNoiseCommunityService by lazy {
+        create("https://api.greynoise.io/").create(GreyNoiseCommunityService::class.java)
+    }
+
+    val keybaseService: KeybaseLookupService by lazy {
+        create("https://keybase.io/").create(KeybaseLookupService::class.java)
+    }
+
+    val threatCrowdService: ThreatCrowdService by lazy {
+        create("https://www.threatcrowd.org/").create(ThreatCrowdService::class.java)
     }
 }

@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
+import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
@@ -190,15 +191,117 @@ class OsintRepository(context: Context) {
             val code = resp.code
             resp.close()
             meta["gravatar_url"] = "https://www.gravatar.com/avatar/$hash"
-            meta["gravatar_profile"] = "https://www.gravatar.com/$hash.json"
             if (code != 404) {
                 sources.add(DataSource("Gravatar", "https://www.gravatar.com/$hash", Date(), 0.6))
-                emit(SearchProgressEvent.Found("Gravatar", "Profile image exists"))
+                try {
+                    val jsonReq = Request.Builder()
+                        .url("https://en.gravatar.com/$hash.json")
+                        .addHeader("User-Agent", "SixDegrees-OSINT")
+                        .build()
+                    val jsonResp = fastHttpClient.newCall(jsonReq).execute()
+                    val jsonBody = jsonResp.body?.string() ?: ""
+                    jsonResp.close()
+                    val displayName = Regex("\"displayName\":\\s*\"([^\"]+)\"").find(jsonBody)?.groupValues?.get(1) ?: ""
+                    val aboutMe = Regex("\"aboutMe\":\\s*\"([^\"]+)\"").find(jsonBody)?.groupValues?.get(1) ?: ""
+                    val location = Regex("\"currentLocation\":\\s*\"([^\"]+)\"").find(jsonBody)?.groupValues?.get(1) ?: ""
+                    if (displayName.isNotBlank()) meta["gravatar_name"] = displayName
+                    if (aboutMe.isNotBlank()) meta["gravatar_bio"] = aboutMe.take(300)
+                    if (location.isNotBlank()) meta["gravatar_location"] = location
+                    val accountMatches = Regex("\"domain\":\\s*\"([^\"]+)\",\\s*\"username\":\\s*\"([^\"]+)\"").findAll(jsonBody)
+                    val accounts = accountMatches.take(8).map { "${it.groupValues[1]}/${it.groupValues[2]}" }.toList()
+                    if (accounts.isNotEmpty()) meta["gravatar_accounts"] = accounts.joinToString(", ")
+                    val detail = buildString {
+                        if (displayName.isNotBlank()) append(displayName)
+                        if (location.isNotBlank()) { if (isNotEmpty()) append(" · "); append(location) }
+                        if (accounts.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${accounts.size} linked accounts") }
+                    }.ifBlank { "Profile image exists" }
+                    emit(SearchProgressEvent.Found("Gravatar", detail))
+                } catch (_: Exception) {
+                    emit(SearchProgressEvent.Found("Gravatar", "Profile image exists"))
+                }
             } else {
                 emit(SearchProgressEvent.NotFound("Gravatar"))
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("Gravatar", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("LeakCheck.io"))
+        try {
+            val encodedEmail = URLEncoder.encode(email, "UTF-8")
+            val req = Request.Builder()
+                .url("https://leakcheck.io/api/public?check=$encodedEmail")
+                .addHeader("User-Agent", "SixDegrees-OSINT")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            val success = Regex("\"success\":\\s*true").containsMatchIn(body)
+            val found = Regex("\"found\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            if (success && found > 0) {
+                meta["leakcheck_found"] = found.toString()
+                val sourcesList = Regex("\"sources\":\\s*\\[([^\\]]+)\\]").find(body)
+                    ?.groupValues?.get(1)?.split(",")
+                    ?.map { it.trim().trim('"') }?.filter { it.isNotBlank() }
+                    ?: emptyList()
+                meta["leakcheck_sources"] = sourcesList.joinToString(", ")
+                sources.add(DataSource("LeakCheck.io", null, Date(), 0.85))
+                emit(SearchProgressEvent.Found("LeakCheck.io",
+                    "$found breach hit${if (found != 1) "s" else ""}: ${sourcesList.take(3).joinToString(", ")}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("LeakCheck.io"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("LeakCheck.io", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("ThreatCrowd"))
+        try {
+            val resp = RetrofitClient.threatCrowdService.emailReport(email)
+            if (resp.isSuccessful && resp.body()?.responseCode == "1") {
+                val b = resp.body()!!
+                val domains = b.domains ?: emptyList()
+                val refs = b.references ?: 0
+                meta["threatcrowd_email_domains"] = domains.take(10).joinToString(", ")
+                meta["threatcrowd_email_refs"] = refs.toString()
+                if (domains.isNotEmpty() || refs > 0) {
+                    sources.add(DataSource("ThreatCrowd", null, Date(), 0.7))
+                    emit(SearchProgressEvent.Found("ThreatCrowd",
+                        buildString {
+                            if (domains.isNotEmpty()) append("${domains.size} domain${if (domains.size != 1) "s" else ""} linked")
+                            if (refs > 0) { if (isNotEmpty()) append(" · "); append("$refs ref${if (refs != 1) "s" else ""}") }
+                        }
+                    ))
+                } else {
+                    emit(SearchProgressEvent.NotFound("ThreatCrowd"))
+                }
+            } else {
+                emit(SearchProgressEvent.NotFound("ThreatCrowd"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("ThreatCrowd", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("HackerTarget Email Search"))
+        try {
+            val resp = RetrofitClient.hackerTargetService.findEmail(email)
+            if (resp.isSuccessful) {
+                val body = resp.body() ?: ""
+                if (!body.startsWith("error") && body.isNotBlank()) {
+                    apiKeyManager.recordUsage("hackertarget")
+                    val lines = body.lines().filter { it.isNotBlank() }
+                    meta["hackertarget_email_hosts"] = lines.take(10).joinToString(", ")
+                    sources.add(DataSource("HackerTarget Email", null, Date(), 0.75))
+                    emit(SearchProgressEvent.Found("HackerTarget Email Search",
+                        "${lines.size} hostname${if (lines.size != 1) "s" else ""} associated with this email"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("HackerTarget Email Search"))
+                }
+            } else {
+                emit(SearchProgressEvent.Failed("HackerTarget Email Search", "HTTP ${resp.code()}"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("HackerTarget Email Search", e.message ?: ""))
         }
     }
 
@@ -313,8 +416,101 @@ class OsintRepository(context: Context) {
             emit(SearchProgressEvent.Failed("GitHub API", e.message ?: ""))
         }
 
+        emit(SearchProgressEvent.Checking("Keybase"))
+        try {
+            val resp = RetrofitClient.keybaseService.lookup(username)
+            if (resp.isSuccessful && resp.body()?.them?.isNotEmpty() == true) {
+                val person = resp.body()!!.them!!.first()
+                val basics = person.basics
+                val profile = person.profile
+                val proofs = person.proofsSummary?.all ?: emptyList()
+                if (basics?.username != null) meta["keybase_username"] = basics.username
+                if (!basics?.fullName.isNullOrBlank()) meta["keybase_name"] = basics?.fullName ?: ""
+                if (!profile?.bio.isNullOrBlank()) meta["keybase_bio"] = (profile?.bio ?: "").take(300)
+                if (!profile?.location.isNullOrBlank()) meta["keybase_location"] = profile?.location ?: ""
+                if (proofs.isNotEmpty()) {
+                    meta["keybase_proofs"] = proofs.take(10).mapNotNull {
+                        if (!it.proofType.isNullOrBlank() && !it.nametag.isNullOrBlank()) "${it.proofType}: ${it.nametag}" else null
+                    }.joinToString(", ")
+                    meta["keybase_proofs_count"] = proofs.size.toString()
+                }
+                sources.add(DataSource("Keybase", "https://keybase.io/$username", Date(), 0.9))
+                emit(SearchProgressEvent.Found("Keybase",
+                    buildString {
+                        val name = basics?.fullName ?: ""
+                        if (name.isNotBlank()) append(name)
+                        if (proofs.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${proofs.size} social proof${if (proofs.size != 1) "s" else ""}") }
+                        val bio = profile?.bio ?: ""
+                        if (bio.isNotBlank()) { if (isNotEmpty()) append(" · "); append(bio.take(60)) }
+                    }.ifBlank { "Profile found" }
+                ))
+            } else {
+                emit(SearchProgressEvent.NotFound("Keybase"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Keybase", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("HackerNews"))
+        try {
+            val req = Request.Builder()
+                .url("https://hacker-news.firebaseio.com/v0/user/$username.json")
+                .addHeader("User-Agent", "SixDegrees-OSINT")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body != "null" && body.isNotBlank() && body.startsWith("{")) {
+                val karma = Regex("\"karma\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val about = Regex("\"about\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                meta["hackernews_karma"] = karma.toString()
+                if (about.isNotBlank()) meta["hackernews_about"] = about.take(200)
+                sources.add(DataSource("HackerNews", "https://news.ycombinator.com/user?id=$username", Date(), 0.8))
+                emit(SearchProgressEvent.Found("HackerNews",
+                    "Karma: $karma${if (about.isNotBlank()) " · ${about.take(60)}" else ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("HackerNews"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("HackerNews", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("Dev.to"))
+        try {
+            val req = Request.Builder()
+                .url("https://dev.to/api/users/by_username?url=$username")
+                .addHeader("User-Agent", "SixDegrees-OSINT")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val code = resp.code
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (code in 200..299 && body.startsWith("{")) {
+                val name = Regex("\"name\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                val location = Regex("\"location\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                val summary = Regex("\"summary\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                val joinedAt = Regex("\"joined_at\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                if (name.isNotBlank()) meta["devto_name"] = name
+                if (location.isNotBlank()) meta["devto_location"] = location
+                if (summary.isNotBlank()) meta["devto_summary"] = summary.take(200)
+                if (joinedAt.isNotBlank()) meta["devto_joined"] = joinedAt
+                sources.add(DataSource("Dev.to", "https://dev.to/$username", Date(), 0.8))
+                emit(SearchProgressEvent.Found("Dev.to",
+                    buildString {
+                        if (name.isNotBlank()) append(name)
+                        if (location.isNotBlank()) { if (isNotEmpty()) append(" · "); append(location) }
+                        if (joinedAt.isNotBlank()) { if (isNotEmpty()) append(" · "); append("Joined $joinedAt") }
+                    }.ifBlank { "Profile found" }
+                ))
+            } else {
+                emit(SearchProgressEvent.NotFound("Dev.to"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Dev.to", e.message ?: ""))
+        }
+
         val found = sources.filter { it.url != null }
-        meta["sites_checked"] = (usernameSites.size + 1).toString()
+        meta["sites_checked"] = (usernameSites.size + 4).toString()
         meta["sites_found"] = found.size.toString()
         meta["found_urls"] = found.joinToString("\n") { "${it.name}: ${it.url}" }
     }
@@ -470,6 +666,236 @@ class OsintRepository(context: Context) {
             }
         }
 
+        if (isIp) {
+            launch {
+                emit(SearchProgressEvent.Checking("Shodan InternetDB"))
+                try {
+                    val resp = RetrofitClient.shodanInternetDbService.lookup(query)
+                    if (resp.isSuccessful && resp.body() != null) {
+                        val b = resp.body()!!
+                        val ports = b.ports ?: emptyList()
+                        val vulns = b.vulns ?: emptyList()
+                        val hostnames = b.hostnames ?: emptyList()
+                        meta["shodan_ports"] = ports.joinToString(", ")
+                        meta["shodan_vulns"] = vulns.joinToString(", ")
+                        meta["shodan_hostnames"] = hostnames.take(5).joinToString(", ")
+                        meta["shodan_tags"] = (b.tags ?: emptyList()).joinToString(", ")
+                        sources.add(DataSource("Shodan InternetDB", "https://www.shodan.io/host/$query", Date(), 0.9))
+                        emit(SearchProgressEvent.Found("Shodan InternetDB",
+                            buildString {
+                                if (ports.isNotEmpty()) append("${ports.size} open port${if (ports.size != 1) "s" else ""}: ${ports.take(6).joinToString(", ")}")
+                                if (vulns.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${vulns.size} CVE${if (vulns.size != 1) "s" else ""}") }
+                            }.ifBlank { "No open ports" }
+                        ))
+                    } else if (resp.code() == 404) {
+                        emit(SearchProgressEvent.NotFound("Shodan InternetDB"))
+                    } else {
+                        emit(SearchProgressEvent.Failed("Shodan InternetDB", "HTTP ${resp.code()}"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("Shodan InternetDB", e.message ?: ""))
+                }
+            }
+
+            launch {
+                emit(SearchProgressEvent.Checking("GreyNoise"))
+                try {
+                    val resp = RetrofitClient.greyNoiseService.lookup(query)
+                    if (resp.isSuccessful && resp.body() != null) {
+                        val b = resp.body()!!
+                        meta["greynoise_noise"] = b.noise?.toString() ?: "false"
+                        meta["greynoise_riot"] = b.riot?.toString() ?: "false"
+                        meta["greynoise_classification"] = b.classification ?: ""
+                        meta["greynoise_name"] = b.name ?: ""
+                        meta["greynoise_last_seen"] = b.lastSeen ?: ""
+                        sources.add(DataSource("GreyNoise", b.link, Date(), 0.85))
+                        emit(SearchProgressEvent.Found("GreyNoise",
+                            buildString {
+                                if (b.noise == true) append("Internet scanner")
+                                if (b.riot == true) { if (isNotEmpty()) append(" · "); append("Common service (RIOT)") }
+                                if (!b.classification.isNullOrBlank()) { if (isNotEmpty()) append(" · "); append(b.classification) }
+                                if (!b.name.isNullOrBlank()) { if (isNotEmpty()) append(" · "); append(b.name) }
+                            }.ifBlank { "Not a known scanner" }
+                        ))
+                    } else if (resp.code() == 404) {
+                        emit(SearchProgressEvent.NotFound("GreyNoise"))
+                    } else {
+                        emit(SearchProgressEvent.Failed("GreyNoise", "HTTP ${resp.code()}"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("GreyNoise", e.message ?: ""))
+                }
+            }
+
+            launch {
+                emit(SearchProgressEvent.Checking("Robtex"))
+                try {
+                    val req = Request.Builder()
+                        .url("https://freeapi.robtex.com/ipquery/$query")
+                        .addHeader("User-Agent", "SixDegrees-OSINT")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val status = Regex("\"status\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val asName = Regex("\"asname\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val bgpRoute = Regex("\"bgproute\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val pasMatches = Regex("\"o\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(10).toList()
+                    meta["robtex_as_name"] = asName
+                    meta["robtex_bgp_route"] = bgpRoute
+                    meta["robtex_passive_dns"] = pasMatches.joinToString(", ")
+                    if (status == "ok") {
+                        sources.add(DataSource("Robtex", null, Date(), 0.8))
+                        emit(SearchProgressEvent.Found("Robtex",
+                            buildString {
+                                if (asName.isNotBlank()) append("AS: $asName")
+                                if (bgpRoute.isNotBlank()) { if (isNotEmpty()) append(" · "); append(bgpRoute) }
+                                if (pasMatches.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${pasMatches.size} passive DNS") }
+                            }.ifBlank { "Data found" }
+                        ))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("Robtex"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("Robtex", e.message ?: ""))
+                }
+            }
+
+            val abuseIpDbKey = apiKeyManager.abuseIpDbKey
+            if (abuseIpDbKey.isNotBlank()) {
+                launch {
+                    emit(SearchProgressEvent.Checking("AbuseIPDB"))
+                    try {
+                        val req = Request.Builder()
+                            .url("https://api.abuseipdb.com/api/v2/check?ipAddress=$query&maxAgeInDays=90")
+                            .addHeader("Key", abuseIpDbKey)
+                            .addHeader("Accept", "application/json")
+                            .addHeader("User-Agent", "SixDegrees-OSINT")
+                            .build()
+                        val resp = httpClient.newCall(req).execute()
+                        val body = resp.body?.string() ?: ""
+                        resp.close()
+                        val score = Regex("\"abuseConfidenceScore\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        val reports = Regex("\"totalReports\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        val domain = Regex("\"domain\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                        val isp = Regex("\"isp\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                        meta["abuseipdb_score"] = score.toString()
+                        meta["abuseipdb_reports"] = reports.toString()
+                        if (domain.isNotBlank()) meta["abuseipdb_domain"] = domain
+                        if (isp.isNotBlank()) meta["abuseipdb_isp"] = isp
+                        sources.add(DataSource("AbuseIPDB", null, Date(), 0.9))
+                        emit(SearchProgressEvent.Found("AbuseIPDB",
+                            "Confidence: $score% · $reports report${if (reports != 1) "s" else ""}${if (domain.isNotBlank()) " · $domain" else ""}"))
+                    } catch (e: Exception) {
+                        emit(SearchProgressEvent.Failed("AbuseIPDB", e.message ?: ""))
+                    }
+                }
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("URLhaus"))
+            try {
+                val reqBody = FormBody.Builder().add("host", query).build()
+                val req = Request.Builder()
+                    .url("https://urlhaus-api.abuse.ch/v1/host/")
+                    .post(reqBody)
+                    .addHeader("User-Agent", "SixDegrees-OSINT")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""
+                resp.close()
+                val queryStatus = Regex("\"query_status\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                val urlsCount = Regex("\"urls_count\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                meta["urlhaus_status"] = queryStatus
+                meta["urlhaus_urls_count"] = urlsCount.toString()
+                if (queryStatus == "is_host" || urlsCount > 0) {
+                    sources.add(DataSource("URLhaus", null, Date(), 0.95))
+                    emit(SearchProgressEvent.Found("URLhaus",
+                        "MALWARE HOST — $urlsCount malicious URL${if (urlsCount != 1) "s" else ""} tracked"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("URLhaus"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("URLhaus", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("ThreatCrowd"))
+            try {
+                if (isIp) {
+                    val resp = RetrofitClient.threatCrowdService.ipReport(query)
+                    if (resp.isSuccessful && resp.body()?.responseCode == "1") {
+                        val b = resp.body()!!
+                        val resolutions = b.resolutions ?: emptyList()
+                        val domains = resolutions.mapNotNull { it.domain }.take(15)
+                        meta["threatcrowd_domains"] = domains.joinToString(", ")
+                        meta["threatcrowd_hashes"] = (b.hashes ?: emptyList()).take(5).joinToString(", ")
+                        sources.add(DataSource("ThreatCrowd", null, Date(), 0.75))
+                        emit(SearchProgressEvent.Found("ThreatCrowd",
+                            "${resolutions.size} historic domain${if (resolutions.size != 1) "s" else ""}: ${domains.take(3).joinToString(", ")}"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("ThreatCrowd"))
+                    }
+                } else {
+                    val resp = RetrofitClient.threatCrowdService.domainReport(query)
+                    if (resp.isSuccessful && resp.body()?.responseCode == "1") {
+                        val b = resp.body()!!
+                        val subs = (b.subdomains ?: emptyList()).take(15)
+                        val emails = (b.emails ?: emptyList()).take(10)
+                        val resolutions = (b.resolutions ?: emptyList()).take(10)
+                        meta["threatcrowd_subdomains"] = subs.joinToString(", ")
+                        meta["threatcrowd_emails"] = emails.joinToString(", ")
+                        meta["threatcrowd_resolutions"] = resolutions.mapNotNull {
+                            "${it.ipAddress} (${it.lastResolved})"
+                        }.joinToString(", ")
+                        if (subs.isNotEmpty() || emails.isNotEmpty()) {
+                            sources.add(DataSource("ThreatCrowd", null, Date(), 0.75))
+                            emit(SearchProgressEvent.Found("ThreatCrowd",
+                                buildString {
+                                    if (subs.isNotEmpty()) append("${subs.size} subdomain${if (subs.size != 1) "s" else ""}")
+                                    if (emails.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${emails.size} email${if (emails.size != 1) "s" else ""}") }
+                                }
+                            ))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("ThreatCrowd"))
+                        }
+                    } else {
+                        emit(SearchProgressEvent.NotFound("ThreatCrowd"))
+                    }
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("ThreatCrowd", e.message ?: ""))
+            }
+        }
+
+        if (!isIp) {
+            launch {
+                emit(SearchProgressEvent.Checking("HackerTarget Host Search"))
+                try {
+                    val resp = RetrofitClient.hackerTargetService.hostSearch(query)
+                    if (resp.isSuccessful) {
+                        val body = resp.body() ?: ""
+                        if (!body.startsWith("error") && body.isNotBlank()) {
+                            apiKeyManager.recordUsage("hackertarget")
+                            val lines = body.lines().filter { it.isNotBlank() }
+                            meta["hackertarget_hostsearch"] = lines.take(20).joinToString("\n")
+                            sources.add(DataSource("HackerTarget Hosts", null, Date(), 0.8))
+                            emit(SearchProgressEvent.Found("HackerTarget Host Search",
+                                "${lines.size} host${if (lines.size != 1) "s" else ""} found"))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("HackerTarget Host Search"))
+                        }
+                    } else {
+                        emit(SearchProgressEvent.Failed("HackerTarget Host Search", "HTTP ${resp.code()}"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("HackerTarget Host Search", e.message ?: ""))
+                }
+            }
+        }
+
         meta["shodan_link"] = "https://www.shodan.io/host/$query"
         meta["urlscan_link"] = "https://urlscan.io/search/#domain:$query"
         meta["virustotal_link"] = "https://www.virustotal.com/gui/domain/$query"
@@ -559,6 +985,32 @@ class OsintRepository(context: Context) {
                 }
             } catch (e: Exception) {
                 emit(SearchProgressEvent.Failed("OpenCorporates Officers", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("JailBase"))
+            try {
+                val resp = RetrofitClient.jailBaseService.search(name = query)
+                if (resp.isSuccessful && resp.body() != null) {
+                    val records = resp.body()!!.records ?: emptyList()
+                    val total = resp.body()!!.total_records ?: records.size
+                    meta["arrest_count"] = total.toString()
+                    if (records.isNotEmpty()) {
+                        meta["arrest_records"] = records.take(5).joinToString("\n") { r ->
+                            "${r.first_name ?: ""} ${r.last_name ?: ""} | ${r.charge ?: "Unknown charge"} | ${r.arrest_date ?: "Unknown date"} | ${r.agency ?: "Unknown agency"}"
+                        }
+                        sources.add(DataSource("JailBase", null, Date(), 0.85))
+                        emit(SearchProgressEvent.Found("JailBase",
+                            "$total arrest record${if (total != 1) "s" else ""} found"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("JailBase"))
+                    }
+                } else {
+                    emit(SearchProgressEvent.Failed("JailBase", "HTTP ${resp.code()}"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("JailBase", e.message ?: ""))
             }
         }
 

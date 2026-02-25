@@ -167,11 +167,32 @@ class ResultsFragment : Fragment() {
         val rows = mutableListOf<Pair<String, String>>()
         when (type) {
             "email" -> {
-                meta["emailrep_reputation"]?.let { rows.add("Reputation" to it) }
-                meta["emailrep_references"]?.let { rows.add("References" to it) }
-                meta["hibp_breaches"]?.takeIf { it.isNotBlank() }?.let { rows.add("Breaches" to it) }
-                meta["emailrep_profiles"]?.takeIf { it.isNotBlank() }?.let { rows.add("Linked Profiles" to it) }
-                meta["gravatar_url"]?.let { rows.add("Gravatar" to it) }
+                meta["emailrep_reputation"]?.let { rows.add("Reputation" to it.replaceFirstChar { c -> c.uppercase() }) }
+                meta["emailrep_suspicious"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Suspicious" to "Flagged as suspicious by EmailRep") }
+                meta["emailrep_breach"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Data Breach" to "Email involved in known breach") }
+                meta["emailrep_references"]?.let { rows.add("References" to "$it threat database reference${if ((it.toIntOrNull() ?: 1) != 1) "s" else ""}") }
+                meta["emailrep_profiles"]?.takeIf { it.isNotBlank() }?.let { rows.add("Seen On Platforms" to it) }
+                meta["hibp_breach_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("HIBP Breaches" to "$count breach${if (count != 1) "es" else ""} found")
+                }
+                meta["hibp_breaches"]?.takeIf { it.isNotBlank() }?.let { rows.add("Breach Names" to it) }
+                meta["leakcheck_found"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("LeakCheck Hits" to "$count breach source${if (count != 1) "s" else ""}")
+                }
+                meta["leakcheck_sources"]?.takeIf { it.isNotBlank() }?.let { rows.add("Leak Sources" to it) }
+                meta["gravatar_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gravatar Name" to it) }
+                meta["gravatar_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gravatar Location" to it) }
+                meta["gravatar_bio"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gravatar Bio" to it) }
+                meta["gravatar_accounts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gravatar Linked Accounts" to it) }
+                meta["gravatar_url"]?.let { rows.add("Gravatar Avatar" to it) }
+                meta["threatcrowd_email_domains"]?.takeIf { it.isNotBlank() }?.let { rows.add("ThreatCrowd Linked Domains" to it) }
+                meta["threatcrowd_email_refs"]?.let { r ->
+                    val refs = r.toIntOrNull() ?: 0
+                    if (refs > 0) rows.add("ThreatCrowd References" to refs.toString())
+                }
+                meta["hackertarget_email_hosts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associated Hostnames" to it) }
             }
             "ip", "domain" -> {
                 meta["ip_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country" to it) }
@@ -180,18 +201,82 @@ class ResultsFragment : Fragment() {
                 meta["ip_org"]?.takeIf { it.isNotBlank() }?.let { rows.add("Org" to it) }
                 meta["ip_asn"]?.takeIf { it.isNotBlank() }?.let { rows.add("ASN" to it) }
                 meta["ip_timezone"]?.takeIf { it.isNotBlank() }?.let { rows.add("Timezone" to it) }
-                meta["subdomains"]?.takeIf { it.isNotBlank() }?.let { rows.add("Subdomains" to it) }
+                meta["shodan_ports"]?.takeIf { it.isNotBlank() }?.let { rows.add("Open Ports" to it) }
+                meta["shodan_vulns"]?.takeIf { it.isNotBlank() }?.let { rows.add("⚠ CVEs / Vulnerabilities" to it) }
+                meta["shodan_hostnames"]?.takeIf { it.isNotBlank() }?.let { rows.add("Shodan Hostnames" to it) }
+                meta["shodan_tags"]?.takeIf { it.isNotBlank() }?.let { rows.add("Shodan Tags" to it) }
+                meta["greynoise_noise"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Internet Scanner" to "This IP actively scans the internet") }
+                meta["greynoise_riot"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("Common Service (RIOT)" to "Benign mass-scanning service") }
+                meta["greynoise_classification"]?.takeIf { it.isNotBlank() }?.let { rows.add("GreyNoise Classification" to it.replaceFirstChar { c -> c.uppercase() }) }
+                meta["greynoise_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("GreyNoise Actor" to it) }
+                meta["greynoise_last_seen"]?.takeIf { it.isNotBlank() }?.let { rows.add("GreyNoise Last Seen" to it) }
+                meta["robtex_as_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("AS Name" to it) }
+                meta["robtex_bgp_route"]?.takeIf { it.isNotBlank() }?.let { rows.add("BGP Route" to it) }
+                meta["robtex_passive_dns"]?.takeIf { it.isNotBlank() }?.let { rows.add("Passive DNS (Robtex)" to it) }
+                meta["abuseipdb_score"]?.let { s ->
+                    val score = s.toIntOrNull() ?: 0
+                    if (score > 0) rows.add("⚠ Abuse Confidence Score" to "$score%")
+                }
+                meta["abuseipdb_reports"]?.let { r ->
+                    val reports = r.toIntOrNull() ?: 0
+                    if (reports > 0) rows.add("Abuse Reports" to "$reports report${if (reports != 1) "s" else ""}")
+                }
+                meta["abuseipdb_domain"]?.takeIf { it.isNotBlank() }?.let { rows.add("AbuseIPDB Domain" to it) }
+                meta["abuseipdb_isp"]?.takeIf { it.isNotBlank() }?.let { rows.add("AbuseIPDB ISP" to it) }
+                meta["urlhaus_urls_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("⚠ URLhaus Malware URLs" to "$count malicious URL${if (count != 1) "s" else ""} tracked")
+                }
+                meta["threatcrowd_subdomains"]?.takeIf { it.isNotBlank() }?.let { rows.add("ThreatCrowd Subdomains" to it) }
+                meta["threatcrowd_emails"]?.takeIf { it.isNotBlank() }?.let { rows.add("ThreatCrowd Emails" to it) }
+                meta["threatcrowd_resolutions"]?.takeIf { it.isNotBlank() }?.let { rows.add("ThreatCrowd IP History" to it) }
+                meta["threatcrowd_domains"]?.takeIf { it.isNotBlank() }?.let { rows.add("ThreatCrowd Domains" to it) }
+                meta["hackertarget_hostsearch"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.take(10).forEach { line ->
+                        rows.add("Host" to line)
+                    }
+                }
+                meta["subdomains"]?.takeIf { it.isNotBlank() }?.let { rows.add("SSL Subdomains" to it) }
                 meta["cert_count"]?.let { rows.add("SSL Certs Found" to it) }
-                meta["wayback_count"]?.let { rows.add("Wayback Snapshots" to it) }
-                meta["otx_pulse_count"]?.let { rows.add("OTX Threat Pulses" to it) }
+                meta["wayback_count"]?.let { c ->
+                    if ((c.toIntOrNull() ?: 0) > 0) rows.add("Wayback Snapshots" to c)
+                }
+                meta["wayback_first"]?.takeIf { it.isNotBlank() }?.let { rows.add("First Archived" to it) }
+                meta["wayback_last"]?.takeIf { it.isNotBlank() }?.let { rows.add("Last Archived" to it) }
+                meta["otx_pulse_count"]?.let { p ->
+                    val pulses = p.toIntOrNull() ?: 0
+                    if (pulses > 0) rows.add("⚠ OTX Threat Pulses" to "$pulses threat intel hit${if (pulses != 1) "s" else ""}")
+                }
+                meta["dns"]?.takeIf { it.isNotBlank() }?.let { rows.add("DNS Records" to it.take(500)) }
+                meta["whois"]?.takeIf { it.isNotBlank() }?.let { rows.add("WHOIS Data" to it.take(600)) }
                 meta["shodan_link"]?.let { rows.add("Shodan →" to it) }
                 meta["urlscan_link"]?.let { rows.add("URLScan →" to it) }
                 meta["virustotal_link"]?.let { rows.add("VirusTotal →" to it) }
-                meta["dns"]?.takeIf { it.isNotBlank() }?.let { rows.add("DNS Records" to it.take(300)) }
             }
             "username" -> {
                 meta["sites_checked"]?.let { rows.add("Sites Checked" to it) }
-                meta["sites_found"]?.let { rows.add("Sites Found On" to it) }
+                meta["sites_found"]?.let { rows.add("Profiles Found" to it) }
+                meta["github_profile"]?.takeIf { it.isNotBlank() }?.let { profile ->
+                    Regex("\"name\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("GitHub Name" to it) }
+                    Regex("\"bio\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("GitHub Bio" to it) }
+                    Regex("\"company\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("GitHub Company" to it) }
+                    Regex("\"location\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("GitHub Location" to it) }
+                    Regex("\"followers\":\\s*(\\d+)").find(profile)?.groupValues?.get(1)?.let { rows.add("GitHub Followers" to it) }
+                    Regex("\"public_repos\":\\s*(\\d+)").find(profile)?.groupValues?.get(1)?.let { rows.add("GitHub Repos" to it) }
+                }
+                meta["keybase_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Keybase Name" to it) }
+                meta["keybase_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Keybase Location" to it) }
+                meta["keybase_bio"]?.takeIf { it.isNotBlank() }?.let { rows.add("Keybase Bio" to it) }
+                meta["keybase_proofs"]?.takeIf { it.isNotBlank() }?.let { rows.add("Keybase Social Proofs" to it) }
+                meta["hackernews_karma"]?.let { k ->
+                    val karma = k.toIntOrNull() ?: 0
+                    if (karma > 0) rows.add("HackerNews Karma" to karma.toString())
+                }
+                meta["hackernews_about"]?.takeIf { it.isNotBlank() }?.let { rows.add("HackerNews About" to it) }
+                meta["devto_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Dev.to Name" to it) }
+                meta["devto_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Dev.to Location" to it) }
+                meta["devto_summary"]?.takeIf { it.isNotBlank() }?.let { rows.add("Dev.to Bio" to it) }
+                meta["devto_joined"]?.takeIf { it.isNotBlank() }?.let { rows.add("Dev.to Joined" to it) }
                 meta["found_urls"]?.takeIf { it.isNotBlank() }?.let {
                     it.lines().filter { l -> l.isNotBlank() }.forEach { line ->
                         val parts = line.split(": ", limit = 2)
@@ -200,30 +285,72 @@ class ResultsFragment : Fragment() {
                 }
             }
             "person" -> {
-                meta["arrest_count"]?.takeIf { it != "0" }?.let { rows.add("Arrest Records" to it) }
-                meta["arrest_records"]?.takeIf { it.isNotBlank() }?.let { rows.add("Record Details" to it) }
+                meta["arrest_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("⚠ Arrest Records" to "$count arrest record${if (count != 1) "s" else ""} found")
+                }
+                meta["arrest_records"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { record ->
+                        rows.add("Arrest" to record)
+                    }
+                }
+                meta["officer_matches"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("Corporate Records" to "$count officer record${if (count != 1) "s" else ""}")
+                }
+                meta["officer_details"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.forEach { detail ->
+                        rows.add("Officer Record" to detail)
+                    }
+                }
+                meta["courtlistener_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("Court Records" to "$count court record${if (count != 1) "s" else ""}")
+                }
                 meta["courtlistener_link"]?.let { rows.add("CourtListener →" to it) }
                 meta["judyrecords_link"]?.let { rows.add("JudyRecords →" to it) }
                 meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }
             }
             "company" -> {
                 meta["company_count"]?.let { rows.add("Companies Found" to it) }
-                meta["companies"]?.takeIf { it.isNotBlank() }?.let { rows.add("Company Results" to it) }
-                meta["officer_count"]?.takeIf { it != "0" }?.let { rows.add("Officers Found" to it) }
-                meta["officers"]?.takeIf { it.isNotBlank() }?.let { rows.add("Officers" to it) }
-                meta["hunter_emails"]?.takeIf { it.isNotBlank() }?.let { rows.add("Emails Found" to it) }
+                meta["companies"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.forEach { company ->
+                        rows.add("Company" to company)
+                    }
+                }
+                meta["officer_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("Officers Found" to count.toString())
+                }
+                meta["officers"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.forEach { officer ->
+                        rows.add("Officer" to officer)
+                    }
+                }
+                meta["hunter_emails_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("Emails Found" to count.toString())
+                }
+                meta["hunter_emails"]?.takeIf { it.isNotBlank() }?.let { rows.add("Company Emails" to it) }
                 meta["sec_link"]?.let { rows.add("SEC Filings →" to it) }
             }
             "phone" -> {
+                meta["numverify_valid"]?.let { v -> rows.add("Valid Number" to if (v == "true") "Yes" else "No") }
+                meta["numverify_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country" to it) }
+                meta["numverify_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier" to it) }
+                meta["numverify_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type" to it) }
+                meta["numverify_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
+                meta["numverify_intl"]?.takeIf { it.isNotBlank() }?.let { rows.add("Intl Format" to it) }
                 meta["truecaller_link"]?.let { rows.add("TrueCaller →" to it) }
                 meta["whitepages_link"]?.let { rows.add("WhitePages →" to it) }
-                meta["numverify_raw"]?.takeIf { it.isNotBlank() }?.let { rows.add("Validation Data" to it.take(300)) }
+                meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }
             }
             "image" -> {
                 meta["tineye_link"]?.let { rows.add("TinEye →" to it) }
                 meta["google_lens_link"]?.let { rows.add("Google Lens →" to it) }
-                meta["yandex_link"]?.let { rows.add("Yandex →" to it) }
-                meta["facecheck_link"]?.let { rows.add("FaceCheck.id →" to it) }
+                meta["yandex_images_link"]?.let { rows.add("Yandex →" to it) }
+                meta["facecheck_id_link"]?.let { rows.add("FaceCheck.id →" to it) }
+                meta["bing_visual_search_link"]?.let { rows.add("Bing Visual →" to it) }
             }
         }
         return rows

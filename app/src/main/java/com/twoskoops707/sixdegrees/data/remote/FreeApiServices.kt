@@ -74,6 +74,9 @@ interface HackerTargetService {
 
     @GET("whois/")
     suspend fun whois(@Query("q") domain: String): Response<String>
+
+    @GET("findemail/")
+    suspend fun findEmail(@Query("q") email: String): Response<String>
 }
 
 interface WaybackCdxService {
@@ -244,4 +247,128 @@ data class NumverifyResponse(
     val location: String? = null,
     val carrier: String? = null,
     @Json(name = "line_type") val lineType: String? = null
+)
+
+interface ShodanInternetDbService {
+    @GET("{ip}")
+    suspend fun lookup(@Path("ip") ip: String): Response<ShodanInternetDbResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class ShodanInternetDbResponse(
+    val ip: String? = null,
+    val ports: List<Int>? = null,
+    val hostnames: List<String>? = null,
+    val tags: List<String>? = null,
+    val vulns: List<String>? = null,
+    val cpes: List<String>? = null
+)
+
+interface GreyNoiseCommunityService {
+    @GET("v3/community/{ip}")
+    suspend fun lookup(@Path("ip") ip: String): Response<GreyNoiseCommunityResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class GreyNoiseCommunityResponse(
+    val ip: String? = null,
+    val noise: Boolean? = null,
+    val riot: Boolean? = null,
+    val classification: String? = null,
+    val name: String? = null,
+    val link: String? = null,
+    @Json(name = "last_seen") val lastSeen: String? = null,
+    val message: String? = null
+)
+
+interface KeybaseLookupService {
+    @GET("_/api/1.0/user/lookup.json")
+    suspend fun lookup(@Query("username") username: String): Response<KeybaseResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class KeybaseResponse(
+    val status: KeybaseStatus? = null,
+    val them: List<KeybasePerson>? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class KeybaseStatus(val code: Int? = null, val name: String? = null)
+
+@JsonClass(generateAdapter = false)
+data class KeybasePerson(
+    val id: String? = null,
+    val basics: KeybaseBasics? = null,
+    val profile: KeybaseProfile? = null,
+    @Json(name = "proofs_summary") val proofsSummary: KeybaseProofsSummary? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class KeybaseBasics(
+    val username: String? = null,
+    @Json(name = "full_name") val fullName: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class KeybaseProfile(
+    val bio: String? = null,
+    val location: String? = null,
+    val twitter: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class KeybaseProofsSummary(val all: List<KeybaseProof>? = null)
+
+@JsonClass(generateAdapter = false)
+data class KeybaseProof(
+    @Json(name = "proof_type") val proofType: String? = null,
+    val nametag: String? = null,
+    @Json(name = "service_url") val serviceUrl: String? = null
+)
+
+interface ThreatCrowdService {
+    @GET("searchApi/v2/email/report/")
+    suspend fun emailReport(@Query("email") email: String): Response<ThreatCrowdEmailResponse>
+
+    @GET("searchApi/v2/domain/report/")
+    suspend fun domainReport(@Query("domain") domain: String): Response<ThreatCrowdDomainResponse>
+
+    @GET("searchApi/v2/ip/report/")
+    suspend fun ipReport(@Query("ip") ip: String): Response<ThreatCrowdIpResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class ThreatCrowdEmailResponse(
+    @Json(name = "response_code") val responseCode: String? = null,
+    val domains: List<String>? = null,
+    val references: Int? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class ThreatCrowdDomainResponse(
+    @Json(name = "response_code") val responseCode: String? = null,
+    val emails: List<String>? = null,
+    val subdomains: List<String>? = null,
+    val resolutions: List<ThreatCrowdResolution>? = null,
+    val votes: Int? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class ThreatCrowdIpResponse(
+    @Json(name = "response_code") val responseCode: String? = null,
+    val resolutions: List<ThreatCrowdIpResolution>? = null,
+    val hashes: List<String>? = null,
+    val votes: Int? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class ThreatCrowdResolution(
+    @Json(name = "ip_address") val ipAddress: String? = null,
+    @Json(name = "last_resolved") val lastResolved: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class ThreatCrowdIpResolution(
+    @Json(name = "last_resolved") val lastResolved: String? = null,
+    val domain: String? = null
 )
