@@ -530,7 +530,7 @@ class OsintRepository(context: Context) {
                     }
                 } else {
                     resp.close()
-                    emit(SearchProgressEvent.Failed("CourtListener", "HTTP ${resp.code()}"))
+                    emit(SearchProgressEvent.Failed("CourtListener", "HTTP ${resp.code}"))
                 }
             } catch (e: Exception) {
                 emit(SearchProgressEvent.Failed("CourtListener", e.message ?: ""))

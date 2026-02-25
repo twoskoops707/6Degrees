@@ -32,29 +32,6 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun search(query: String, type: String) {
-        if (query.isBlank()) return
-        _searchState.value = SearchUiState.Loading
-        viewModelScope.launch {
-            val result = repository.search(query, type)
-            _searchState.value = result.fold(
-                onSuccess = { reportId -> SearchUiState.Success(reportId) },
-                onFailure = { e -> SearchUiState.Error(e.message ?: "Unknown error") }
-            )
-        }
-    }
-
-    fun searchImage(imagePath: String) {
-        _searchState.value = SearchUiState.Loading
-        viewModelScope.launch {
-            val result = repository.searchImage(imagePath)
-            _searchState.value = result.fold(
-                onSuccess = { SearchUiState.Success(it) },
-                onFailure = { SearchUiState.Error(it.message ?: "Error") }
-            )
-        }
-    }
-
     fun resetState() {
         _searchState.value = SearchUiState.Idle
     }
