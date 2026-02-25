@@ -221,3 +221,27 @@ data class OpenCorporatesOfficer(
     @Json(name = "end_date") val endDate: String? = null,
     val company: OpenCorporatesCompany? = null
 )
+
+interface NumverifyService {
+    @GET("api/validate")
+    suspend fun validate(
+        @Query("access_key") accessKey: String,
+        @Query("number") number: String,
+        @Query("country_code") countryCode: String = "",
+        @Query("format") format: Int = 1
+    ): Response<NumverifyResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class NumverifyResponse(
+    val valid: Boolean? = null,
+    val number: String? = null,
+    @Json(name = "local_format") val localFormat: String? = null,
+    @Json(name = "international_format") val internationalFormat: String? = null,
+    @Json(name = "country_prefix") val countryPrefix: String? = null,
+    @Json(name = "country_code") val countryCode: String? = null,
+    @Json(name = "country_name") val countryName: String? = null,
+    val location: String? = null,
+    val carrier: String? = null,
+    @Json(name = "line_type") val lineType: String? = null
+)

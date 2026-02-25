@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
+import kotlinx.coroutines.flow.Flow
 import java.util.Date
 
 @Dao
@@ -20,6 +21,9 @@ interface ReportDao {
 
     @Query("SELECT * FROM osint_reports ORDER BY generatedAt DESC LIMIT :limit")
     suspend fun getRecentReports(limit: Int): List<OsintReportEntity>
+
+    @Query("SELECT * FROM osint_reports ORDER BY generatedAt DESC")
+    fun getAllReportsFlow(): Flow<List<OsintReportEntity>>
 
     @Query("SELECT * FROM osint_reports WHERE generatedAt BETWEEN :startDate AND :endDate ORDER BY generatedAt DESC")
     suspend fun getReportsBetweenDates(startDate: Date, endDate: Date): List<OsintReportEntity>

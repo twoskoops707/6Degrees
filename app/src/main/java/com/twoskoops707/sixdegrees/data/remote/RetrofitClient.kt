@@ -79,4 +79,8 @@ object RetrofitClient {
     val openCorporatesService: OpenCorporatesService by lazy {
         create("https://api.opencorporates.com/v0.4/").create(OpenCorporatesService::class.java)
     }
+
+    val numverifyService: NumverifyService by lazy {
+        create("http://apilayer.net/").create(NumverifyService::class.java)
+    }
 }

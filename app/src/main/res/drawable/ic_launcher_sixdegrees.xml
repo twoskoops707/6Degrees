@@ -1,0 +1,63 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Dark background circle -->
+    <path
+        android:fillColor="#0A0F1E"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z"/>
+
+    <!-- Outer ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#3B82F6"
+        android:strokeWidth="2.5"
+        android:pathData="M54,16 A38,38 0 1 1 53.9,16 Z"/>
+
+    <!-- Node connections - network graph -->
+    <path
+        android:strokeColor="#1D4ED8"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:pathData="M54,54 L36,36 M54,54 L72,36 M54,54 L30,62 M54,54 L78,62 M54,54 L54,78"/>
+
+    <!-- Center node -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M54,50 A4,4 0 1 1 53.9,50 Z"/>
+
+    <!-- Outer nodes -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M36,34 A3,3 0 1 1 35.9,34 Z"/>
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M72,34 A3,3 0 1 1 71.9,34 Z"/>
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M30,60 A3,3 0 1 1 29.9,60 Z"/>
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M78,60 A3,3 0 1 1 77.9,60 Z"/>
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M54,76 A3,3 0 1 1 53.9,76 Z"/>
+
+    <!-- Magnifying glass handle -->
+    <path
+        android:strokeColor="#3B82F6"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M66,66 L76,76"/>
+
+    <!-- Magnifying glass circle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="2.5"
+        android:pathData="M60,60 A10,10 0 1 1 59.9,60 Z"/>
+
+</vector>

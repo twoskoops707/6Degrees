@@ -16,6 +16,28 @@
         <action
             android:id="@+id/action_search_to_wizard"
             app:destination="@id/nav_wizard" />
+        <action
+            android:id="@+id/action_search_to_progress"
+            app:destination="@id/nav_search_progress" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_search_progress"
+        android:name="com.twoskoops707.sixdegrees.ui.search.SearchProgressFragment"
+        android:label="Searching…"
+        tools:layout="@layout/fragment_search_progress">
+        <argument
+            android:name="query"
+            app:argType="string" />
+        <argument
+            android:name="type"
+            app:argType="string"
+            android:defaultValue="person" />
+        <action
+            android:id="@+id/action_progress_to_results"
+            app:destination="@id/nav_results"
+            app:popUpTo="@id/nav_search"
+            app:popUpToInclusive="false" />
     </fragment>
 
     <fragment
@@ -33,7 +55,7 @@
     <fragment
         android:id="@+id/nav_history"
         android:name="com.twoskoops707.sixdegrees.ui.history.HistoryFragment"
-        android:label="@string/menu_history"
+        android:label="@string/menu_reports"
         tools:layout="@layout/fragment_history">
         <action
             android:id="@+id/action_history_to_results"
@@ -51,6 +73,11 @@
         <action
             android:id="@+id/action_settings_to_profile"
             app:destination="@id/nav_user_profile" />
+        <action
+            android:id="@+id/action_settings_to_search"
+            app:destination="@id/nav_search"
+            app:popUpTo="@id/nav_search"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment
@@ -65,6 +92,10 @@
             android:name="searchType"
             app:argType="string"
             android:defaultValue="person" />
+        <argument
+            android:name="reportId"
+            app:argType="string"
+            android:defaultValue="" />
     </fragment>
 
     <fragment

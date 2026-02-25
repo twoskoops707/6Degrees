@@ -1,14 +1,16 @@
 package com.twoskoops707.sixdegrees.ui.settings
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
 import com.twoskoops707.sixdegrees.data.UserProfileManager
@@ -40,8 +42,8 @@ class ApiSettingsFragment : Fragment() {
 
         loadSavedApiKeys()
         binding.saveApiKeysButton.setOnClickListener { saveApiKeys() }
-
         setupQuickApplyButtons()
+        populateUsageCounters()
     }
 
     private fun setupQuickApplyButtons() {
@@ -58,13 +60,76 @@ class ApiSettingsFragment : Fragment() {
 
         entries.forEach { (button, entry) ->
             button.setOnClickListener {
-                val profile = profileManager.load()
                 if (!profileManager.hasProfile()) {
                     Toast.makeText(requireContext(), "Set up your profile first — tap Edit Profile", Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
-                QuickApplyBottomSheet.show(this, entry.apiName, entry.signupUrl, profile)
+                QuickApplyBottomSheet.show(this, entry.apiName, entry.signupUrl, profileManager.load())
             }
+        }
+    }
+
+    private fun populateUsageCounters() {
+        val container = binding.usageContainer
+        container.removeAllViews()
+        val ctx = requireContext()
+
+        apiKeyManager.getUsageSummaries().forEach { summary ->
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = (12 * resources.displayMetrics.density).toInt() }
+            }
+
+            val labelRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+
+            val nameView = TextView(ctx).apply {
+                text = summary.name
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val countView = TextView(ctx).apply {
+                text = summary.label
+                textSize = 12f
+                val color = when {
+                    summary.isUnlimited -> R.color.success
+                    summary.fractionUsed > 0.8f -> R.color.error
+                    summary.fractionUsed > 0.5f -> R.color.warning
+                    else -> R.color.text_secondary
+                }
+                setTextColor(ContextCompat.getColor(ctx, color))
+            }
+
+            labelRow.addView(nameView)
+            labelRow.addView(countView)
+            row.addView(labelRow)
+
+            if (!summary.isUnlimited) {
+                val bar = LinearProgressIndicator(ctx).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).also { it.topMargin = (4 * resources.displayMetrics.density).toInt() }
+                    max = 100
+                    progress = (summary.fractionUsed * 100).toInt().coerceIn(0, 100)
+                    val trackColor = when {
+                        summary.fractionUsed > 0.8f -> ContextCompat.getColor(ctx, R.color.error)
+                        summary.fractionUsed > 0.5f -> ContextCompat.getColor(ctx, R.color.warning)
+                        else -> ContextCompat.getColor(ctx, R.color.accent_blue)
+                    }
+                    setIndicatorColor(trackColor)
+                    trackColor.let { setTrackColor(ContextCompat.getColor(ctx, R.color.border)) }
+                }
+                row.addView(bar)
+            }
+
+            container.addView(row)
         }
     }
 

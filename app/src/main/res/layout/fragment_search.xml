@@ -162,6 +162,15 @@
                     </com.google.android.material.chip.ChipGroup>
                 </HorizontalScrollView>
 
+                <LinearLayout
+                    android:id="@+id/image_buttons_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_horizontal"
+                    android:visibility="gone" />
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/search_button"
                     android:layout_width="match_parent"
