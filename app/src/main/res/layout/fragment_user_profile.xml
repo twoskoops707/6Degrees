@@ -124,7 +124,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textColor="@color/text_primary"
-                            android:inputType="textOrganization" />
+                            android:inputType="text" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
@@ -250,7 +250,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textColor="@color/text_primary"
-                            android:inputType="textPostalAddress" />
+                            android:inputType="textCapWords" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <LinearLayout
@@ -274,7 +274,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:textColor="@color/text_primary"
-                                android:inputType="textPostalAddress" />
+                                android:inputType="textCapWords" />
                         </com.google.android.material.textfield.TextInputLayout>
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/til_state"
