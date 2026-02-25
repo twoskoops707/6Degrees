@@ -257,7 +257,7 @@ class ResultsFragment : Fragment() {
 
         startActivity(Intent.createChooser(
             Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
+                setType("text/plain")
                 putExtra(Intent.EXTRA_TEXT, sb.toString())
                 putExtra(Intent.EXTRA_SUBJECT, "SixDegrees Report: $query")
             }, "Share Report"
