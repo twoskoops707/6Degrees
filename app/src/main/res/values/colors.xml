@@ -1,24 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Original Material Colors -->
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="background_primary">#0A0F1E</color>
+    <color name="background_secondary">#141927</color>
+    <color name="surface">#1E2535</color>
+    <color name="surface_elevated">#252D42</color>
+    <color name="border">#2A3350</color>
 
-    <!-- Modern, Classy Color Scheme -->
-    <color name="background_primary">#F5F7FA</color>
-    <color name="background_secondary">#FFFFFF</color>
-    <color name="text_primary">#212121</color>
-    <color name="text_secondary">#757575</color>
-    <color name="accent_primary">#1976D2</color>
-    <color name="accent_secondary">#FF9800</color>
-    <color name="success">#4CAF50</color>
-    <color name="warning">#FFC107</color>
-    <color name="error">#F44336</color>
-    <color name="stroke_color">#E0E0E0</color>
-    <color name="chip_background_color">#E3F2FD</color>
+    <color name="accent_blue">#3B82F6</color>
+    <color name="accent_blue_dim">#1D4ED8</color>
+    <color name="accent_violet">#8B5CF6</color>
+    <color name="accent_violet_dim">#6D28D9</color>
+
+    <color name="text_primary">#F1F5F9</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="text_dim">#475569</color>
+
+    <color name="success">#10B981</color>
+    <color name="success_dim">#064E3B</color>
+    <color name="warning">#F59E0B</color>
+    <color name="warning_dim">#78350F</color>
+    <color name="error">#EF4444</color>
+    <color name="error_dim">#7F1D1D</color>
+
+    <color name="score_green">#10B981</color>
+    <color name="score_yellow">#F59E0B</color>
+    <color name="score_red">#EF4444</color>
+
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="transparent">#00000000</color>
+    <color name="scrim">#CC0A0F1E</color>
+
+    <color name="stroke_color">#2A3350</color>
+    <color name="chip_background_color">#1E2535</color>
+    <color name="accent_primary">#3B82F6</color>
+    <color name="accent_secondary">#8B5CF6</color>
 </resources>

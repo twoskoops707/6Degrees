@@ -5,13 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.a6degrees"
-    compileSdk {
-        version = release(36)
-    }
+    namespace = "com.twoskoops707.sixdegrees"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.a6degrees"
+        applicationId = "com.twoskoops707.sixdegrees"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -60,6 +58,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
