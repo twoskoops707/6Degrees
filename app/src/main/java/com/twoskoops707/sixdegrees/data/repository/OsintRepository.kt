@@ -121,6 +121,7 @@ class OsintRepository(context: Context) {
             else -> personSearch(query, metadata, sources, emit)
         }
 
+        metadata["search_type"] = type
         val reportId = saveReport(query, null, sources, metadata.toMap())
         send(SearchProgressEvent.Complete(reportId, sources.size))
     }
@@ -1014,8 +1015,182 @@ class OsintRepository(context: Context) {
             }
         }
 
-        meta["judyrecords_link"] = "https://www.judyrecords.com/record/${query.replace(" ", "-").lowercase()}"
-        meta["spokeo_link"] = "https://www.spokeo.com/${query.replace(" ", "-").lowercase()}"
+        launch {
+            emit(SearchProgressEvent.Checking("Wikipedia"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=$encoded&srlimit=3&format=json")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val hits = Regex("\"totalhits\":(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val titles = Regex("\"title\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    if (hits > 0 && titles.isNotEmpty()) {
+                        meta["wikipedia_hits"] = hits.toString()
+                        meta["wikipedia_titles"] = titles.joinToString(" | ")
+                        meta["wikipedia_link"] = "https://en.wikipedia.org/w/index.php?search=$encoded"
+                        sources.add(DataSource("Wikipedia", meta["wikipedia_link"], Date(), 0.7))
+                        emit(SearchProgressEvent.Found("Wikipedia", "$hits article${if (hits != 1) "s" else ""}: ${titles.firstOrNull() ?: ""}"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("Wikipedia"))
+                    }
+                } else {
+                    resp.close()
+                    emit(SearchProgressEvent.Failed("Wikipedia", "HTTP ${resp.code}"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("Wikipedia", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("WikiData"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://www.wikidata.org/w/api.php?action=wbsearchentities&search=$encoded&language=en&limit=3&format=json&type=item")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val labels = Regex("\"label\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    val descs = Regex("\"description\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    val ids = Regex("\"id\":\"(Q\\d+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    if (labels.isNotEmpty()) {
+                        meta["wikidata_labels"] = labels.joinToString(" | ")
+                        meta["wikidata_descriptions"] = descs.zip(labels).joinToString("\n") { (d, l) -> "$l: $d" }
+                        if (ids.isNotEmpty()) meta["wikidata_link"] = "https://www.wikidata.org/wiki/${ids.first()}"
+                        sources.add(DataSource("WikiData", meta["wikidata_link"], Date(), 0.65))
+                        emit(SearchProgressEvent.Found("WikiData", labels.firstOrNull() ?: "${labels.size} entities"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("WikiData"))
+                    }
+                } else {
+                    resp.close()
+                    emit(SearchProgressEvent.Failed("WikiData", "HTTP ${resp.code}"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("WikiData", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("FEC Campaign Finance"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://api.open.fec.gov/v1/candidates/?q=$encoded&api_key=DEMO_KEY&per_page=3")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val total = Regex("\"total_count\":(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val names = Regex("\"name\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    val offices = Regex("\"office_full\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    if (total > 0 && names.isNotEmpty()) {
+                        meta["fec_candidate_count"] = total.toString()
+                        meta["fec_candidates"] = names.zip(offices).take(3).joinToString("\n") { (n, o) -> "$n — $o" }
+                        meta["fec_link"] = "https://www.fec.gov/data/candidates/?q=$encoded"
+                        sources.add(DataSource("FEC Campaign Finance", meta["fec_link"], Date(), 0.75))
+                        emit(SearchProgressEvent.Found("FEC Campaign Finance", "$total candidate record${if (total != 1) "s" else ""}"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("FEC Campaign Finance"))
+                    }
+                } else {
+                    resp.close()
+                    emit(SearchProgressEvent.NotFound("FEC Campaign Finance"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("FEC Campaign Finance", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("SEC EDGAR"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://efts.sec.gov/LATEST/search-index?q=%22$encoded%22&dateRange=custom&startdt=2000-01-01&forms=4")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val hits = Regex("\"total\":\\s*\\{[^}]*\"value\":(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val entities = Regex("\"entity_name\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                    if (hits > 0) {
+                        meta["sec_person_hits"] = hits.toString()
+                        if (entities.isNotEmpty()) meta["sec_person_entities"] = entities.joinToString(", ")
+                        meta["sec_person_link"] = "https://efts.sec.gov/LATEST/search-index?q=%22$encoded%22&forms=4"
+                        sources.add(DataSource("SEC EDGAR", meta["sec_person_link"], Date(), 0.7))
+                        emit(SearchProgressEvent.Found("SEC EDGAR", "$hits Form-4 filing${if (hits != 1) "s" else ""} found"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("SEC EDGAR"))
+                    }
+                } else {
+                    resp.close()
+                    emit(SearchProgressEvent.NotFound("SEC EDGAR"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("SEC EDGAR", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("Google News RSS"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://news.google.com/rss/search?q=$encoded&hl=en-US&gl=US&ceid=US:en")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val titles = Regex("<title><!\\[CDATA\\[([^\\]]+)\\]\\]></title>").findAll(body)
+                        .map { it.groupValues[1] }.drop(1).take(5).toList()
+                    val sources_found = Regex("<source[^>]*>([^<]+)</source>").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    if (titles.isNotEmpty()) {
+                        meta["news_article_count"] = titles.size.toString()
+                        meta["news_titles"] = titles.joinToString("\n")
+                        meta["news_sources_list"] = sources_found.joinToString(", ")
+                        meta["news_link"] = "https://news.google.com/search?q=$encoded"
+                        sources.add(DataSource("Google News", meta["news_link"], Date(), 0.6))
+                        emit(SearchProgressEvent.Found("Google News RSS", "${titles.size} recent article${if (titles.size != 1) "s" else ""}"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("Google News RSS"))
+                    }
+                } else {
+                    resp.close()
+                    emit(SearchProgressEvent.NotFound("Google News RSS"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("Google News RSS", e.message ?: ""))
+            }
+        }
+
+        val encodedQuery = URLEncoder.encode(query, "UTF-8")
+        val dashQuery = query.replace(" ", "-").lowercase()
+        meta["judyrecords_link"] = "https://www.judyrecords.com/record/$dashQuery"
+        meta["spokeo_link"] = "https://www.spokeo.com/$dashQuery"
+        meta["beenverified_link"] = "https://www.beenverified.com/people-search/?q=$encodedQuery"
+        meta["fastpeoplesearch_link"] = "https://www.fastpeoplesearch.com/name/$dashQuery"
+        meta["truthfinder_link"] = "https://www.truthfinder.com/people-search/?firstName=${query.split(" ").firstOrNull() ?: ""}&lastName=${query.split(" ").drop(1).joinToString("+")}"
+        meta["familytreenow_link"] = "https://www.familytreenow.com/search/people/results?first=${query.split(" ").firstOrNull() ?: ""}&last=${query.split(" ").drop(1).joinToString("+")}"
+        meta["intelius_link"] = "https://www.intelius.com/people/$dashQuery"
+        meta["zabasearch_link"] = "https://www.zabasearch.com/people/$dashQuery"
+        meta["linkedin_person_link"] = "https://www.linkedin.com/search/results/people/?keywords=$encodedQuery"
+        meta["facebook_person_link"] = "https://www.facebook.com/search/people/?q=$encodedQuery"
         meta["person_query"] = query
     }
 
@@ -1101,7 +1276,76 @@ class OsintRepository(context: Context) {
             }
         }
 
-        meta["sec_link"] = "https://efts.sec.gov/LATEST/search-index?q=%22${URLEncoder.encode(query, "UTF-8")}%22"
+        launch {
+            emit(SearchProgressEvent.Checking("WikiData Companies"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://www.wikidata.org/w/api.php?action=wbsearchentities&search=$encoded&language=en&limit=3&format=json&type=item")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val labels = Regex("\"label\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    val descs = Regex("\"description\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+                    val ids = Regex("\"id\":\"(Q\\d+)\"").findAll(body).map { it.groupValues[1] }.take(1).toList()
+                    if (labels.isNotEmpty()) {
+                        meta["wikidata_company_labels"] = labels.joinToString(" | ")
+                        meta["wikidata_company_descriptions"] = descs.zip(labels).take(3).joinToString("\n") { (d, l) -> "$l: $d" }
+                        if (ids.isNotEmpty()) meta["wikidata_company_link"] = "https://www.wikidata.org/wiki/${ids.first()}"
+                        sources.add(DataSource("WikiData", meta["wikidata_company_link"], Date(), 0.65))
+                        emit(SearchProgressEvent.Found("WikiData Companies", labels.firstOrNull() ?: "${labels.size} entities"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("WikiData Companies"))
+                    }
+                } else {
+                    resp.close()
+                    emit(SearchProgressEvent.Failed("WikiData Companies", "HTTP ${resp.code}"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("WikiData Companies", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("SEC EDGAR Companies"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://efts.sec.gov/LATEST/search-index?q=%22$encoded%22&dateRange=custom&startdt=2000-01-01")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    val hits = Regex("\"total\":\\s*\\{[^}]*\"value\":(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val filingTypes = Regex("\"form_type\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                    if (hits > 0) {
+                        meta["sec_filings_count"] = hits.toString()
+                        if (filingTypes.isNotEmpty()) meta["sec_filing_types"] = filingTypes.joinToString(", ")
+                        sources.add(DataSource("SEC EDGAR", "https://efts.sec.gov/LATEST/search-index?q=%22$encoded%22", Date(), 0.8))
+                        emit(SearchProgressEvent.Found("SEC EDGAR Companies", "$hits SEC filing${if (hits != 1) "s" else ""}"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("SEC EDGAR Companies"))
+                    }
+                } else {
+                    resp.close()
+                    emit(SearchProgressEvent.NotFound("SEC EDGAR Companies"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("SEC EDGAR Companies", e.message ?: ""))
+            }
+        }
+
+        val encodedQ = URLEncoder.encode(query, "UTF-8")
+        meta["sec_link"] = "https://efts.sec.gov/LATEST/search-index?q=%22$encodedQ%22"
+        meta["crunchbase_link"] = "https://www.crunchbase.com/textsearch?q=$encodedQ"
+        meta["linkedin_company_link"] = "https://www.linkedin.com/search/results/companies/?keywords=$encodedQ"
+        meta["opencorporates_link"] = "https://opencorporates.com/companies?q=$encodedQ"
+        meta["openbb_link"] = "https://openbb.co/stock-search?query=$encodedQ"
         meta["company_query"] = query
     }
 

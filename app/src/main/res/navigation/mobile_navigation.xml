@@ -50,7 +50,16 @@
             app:destination="@id/nav_search"
             app:popUpTo="@id/nav_search"
             app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_wizard_to_dork_builder"
+            app:destination="@id/nav_dork_builder" />
     </fragment>
+
+    <fragment
+        android:id="@+id/nav_dork_builder"
+        android:name="com.twoskoops707.sixdegrees.ui.dorks.DorkBuilderFragment"
+        android:label="Dork Builder"
+        tools:layout="@layout/fragment_dork_builder" />
 
     <fragment
         android:id="@+id/nav_history"

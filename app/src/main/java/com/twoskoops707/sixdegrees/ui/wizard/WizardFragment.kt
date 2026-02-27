@@ -33,6 +33,9 @@ class WizardFragment : Fragment() {
         binding.tileIp.setOnClickListener { navigateToSearch("ip") }
         binding.tileCompany.setOnClickListener { navigateToSearch("company") }
         binding.tileImage.setOnClickListener { navigateToSearch("image") }
+        binding.tileDorkBuilder.setOnClickListener {
+            findNavController().navigate(R.id.action_wizard_to_dork_builder)
+        }
     }
 
     private fun navigateToSearch(type: String) {

@@ -12,6 +12,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentHistoryBinding
 
@@ -22,6 +25,7 @@ class HistoryFragment : Fragment() {
 
     private val viewModel: HistoryViewModel by viewModels()
     private lateinit var historyAdapter: HistoryAdapter
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -56,9 +60,13 @@ class HistoryFragment : Fragment() {
 
     private fun setupRecyclerView() {
         historyAdapter = HistoryAdapter { report ->
+            val searchType = try {
+                val type = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+                moshi.adapter<Map<String, String>>(type).fromJson(report.companiesJson)?.get("search_type") ?: "person"
+            } catch (_: Exception) { "person" }
             val bundle = Bundle().apply {
                 putString("searchQuery", report.searchQuery)
-                putString("searchType", "person")
+                putString("searchType", searchType)
                 putString("reportId", report.id)
             }
             findNavController().navigate(R.id.action_history_to_results, bundle)

@@ -1,6 +1,7 @@
 package com.twoskoops707.sixdegrees.ui.results
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -310,6 +311,44 @@ class ResultsFragment : Fragment() {
                 meta["courtlistener_link"]?.let { rows.add("CourtListener →" to it) }
                 meta["judyrecords_link"]?.let { rows.add("JudyRecords →" to it) }
                 meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }
+                meta["wikipedia_hits"]?.let { h ->
+                    val hits = h.toIntOrNull() ?: 0
+                    if (hits > 0) rows.add("Wikipedia Articles" to "$hits found")
+                }
+                meta["wikipedia_titles"]?.takeIf { it.isNotBlank() }?.let { rows.add("Wikipedia Titles" to it) }
+                meta["wikipedia_link"]?.let { rows.add("Wikipedia →" to it) }
+                meta["wikidata_descriptions"]?.takeIf { it.isNotBlank() }?.let { rows.add("WikiData Entities" to it) }
+                meta["wikidata_link"]?.let { rows.add("WikiData →" to it) }
+                meta["fec_candidate_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("FEC Candidate Records" to "$count found")
+                }
+                meta["fec_candidates"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.forEach { r -> rows.add("FEC Candidate" to r) }
+                }
+                meta["fec_link"]?.let { rows.add("FEC Campaign Finance →" to it) }
+                meta["sec_person_hits"]?.let { h ->
+                    val hits = h.toIntOrNull() ?: 0
+                    if (hits > 0) rows.add("SEC EDGAR Filings" to "$hits Form-4 filing${if (hits != 1) "s" else ""}")
+                }
+                meta["sec_person_entities"]?.takeIf { it.isNotBlank() }?.let { rows.add("SEC Affiliated Companies" to it) }
+                meta["sec_person_link"]?.let { rows.add("SEC EDGAR →" to it) }
+                meta["news_article_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("News Articles Found" to count.toString())
+                }
+                meta["news_titles"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("News" to t) }
+                }
+                meta["news_link"]?.let { rows.add("Google News Search →" to it) }
+                meta["beenverified_link"]?.let { rows.add("BeenVerified →" to it) }
+                meta["fastpeoplesearch_link"]?.let { rows.add("FastPeopleSearch →" to it) }
+                meta["truthfinder_link"]?.let { rows.add("TruthFinder →" to it) }
+                meta["familytreenow_link"]?.let { rows.add("FamilyTreeNow →" to it) }
+                meta["intelius_link"]?.let { rows.add("Intelius →" to it) }
+                meta["zabasearch_link"]?.let { rows.add("ZabaSearch →" to it) }
+                meta["linkedin_person_link"]?.let { rows.add("LinkedIn Search →" to it) }
+                meta["facebook_person_link"]?.let { rows.add("Facebook Search →" to it) }
             }
             "company" -> {
                 meta["company_count"]?.let { rows.add("Companies Found" to it) }
@@ -332,7 +371,17 @@ class ResultsFragment : Fragment() {
                     if (count > 0) rows.add("Emails Found" to count.toString())
                 }
                 meta["hunter_emails"]?.takeIf { it.isNotBlank() }?.let { rows.add("Company Emails" to it) }
+                meta["wikidata_company_descriptions"]?.takeIf { it.isNotBlank() }?.let { rows.add("WikiData Entity" to it) }
+                meta["wikidata_company_link"]?.let { rows.add("WikiData →" to it) }
+                meta["sec_filings_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("SEC EDGAR Filings" to "$count found")
+                }
+                meta["sec_filing_types"]?.takeIf { it.isNotBlank() }?.let { rows.add("SEC Filing Types" to it) }
                 meta["sec_link"]?.let { rows.add("SEC Filings →" to it) }
+                meta["crunchbase_link"]?.let { rows.add("Crunchbase →" to it) }
+                meta["linkedin_company_link"]?.let { rows.add("LinkedIn Companies →" to it) }
+                meta["opencorporates_link"]?.let { rows.add("OpenCorporates →" to it) }
             }
             "phone" -> {
                 meta["numverify_valid"]?.let { v -> rows.add("Valid Number" to if (v == "true") "Yes" else "No") }
@@ -462,8 +511,18 @@ class ResultsFragment : Fragment() {
             VH(ItemDataRowBinding.inflate(LayoutInflater.from(parent.context), parent, false))
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.b.tvRowLabel.text = rows[position].first
-            holder.b.tvRowValue.text = rows[position].second
+            val (label, value) = rows[position]
+            holder.b.tvRowLabel.text = label
+            holder.b.tvRowValue.text = value
+            if (value.startsWith("http://") || value.startsWith("https://")) {
+                holder.b.tvRowValue.setTextColor(ContextCompat.getColor(holder.b.root.context, R.color.accent_blue))
+                holder.b.root.setOnClickListener {
+                    it.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value)))
+                }
+            } else {
+                holder.b.tvRowValue.setTextColor(ContextCompat.getColor(holder.b.root.context, android.R.color.white))
+                holder.b.root.setOnClickListener(null)
+            }
         }
 
         override fun getItemCount() = rows.size

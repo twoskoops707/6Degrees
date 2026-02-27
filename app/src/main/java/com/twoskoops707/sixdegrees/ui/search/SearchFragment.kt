@@ -12,6 +12,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentSearchBinding
 import java.io.File
@@ -23,6 +26,7 @@ class SearchFragment : Fragment() {
 
     private val viewModel: SearchViewModel by viewModels()
     private lateinit var recentAdapter: RecentSearchAdapter
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
 
     private var pendingImageUri: Uri? = null
 
@@ -87,11 +91,15 @@ class SearchFragment : Fragment() {
         }
 
         recentAdapter = RecentSearchAdapter { report ->
+            val searchType = try {
+                val type = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+                moshi.adapter<Map<String, String>>(type).fromJson(report.companiesJson)?.get("search_type") ?: "person"
+            } catch (_: Exception) { "person" }
             findNavController().navigate(
                 R.id.action_search_to_results,
                 Bundle().apply {
                     putString("searchQuery", report.searchQuery)
-                    putString("searchType", "person")
+                    putString("searchType", searchType)
                     putString("reportId", report.id)
                 }
             )
