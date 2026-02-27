@@ -303,6 +303,72 @@
                         android:text="Quick Apply" android:textSize="11sp"
                         app:cornerRadius="4dp" app:strokeColor="@color/accent_blue" />
 
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/border" android:layout_marginVertical="14dp" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Google Custom Search"
+                            android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free · 100/day" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/google_cse_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Google CSE API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/google_cse_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="@color/text_primary" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/google_cse_id_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="Google CSE Search Engine ID (cx)"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/google_cse_id_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="text" android:textColor="@color/text_primary" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/border" android:layout_marginVertical="14dp" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Bing Web Search"
+                            android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free · 1000/month" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/bing_search_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Bing Search API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/bing_search_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="@color/text_primary" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/save_api_keys_button"
                         android:layout_width="match_parent"

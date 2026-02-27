@@ -140,6 +140,9 @@ class ApiSettingsFragment : Fragment() {
         binding.numverifyApiKeyInput.setText(apiKeyManager.numverifyKey)
         binding.shodanApiKeyInput.setText(apiKeyManager.shodanKey)
         binding.piplApiKeyInput.setText(apiKeyManager.piplKey)
+        binding.googleCseApiKeyInput.setText(apiKeyManager.googleCseApiKey)
+        binding.googleCseIdInput.setText(apiKeyManager.googleCseId)
+        binding.bingSearchApiKeyInput.setText(apiKeyManager.bingSearchKey)
     }
 
     private fun saveApiKeys() {
@@ -149,6 +152,9 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.numverifyKey = binding.numverifyApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.shodanKey = binding.shodanApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.piplKey = binding.piplApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.googleCseApiKey = binding.googleCseApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.googleCseId = binding.googleCseIdInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.bingSearchKey = binding.bingSearchApiKeyInput.text?.toString()?.trim() ?: ""
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()
     }
 

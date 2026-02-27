@@ -12,6 +12,7 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
@@ -80,10 +81,19 @@ class ResultsFragment : Fragment() {
 
         computeAndShowShadyScore(metadata, searchType)
 
+        val profileImageUrl = person?.profileImageUrl ?: metadata["tt_image_url"]
+        if (!profileImageUrl.isNullOrBlank()) {
+            binding.profileImage.load(profileImageUrl) {
+                crossfade(true)
+                placeholder(R.drawable.ic_person_placeholder)
+                error(R.drawable.ic_person_placeholder)
+            }
+        }
+
         if (person != null) {
             binding.personCard.visibility = View.VISIBLE
             binding.fullName.text = person.fullName.ifBlank { "${person.firstName} ${person.lastName}".trim() }
-            binding.location.text = parseFirstAddress(person.addressesJson)
+            binding.location.text = parseFirstAddress(person.addressesJson).ifBlank { metadata["tt_locations"]?.split(",")?.firstOrNull()?.trim() ?: "" }
             binding.jobTitle.text = parseCurrentJob(person.employmentHistoryJson)
             binding.bio.text = buildBioText(person.dateOfBirth, person.gender)
 
@@ -109,9 +119,14 @@ class ResultsFragment : Fragment() {
         } else {
             binding.personCard.visibility = View.VISIBLE
             binding.fullName.text = report.searchQuery
-            binding.jobTitle.text = ""
-            binding.location.text = ""
-            binding.bio.text = "Searched ${dateFormat.format(report.generatedAt)}"
+            binding.jobTitle.text = metadata["tt_ages"]?.let { "Age: $it" } ?: ""
+            binding.location.text = metadata["tt_locations"]?.split(",")?.firstOrNull()?.trim()
+                ?: metadata["uspb_addresses"]?.split(" | ")?.firstOrNull()?.trim() ?: ""
+            binding.bio.text = buildString {
+                metadata["tt_relatives"]?.takeIf { it.isNotBlank() }?.let { append("Relatives: $it") }
+                if (isNotEmpty()) append(" · ")
+                append("Searched ${dateFormat.format(report.generatedAt)}")
+            }
         }
 
         val dataRows = buildDataRows(metadata, searchType)
@@ -286,6 +301,61 @@ class ResultsFragment : Fragment() {
                 }
             }
             "person" -> {
+                meta["tt_ages"]?.takeIf { it.isNotBlank() }?.let { rows.add("Age (ThatsThem)" to it) }
+                meta["tt_locations"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location (ThatsThem)" to it) }
+                meta["tt_phones"]?.takeIf { it.isNotBlank() }?.let { rows.add("Phone (ThatsThem)" to it) }
+                meta["tt_relatives"]?.takeIf { it.isNotBlank() }?.let { rows.add("Relatives / Associates" to it) }
+                meta["tt_image_url"]?.takeIf { it.isNotBlank() }?.let { rows.add("Profile Photo →" to it) }
+                meta["thatsthem_link"]?.let { rows.add("ThatsThem Profile →" to it) }
+
+                meta["uspb_addresses"]?.takeIf { it.isNotBlank() }?.let {
+                    it.split(" | ").filter { a -> a.isNotBlank() }.take(3).forEach { addr ->
+                        rows.add("Address (USPhoneBook)" to addr)
+                    }
+                }
+                meta["uspb_phones"]?.takeIf { it.isNotBlank() }?.let { rows.add("Phone (USPhoneBook)" to it) }
+                meta["uspb_age"]?.takeIf { it.isNotBlank() }?.let { rows.add("Age (USPhoneBook)" to it) }
+                meta["usphonebook_link"]?.let { rows.add("USPhoneBook →" to it) }
+
+                meta["cse_snippets"]?.takeIf { it.isNotBlank() }?.let {
+                    rows.add("▶ GOOGLE CSE FINDINGS" to "")
+                    it.split("\n---\n").filter { s -> s.isNotBlank() }.take(6).forEach { snippet ->
+                        rows.add("Google Result" to snippet.trim())
+                    }
+                }
+                meta["cse_links"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.take(6).forEach { link ->
+                        val parts = link.split(": ", limit = 2)
+                        rows.add((parts.firstOrNull() ?: "Result") to (parts.getOrNull(1) ?: link))
+                    }
+                }
+
+                meta["bing_snippets"]?.takeIf { it.isNotBlank() }?.let {
+                    rows.add("▶ BING SEARCH FINDINGS" to "")
+                    it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { snippet ->
+                        rows.add("Bing Result" to snippet.trim())
+                    }
+                }
+                meta["bing_links"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { link ->
+                        val parts = link.split(": ", limit = 2)
+                        rows.add((parts.firstOrNull() ?: "Result") to (parts.getOrNull(1) ?: link))
+                    }
+                }
+
+                val dorkCount = meta["shadowdork_count"]?.toIntOrNull() ?: 0
+                if (dorkCount > 0) {
+                    rows.add("▶ SHADOWDORK SEARCHES ($dorkCount)" to "Tap to run each targeted dork")
+                    meta["dork_identity"]?.let { rows.add("Identity Dork →" to it) }
+                    meta["dork_relatives"]?.let { rows.add("Relatives Dork →" to it) }
+                    meta["dork_address"]?.let { rows.add("Address Dork →" to it) }
+                    meta["dork_criminal"]?.let { rows.add("Criminal Dork →" to it) }
+                    meta["dork_property"]?.let { rows.add("Property Dork →" to it) }
+                    meta["dork_vehicle"]?.let { rows.add("Vehicle Dork →" to it) }
+                    meta["dork_social"]?.let { rows.add("Social Media Dork →" to it) }
+                    meta["dork_leaks"]?.let { rows.add("⚠ Data Leak Dork →" to it) }
+                }
+
                 meta["arrest_count"]?.let { c ->
                     val count = c.toIntOrNull() ?: 0
                     if (count > 0) rows.add("⚠ Arrest Records" to "$count arrest record${if (count != 1) "s" else ""} found")
@@ -295,6 +365,13 @@ class ResultsFragment : Fragment() {
                         rows.add("Arrest" to record)
                     }
                 }
+                meta["courtlistener_count"]?.let { c ->
+                    val count = c.toIntOrNull() ?: 0
+                    if (count > 0) rows.add("Court Records" to "$count court record${if (count != 1) "s" else ""}")
+                }
+                meta["courtlistener_link"]?.let { rows.add("CourtListener →" to it) }
+                meta["judyrecords_link"]?.let { rows.add("JudyRecords →" to it) }
+
                 meta["officer_matches"]?.let { c ->
                     val count = c.toIntOrNull() ?: 0
                     if (count > 0) rows.add("Corporate Records" to "$count officer record${if (count != 1) "s" else ""}")
@@ -304,13 +381,7 @@ class ResultsFragment : Fragment() {
                         rows.add("Officer Record" to detail)
                     }
                 }
-                meta["courtlistener_count"]?.let { c ->
-                    val count = c.toIntOrNull() ?: 0
-                    if (count > 0) rows.add("Court Records" to "$count court record${if (count != 1) "s" else ""}")
-                }
-                meta["courtlistener_link"]?.let { rows.add("CourtListener →" to it) }
-                meta["judyrecords_link"]?.let { rows.add("JudyRecords →" to it) }
-                meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }
+
                 meta["wikipedia_hits"]?.let { h ->
                     val hits = h.toIntOrNull() ?: 0
                     if (hits > 0) rows.add("Wikipedia Articles" to "$hits found")
@@ -341,6 +412,9 @@ class ResultsFragment : Fragment() {
                     it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("News" to t) }
                 }
                 meta["news_link"]?.let { rows.add("Google News Search →" to it) }
+
+                rows.add("▶ BACKGROUND CHECK SITES" to "Tap any link to open")
+                meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }
                 meta["beenverified_link"]?.let { rows.add("BeenVerified →" to it) }
                 meta["fastpeoplesearch_link"]?.let { rows.add("FastPeopleSearch →" to it) }
                 meta["truthfinder_link"]?.let { rows.add("TruthFinder →" to it) }

@@ -372,3 +372,61 @@ data class ThreatCrowdIpResolution(
     @Json(name = "last_resolved") val lastResolved: String? = null,
     val domain: String? = null
 )
+
+interface GoogleCustomSearchService {
+    @GET("customsearch/v1")
+    suspend fun search(
+        @Query("key") apiKey: String,
+        @Query("cx") searchEngineId: String,
+        @Query("q") query: String,
+        @Query("num") num: Int = 5
+    ): Response<GoogleCseResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class GoogleCseResponse(
+    val items: List<GoogleCseItem>? = null,
+    val searchInformation: GoogleCseInfo? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class GoogleCseItem(
+    val title: String? = null,
+    val link: String? = null,
+    val snippet: String? = null,
+    val displayLink: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class GoogleCseInfo(
+    val totalResults: String? = null
+)
+
+interface BingWebSearchService {
+    @GET("v7.0/search")
+    suspend fun search(
+        @Header("Ocp-Apim-Subscription-Key") apiKey: String,
+        @Query("q") query: String,
+        @Query("count") count: Int = 5,
+        @Query("responseFilter") filter: String = "Webpages"
+    ): Response<BingSearchResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class BingSearchResponse(
+    val webPages: BingWebPages? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BingWebPages(
+    val value: List<BingResult>? = null,
+    val totalEstimatedMatches: Long? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BingResult(
+    val name: String? = null,
+    val url: String? = null,
+    val snippet: String? = null,
+    val displayUrl: String? = null
+)

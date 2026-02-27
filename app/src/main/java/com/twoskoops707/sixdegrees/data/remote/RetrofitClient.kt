@@ -101,4 +101,12 @@ object RetrofitClient {
     val threatCrowdService: ThreatCrowdService by lazy {
         create("https://www.threatcrowd.org/").create(ThreatCrowdService::class.java)
     }
+
+    val googleCseService: GoogleCustomSearchService by lazy {
+        create("https://www.googleapis.com/").create(GoogleCustomSearchService::class.java)
+    }
+
+    val bingSearchService: BingWebSearchService by lazy {
+        create("https://api.bing.microsoft.com/").create(BingWebSearchService::class.java)
+    }
 }

@@ -1192,6 +1192,261 @@ class OsintRepository(context: Context) {
         meta["linkedin_person_link"] = "https://www.linkedin.com/search/results/people/?keywords=$encodedQuery"
         meta["facebook_person_link"] = "https://www.facebook.com/search/people/?q=$encodedQuery"
         meta["person_query"] = query
+
+        launch { thatsThenScrape(query, meta, sources, emit) }
+        launch { usPhonebookScrape(query, meta, sources, emit) }
+        launch { generateAndRunDorks(query, meta, sources, emit) }
+
+        val gKey = apiKeyManager.googleCseApiKey
+        val gCx = apiKeyManager.googleCseId
+        if (gKey.isNotBlank() && gCx.isNotBlank()) {
+            launch { googleCsePersonSearch(query, gKey, gCx, meta, sources, emit) }
+        }
+        val bKey = apiKeyManager.bingSearchKey
+        if (bKey.isNotBlank()) {
+            launch { bingPersonSearch(query, bKey, meta, sources, emit) }
+        }
+    }
+
+    private suspend fun thatsThenScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("ThatsThem"))
+        try {
+            val dashName = query.lowercase().replace(" ", "-")
+            val req = Request.Builder()
+                .url("https://thatsthem.com/name/$dashName")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""
+            resp.close()
+            if (html.isBlank() || resp.code == 403) {
+                emit(SearchProgressEvent.NotFound("ThatsThem"))
+                return
+            }
+            val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
+            val cities = Regex("<span[^>]*class=\"[^\"]*city[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val states = Regex("<span[^>]*class=\"[^\"]*state[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(html).map { it.value.trim() }.take(5).distinct().toList()
+            val relatives = Regex("(?:Relative|Associated|Related)[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.take(8).distinct().toList()
+            val imgUrls = Regex("src=\"(https://[^\"]+(?:photo|profile|avatar|thumb)[^\"]+)\"").findAll(html)
+                .map { it.groupValues[1] }.take(3).distinct().toList()
+
+            val hasData = ages.isNotEmpty() || cities.isNotEmpty() || phones.isNotEmpty() || relatives.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["tt_ages"] = ages.joinToString(", ")
+                if (cities.isNotEmpty() && states.isNotEmpty()) {
+                    meta["tt_locations"] = cities.zip(states).take(3).joinToString(" | ") { (c, s) -> "$c, $s" }
+                } else if (cities.isNotEmpty()) {
+                    meta["tt_locations"] = cities.take(3).joinToString(", ")
+                }
+                if (phones.isNotEmpty()) meta["tt_phones"] = phones.joinToString(", ")
+                if (relatives.isNotEmpty()) meta["tt_relatives"] = relatives.joinToString(", ")
+                if (imgUrls.isNotEmpty()) meta["tt_image_url"] = imgUrls.first()
+                meta["thatsthem_link"] = "https://thatsthem.com/name/$dashName"
+                sources.add(DataSource("ThatsThem", meta["thatsthem_link"], Date(), 0.75))
+                val summary = buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (cities.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cities.first()) }
+                    if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                    if (relatives.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${relatives.size} relative${if (relatives.size != 1) "s" else ""} found") }
+                }
+                emit(SearchProgressEvent.Found("ThatsThem", summary.ifBlank { "Profile found" }))
+            } else {
+                emit(SearchProgressEvent.NotFound("ThatsThem"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("ThatsThem", e.message ?: ""))
+        }
+    }
+
+    private suspend fun usPhonebookScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("USPhoneBook"))
+        try {
+            val encodedName = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://www.usphonebook.com/$encodedName")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("Accept", "text/html")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""
+            resp.close()
+            if (html.isBlank() || resp.code == 403) {
+                emit(SearchProgressEvent.NotFound("USPhoneBook"))
+                return
+            }
+            val addresses = Regex("(?:address|street)[^<]{0,50}<[^>]+>([^<]+[A-Z]{2}\\s+\\d{5}[^<]*)").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.take(3).distinct().toList()
+            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
+                .map { it.value.trim() }.filter { it.length >= 10 }.take(5).distinct().toList()
+            val ages = Regex("Age[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
+
+            val hasData = addresses.isNotEmpty() || phones.isNotEmpty()
+            if (hasData) {
+                if (addresses.isNotEmpty()) meta["uspb_addresses"] = addresses.joinToString(" | ")
+                if (phones.isNotEmpty()) meta["uspb_phones"] = phones.joinToString(", ")
+                if (ages.isNotEmpty()) meta["uspb_age"] = ages.first()
+                meta["usphonebook_link"] = "https://www.usphonebook.com/$encodedName"
+                sources.add(DataSource("USPhoneBook", meta["usphonebook_link"], Date(), 0.7))
+                emit(SearchProgressEvent.Found("USPhoneBook",
+                    buildString {
+                        if (addresses.isNotEmpty()) append(addresses.first().take(60))
+                        if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                    }
+                ))
+            } else {
+                emit(SearchProgressEvent.NotFound("USPhoneBook"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("USPhoneBook", e.message ?: ""))
+        }
+    }
+
+    private suspend fun generateAndRunDorks(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("ShadowDork Engine"))
+        val enc = URLEncoder.encode("\"$query\"", "UTF-8")
+        val nameEnc = URLEncoder.encode(query, "UTF-8")
+        val dorks = linkedMapOf(
+            "identity_confirm" to "\"$query\" (\"date of birth\" OR \"born in\" OR age) -obituary",
+            "address_records" to "\"$query\" (\"lives at\" OR \"address\" OR \"moved to\" OR \"resides\") -jobs -hire",
+            "relatives_map" to "\"$query\" (\"related to\" OR \"son of\" OR \"daughter of\" OR \"married to\" OR relatives)",
+            "criminal_records" to "\"$query\" (arrest OR convicted OR \"sentenced to\" OR mugshot OR \"guilty\") -fiction",
+            "property_records" to "\"$query\" (\"property owner\" OR deed OR mortgage OR \"square feet\") site:zillow.com OR site:redfin.com OR site:realtor.com",
+            "financial_exposure" to "\"$query\" (bankruptcy OR lien OR garnishment OR foreclosure OR judgment)",
+            "leaked_data" to "\"$query\" site:pastebin.com OR site:ghostbin.co OR site:hastebin.com OR site:rentry.co",
+            "social_discovery" to "\"$query\" (instagram OR twitter OR facebook OR tiktok) -buy -sell -news",
+            "email_patterns" to "\"${query.split(" ").joinToString(".")}\" OR \"${query.split(" ").take(1).firstOrNull() ?: ""}${query.split(" ").drop(1).firstOrNull() ?: ""}\" email OR contact",
+            "vehicle_trace" to "\"$query\" (vehicle OR \"license plate\" OR registration OR VIN OR \"car owned\") -dealer",
+            "business_ties" to "\"$query\" (CEO OR founder OR director OR owner OR LLC OR \"Inc.\") site:bloomberg.com OR site:linkedin.com",
+            "court_deep" to "\"$query\" site:courtlistener.com OR site:judyrecords.com OR site:unicourt.com",
+            "voter_records" to "\"$query\" (\"registered voter\" OR \"voter registration\" OR precinct OR \"party affiliation\")",
+            "obituary_cross" to "\"$query\" obituary (survived by OR relatives OR children OR spouse)",
+            "dark_mentions" to "\"$query\" (\"ssn\" OR \"social security\" OR \"date of birth\" OR dob) -form -request"
+        )
+
+        val gBase = "https://www.google.com/search?q="
+        val bBase = "https://www.bing.com/search?q="
+
+        val dorkLinks = dorks.entries.mapIndexed { i, (key, dork) ->
+            val dorkEnc = URLEncoder.encode(dork, "UTF-8")
+            "$key::G:${gBase}$dorkEnc::B:${bBase}$dorkEnc"
+        }
+        meta["shadowdork_count"] = dorks.size.toString()
+        meta["shadowdork_links"] = dorkLinks.joinToString("\n")
+
+        val identityDork = URLEncoder.encode("\"$query\" (\"date of birth\" OR age OR city OR state) -obituary", "UTF-8")
+        meta["dork_identity"] = "${gBase}$identityDork"
+        val relativesDork = URLEncoder.encode("\"$query\" (relatives OR \"related to\" OR \"married to\" OR children OR spouse)", "UTF-8")
+        meta["dork_relatives"] = "${gBase}$relativesDork"
+        val addressDork = URLEncoder.encode("\"$query\" (address OR \"lives in\" OR \"moved to\") site:whitepages.com OR site:411.com OR site:addresses.com", "UTF-8")
+        meta["dork_address"] = "${gBase}$addressDork"
+        val criminalDork = URLEncoder.encode("\"$query\" (arrest OR mugshot OR convicted OR sentenced OR guilty) -news -jobs", "UTF-8")
+        meta["dork_criminal"] = "${gBase}$criminalDork"
+        val leakDork = URLEncoder.encode("\"$query\" site:pastebin.com OR site:ghostbin.co OR site:hastebin.com", "UTF-8")
+        meta["dork_leaks"] = "${gBase}$leakDork"
+        val propertyDork = URLEncoder.encode("\"$query\" property owner OR deed OR title -for sale", "UTF-8")
+        meta["dork_property"] = "${gBase}$propertyDork"
+        val vehicleDork = URLEncoder.encode("\"$query\" vehicle OR registration OR \"license plate\" -buy -sell", "UTF-8")
+        meta["dork_vehicle"] = "${gBase}$vehicleDork"
+        val socialDork = URLEncoder.encode("\"$query\" facebook OR instagram OR twitter OR tiktok OR snapchat -news -buy", "UTF-8")
+        meta["dork_social"] = "${gBase}$socialDork"
+
+        sources.add(DataSource("ShadowDork Engine", null, Date(), 0.5))
+        emit(SearchProgressEvent.Found("ShadowDork Engine", "${dorks.size} specialized search dorks generated"))
+    }
+
+    private suspend fun googleCsePersonSearch(
+        query: String,
+        apiKey: String,
+        cseId: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        val topDorks = listOf(
+            "\"$query\" (address OR city OR state OR age)",
+            "\"$query\" (relatives OR \"married to\" OR children OR spouse)",
+            "\"$query\" (arrest OR criminal OR court OR lawsuit)"
+        )
+        val allSnippets = mutableListOf<String>()
+        val allLinks = mutableListOf<String>()
+        for (dork in topDorks) {
+            emit(SearchProgressEvent.Checking("Google CSE: ${dork.take(40)}…"))
+            try {
+                val resp = RetrofitClient.googleCseService.search(apiKey, cseId, dork)
+                if (resp.isSuccessful && resp.body()?.items != null) {
+                    apiKeyManager.recordUsage("google_cse")
+                    val items = resp.body()!!.items!!
+                    items.take(3).forEach { item ->
+                        item.snippet?.let { allSnippets.add(it.take(200)) }
+                        item.link?.let { allLinks.add("${item.displayLink ?: item.link}: $it") }
+                    }
+                }
+            } catch (_: Exception) {}
+            delay(300)
+        }
+        if (allSnippets.isNotEmpty()) {
+            meta["cse_snippets"] = allSnippets.take(6).joinToString("\n---\n")
+            meta["cse_links"] = allLinks.take(6).joinToString("\n")
+            meta["cse_result_count"] = allSnippets.size.toString()
+            sources.add(DataSource("Google CSE", null, Date(), 0.85))
+            emit(SearchProgressEvent.Found("Google CSE", "${allSnippets.size} results from targeted dork searches"))
+        } else {
+            emit(SearchProgressEvent.NotFound("Google CSE"))
+        }
+    }
+
+    private suspend fun bingPersonSearch(
+        query: String,
+        apiKey: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Bing Web Search"))
+        try {
+            val dork = "\"$query\" (address OR relatives OR age OR arrest OR property)"
+            val resp = RetrofitClient.bingSearchService.search(apiKey, dork)
+            if (resp.isSuccessful && resp.body()?.webPages?.value != null) {
+                apiKeyManager.recordUsage("bing_search")
+                val results = resp.body()!!.webPages!!.value!!
+                val snippets = results.take(5).mapNotNull { it.snippet }.joinToString("\n---\n")
+                val links = results.take(5).mapNotNull { r -> r.url?.let { "${r.displayUrl ?: r.name}: $it" } }.joinToString("\n")
+                if (snippets.isNotBlank()) {
+                    meta["bing_snippets"] = snippets
+                    meta["bing_links"] = links
+                    meta["bing_total"] = resp.body()!!.webPages!!.totalEstimatedMatches?.toString() ?: "0"
+                    sources.add(DataSource("Bing Search", null, Date(), 0.8))
+                    emit(SearchProgressEvent.Found("Bing Search", "${results.size} results found"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Bing Search"))
+                }
+            } else {
+                emit(SearchProgressEvent.NotFound("Bing Search"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Bing Search", e.message ?: ""))
+        }
     }
 
     private suspend fun companySearch(

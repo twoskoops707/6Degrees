@@ -51,6 +51,18 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("urlscan", "") ?: ""
         set(v) { prefs.edit().putString("urlscan", v).apply() }
 
+    var googleCseApiKey: String
+        get() = prefs.getString("google_cse_key", "") ?: ""
+        set(v) { prefs.edit().putString("google_cse_key", v).apply() }
+
+    var googleCseId: String
+        get() = prefs.getString("google_cse_id", "") ?: ""
+        set(v) { prefs.edit().putString("google_cse_id", v).apply() }
+
+    var bingSearchKey: String
+        get() = prefs.getString("bing_search", "") ?: ""
+        set(v) { prefs.edit().putString("bing_search", v).apply() }
+
     fun hasAnyKey(): Boolean = true
 
     fun activeKeyCount(): Int = listOf(
