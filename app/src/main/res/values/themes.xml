@@ -1,11 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.SixDegrees" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/accent_green</item>
-        <item name="colorPrimaryVariant">@color/accent_green_dim</item>
-        <item name="colorOnPrimary">@color/black</item>
-        <item name="colorSecondary">@color/accent_amber</item>
-        <item name="colorSecondaryVariant">@color/accent_amber_dim</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorPrimary">@color/accent_blue</item>
+        <item name="colorPrimaryVariant">@color/accent_blue_dim</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
+        <item name="colorOnSecondary">@color/white</item>
         <item name="android:colorBackground">@color/background_primary</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/text_primary</item>

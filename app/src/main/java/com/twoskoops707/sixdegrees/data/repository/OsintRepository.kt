@@ -21,6 +21,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -451,27 +453,30 @@ class OsintRepository(context: Context) {
         sources: MutableList<DataSource>,
         emit: suspend (SearchProgressEvent) -> Unit
     ) {
+        val semaphore = Semaphore(10)
         coroutineScope {
             usernameSites.entries.forEach { (site, urlTemplate) ->
                 val url = urlTemplate.replace("{u}", username)
                 launch {
-                    emit(SearchProgressEvent.Checking(site))
-                    try {
-                        val req = Request.Builder()
-                            .url(url)
-                            .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                            .build()
-                        val resp = fastHttpClient.newCall(req).execute()
-                        val code = resp.code
-                        resp.close()
-                        if (code in 200..299) {
-                            sources.add(DataSource(site, url, Date(), 0.7))
-                            emit(SearchProgressEvent.Found(site, url))
-                        } else {
+                    semaphore.withPermit {
+                        emit(SearchProgressEvent.Checking(site))
+                        try {
+                            val req = Request.Builder()
+                                .url(url)
+                                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                                .build()
+                            val resp = fastHttpClient.newCall(req).execute()
+                            val code = resp.code
+                            resp.close()
+                            if (code in 200..299) {
+                                sources.add(DataSource(site, url, Date(), 0.7))
+                                emit(SearchProgressEvent.Found(site, url))
+                            } else {
+                                emit(SearchProgressEvent.NotFound(site))
+                            }
+                        } catch (e: Exception) {
                             emit(SearchProgressEvent.NotFound(site))
                         }
-                    } catch (e: Exception) {
-                        emit(SearchProgressEvent.NotFound(site))
                     }
                 }
             }
@@ -1518,6 +1523,79 @@ class OsintRepository(context: Context) {
         }
 
         launch {
+            emit(SearchProgressEvent.Checking("Corporations Wiki"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://www.corporationswiki.com/l/search?q=$encoded")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .addHeader("Accept-Language", "en-US,en;q=0.5")
+                    .addHeader("Referer", "https://www.corporationswiki.com/")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val html = resp.body?.string() ?: ""; resp.close()
+                val companyNames = Regex("<a[^>]+href=\"/p/[^\"]+\"[^>]*>([^<]{3,80})</a>").findAll(html)
+                    .map { it.groupValues[1].trim() }
+                    .filter { it.isNotBlank() && !it.contains("\\s{3,}".toRegex()) }
+                    .distinct().take(8).toList()
+                val states = Regex("(?:incorporated|formed|registered)[^<]*<[^>]*>([A-Z]{2})<").findAll(html, RegexOption.IGNORE_CASE)
+                    .map { it.groupValues[1] }.take(8).toList()
+                val officers = Regex("class=\"[^\"]*officer[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                    .map { it.groupValues[1] }.distinct().take(5).toList()
+                if (companyNames.isNotEmpty()) {
+                    meta["corpwiki_person_companies"] = companyNames.joinToString("\n")
+                    meta["corpwiki_person_link"] = "https://www.corporationswiki.com/l/search?q=$encoded"
+                    if (states.isNotEmpty()) meta["corpwiki_person_states"] = states.distinct().take(5).joinToString(", ")
+                    if (officers.isNotEmpty()) meta["corpwiki_associates"] = officers.joinToString(", ")
+                    sources.add(DataSource("Corporations Wiki", meta["corpwiki_person_link"], Date(), 0.75))
+                    emit(SearchProgressEvent.Found("Corporations Wiki", "${companyNames.size} corporate record${if (companyNames.size != 1) "s" else ""}: ${companyNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Corporations Wiki"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("Corporations Wiki", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("California SOS Officers"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://businesssearch.sos.ca.gov/CBS/SearchResults?filing_type=ALL&status=ACTIVE&SearchType=O&SearchValue=$encoded")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .addHeader("Referer", "https://businesssearch.sos.ca.gov/")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val html = resp.body?.string() ?: ""; resp.close()
+                val entityNames = Regex("<td[^>]*>\\s*<a[^>]+href=\"[^\"]*BusinessDetail[^\"]+\"[^>]*>([^<]+)</a>\\s*</td>").findAll(html)
+                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(8).toList()
+                val statuses = Regex("<td[^>]*class=\"[^\"]*status[^\"]*\"[^>]*>([^<]+)</td>", RegexOption.IGNORE_CASE).findAll(html)
+                    .map { it.groupValues[1].trim() }.take(8).toList()
+                val entityTypes = Regex("<td[^>]*class=\"[^\"]*type[^\"]*\"[^>]*>([^<]+)</td>", RegexOption.IGNORE_CASE).findAll(html)
+                    .map { it.groupValues[1].trim() }.take(8).toList()
+                if (entityNames.isNotEmpty()) {
+                    meta["ca_sos_officer_count"] = entityNames.size.toString()
+                    meta["ca_sos_officer_entities"] = entityNames.indices.take(8).joinToString("\n") { i ->
+                        val n = entityNames.getOrNull(i) ?: ""
+                        val s = statuses.getOrNull(i) ?: ""
+                        val t = entityTypes.getOrNull(i) ?: ""
+                        listOf(n, t, s).filter { it.isNotBlank() }.joinToString(" | ")
+                    }
+                    meta["ca_sos_officer_link"] = "https://businesssearch.sos.ca.gov/CBS/SearchResults?filing_type=ALL&status=ACTIVE&SearchType=O&SearchValue=$encoded"
+                    sources.add(DataSource("CA SOS Officers", meta["ca_sos_officer_link"], Date(), 0.85))
+                    emit(SearchProgressEvent.Found("California SOS Officers", "${entityNames.size} CA entit${if (entityNames.size != 1) "ies" else "y"}: ${entityNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("California SOS Officers"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("California SOS Officers", e.message ?: ""))
+            }
+        }
+
+        launch {
             emit(SearchProgressEvent.Checking("Google News RSS"))
             try {
                 val encoded = URLEncoder.encode(query, "UTF-8")
@@ -2102,6 +2180,81 @@ class OsintRepository(context: Context) {
                 }
             } catch (e: Exception) {
                 emit(SearchProgressEvent.Failed("GLEIF Entity Search", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("Corporations Wiki"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://www.corporationswiki.com/l/search?q=$encoded")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .addHeader("Accept-Language", "en-US,en;q=0.5")
+                    .addHeader("Referer", "https://www.corporationswiki.com/")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val html = resp.body?.string() ?: ""; resp.close()
+                val companyNames = Regex("<a[^>]+href=\"/p/[^\"]+\"[^>]*>([^<]{3,80})</a>").findAll(html)
+                    .map { it.groupValues[1].trim() }
+                    .filter { it.isNotBlank() && !it.contains("\\s{3,}".toRegex()) }
+                    .distinct().take(8).toList()
+                val states = Regex("(?:incorporated|formed|registered)[^<]*<[^>]*>([A-Z]{2})<").findAll(html, RegexOption.IGNORE_CASE)
+                    .map { it.groupValues[1] }.take(8).toList()
+                val officers = Regex("class=\"[^\"]*officer[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                    .map { it.groupValues[1] }.distinct().take(8).toList()
+                if (companyNames.isNotEmpty()) {
+                    meta["corpwiki_companies"] = companyNames.joinToString("\n")
+                    meta["corpwiki_company_link"] = "https://www.corporationswiki.com/l/search?q=$encoded"
+                    if (states.isNotEmpty()) meta["corpwiki_states"] = states.distinct().take(5).joinToString(", ")
+                    if (officers.isNotEmpty()) meta["corpwiki_officers"] = officers.joinToString(", ")
+                    sources.add(DataSource("Corporations Wiki", meta["corpwiki_company_link"], Date(), 0.75))
+                    emit(SearchProgressEvent.Found("Corporations Wiki", "${companyNames.size} corporate record${if (companyNames.size != 1) "s" else ""}: ${companyNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Corporations Wiki"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("Corporations Wiki", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("California SOS"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://businesssearch.sos.ca.gov/CBS/SearchResults?filing_type=ALL&status=ACTIVE&SearchType=B&SearchValue=$encoded")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .addHeader("Referer", "https://businesssearch.sos.ca.gov/")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val html = resp.body?.string() ?: ""; resp.close()
+                val entityNames = Regex("<td[^>]*>\\s*<a[^>]+href=\"[^\"]*BusinessDetail[^\"]+\"[^>]*>([^<]+)</a>\\s*</td>").findAll(html)
+                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(10).toList()
+                val statuses = Regex("(?:ACTIVE|DISSOLVED|SUSPENDED|FORFEITED|CANCELLED)").findAll(html)
+                    .map { it.value }.take(10).toList()
+                val entityNumbers = Regex("C\\d{7}").findAll(html).map { it.value }.distinct().take(10).toList()
+                val entityTypes = Regex("(?:CORP|LLC|LP|LLP|GP|PA)(?:\\s+[A-Z]{1,4})?").findAll(html)
+                    .map { it.value.trim() }.filter { it.length >= 2 }.distinct().take(5).toList()
+                if (entityNames.isNotEmpty()) {
+                    meta["ca_sos_count"] = entityNames.size.toString()
+                    meta["ca_sos_entities"] = entityNames.indices.take(10).joinToString("\n") { i ->
+                        val n = entityNames.getOrNull(i) ?: ""
+                        val s = statuses.getOrNull(i) ?: ""
+                        val num = entityNumbers.getOrNull(i) ?: ""
+                        listOf(n, s, num).filter { it.isNotBlank() }.joinToString(" | ")
+                    }
+                    if (entityTypes.isNotEmpty()) meta["ca_sos_types"] = entityTypes.joinToString(", ")
+                    meta["ca_sos_link"] = "https://businesssearch.sos.ca.gov/CBS/SearchResults?filing_type=ALL&status=ACTIVE&SearchType=B&SearchValue=$encoded"
+                    sources.add(DataSource("CA SOS", meta["ca_sos_link"], Date(), 0.9))
+                    emit(SearchProgressEvent.Found("California SOS", "${entityNames.size} CA entit${if (entityNames.size != 1) "ies" else "y"}: ${entityNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("California SOS"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("California SOS", e.message ?: ""))
             }
         }
 

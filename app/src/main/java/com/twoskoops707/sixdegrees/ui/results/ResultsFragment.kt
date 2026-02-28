@@ -400,16 +400,33 @@ class ResultsFragment : Fragment() {
                 val gleifEntities = meta["gleif_entities"]?.takeIf { it.isNotBlank() }
                 val sunbizOfficerCount = meta["sunbiz_officer_count"]?.toIntOrNull() ?: 0
                 val samEntityCount = meta["sam_entity_count"]?.toIntOrNull() ?: 0
-                if (officerCount > 0 || secHits > 0 || secFulltextHits > 0 || fecCount > 0 || gleifEntities != null || sunbizOfficerCount > 0 || samEntityCount > 0) {
+                val caOfficerCount = meta["ca_sos_officer_count"]?.toIntOrNull() ?: 0
+                val corpwikiCount = meta["corpwiki_person_companies"]?.lines()?.size ?: 0
+                if (officerCount > 0 || secHits > 0 || secFulltextHits > 0 || fecCount > 0 || gleifEntities != null
+                    || sunbizOfficerCount > 0 || samEntityCount > 0 || caOfficerCount > 0 || corpwikiCount > 0) {
                     rows.add(sec("◈ CORPORATE & FINANCIAL"))
                     meta["officer_details"]?.takeIf { it.isNotBlank() }?.let {
                         it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { detail -> rows.add("Corporate Role" to detail) }
+                    }
+                    if (caOfficerCount > 0) {
+                        rows.add("CA SOS Officer Records" to "$caOfficerCount California entit${if (caOfficerCount != 1) "ies" else "y"}")
+                        meta["ca_sos_officer_entities"]?.takeIf { it.isNotBlank() }?.let {
+                            it.lines().filter { l -> l.isNotBlank() }.take(8).forEach { e -> rows.add("CA Entity" to e) }
+                        }
                     }
                     if (sunbizOfficerCount > 0) {
                         rows.add("FL SOS Officer Records" to "$sunbizOfficerCount Florida corporate filing${if (sunbizOfficerCount != 1) "s" else ""}")
                         meta["sunbiz_officer_companies"]?.takeIf { it.isNotBlank() }?.let {
                             it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { co -> rows.add("FL Company" to co) }
                         }
+                    }
+                    if (corpwikiCount > 0) {
+                        rows.add("Corporations Wiki" to "$corpwikiCount record${if (corpwikiCount != 1) "s" else ""}")
+                        meta["corpwiki_person_companies"]?.takeIf { it.isNotBlank() }?.let {
+                            it.lines().filter { l -> l.isNotBlank() }.take(8).forEach { co -> rows.add("Corp Wiki" to co) }
+                        }
+                        meta["corpwiki_person_states"]?.takeIf { it.isNotBlank() }?.let { rows.add("States" to it) }
+                        meta["corpwiki_associates"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associates" to it) }
                     }
                     if (samEntityCount > 0) {
                         rows.add("SAM.gov Federal Entities" to "$samEntityCount registered entit${if (samEntityCount != 1) "ies" else "y"}")
@@ -474,7 +491,9 @@ class ResultsFragment : Fragment() {
                 meta["sec_person_link"]?.let { rows.add("SEC EDGAR Form-4 →" to it) }
                 meta["sec_fulltext_link"]?.let { rows.add("SEC EDGAR All Forms →" to it) }
                 meta["gleif_link"]?.let { rows.add("GLEIF Entity Search →" to it) }
+                meta["ca_sos_officer_link"]?.let { rows.add("CA SOS Officers →" to it) }
                 meta["sunbiz_officer_link"]?.let { rows.add("FL SunBiz Officers →" to it) }
+                meta["corpwiki_person_link"]?.let { rows.add("Corporations Wiki →" to it) }
                 meta["sam_link"]?.let { rows.add("SAM.gov →" to it) }
                 meta["news_link"]?.let { rows.add("Google News →" to it) }
                 meta["thatsthem_link"]?.let { rows.add("ThatsThem →" to it) }
@@ -523,6 +542,20 @@ class ResultsFragment : Fragment() {
                     }
                     meta["sam_uei_codes"]?.takeIf { it.isNotBlank() }?.let { rows.add("UEI Code(s)" to it) }
                     meta["sam_cage_codes"]?.takeIf { it.isNotBlank() }?.let { rows.add("CAGE Code(s)" to it) }
+                }
+                val caSosCount = meta["ca_sos_count"]?.toIntOrNull() ?: 0
+                if (caSosCount > 0) {
+                    rows.add("CA SOS Records" to "$caSosCount California entit${if (caSosCount != 1) "ies" else "y"}")
+                    meta["ca_sos_entities"]?.takeIf { it.isNotBlank() }?.let {
+                        it.lines().filter { l -> l.isNotBlank() }.take(10).forEach { e -> rows.add("CA Entity" to e) }
+                    }
+                    meta["ca_sos_types"]?.takeIf { it.isNotBlank() }?.let { rows.add("CA Entity Types" to it) }
+                }
+                meta["corpwiki_companies"]?.takeIf { it.isNotBlank() }?.let {
+                    rows.add("Corporations Wiki" to "${it.lines().size} record${if (it.lines().size != 1) "s" else ""}")
+                    it.lines().filter { l -> l.isNotBlank() }.take(8).forEach { co -> rows.add("Corp Wiki" to co) }
+                    meta["corpwiki_states"]?.takeIf { it.isNotBlank() }?.let { s -> rows.add("Incorporated States" to s) }
+                    meta["corpwiki_officers"]?.takeIf { it.isNotBlank() }?.let { o -> rows.add("Officers" to o) }
                 }
                 meta["gleif_company_entities"]?.takeIf { it.isNotBlank() }?.let {
                     rows.add("GLEIF (Global LEI)" to "${it.lines().size} international entit${if (it.lines().size != 1) "ies" else "y"}")

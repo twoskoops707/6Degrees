@@ -4,31 +4,30 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingVertical="7dp">
+    android:paddingVertical="8dp">
 
     <TextView
         android:id="@+id/tv_row_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#4D6B4D"
+        android:textColor="@color/text_secondary"
         android:textSize="10sp"
         android:textAllCaps="true"
-        android:letterSpacing="0.12"
-        android:fontFamily="monospace" />
+        android:letterSpacing="0.1" />
 
     <TextView
         android:id="@+id/tv_row_value"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#E6EDF3"
+        android:textColor="@color/text_primary"
         android:textSize="13sp"
         android:layout_marginTop="2dp"
         android:textIsSelectable="true"
-        android:fontFamily="monospace" />
+        android:lineSpacingExtra="2dp" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#12FF4120"
-        android:layout_marginTop="7dp" />
+        android:background="@color/border"
+        android:layout_marginTop="8dp" />
 </LinearLayout>

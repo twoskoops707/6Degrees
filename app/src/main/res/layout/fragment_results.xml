@@ -29,6 +29,11 @@
             android:textSize="13sp" />
     </com.google.android.material.appbar.MaterialToolbar>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border" />
+
     <ProgressBar
         android:id="@+id/loading_indicator"
         android:layout_width="wrap_content"
@@ -50,39 +55,38 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Threat Level Card -->
+            <!-- Risk Score Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/shady_score_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="4dp"
-                app:strokeColor="@color/accent_green"
+                app:cardCornerRadius="12dp"
+                app:strokeColor="@color/border"
                 app:strokeWidth="1dp"
                 app:cardElevation="0dp">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="14dp"
+                    android:padding="16dp"
                     android:gravity="center_vertical">
                     <LinearLayout
-                        android:layout_width="68dp"
-                        android:layout_height="68dp"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
                         android:gravity="center"
                         android:orientation="vertical"
                         android:background="@drawable/bg_score_circle"
-                        android:layout_marginEnd="14dp">
+                        android:layout_marginEnd="16dp">
                         <TextView
                             android:id="@+id/tv_score_number"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="—"
-                            android:textColor="@color/accent_green"
+                            android:textColor="@color/accent_blue"
                             android:textSize="20sp"
-                            android:textStyle="bold"
-                            android:fontFamily="monospace" />
+                            android:textStyle="bold" />
                     </LinearLayout>
                     <LinearLayout
                         android:layout_width="0dp"
@@ -92,29 +96,26 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="THREAT LEVEL"
-                            android:textColor="#4D6B4D"
+                            android:text="RISK SCORE"
+                            android:textColor="@color/text_secondary"
                             android:textSize="10sp"
-                            android:letterSpacing="0.15"
-                            android:textAllCaps="true"
-                            android:fontFamily="monospace" />
+                            android:letterSpacing="0.12"
+                            android:textAllCaps="true" />
                         <TextView
                             android:id="@+id/tv_score_verdict"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="ANALYZING..."
-                            android:textColor="@color/accent_green"
+                            android:text="Analyzing..."
+                            android:textColor="@color/text_primary"
                             android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="monospace"
                             android:layout_marginTop="3dp" />
                         <TextView
                             android:id="@+id/tv_score_detail"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="@color/text_secondary"
-                            android:textSize="11sp"
-                            android:fontFamily="monospace"
+                            android:textSize="12sp"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -125,8 +126,8 @@
                 android:id="@+id/tv_sources_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
                 android:layout_marginBottom="12dp" />
 
             <!-- Person Info Card -->
@@ -150,17 +151,17 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/person_info_title"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/accent_blue"
                         android:textSize="11sp"
                         android:textAllCaps="true"
-                        android:letterSpacing="0.08"
-                        android:layout_marginBottom="10dp" />
+                        android:letterSpacing="0.1"
+                        android:layout_marginBottom="12dp" />
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:orientation="horizontal" android:gravity="center_vertical">
                         <ImageView
                             android:id="@+id/profile_image"
-                            android:layout_width="56dp"
-                            android:layout_height="56dp"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
                             android:layout_marginEnd="14dp"
                             android:scaleType="centerCrop"
                             android:src="@drawable/ic_person_placeholder" />
@@ -174,17 +175,17 @@
                                 android:textColor="@color/text_secondary" android:textSize="13sp" android:layout_marginTop="2dp" />
                             <TextView android:id="@+id/location"
                                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:textColor="@color/text_dim" android:textSize="12sp" android:layout_marginTop="2dp" />
+                                android:textColor="@color/text_secondary" android:textSize="12sp" android:layout_marginTop="2dp" />
                         </LinearLayout>
                     </LinearLayout>
                     <TextView android:id="@+id/bio"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:textColor="@color/text_secondary" android:textSize="12sp"
+                        android:textColor="@color/text_secondary" android:textSize="13sp"
                         android:layout_marginTop="10dp" android:lineSpacingExtra="2dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Data / Results sections -->
+            <!-- Contact Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/contact_card"
                 android:layout_width="match_parent"
@@ -200,14 +201,14 @@
                     android:orientation="vertical" android:padding="16dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@string/contact_info_title"
-                        android:textColor="@color/text_secondary" android:textSize="11sp"
-                        android:textAllCaps="true" android:letterSpacing="0.08" android:layout_marginBottom="10dp" />
+                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textAllCaps="true" android:letterSpacing="0.1" android:layout_marginBottom="12dp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Email" android:textColor="@color/text_dim" android:textSize="11sp" android:textAllCaps="true" />
+                        android:text="Email" android:textColor="@color/text_secondary" android:textSize="11sp" android:textAllCaps="true" />
                     <TextView android:id="@+id/email" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:textColor="@color/accent_blue" android:textSize="14sp" android:autoLink="email" android:layout_marginBottom="8dp" />
+                        android:textColor="@color/accent_cyan" android:textSize="14sp" android:autoLink="email" android:layout_marginBottom="10dp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Phone" android:textColor="@color/text_dim" android:textSize="11sp" android:textAllCaps="true" />
+                        android:text="Phone" android:textColor="@color/text_secondary" android:textSize="11sp" android:textAllCaps="true" />
                     <TextView android:id="@+id/phone" android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:textColor="@color/text_primary" android:textSize="14sp" android:autoLink="phone" />
                 </LinearLayout>
@@ -229,8 +230,8 @@
                     android:orientation="vertical" android:padding="16dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@string/social_profiles_title"
-                        android:textColor="@color/text_secondary" android:textSize="11sp"
-                        android:textAllCaps="true" android:letterSpacing="0.08" android:layout_marginBottom="10dp" />
+                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textAllCaps="true" android:letterSpacing="0.1" android:layout_marginBottom="12dp" />
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/social_profiles_recycler"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -254,8 +255,8 @@
                     android:orientation="vertical" android:padding="16dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@string/employment_history_title"
-                        android:textColor="@color/text_secondary" android:textSize="11sp"
-                        android:textAllCaps="true" android:letterSpacing="0.08" android:layout_marginBottom="10dp" />
+                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textAllCaps="true" android:letterSpacing="0.1" android:layout_marginBottom="12dp" />
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/employment_recycler"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -263,7 +264,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Intel data card -->
+            <!-- Intelligence Report Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/data_card"
                 android:layout_width="match_parent"
@@ -271,7 +272,7 @@
                 android:layout_marginBottom="10dp"
                 android:visibility="gone"
                 app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="4dp"
+                app:cardCornerRadius="12dp"
                 app:strokeColor="@color/border"
                 app:strokeWidth="1dp"
                 app:cardElevation="0dp">
@@ -280,9 +281,8 @@
                     <TextView android:id="@+id/tv_data_section_label"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="INTELLIGENCE REPORT"
-                        android:textColor="#4D6B4D" android:textSize="10sp"
-                        android:textAllCaps="true" android:letterSpacing="0.15"
-                        android:fontFamily="monospace"
+                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textAllCaps="true" android:letterSpacing="0.1"
                         android:layout_marginBottom="12dp" />
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rv_data_rows"
@@ -305,11 +305,11 @@
         android:padding="32dp"
         android:visibility="visible">
         <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
             android:src="@drawable/ic_search"
             android:layout_marginBottom="20dp"
-            app:tint="@color/text_dim" />
+            app:tint="@color/text_secondary" />
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

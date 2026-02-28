@@ -21,7 +21,7 @@
             android:layout_marginBottom="12dp"
             app:cardBackgroundColor="@color/surface"
             app:cardCornerRadius="14dp"
-            app:strokeColor="@color/accent_green"
+            app:strokeColor="@color/accent_blue"
             app:strokeWidth="1dp"
             app:cardElevation="0dp">
 
@@ -55,7 +55,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         android:textSize="11sp"
-                        app:chipBackgroundColor="@color/accent_green_dim"
+                        app:chipBackgroundColor="@color/accent_blue_dim"
                         android:textColor="@color/white" />
                 </LinearLayout>
 
@@ -64,7 +64,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Initializing search…"
-                    android:textColor="@color/accent_green"
+                    android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:layout_marginBottom="10dp" />
 
@@ -74,7 +74,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="4dp"
                     android:indeterminate="true"
-                    android:indeterminateTint="@color/accent_green"
+                    android:indeterminateTint="@color/accent_blue"
                     android:progress="0" />
 
                 <LinearLayout
@@ -91,8 +91,7 @@
                         android:text="0 hits"
                         android:textColor="@color/success"
                         android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:fontFamily="monospace" />
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tv_checked_count"
@@ -100,8 +99,7 @@
                         android:layout_height="wrap_content"
                         android:text="0 / ? checked"
                         android:textColor="@color/text_dim"
-                        android:textSize="12sp"
-                        android:fontFamily="monospace" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <TextView
@@ -111,8 +109,7 @@
                     android:text=""
                     android:textColor="@color/text_dim"
                     android:textSize="11sp"
-                    android:fontFamily="monospace"
-                    android:layout_marginTop="4dp" />
+                                        android:layout_marginTop="4dp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -135,7 +132,7 @@
         android:layout_margin="16dp"
         android:text="View Full Report"
         android:textColor="@color/white"
-        app:backgroundTint="@color/success"
+        app:backgroundTint="@color/accent_blue"
         app:icon="@drawable/ic_check"
         app:iconTint="@color/white"
         android:visibility="gone" />
