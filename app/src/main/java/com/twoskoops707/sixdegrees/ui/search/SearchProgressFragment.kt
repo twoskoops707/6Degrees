@@ -53,11 +53,11 @@ class SearchProgressFragment : Fragment() {
 
         searchStartMs = System.currentTimeMillis()
         estimatedTotal = when (type) {
-            "person" -> 27
+            "person" -> 29
             "username" -> 80
             "ip", "domain" -> 20
             "email" -> 12
-            "company" -> 10
+            "company" -> 13
             "phone" -> 5
             else -> 10
         }

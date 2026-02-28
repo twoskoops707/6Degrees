@@ -1457,6 +1457,67 @@ class OsintRepository(context: Context) {
         }
 
         launch {
+            emit(SearchProgressEvent.Checking("Florida SunBiz Officers"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://services.sunbiz.org/Filings/OfficerSearch/ByOfficerName?searchTerm=$encoded")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .addHeader("Accept", "application/json, text/javascript, */*")
+                    .addHeader("Referer", "https://search.sunbiz.org/")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val filingNumbers = Regex("\"documentNumber\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                val entityNames = Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.filter { it.length > 2 }.distinct().take(5).toList()
+                val statuses = Regex("\"status\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                if (filingNumbers.isNotEmpty() || entityNames.isNotEmpty()) {
+                    val combined = entityNames.zip(statuses.ifEmpty { List(entityNames.size) { "Unknown" } }).take(5)
+                    meta["sunbiz_officer_count"] = filingNumbers.size.coerceAtLeast(entityNames.size).toString()
+                    meta["sunbiz_officer_companies"] = combined.joinToString("\n") { (n, s) -> "$n ($s)" }.ifBlank { entityNames.joinToString("\n") }
+                    meta["sunbiz_officer_link"] = "https://search.sunbiz.org/Inquiry/CorporationSearch/ByOfficerRegisteredAgentName?SearchType=OfficerName&searchTerm=$encoded"
+                    sources.add(DataSource("FL SunBiz Officers", meta["sunbiz_officer_link"], Date(), 0.85))
+                    emit(SearchProgressEvent.Found("Florida SunBiz Officers", "${filingNumbers.size} FL corporate filing${if (filingNumbers.size != 1) "s" else ""}: ${entityNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Florida SunBiz Officers"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("Florida SunBiz Officers", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("SAM.gov Entity Registry"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://api.sam.gov/entity-information/v3/entities?api_key=DEMO_KEY&legalBusinessName=$encoded&includeSections=entityRegistration&registrationStatus=A&resultCount=5")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .addHeader("Accept", "application/json")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val totalRecords = Regex("\"totalRecords\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val entityNames = Regex("\"legalBusinessName\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                val ueiCodes = Regex("\"ueiSAM\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                val states = Regex("\"stateOrProvinceOfIncorporation\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                if (totalRecords > 0 && entityNames.isNotEmpty()) {
+                    meta["sam_entity_count"] = totalRecords.toString()
+                    meta["sam_entities"] = entityNames.zip(states.ifEmpty { List(entityNames.size) { "" } }).take(5)
+                        .joinToString("\n") { (n, s) -> if (s.isNotBlank()) "$n ($s)" else n }
+                    if (ueiCodes.isNotEmpty()) meta["sam_uei_codes"] = ueiCodes.joinToString(", ")
+                    meta["sam_link"] = "https://sam.gov/search/?keywords=$encoded&index=ei&sort=relevance"
+                    sources.add(DataSource("SAM.gov", meta["sam_link"], Date(), 0.8))
+                    emit(SearchProgressEvent.Found("SAM.gov Entity Registry", "$totalRecords federal entit${if (totalRecords != 1) "ies" else "y"}: ${entityNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("SAM.gov Entity Registry"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("SAM.gov Entity Registry", e.message ?: ""))
+            }
+        }
+
+        launch {
             emit(SearchProgressEvent.Checking("Google News RSS"))
             try {
                 val encoded = URLEncoder.encode(query, "UTF-8")
@@ -1948,6 +2009,99 @@ class OsintRepository(context: Context) {
                 }
             } catch (e: Exception) {
                 emit(SearchProgressEvent.Failed("SEC EDGAR Companies", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("Florida SunBiz"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://search.sunbiz.org/Inquiry/CorporationSearch/GetListCorporations?SearchType=N&SearchTerm=$encoded&ListStartIndex=0")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .addHeader("Accept", "application/json, text/javascript, */*")
+                    .addHeader("X-Requested-With", "XMLHttpRequest")
+                    .addHeader("Referer", "https://search.sunbiz.org/")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val entityNames = Regex("\"strCorporationName\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                val docNums = Regex("\"strDocumentNumber\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                val statuses = Regex("\"strStatus\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                val dates = Regex("\"strFileDate\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                if (entityNames.isNotEmpty()) {
+                    meta["sunbiz_count"] = entityNames.size.toString()
+                    meta["sunbiz_entities"] = entityNames.indices.take(5).joinToString("\n") { i ->
+                        val n = entityNames.getOrNull(i) ?: ""; val s = statuses.getOrNull(i) ?: ""; val d = dates.getOrNull(i) ?: ""
+                        listOf(n, s, d).filter { it.isNotBlank() }.joinToString(" | ")
+                    }
+                    if (docNums.isNotEmpty()) meta["sunbiz_doc_numbers"] = docNums.joinToString(", ")
+                    meta["sunbiz_link"] = "https://search.sunbiz.org/Inquiry/CorporationSearch/ByName?SearchTerm=$encoded"
+                    sources.add(DataSource("FL SunBiz", meta["sunbiz_link"], Date(), 0.85))
+                    emit(SearchProgressEvent.Found("Florida SunBiz", "${entityNames.size} FL entit${if (entityNames.size != 1) "ies" else "y"}: ${entityNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Florida SunBiz"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("Florida SunBiz", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("SAM.gov Entity Registry"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://api.sam.gov/entity-information/v3/entities?api_key=DEMO_KEY&legalBusinessName=$encoded&includeSections=entityRegistration&registrationStatus=A&resultCount=5")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .addHeader("Accept", "application/json")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val totalRecords = Regex("\"totalRecords\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val entityNames = Regex("\"legalBusinessName\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                val ueiCodes = Regex("\"ueiSAM\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                val states = Regex("\"stateOrProvinceOfIncorporation\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                val cageNums = Regex("\"cageCode\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                if (totalRecords > 0 && entityNames.isNotEmpty()) {
+                    meta["sam_entity_count"] = totalRecords.toString()
+                    meta["sam_entities"] = entityNames.zip(states.ifEmpty { List(entityNames.size) { "" } }).take(5)
+                        .joinToString("\n") { (n, s) -> if (s.isNotBlank()) "$n ($s)" else n }
+                    if (ueiCodes.isNotEmpty()) meta["sam_uei_codes"] = ueiCodes.joinToString(", ")
+                    if (cageNums.isNotEmpty()) meta["sam_cage_codes"] = cageNums.joinToString(", ")
+                    meta["sam_link"] = "https://sam.gov/search/?keywords=$encoded&index=ei&sort=relevance"
+                    sources.add(DataSource("SAM.gov", meta["sam_link"], Date(), 0.8))
+                    emit(SearchProgressEvent.Found("SAM.gov Entity Registry", "$totalRecords federal entit${if (totalRecords != 1) "ies" else "y"}: ${entityNames.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("SAM.gov Entity Registry"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("SAM.gov Entity Registry", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("GLEIF Entity Search"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://api.gleif.org/api/v1/fuzzycompletions?field=entity.legalName&q=$encoded&page%5Bsize%5D=5")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .addHeader("Accept", "application/vnd.api+json")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val names = Regex("\"value\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                if (names.isNotEmpty()) {
+                    meta["gleif_company_entities"] = names.joinToString("\n")
+                    meta["gleif_company_link"] = "https://search.gleif.org/#/search?q=$encoded"
+                    sources.add(DataSource("GLEIF", meta["gleif_company_link"], Date(), 0.75))
+                    emit(SearchProgressEvent.Found("GLEIF Entity Search", "${names.size} legal entit${if (names.size != 1) "ies" else "y"}: ${names.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("GLEIF Entity Search"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("GLEIF Entity Search", e.message ?: ""))
             }
         }
 

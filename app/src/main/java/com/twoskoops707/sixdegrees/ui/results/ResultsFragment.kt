@@ -398,10 +398,25 @@ class ResultsFragment : Fragment() {
                 val secFulltextHits = meta["sec_fulltext_hits"]?.toIntOrNull() ?: 0
                 val fecCount = meta["fec_candidate_count"]?.toIntOrNull() ?: 0
                 val gleifEntities = meta["gleif_entities"]?.takeIf { it.isNotBlank() }
-                if (officerCount > 0 || secHits > 0 || secFulltextHits > 0 || fecCount > 0 || gleifEntities != null) {
+                val sunbizOfficerCount = meta["sunbiz_officer_count"]?.toIntOrNull() ?: 0
+                val samEntityCount = meta["sam_entity_count"]?.toIntOrNull() ?: 0
+                if (officerCount > 0 || secHits > 0 || secFulltextHits > 0 || fecCount > 0 || gleifEntities != null || sunbizOfficerCount > 0 || samEntityCount > 0) {
                     rows.add(sec("◈ CORPORATE & FINANCIAL"))
                     meta["officer_details"]?.takeIf { it.isNotBlank() }?.let {
                         it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { detail -> rows.add("Corporate Role" to detail) }
+                    }
+                    if (sunbizOfficerCount > 0) {
+                        rows.add("FL SOS Officer Records" to "$sunbizOfficerCount Florida corporate filing${if (sunbizOfficerCount != 1) "s" else ""}")
+                        meta["sunbiz_officer_companies"]?.takeIf { it.isNotBlank() }?.let {
+                            it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { co -> rows.add("FL Company" to co) }
+                        }
+                    }
+                    if (samEntityCount > 0) {
+                        rows.add("SAM.gov Federal Entities" to "$samEntityCount registered entit${if (samEntityCount != 1) "ies" else "y"}")
+                        meta["sam_entities"]?.takeIf { it.isNotBlank() }?.let {
+                            it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { e -> rows.add("Federal Entity" to e) }
+                        }
+                        meta["sam_uei_codes"]?.takeIf { it.isNotBlank() }?.let { rows.add("UEI Code(s)" to it) }
                     }
                     if (secHits > 0) {
                         rows.add("SEC EDGAR Form-4" to "$secHits filing${if (secHits != 1) "s" else ""} (insider trading)")
@@ -459,6 +474,8 @@ class ResultsFragment : Fragment() {
                 meta["sec_person_link"]?.let { rows.add("SEC EDGAR Form-4 →" to it) }
                 meta["sec_fulltext_link"]?.let { rows.add("SEC EDGAR All Forms →" to it) }
                 meta["gleif_link"]?.let { rows.add("GLEIF Entity Search →" to it) }
+                meta["sunbiz_officer_link"]?.let { rows.add("FL SunBiz Officers →" to it) }
+                meta["sam_link"]?.let { rows.add("SAM.gov →" to it) }
                 meta["news_link"]?.let { rows.add("Google News →" to it) }
                 meta["thatsthem_link"]?.let { rows.add("ThatsThem →" to it) }
                 meta["usphonebook_link"]?.let { rows.add("USPhoneBook →" to it) }
@@ -488,7 +505,28 @@ class ResultsFragment : Fragment() {
             "company" -> {
                 rows.add(sec("◈ COMPANY RECORDS"))
                 meta["companies"]?.takeIf { it.isNotBlank() }?.let {
-                    it.lines().filter { l -> l.isNotBlank() }.forEach { company -> rows.add("Company" to company) }
+                    it.lines().filter { l -> l.isNotBlank() }.forEach { company -> rows.add("OpenCorporates" to company) }
+                }
+                val sunbizCount = meta["sunbiz_count"]?.toIntOrNull() ?: 0
+                if (sunbizCount > 0) {
+                    rows.add("FL SOS Records" to "$sunbizCount Florida entit${if (sunbizCount != 1) "ies" else "y"}")
+                    meta["sunbiz_entities"]?.takeIf { it.isNotBlank() }?.let {
+                        it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { e -> rows.add("FL Entity" to e) }
+                    }
+                    meta["sunbiz_doc_numbers"]?.takeIf { it.isNotBlank() }?.let { rows.add("FL Doc #" to it) }
+                }
+                val samCount = meta["sam_entity_count"]?.toIntOrNull() ?: 0
+                if (samCount > 0) {
+                    rows.add("SAM.gov Federal Entities" to "$samCount registered entit${if (samCount != 1) "ies" else "y"}")
+                    meta["sam_entities"]?.takeIf { it.isNotBlank() }?.let {
+                        it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { e -> rows.add("Federal Entity" to e) }
+                    }
+                    meta["sam_uei_codes"]?.takeIf { it.isNotBlank() }?.let { rows.add("UEI Code(s)" to it) }
+                    meta["sam_cage_codes"]?.takeIf { it.isNotBlank() }?.let { rows.add("CAGE Code(s)" to it) }
+                }
+                meta["gleif_company_entities"]?.takeIf { it.isNotBlank() }?.let {
+                    rows.add("GLEIF (Global LEI)" to "${it.lines().size} international entit${if (it.lines().size != 1) "ies" else "y"}")
+                    it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { e -> rows.add("Global Entity" to e) }
                 }
 
                 val officerCount = meta["officer_count"]?.toIntOrNull() ?: 0
@@ -518,6 +556,9 @@ class ResultsFragment : Fragment() {
 
                 rows.add(sec("─── EXTERNAL SOURCES ───"))
                 meta["opencorporates_link"]?.let { rows.add("OpenCorporates →" to it) }
+                meta["sunbiz_link"]?.let { rows.add("FL SunBiz →" to it) }
+                meta["sam_link"]?.let { rows.add("SAM.gov →" to it) }
+                meta["gleif_company_link"]?.let { rows.add("GLEIF →" to it) }
                 meta["wikidata_company_link"]?.let { rows.add("WikiData →" to it) }
                 meta["sec_link"]?.let { rows.add("SEC EDGAR →" to it) }
                 meta["crunchbase_link"]?.let { rows.add("Crunchbase →" to it) }
