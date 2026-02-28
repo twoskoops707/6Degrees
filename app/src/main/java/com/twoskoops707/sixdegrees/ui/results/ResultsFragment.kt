@@ -163,6 +163,18 @@ class ResultsFragment : Fragment() {
         val otxPulses = meta["otx_pulse_count"]?.toIntOrNull() ?: 0
         if (otxPulses > 0) { score += minOf(otxPulses * 5, 25); flags.add("$otxPulses threat intel hit${if (otxPulses != 1) "s" else ""}") }
 
+        val ipqueryRisk = meta["ipquery_risk_score"]?.toIntOrNull() ?: 0
+        if (ipqueryRisk > 30) { score += minOf(ipqueryRisk / 2, 30); flags.add("risk score $ipqueryRisk (IPQuery)") }
+
+        val ipqsIpFraud = meta["ipqs_ip_fraud_score"]?.toIntOrNull() ?: 0
+        if (ipqsIpFraud > 30) { score += minOf(ipqsIpFraud / 2, 30); flags.add("IP fraud score $ipqsIpFraud") }
+
+        val ipqsEmailFraud = meta["ipqs_email_fraud_score"]?.toIntOrNull() ?: 0
+        if (ipqsEmailFraud > 50) { score += minOf(ipqsEmailFraud / 3, 20); flags.add("email fraud score $ipqsEmailFraud") }
+
+        val ipqsPhoneFraud = meta["ipqs_phone_fraud_score"]?.toIntOrNull() ?: 0
+        if (ipqsPhoneFraud > 50) { score += minOf(ipqsPhoneFraud / 3, 20); flags.add("phone fraud score $ipqsPhoneFraud") }
+
         score = minOf(score, 100)
 
         val (color, verdict) = when {
@@ -224,6 +236,30 @@ class ResultsFragment : Fragment() {
                     meta["gravatar_accounts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Linked Accounts" to it) }
                 }
 
+                val hasFullContact = !meta["fullcontact_name"].isNullOrBlank() || !meta["fullcontact_location"].isNullOrBlank()
+                if (hasFullContact) {
+                    rows.add(sec("◈ IDENTITY ENRICHMENT"))
+                    meta["fullcontact_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Full Name" to it) }
+                    meta["fullcontact_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
+                    meta["fullcontact_title"]?.takeIf { it.isNotBlank() }?.let { rows.add("Job Title" to it) }
+                    meta["fullcontact_org"]?.takeIf { it.isNotBlank() }?.let { rows.add("Employer" to it) }
+                    meta["fullcontact_age_range"]?.takeIf { it.isNotBlank() }?.let { rows.add("Age Range" to it) }
+                    meta["fullcontact_gender"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gender" to it) }
+                    meta["fullcontact_twitter"]?.takeIf { it.isNotBlank() }?.let { rows.add("Twitter" to "@$it") }
+                    meta["fullcontact_linkedin"]?.takeIf { it.isNotBlank() }?.let { rows.add("LinkedIn" to it) }
+                }
+
+                val ipqsLeaked = meta["ipqs_email_leaked"]?.toBooleanStrictOrNull() ?: false
+                val ipqsFraud = meta["ipqs_email_fraud_score"]?.toIntOrNull() ?: -1
+                if (ipqsLeaked || ipqsFraud >= 0) {
+                    rows.add(sec("◈ IPQS INTEL"))
+                    if (ipqsFraud >= 0) rows.add("IPQS Fraud Score" to "$ipqsFraud / 100${if (ipqsFraud > 70) " ⚠ HIGH RISK" else ""}")
+                    if (ipqsLeaked) rows.add("⚠ Dark Web Leaked" to "Email found in dark web leaks")
+                    meta["ipqs_email_suspect"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Suspect" to "Flagged as suspect by IPQS") }
+                    meta["ipqs_email_disposable"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("Disposable" to "Temporary email service") }
+                    meta["ipqs_email_domain"]?.takeIf { it.isNotBlank() }?.let { rows.add("Email Domain" to it) }
+                }
+
                 val hasThreat = !meta["threatcrowd_email_domains"].isNullOrBlank() || !meta["hackertarget_email_hosts"].isNullOrBlank()
                 if (hasThreat) {
                     rows.add(sec("◈ THREAT INTEL"))
@@ -252,6 +288,11 @@ class ResultsFragment : Fragment() {
                 meta["ipinfo_org"]?.takeIf { it.isNotBlank() }?.let { rows.add("Org (ipinfo.io)" to it) }
                 meta["ipinfo_hostname"]?.takeIf { it.isNotBlank() }?.let { rows.add("Hostname" to it) }
                 meta["ipinfo_postal"]?.takeIf { it.isNotBlank() }?.let { rows.add("Postal Code" to it) }
+                meta["ipquery_isp"]?.takeIf { it.isNotBlank() }?.let { rows.add("ISP (IPQuery)" to it) }
+                meta["ipquery_asn"]?.takeIf { it.isNotBlank() }?.let { rows.add("ASN (IPQuery)" to it) }
+                meta["ipquery_city"]?.takeIf { it.isNotBlank() }?.let { rows.add("City (IPQuery)" to it) }
+                meta["ipquery_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (IPQuery)" to it) }
+                meta["ipqs_ip_isp"]?.takeIf { it.isNotBlank() }?.let { rows.add("ISP (IPQS)" to it) }
                 meta["robtex_as_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("AS Name" to it) }
                 meta["robtex_bgp_route"]?.takeIf { it.isNotBlank() }?.let { rows.add("BGP Route" to it) }
                 meta["robtex_passive_dns"]?.takeIf { it.isNotBlank() }?.let { rows.add("Passive DNS" to it) }
@@ -266,12 +307,29 @@ class ResultsFragment : Fragment() {
                     meta["shodan_vulns"]?.takeIf { it.isNotBlank() }?.let { rows.add("⚠ CVEs" to it) }
                 }
 
+                val ipqueryRisk = meta["ipquery_risk_score"]?.toIntOrNull() ?: -1
+                val ipqsIpFraud = meta["ipqs_ip_fraud_score"]?.toIntOrNull() ?: -1
                 val hasThreats = !meta["greynoise_classification"].isNullOrBlank()
                     || (meta["abuseipdb_score"]?.toIntOrNull() ?: 0) > 0
                     || (meta["urlhaus_urls_count"]?.toIntOrNull() ?: 0) > 0
                     || (meta["otx_pulse_count"]?.toIntOrNull() ?: 0) > 0
+                    || ipqueryRisk > 0 || ipqsIpFraud > 0
                 if (hasThreats) {
                     rows.add(sec("◈ THREAT INTEL"))
+                    if (ipqueryRisk >= 0) {
+                        rows.add("IPQuery Risk Score" to "$ipqueryRisk / 100${if (ipqueryRisk > 70) " ⚠ HIGH" else if (ipqueryRisk > 30) " ⚠ Moderate" else " — Low"}")
+                        meta["ipquery_vpn"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ VPN Detected" to "IP is a known VPN exit node") }
+                        meta["ipquery_proxy"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Proxy Detected" to "IP is a known proxy") }
+                        meta["ipquery_tor"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Tor Exit Node" to "IP is a Tor exit node") }
+                        meta["ipquery_datacenter"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("Datacenter IP" to "Hosted in a datacenter") }
+                    }
+                    if (ipqsIpFraud >= 0) {
+                        rows.add("IPQS Fraud Score" to "$ipqsIpFraud / 100${if (ipqsIpFraud > 70) " ⚠ HIGH" else ""}")
+                        meta["ipqs_ip_vpn"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ VPN (IPQS)" to "Known VPN") }
+                        meta["ipqs_ip_proxy"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Proxy (IPQS)" to "Known proxy") }
+                        meta["ipqs_ip_tor"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Tor (IPQS)" to "Tor node") }
+                        meta["ipqs_ip_bot"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Bot (IPQS)" to "Bot activity detected") }
+                    }
                     meta["greynoise_noise"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Internet Scanner" to "This IP actively scans the internet") }
                     meta["greynoise_riot"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("Common Service (RIOT)" to "Benign mass-scanner") }
                     meta["greynoise_classification"]?.takeIf { it.isNotBlank() }?.let { rows.add("GreyNoise" to it.replaceFirstChar { c -> c.uppercase() }) }
@@ -289,8 +347,10 @@ class ResultsFragment : Fragment() {
                     meta["threatcrowd_resolutions"]?.takeIf { it.isNotBlank() }?.let { rows.add("IP History" to it) }
                 }
 
+                val domainsdbTotal = meta["domainsdb_total"]?.toIntOrNull() ?: 0
                 val hasDomain = !meta["rdap_registrar"].isNullOrBlank() || !meta["whois"].isNullOrBlank()
                     || !meta["subdomains"].isNullOrBlank() || (meta["cert_count"]?.toIntOrNull() ?: 0) > 0
+                    || domainsdbTotal > 0
                 if (hasDomain) {
                     rows.add(sec("◈ DOMAIN INTEL"))
                     meta["rdap_registrar"]?.takeIf { it.isNotBlank() }?.let { rows.add("Registrar" to it) }
@@ -302,6 +362,10 @@ class ResultsFragment : Fragment() {
                     meta["wayback_count"]?.let { c -> if ((c.toIntOrNull() ?: 0) > 0) rows.add("Wayback Snapshots" to c) }
                     meta["wayback_first"]?.takeIf { it.isNotBlank() }?.let { rows.add("First Archived" to it) }
                     meta["wayback_last"]?.takeIf { it.isNotBlank() }?.let { rows.add("Last Archived" to it) }
+                    if (domainsdbTotal > 0) {
+                        rows.add("DomainsDB Registrations" to "$domainsdbTotal domain${if (domainsdbTotal != 1) "s" else ""} found")
+                        meta["domainsdb_domains"]?.takeIf { it.isNotBlank() }?.let { rows.add("Registered Domains" to it) }
+                    }
                     meta["hackertarget_hostsearch"]?.takeIf { it.isNotBlank() }?.let {
                         it.lines().filter { l -> l.isNotBlank() }.take(10).forEach { line -> rows.add("Host" to line) }
                     }
@@ -605,8 +669,24 @@ class ResultsFragment : Fragment() {
                 meta["numverify_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type" to it) }
                 meta["numverify_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
                 meta["numverify_intl"]?.takeIf { it.isNotBlank() }?.let { rows.add("Intl Format" to it) }
+                meta["veriphone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier (Veriphone)" to it) }
+                meta["veriphone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (Veriphone)" to it) }
+                meta["veriphone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (Veriphone)" to it) }
+                meta["veriphone_international"]?.takeIf { it.isNotBlank() }?.let { rows.add("Intl Format (Veriphone)" to it) }
 
-                rows.add(sec("─── EXTERNAL LOOKUP ───"))
+                val ipqsFraud = meta["ipqs_phone_fraud_score"]?.toIntOrNull() ?: -1
+                if (ipqsFraud >= 0) {
+                    rows.add(sec("◈ FRAUD / RISK SCORING"))
+                    rows.add("IPQS Fraud Score" to "$ipqsFraud / 100${if (ipqsFraud > 70) " ⚠ HIGH RISK" else if (ipqsFraud > 40) " ⚠ Moderate" else " — Low"}")
+                    meta["ipqs_phone_risky"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Risky" to "Phone flagged as risky by IPQS") }
+                    meta["ipqs_phone_spam"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Spammer" to "Associated with spam/scam activity") }
+                    meta["ipqs_phone_voip"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("VoIP" to "Voice over IP number") }
+                    meta["ipqs_phone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (IPQS)" to it) }
+                    meta["ipqs_phone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier (IPQS)" to it) }
+                    meta["ipqs_phone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (IPQS)" to it) }
+                }
+
+                rows.add(sec("─── EXTERNAL LOOKUP (tap to open) ───"))
                 meta["truecaller_link"]?.let { rows.add("TrueCaller →" to it) }
                 meta["whitepages_link"]?.let { rows.add("WhitePages →" to it) }
                 meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }

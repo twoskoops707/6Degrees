@@ -63,6 +63,18 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("bing_search", "") ?: ""
         set(v) { prefs.edit().putString("bing_search", v).apply() }
 
+    var veriphoneKey: String
+        get() = prefs.getString("veriphone", "") ?: ""
+        set(v) { prefs.edit().putString("veriphone", v).apply() }
+
+    var ipqsKey: String
+        get() = prefs.getString("ipqs", "") ?: ""
+        set(v) { prefs.edit().putString("ipqs", v).apply() }
+
+    var fullcontactKey: String
+        get() = prefs.getString("fullcontact", "") ?: ""
+        set(v) { prefs.edit().putString("fullcontact", v).apply() }
+
     fun hasAnyKey(): Boolean = true
 
     fun activeKeyCount(): Int = listOf(

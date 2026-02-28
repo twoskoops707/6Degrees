@@ -138,7 +138,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="EmailRep.io · IP-API · HackerTarget · crt.sh · Wayback Machine · CourtListener · AlienVault OTX · JailBase · OpenCorporates · Gravatar · Username checker (40+ sites)"
+                        android:text="EmailRep.io · IP-API · IPQuery.io · HackerTarget · crt.sh · Wayback Machine · CourtListener · AlienVault OTX · JailBase · OpenCorporates · Gravatar · Username checker (60+ sites)"
                         android:textColor="@color/success"
                         android:textSize="12sp"
                         android:lineSpacingExtra="3dp" />
@@ -394,6 +394,92 @@
                         app:hintTextColor="@color/text_secondary">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/bing_search_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="@color/text_primary" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/border" android:layout_marginVertical="14dp" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Veriphone (Phone)"
+                            android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free · 1,000/month" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/veriphone_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Veriphone API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/veriphone_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="@color/text_primary" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/border" android:layout_marginVertical="14dp" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="IPQualityScore"
+                            android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free · 1,000/month" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="One key — phone fraud, email validation, IP reputation, dark web leak check"
+                        android:textColor="@color/text_secondary" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/ipqs_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="IPQualityScore API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/ipqs_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="@color/text_primary" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/border" android:layout_marginVertical="14dp" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="FullContact"
+                            android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free · 100/month" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Email → name, location, employer, social profiles"
+                        android:textColor="@color/text_secondary" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/fullcontact_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="FullContact API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/fullcontact_api_key_input"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:inputType="textPassword" android:textColor="@color/text_primary" />
                     </com.google.android.material.textfield.TextInputLayout>

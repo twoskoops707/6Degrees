@@ -103,6 +103,9 @@ class ApiSettingsFragment : Fragment() {
                 "google_cse_key", "google_cse_api_key" -> { apiKeyManager.googleCseApiKey = v; count++ }
                 "google_cse_id" -> { apiKeyManager.googleCseId = v; count++ }
                 "bing_search", "bing" -> { apiKeyManager.bingSearchKey = v; count++ }
+                "veriphone" -> { apiKeyManager.veriphoneKey = v; count++ }
+                "ipqs", "ipqualityscore" -> { apiKeyManager.ipqsKey = v; count++ }
+                "fullcontact" -> { apiKeyManager.fullcontactKey = v; count++ }
             }
         }
         if (count > 0) {
@@ -130,7 +133,10 @@ class ApiSettingsFragment : Fragment() {
             "urlscan" to apiKeyManager.urlScanKey,
             "google_cse_key" to apiKeyManager.googleCseApiKey,
             "google_cse_id" to apiKeyManager.googleCseId,
-            "bing_search" to apiKeyManager.bingSearchKey
+            "bing_search" to apiKeyManager.bingSearchKey,
+            "veriphone" to apiKeyManager.veriphoneKey,
+            "ipqs" to apiKeyManager.ipqsKey,
+            "fullcontact" to apiKeyManager.fullcontactKey
         ).forEach { (name, key) ->
             sb.appendLine("$name,$key")
         }
@@ -252,6 +258,9 @@ class ApiSettingsFragment : Fragment() {
         binding.googleCseApiKeyInput.setText(apiKeyManager.googleCseApiKey)
         binding.googleCseIdInput.setText(apiKeyManager.googleCseId)
         binding.bingSearchApiKeyInput.setText(apiKeyManager.bingSearchKey)
+        binding.veriphoneApiKeyInput.setText(apiKeyManager.veriphoneKey)
+        binding.ipqsApiKeyInput.setText(apiKeyManager.ipqsKey)
+        binding.fullcontactApiKeyInput.setText(apiKeyManager.fullcontactKey)
     }
 
     private fun saveApiKeys() {
@@ -264,6 +273,9 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.googleCseApiKey = binding.googleCseApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.googleCseId = binding.googleCseIdInput.text?.toString()?.trim() ?: ""
         apiKeyManager.bingSearchKey = binding.bingSearchApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.veriphoneKey = binding.veriphoneApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.ipqsKey = binding.ipqsApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.fullcontactKey = binding.fullcontactApiKeyInput.text?.toString()?.trim() ?: ""
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()
     }
 

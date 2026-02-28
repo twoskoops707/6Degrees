@@ -397,6 +397,104 @@ class OsintRepository(context: Context) {
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("EVA Email Validator", e.message ?: ""))
         }
+
+        val ipqsEmailKey = apiKeyManager.ipqsKey
+        if (ipqsEmailKey.isNotBlank()) {
+            emit(SearchProgressEvent.Checking("IPQS Email"))
+            try {
+                val encoded = URLEncoder.encode(email, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://ipqualityscore.com/api/json/email/$ipqsEmailKey/$encoded?strictness=1&abuse_strictness=1")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val valid = Regex("\"valid\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)
+                if (valid != null) {
+                    apiKeyManager.recordUsage("ipqs")
+                    val fraudScore = Regex("\"fraud_score\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val disposable = Regex("\"disposable\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                    val leaked = Regex("\"leaked\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                    val suspect = Regex("\"suspect\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                    val smtp = Regex("\"smtp_score\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+                    val domain = Regex("\"domain\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    meta["ipqs_email_fraud_score"] = fraudScore.toString()
+                    if (disposable) meta["ipqs_email_disposable"] = "true"
+                    if (leaked) meta["ipqs_email_leaked"] = "true"
+                    if (suspect) meta["ipqs_email_suspect"] = "true"
+                    if (smtp >= 0) meta["ipqs_email_smtp"] = smtp.toString()
+                    if (domain.isNotBlank()) meta["ipqs_email_domain"] = domain
+                    sources.add(DataSource("IPQS Email", null, Date(), 0.88))
+                    emit(SearchProgressEvent.Found("IPQS Email",
+                        buildString {
+                            append("Fraud score: $fraudScore/100")
+                            if (leaked) append(" · ⚠ LEAKED")
+                            if (suspect) append(" · ⚠ Suspect")
+                            if (disposable) append(" · Disposable")
+                        }
+                    ))
+                } else {
+                    emit(SearchProgressEvent.NotFound("IPQS Email"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("IPQS Email", e.message ?: ""))
+            }
+        }
+
+        val fcKey = apiKeyManager.fullcontactKey
+        if (fcKey.isNotBlank()) {
+            emit(SearchProgressEvent.Checking("FullContact"))
+            try {
+                val reqBody = okhttp3.RequestBody.create(
+                    okhttp3.MediaType.parse("application/json"),
+                    "{\"email\":\"$email\"}"
+                )
+                val req = Request.Builder()
+                    .url("https://api.fullcontact.com/v3/person.enrich")
+                    .post(reqBody)
+                    .addHeader("Authorization", "Bearer $fcKey")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""
+                val code = resp.code; resp.close()
+                if (code in 200..299 && body.isNotBlank() && !body.contains("\"status\":404")) {
+                    apiKeyManager.recordUsage("fullcontact")
+                    val fullName = Regex("\"fullName\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val location = Regex("\"location\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val title = Regex("\"title\"\\s*:\\s*\"([^\"]+)\"").findAll(body).firstOrNull()?.groupValues?.get(1) ?: ""
+                    val org = Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").findAll(body).drop(1).firstOrNull()?.groupValues?.get(1) ?: ""
+                    val twitter = Regex("\"twitter\\.com/([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val linkedin = Regex("\"linkedin\\.com/in/([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val ageRange = Regex("\"ageRange\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val gender = Regex("\"gender\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    if (fullName.isNotBlank() || location.isNotBlank()) {
+                        if (fullName.isNotBlank()) meta["fullcontact_name"] = fullName
+                        if (location.isNotBlank()) meta["fullcontact_location"] = location
+                        if (title.isNotBlank()) meta["fullcontact_title"] = title
+                        if (org.isNotBlank()) meta["fullcontact_org"] = org
+                        if (twitter.isNotBlank()) meta["fullcontact_twitter"] = twitter
+                        if (linkedin.isNotBlank()) meta["fullcontact_linkedin"] = linkedin
+                        if (ageRange.isNotBlank()) meta["fullcontact_age_range"] = ageRange
+                        if (gender.isNotBlank()) meta["fullcontact_gender"] = gender
+                        sources.add(DataSource("FullContact", null, Date(), 0.85))
+                        emit(SearchProgressEvent.Found("FullContact",
+                            buildString {
+                                if (fullName.isNotBlank()) append(fullName)
+                                if (location.isNotBlank()) { if (isNotEmpty()) append(" · "); append(location) }
+                                if (title.isNotBlank()) { if (isNotEmpty()) append(" · "); append(title) }
+                            }.ifBlank { "Identity enrichment found" }
+                        ))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("FullContact"))
+                    }
+                } else {
+                    emit(SearchProgressEvent.NotFound("FullContact"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("FullContact", e.message ?: ""))
+            }
+        }
     }
 
     private suspend fun phoneSearch(
@@ -427,6 +525,91 @@ class OsintRepository(context: Context) {
                 }
             } catch (e: Exception) {
                 emit(SearchProgressEvent.Failed("Numverify", e.message ?: ""))
+            }
+        }
+
+        val veriphoneKey = apiKeyManager.veriphoneKey
+        if (veriphoneKey.isNotBlank()) {
+            emit(SearchProgressEvent.Checking("Veriphone"))
+            try {
+                val encoded = URLEncoder.encode(phone, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://api.veriphone.io/v2/verify?phone=$encoded&key=$veriphoneKey")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val valid = Regex("\"phone_valid\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)
+                val country = Regex("\"country\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                val carrier = Regex("\"carrier\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                val lineType = Regex("\"phone_type\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                val intl = Regex("\"international_number\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: phone
+                if (valid != null) {
+                    apiKeyManager.recordUsage("veriphone")
+                    meta["veriphone_valid"] = valid
+                    meta["veriphone_country"] = country
+                    meta["veriphone_carrier"] = carrier
+                    meta["veriphone_line_type"] = lineType
+                    meta["veriphone_international"] = intl
+                    sources.add(DataSource("Veriphone", null, Date(), 0.85))
+                    emit(SearchProgressEvent.Found("Veriphone",
+                        buildString {
+                            if (country.isNotBlank()) append(country)
+                            if (carrier.isNotBlank()) { if (isNotEmpty()) append(" · "); append(carrier) }
+                            if (lineType.isNotBlank()) { if (isNotEmpty()) append(" · "); append(lineType) }
+                        }.ifBlank { "Valid: $valid" }
+                    ))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Veriphone"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("Veriphone", e.message ?: ""))
+            }
+        }
+
+        val ipqsKey = apiKeyManager.ipqsKey
+        if (ipqsKey.isNotBlank()) {
+            emit(SearchProgressEvent.Checking("IPQS Phone"))
+            try {
+                val encoded = URLEncoder.encode(phone, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://ipqualityscore.com/api/json/phone/$ipqsKey/$encoded?strictness=1")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val valid = Regex("\"valid\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)
+                if (valid != null) {
+                    apiKeyManager.recordUsage("ipqs")
+                    val fraudScore = Regex("\"fraud_score\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val lineType = Regex("\"line_type\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val carrier = Regex("\"carrier\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val country = Regex("\"country\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val isVoip = Regex("\"VOIP\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                    val isRisky = Regex("\"risky\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                    val isSpam = Regex("\"spammer\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                    meta["ipqs_phone_fraud_score"] = fraudScore.toString()
+                    meta["ipqs_phone_line_type"] = lineType
+                    meta["ipqs_phone_carrier"] = carrier
+                    meta["ipqs_phone_country"] = country
+                    if (isVoip) meta["ipqs_phone_voip"] = "true"
+                    if (isRisky) meta["ipqs_phone_risky"] = "true"
+                    if (isSpam) meta["ipqs_phone_spam"] = "true"
+                    sources.add(DataSource("IPQS Phone", null, Date(), 0.88))
+                    emit(SearchProgressEvent.Found("IPQS Phone",
+                        buildString {
+                            append("Fraud score: $fraudScore/100")
+                            if (isRisky) append(" · ⚠ RISKY")
+                            if (isSpam) append(" · ⚠ SPAMMER")
+                            if (isVoip) append(" · VoIP")
+                            if (carrier.isNotBlank()) { append(" · "); append(carrier) }
+                        }
+                    ))
+                } else {
+                    emit(SearchProgressEvent.NotFound("IPQS Phone"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("IPQS Phone", e.message ?: ""))
             }
         }
 
@@ -1071,6 +1254,100 @@ class OsintRepository(context: Context) {
             }
 
             launch {
+                emit(SearchProgressEvent.Checking("IPQuery.io"))
+                try {
+                    val req = Request.Builder()
+                        .url("https://api.ipquery.io/$query")
+                        .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                        .build()
+                    val resp = fastHttpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    val riskScore = Regex("\"risk_score\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+                    if (riskScore >= 0) {
+                        val isVpn = Regex("\"is_vpn\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                        val isProxy = Regex("\"is_proxy\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                        val isTor = Regex("\"is_tor\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                        val isDataCenter = Regex("\"is_datacenter\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                        val isp = Regex("\"isp\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                        val asn = Regex("\"asn\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                        val city = Regex("\"city\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                        val country = Regex("\"country\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                        meta["ipquery_risk_score"] = riskScore.toString()
+                        if (isVpn) meta["ipquery_vpn"] = "true"
+                        if (isProxy) meta["ipquery_proxy"] = "true"
+                        if (isTor) meta["ipquery_tor"] = "true"
+                        if (isDataCenter) meta["ipquery_datacenter"] = "true"
+                        if (isp.isNotBlank()) meta["ipquery_isp"] = isp
+                        if (asn.isNotBlank()) meta["ipquery_asn"] = asn
+                        if (city.isNotBlank()) meta["ipquery_city"] = city
+                        if (country.isNotBlank()) meta["ipquery_country"] = country
+                        sources.add(DataSource("IPQuery.io", null, Date(), 0.85))
+                        emit(SearchProgressEvent.Found("IPQuery.io",
+                            buildString {
+                                append("Risk: $riskScore/100")
+                                if (isVpn) append(" · VPN")
+                                if (isProxy) append(" · Proxy")
+                                if (isTor) append(" · Tor")
+                                if (isDataCenter) append(" · Datacenter")
+                                if (isp.isNotBlank()) { append(" · "); append(isp) }
+                            }
+                        ))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("IPQuery.io"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("IPQuery.io", e.message ?: ""))
+                }
+            }
+
+            val ipqsIpKey = apiKeyManager.ipqsKey
+            if (ipqsIpKey.isNotBlank()) {
+                launch {
+                    emit(SearchProgressEvent.Checking("IPQS IP Reputation"))
+                    try {
+                        val req = Request.Builder()
+                            .url("https://ipqualityscore.com/api/json/ip/$ipqsIpKey/$query?strictness=1&allow_public_access_points=true")
+                            .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                            .build()
+                        val resp = httpClient.newCall(req).execute()
+                        val body = resp.body?.string() ?: ""; resp.close()
+                        val success = Regex("\"success\"\\s*:\\s*true").containsMatchIn(body)
+                        if (success) {
+                            apiKeyManager.recordUsage("ipqs")
+                            val fraudScore = Regex("\"fraud_score\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                            val isVpn = Regex("\"vpn\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                            val isProxy = Regex("\"proxy\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                            val isTor = Regex("\"tor\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                            val isBot = Regex("\"bot_status\"\\s*:\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: false
+                            val isp = Regex("\"ISP\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                            val country = Regex("\"country_code\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                            meta["ipqs_ip_fraud_score"] = fraudScore.toString()
+                            if (isVpn) meta["ipqs_ip_vpn"] = "true"
+                            if (isProxy) meta["ipqs_ip_proxy"] = "true"
+                            if (isTor) meta["ipqs_ip_tor"] = "true"
+                            if (isBot) meta["ipqs_ip_bot"] = "true"
+                            if (isp.isNotBlank()) meta["ipqs_ip_isp"] = isp
+                            if (country.isNotBlank()) meta["ipqs_ip_country"] = country
+                            sources.add(DataSource("IPQS IP", null, Date(), 0.88))
+                            emit(SearchProgressEvent.Found("IPQS IP Reputation",
+                                buildString {
+                                    append("Fraud: $fraudScore/100")
+                                    if (isVpn) append(" · VPN")
+                                    if (isProxy) append(" · Proxy")
+                                    if (isTor) append(" · Tor")
+                                    if (isBot) append(" · Bot")
+                                }
+                            ))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("IPQS IP Reputation"))
+                        }
+                    } catch (e: Exception) {
+                        emit(SearchProgressEvent.Failed("IPQS IP Reputation", e.message ?: ""))
+                    }
+                }
+            }
+
+            launch {
                 emit(SearchProgressEvent.Checking("Maltiverse"))
                 try {
                     val req = Request.Builder()
@@ -1114,6 +1391,35 @@ class OsintRepository(context: Context) {
         }
 
         if (!isIp) {
+            launch {
+                emit(SearchProgressEvent.Checking("DomainsDB"))
+                try {
+                    val domainPart = query.substringBefore(".")
+                    val tldPart = if (query.contains(".")) query.substringAfter(".") else "com"
+                    val req = Request.Builder()
+                        .url("https://api.domainsdb.info/v1/domains/search?domain=$domainPart&zone=$tldPart&limit=10")
+                        .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                        .build()
+                    val resp = fastHttpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    val total = Regex("\"total\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val domains = Regex("\"domain\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(10).toList()
+                    val createDates = Regex("\"create_date\"\\s*:\\s*\"([^\"T]+)").findAll(body).map { it.groupValues[1].trim() }.take(10).toList()
+                    if (total > 0 && domains.isNotEmpty()) {
+                        meta["domainsdb_total"] = total.toString()
+                        meta["domainsdb_domains"] = domains.zip(createDates.ifEmpty { List(domains.size) { "" } })
+                            .take(8).joinToString("\n") { (d, c) -> if (c.isNotBlank()) "$d (created $c)" else d }
+                        sources.add(DataSource("DomainsDB", null, Date(), 0.7))
+                        emit(SearchProgressEvent.Found("DomainsDB",
+                            "$total related domain${if (total != 1) "s" else ""} registered: ${domains.take(3).joinToString(", ")}"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("DomainsDB"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("DomainsDB", e.message ?: ""))
+                }
+            }
+
             launch {
                 emit(SearchProgressEvent.Checking("RDAP"))
                 try {
