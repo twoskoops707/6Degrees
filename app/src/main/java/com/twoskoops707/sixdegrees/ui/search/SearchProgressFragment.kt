@@ -29,6 +29,8 @@ class SearchProgressFragment : Fragment() {
     private var hitCount = 0
     private var checkedCount = 0
     private var completedReportId: String? = null
+    private var searchStartMs = 0L
+    private var estimatedTotal = 0
 
     data class SourceRow(
         val source: String,
@@ -49,8 +51,19 @@ class SearchProgressFragment : Fragment() {
         val query = arguments?.getString("query") ?: ""
         val type = arguments?.getString("type") ?: "person"
 
+        searchStartMs = System.currentTimeMillis()
+        estimatedTotal = when (type) {
+            "person" -> 27
+            "username" -> 80
+            "ip", "domain" -> 20
+            "email" -> 12
+            "company" -> 10
+            "phone" -> 5
+            else -> 10
+        }
+
         binding.tvSearchQuery.text = query
-        binding.chipSearchType.text = type.replaceFirstChar { it.uppercase() }
+        binding.chipSearchType.text = type.uppercase()
 
         viewModel = ViewModelProvider(
             this,
@@ -138,7 +151,9 @@ class SearchProgressFragment : Fragment() {
             is SearchProgressEvent.Complete -> {
                 completedReportId = event.reportId
                 binding.progressBar.visibility = View.GONE
-                binding.tvStatus.text = "Search complete — ${event.hitCount} hit${if (event.hitCount != 1) "s" else ""} found"
+                val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
+                binding.tvStatus.text = "COMPLETE — ${event.hitCount} hit${if (event.hitCount != 1) "s" else ""} · ${elapsedSec}s"
+                binding.tvEta.text = ""
                 binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
                 binding.fabViewReport.apply {
                     visibility = View.VISIBLE
@@ -150,8 +165,16 @@ class SearchProgressFragment : Fragment() {
     }
 
     private fun updateCounts() {
-        binding.tvFoundCount.text = "$hitCount hit${if (hitCount != 1) "s" else ""}"
-        binding.tvCheckedCount.text = "$checkedCount sources checked"
+        binding.tvFoundCount.text = "$hitCount HIT${if (hitCount != 1) "S" else ""}"
+        val total = maxOf(estimatedTotal, sourceRows.size)
+        binding.tvCheckedCount.text = "$checkedCount / $total checked"
+        val elapsedMs = System.currentTimeMillis() - searchStartMs
+        if (checkedCount > 0 && checkedCount < total) {
+            val avgMsPerSource = elapsedMs / checkedCount
+            val remaining = total - checkedCount
+            val etaSec = (avgMsPerSource * remaining / 1000).toInt().coerceAtMost(300)
+            binding.tvEta.text = "ETA ~${etaSec}s remaining"
+        }
     }
 
     override fun onDestroyView() {

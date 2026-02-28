@@ -395,15 +395,26 @@ class ResultsFragment : Fragment() {
 
                 val officerCount = meta["officer_matches"]?.toIntOrNull() ?: 0
                 val secHits = meta["sec_person_hits"]?.toIntOrNull() ?: 0
+                val secFulltextHits = meta["sec_fulltext_hits"]?.toIntOrNull() ?: 0
                 val fecCount = meta["fec_candidate_count"]?.toIntOrNull() ?: 0
-                if (officerCount > 0 || secHits > 0 || fecCount > 0) {
+                val gleifEntities = meta["gleif_entities"]?.takeIf { it.isNotBlank() }
+                if (officerCount > 0 || secHits > 0 || secFulltextHits > 0 || fecCount > 0 || gleifEntities != null) {
                     rows.add(sec("◈ CORPORATE & FINANCIAL"))
                     meta["officer_details"]?.takeIf { it.isNotBlank() }?.let {
                         it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { detail -> rows.add("Corporate Role" to detail) }
                     }
                     if (secHits > 0) {
-                        rows.add("SEC EDGAR Filings" to "$secHits Form-4 filing${if (secHits != 1) "s" else ""}")
+                        rows.add("SEC EDGAR Form-4" to "$secHits filing${if (secHits != 1) "s" else ""} (insider trading)")
                         meta["sec_person_entities"]?.takeIf { it.isNotBlank() }?.let { rows.add("Affiliated Companies" to it) }
+                    }
+                    if (secFulltextHits > 0) {
+                        rows.add("SEC EDGAR All Forms" to "$secFulltextHits filing${if (secFulltextHits != 1) "s" else ""} across all form types")
+                        meta["sec_fulltext_forms"]?.takeIf { it.isNotBlank() }?.let { rows.add("Form Types" to it) }
+                        meta["sec_fulltext_entities"]?.takeIf { it.isNotBlank() }?.let { rows.add("SEC Entities" to it) }
+                    }
+                    if (gleifEntities != null) {
+                        rows.add("GLEIF Legal Entities" to "${gleifEntities.lines().size} found")
+                        gleifEntities.lines().filter { it.isNotBlank() }.take(5).forEach { e -> rows.add("Legal Entity" to e) }
                     }
                     meta["fec_candidates"]?.takeIf { it.isNotBlank() }?.let {
                         it.lines().filter { l -> l.isNotBlank() }.forEach { r -> rows.add("FEC Campaign" to r) }
@@ -445,7 +456,9 @@ class ResultsFragment : Fragment() {
                 meta["wikipedia_link"]?.let { rows.add("Wikipedia →" to it) }
                 meta["wikidata_link"]?.let { rows.add("WikiData →" to it) }
                 meta["fec_link"]?.let { rows.add("FEC Campaign Finance →" to it) }
-                meta["sec_person_link"]?.let { rows.add("SEC EDGAR →" to it) }
+                meta["sec_person_link"]?.let { rows.add("SEC EDGAR Form-4 →" to it) }
+                meta["sec_fulltext_link"]?.let { rows.add("SEC EDGAR All Forms →" to it) }
+                meta["gleif_link"]?.let { rows.add("GLEIF Entity Search →" to it) }
                 meta["news_link"]?.let { rows.add("Google News →" to it) }
                 meta["thatsthem_link"]?.let { rows.add("ThatsThem →" to it) }
                 meta["usphonebook_link"]?.let { rows.add("USPhoneBook →" to it) }

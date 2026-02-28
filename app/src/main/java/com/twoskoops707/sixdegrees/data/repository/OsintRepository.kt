@@ -1404,6 +1404,59 @@ class OsintRepository(context: Context) {
         }
 
         launch {
+            emit(SearchProgressEvent.Checking("GLEIF Entity Search"))
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://api.gleif.org/api/v1/fuzzycompletions?field=entity.legalName&q=$encoded&page%5Bsize%5D=5")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .addHeader("Accept", "application/vnd.api+json")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val names = Regex("\"value\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+                if (names.isNotEmpty()) {
+                    meta["gleif_entities"] = names.joinToString("\n")
+                    meta["gleif_link"] = "https://search.gleif.org/#/search?q=$encoded"
+                    sources.add(DataSource("GLEIF", meta["gleif_link"], Date(), 0.75))
+                    emit(SearchProgressEvent.Found("GLEIF Entity Search", "${names.size} legal entit${if (names.size != 1) "ies" else "y"}: ${names.firstOrNull() ?: ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("GLEIF Entity Search"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("GLEIF Entity Search", e.message ?: ""))
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("SEC EDGAR Full-Text"))
+            try {
+                val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
+                val req = Request.Builder()
+                    .url("https://efts.sec.gov/LATEST/search-index?q=$encoded&dateRange=custom&startdt=2000-01-01")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val hits = Regex("\"total\":\\s*\\{[^}]*\"value\":(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val formTypes = Regex("\"form_type\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                val entities = Regex("\"entity_name\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                if (hits > 0) {
+                    meta["sec_fulltext_hits"] = hits.toString()
+                    if (formTypes.isNotEmpty()) meta["sec_fulltext_forms"] = formTypes.joinToString(", ")
+                    if (entities.isNotEmpty()) meta["sec_fulltext_entities"] = entities.joinToString(", ")
+                    meta["sec_fulltext_link"] = "https://efts.sec.gov/LATEST/search-index?q=$encoded"
+                    sources.add(DataSource("SEC EDGAR All Forms", meta["sec_fulltext_link"], Date(), 0.7))
+                    emit(SearchProgressEvent.Found("SEC EDGAR Full-Text", "$hits filing${if (hits != 1) "s" else ""} across ${formTypes.size} form type${if (formTypes.size != 1) "s" else ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("SEC EDGAR Full-Text"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("SEC EDGAR Full-Text", e.message ?: ""))
+            }
+        }
+
+        launch {
             emit(SearchProgressEvent.Checking("Google News RSS"))
             try {
                 val encoded = URLEncoder.encode(query, "UTF-8")

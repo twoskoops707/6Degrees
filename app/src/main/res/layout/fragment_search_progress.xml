@@ -91,16 +91,28 @@
                         android:text="0 hits"
                         android:textColor="@color/success"
                         android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:fontFamily="monospace" />
 
                     <TextView
                         android:id="@+id/tv_checked_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="0 sources checked"
+                        android:text="0 / ? checked"
                         android:textColor="@color/text_dim"
-                        android:textSize="13sp" />
+                        android:textSize="12sp"
+                        android:fontFamily="monospace" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_eta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:layout_marginTop="4dp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
