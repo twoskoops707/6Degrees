@@ -1,5 +1,6 @@
 package com.twoskoops707.sixdegrees.ui.settings
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -7,7 +8,9 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.progressindicator.LinearProgressIndicator
@@ -16,6 +19,9 @@ import com.twoskoops707.sixdegrees.data.ApiKeyManager
 import com.twoskoops707.sixdegrees.data.UserProfileManager
 import com.twoskoops707.sixdegrees.databinding.FragmentApiSettingsBinding
 import com.twoskoops707.sixdegrees.ui.profile.QuickApplyBottomSheet
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
 
 class ApiSettingsFragment : Fragment() {
 
@@ -23,6 +29,31 @@ class ApiSettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var apiKeyManager: ApiKeyManager
     private lateinit var profileManager: UserProfileManager
+
+    private val csvImportLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val stream = requireContext().contentResolver.openInputStream(uri) ?: return@registerForActivityResult
+            val reader = BufferedReader(InputStreamReader(stream))
+            val keyMap = mutableMapOf<String, String>()
+            reader.forEachLine { line ->
+                val trimmed = line.trim()
+                if (trimmed.isBlank() || trimmed.startsWith("#")) return@forEachLine
+                val parts = trimmed.split(",", limit = 2)
+                if (parts.size == 2) {
+                    val key = parts[0].trim().lowercase()
+                    val value = parts[1].trim().removeSurrounding("\"")
+                    if (value.isNotBlank() && key != "api_name") keyMap[key] = value
+                }
+            }
+            reader.close()
+            applyImportedKeys(keyMap)
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentApiSettingsBinding.inflate(inflater, container, false)
@@ -40,10 +71,88 @@ class ApiSettingsFragment : Fragment() {
             findNavController().navigate(R.id.action_api_settings_to_profile)
         }
 
+        binding.btnImportCsv.setOnClickListener {
+            csvImportLauncher.launch("*/*")
+        }
+
+        binding.btnExportCsv.setOnClickListener {
+            exportApiKeysAsCsv()
+        }
+
         loadSavedApiKeys()
         binding.saveApiKeysButton.setOnClickListener { saveApiKeys() }
         setupQuickApplyButtons()
         populateUsageCounters()
+    }
+
+    private fun applyImportedKeys(keyMap: Map<String, String>) {
+        var count = 0
+        keyMap.forEach { (k, v) ->
+            when (k) {
+                "hibp", "haveibeenpwned" -> { apiKeyManager.hibpKey = v; count++ }
+                "hunter", "hunter.io" -> { apiKeyManager.hunterKey = v; count++ }
+                "pdl", "people_data_labs" -> { apiKeyManager.pdlKey = v; count++ }
+                "numverify" -> { apiKeyManager.numverifyKey = v; count++ }
+                "shodan" -> { apiKeyManager.shodanKey = v; count++ }
+                "pipl" -> { apiKeyManager.piplKey = v; count++ }
+                "clearbit" -> { apiKeyManager.clearbitKey = v; count++ }
+                "builtwith" -> { apiKeyManager.builtWithKey = v; count++ }
+                "virustotal" -> { apiKeyManager.virusTotalKey = v; count++ }
+                "abuseipdb" -> { apiKeyManager.abuseIpDbKey = v; count++ }
+                "urlscan" -> { apiKeyManager.urlScanKey = v; count++ }
+                "google_cse_key", "google_cse_api_key" -> { apiKeyManager.googleCseApiKey = v; count++ }
+                "google_cse_id" -> { apiKeyManager.googleCseId = v; count++ }
+                "bing_search", "bing" -> { apiKeyManager.bingSearchKey = v; count++ }
+            }
+        }
+        if (count > 0) {
+            loadSavedApiKeys()
+            Toast.makeText(requireContext(), "$count API key${if (count != 1) "s" else ""} imported", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(requireContext(), "No matching keys found in file", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun exportApiKeysAsCsv() {
+        val sb = StringBuilder()
+        sb.appendLine("api_name,api_key")
+        mapOf(
+            "hibp" to apiKeyManager.hibpKey,
+            "hunter" to apiKeyManager.hunterKey,
+            "pdl" to apiKeyManager.pdlKey,
+            "numverify" to apiKeyManager.numverifyKey,
+            "shodan" to apiKeyManager.shodanKey,
+            "pipl" to apiKeyManager.piplKey,
+            "clearbit" to apiKeyManager.clearbitKey,
+            "builtwith" to apiKeyManager.builtWithKey,
+            "virustotal" to apiKeyManager.virusTotalKey,
+            "abuseipdb" to apiKeyManager.abuseIpDbKey,
+            "urlscan" to apiKeyManager.urlScanKey,
+            "google_cse_key" to apiKeyManager.googleCseApiKey,
+            "google_cse_id" to apiKeyManager.googleCseId,
+            "bing_search" to apiKeyManager.bingSearchKey
+        ).forEach { (name, key) ->
+            sb.appendLine("$name,$key")
+        }
+
+        try {
+            val file = File(requireContext().cacheDir, "sixdegrees_api_keys.csv")
+            file.writeText(sb.toString())
+            val uri = FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.provider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "6Degrees API Keys")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, "Export API Keys"))
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun setupQuickApplyButtons() {
