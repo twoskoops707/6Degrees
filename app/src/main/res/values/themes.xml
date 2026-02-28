@@ -19,6 +19,27 @@
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav</item>
     </style>
 
+    <style name="Theme.SixDegrees.Cyan" parent="Theme.SixDegrees">
+        <item name="colorPrimary">@color/accent_cyan</item>
+        <item name="colorPrimaryVariant">@color/accent_cyan_dim</item>
+        <item name="colorSecondary">@color/accent_blue</item>
+        <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Green" parent="Theme.SixDegrees">
+        <item name="colorPrimary">@color/accent_green</item>
+        <item name="colorPrimaryVariant">@color/accent_green_dim</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Purple" parent="Theme.SixDegrees">
+        <item name="colorPrimary">@color/accent_violet</item>
+        <item name="colorPrimaryVariant">@color/accent_violet_dim</item>
+        <item name="colorSecondary">@color/accent_blue</item>
+        <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
+    </style>
+
     <style name="Theme.SixDegrees.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
