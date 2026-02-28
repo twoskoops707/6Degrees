@@ -232,7 +232,7 @@ class ResultsFragment : Fragment() {
                     meta["hackertarget_email_hosts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associated Hosts" to it) }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES ───"))
+                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
                 meta["gravatar_url"]?.let { rows.add("Gravatar Profile →" to it) }
             }
             "ip", "domain" -> {
@@ -309,7 +309,7 @@ class ResultsFragment : Fragment() {
                     meta["whois"]?.takeIf { it.isNotBlank() }?.let { rows.add("WHOIS" to it.take(600)) }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES ───"))
+                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
                 meta["shodan_link"]?.let { rows.add("Shodan →" to it) }
                 meta["urlscan_link"]?.let { rows.add("URLScan →" to it) }
                 meta["virustotal_link"]?.let { rows.add("VirusTotal →" to it) }
@@ -482,7 +482,7 @@ class ResultsFragment : Fragment() {
                     }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES ───"))
+                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
                 meta["courtlistener_link"]?.let { rows.add("CourtListener →" to it) }
                 meta["judyrecords_link"]?.let { rows.add("JudyRecords →" to it) }
                 meta["wikipedia_link"]?.let { rows.add("Wikipedia →" to it) }
@@ -510,15 +510,15 @@ class ResultsFragment : Fragment() {
 
                 val dorkCount = meta["shadowdork_count"]?.toIntOrNull() ?: 0
                 if (dorkCount > 0) {
-                    rows.add(sec("─── SHADOWDORK QUERIES ($dorkCount) ───"))
-                    meta["dork_identity"]?.let { rows.add("Identity →" to it) }
-                    meta["dork_relatives"]?.let { rows.add("Relatives →" to it) }
-                    meta["dork_address"]?.let { rows.add("Address →" to it) }
-                    meta["dork_criminal"]?.let { rows.add("Criminal →" to it) }
-                    meta["dork_property"]?.let { rows.add("Property →" to it) }
-                    meta["dork_vehicle"]?.let { rows.add("Vehicle →" to it) }
-                    meta["dork_social"]?.let { rows.add("Social →" to it) }
-                    meta["dork_leaks"]?.let { rows.add("⚠ Data Leaks →" to it) }
+                    rows.add(sec("◈ DEEP SEARCH QUERIES (tap to run)"))
+                    meta["dork_identity"]?.let { rows.add("Identity" to it) }
+                    meta["dork_relatives"]?.let { rows.add("Relatives" to it) }
+                    meta["dork_address"]?.let { rows.add("Address Records" to it) }
+                    meta["dork_criminal"]?.let { rows.add("Criminal Records" to it) }
+                    meta["dork_property"]?.let { rows.add("Property Records" to it) }
+                    meta["dork_vehicle"]?.let { rows.add("Vehicle Records" to it) }
+                    meta["dork_social"]?.let { rows.add("Social Media" to it) }
+                    meta["dork_leaks"]?.let { rows.add("⚠ Leaked Data (Pastebin)" to it) }
                 }
             }
             "company" -> {
@@ -587,7 +587,7 @@ class ResultsFragment : Fragment() {
                     }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES ───"))
+                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
                 meta["opencorporates_link"]?.let { rows.add("OpenCorporates →" to it) }
                 meta["sunbiz_link"]?.let { rows.add("FL SunBiz →" to it) }
                 meta["sam_link"]?.let { rows.add("SAM.gov →" to it) }
@@ -734,23 +734,32 @@ class ResultsFragment : Fragment() {
             val (label, value) = rows[position]
             val isSectionHeader = value.isEmpty() && (label.startsWith("◈") || label.startsWith("─"))
             val isLink = value.startsWith("http://") || value.startsWith("https://")
+            val isSearchUrl = isLink && (value.contains("google.com/search") || value.contains("bing.com/search"))
 
             if (isSectionHeader) {
                 holder.b.tvRowLabel.text = ""
                 holder.b.tvRowValue.text = label
-                holder.b.tvRowValue.setTextColor(0xFF00FF41.toInt())
-                holder.b.tvRowValue.textSize = 10f
-                holder.b.tvRowValue.letterSpacing = 0.12f
-                holder.b.tvRowValue.typeface = android.graphics.Typeface.MONOSPACE
+                val headerColor = if (label.startsWith("◈"))
+                    ContextCompat.getColor(holder.b.root.context, R.color.accent_blue)
+                else
+                    ContextCompat.getColor(holder.b.root.context, R.color.text_secondary)
+                holder.b.tvRowValue.setTextColor(headerColor)
+                holder.b.tvRowValue.textSize = if (label.startsWith("◈")) 11f else 10f
+                holder.b.tvRowValue.letterSpacing = 0.1f
+                holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT_BOLD
                 holder.b.root.setOnClickListener(null)
             } else {
                 holder.b.tvRowLabel.text = label
-                holder.b.tvRowValue.text = value
+                val displayValue = if (isSearchUrl) {
+                    try { Uri.parse(value).getQueryParameter("q") ?: value }
+                    catch (_: Exception) { value }
+                } else value
+                holder.b.tvRowValue.text = displayValue
                 holder.b.tvRowValue.textSize = 13f
                 holder.b.tvRowValue.letterSpacing = 0f
-                holder.b.tvRowValue.typeface = android.graphics.Typeface.MONOSPACE
+                holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT
                 if (isLink) {
-                    holder.b.tvRowValue.setTextColor(0xFFFFB300.toInt())
+                    holder.b.tvRowValue.setTextColor(ContextCompat.getColor(holder.b.root.context, R.color.accent_cyan))
                     holder.b.root.setOnClickListener {
                         it.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value)))
                     }
