@@ -13,8 +13,8 @@
     <string name="menu_settings">Settings</string>
     <string name="menu_wizard">Search Wizard</string>
 
-    <string name="search_title">Investigate</string>
-    <string name="search_subtitle">Search by person, email, phone, username, IP, company, or image</string>
+    <string name="search_title">SixDegrees</string>
+    <string name="search_subtitle">Open-source intelligence platform · 74+ platforms · 30+ free sources</string>
     <string name="search_hint">Name, email, phone, username, IP, domain…</string>
     <string name="search_person">Person</string>
     <string name="search_email">Email</string>
@@ -28,7 +28,7 @@
     <string name="no_recent_searches">No recent searches</string>
     <string name="open_wizard">Search Wizard</string>
 
-    <string name="results_title">Report</string>
+    <string name="results_title">INTELLIGENCE REPORT</string>
     <string name="person_info_title">Identity</string>
     <string name="contact_info_title">Contact</string>
     <string name="social_profiles_title">Social Profiles</string>

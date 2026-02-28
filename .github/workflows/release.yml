@@ -3,8 +3,8 @@ name: Build SixDegrees
 on:
   push:
     branches: [main]
-  tags:
-    - 'v*'
+    tags:
+      - 'v*'
 
 jobs:
   build:

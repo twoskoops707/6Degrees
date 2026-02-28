@@ -1,38 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="background_primary">#0A0F1E</color>
-    <color name="background_secondary">#141927</color>
-    <color name="surface">#1E2535</color>
-    <color name="surface_elevated">#252D42</color>
-    <color name="border">#2A3350</color>
+    <color name="background_primary">#070A0E</color>
+    <color name="background_secondary">#0D1117</color>
+    <color name="surface">#0F1318</color>
+    <color name="surface_elevated">#161B22</color>
+    <color name="border">#1E2530</color>
 
-    <color name="accent_blue">#3B82F6</color>
-    <color name="accent_blue_dim">#1D4ED8</color>
-    <color name="accent_violet">#8B5CF6</color>
-    <color name="accent_violet_dim">#6D28D9</color>
+    <color name="accent_green">#00FF41</color>
+    <color name="accent_green_dim">#003311</color>
+    <color name="accent_amber">#FFB300</color>
+    <color name="accent_amber_dim">#3D2B00</color>
+    <color name="accent_cyan">#00D4FF</color>
+    <color name="accent_cyan_dim">#003540</color>
+    <color name="accent_red">#FF3B30</color>
+    <color name="accent_red_dim">#4A0000</color>
 
-    <color name="text_primary">#F1F5F9</color>
-    <color name="text_secondary">#94A3B8</color>
-    <color name="text_dim">#475569</color>
+    <color name="accent_blue">#00FF41</color>
+    <color name="accent_blue_dim">#003311</color>
+    <color name="accent_violet">#B28DFF</color>
+    <color name="accent_violet_dim">#2D1B69</color>
+    <color name="accent_primary">#00FF41</color>
+    <color name="accent_secondary">#FFB300</color>
 
-    <color name="success">#10B981</color>
-    <color name="success_dim">#064E3B</color>
-    <color name="warning">#F59E0B</color>
-    <color name="warning_dim">#78350F</color>
-    <color name="error">#EF4444</color>
-    <color name="error_dim">#7F1D1D</color>
+    <color name="text_primary">#E6EDF3</color>
+    <color name="text_secondary">#8B949E</color>
+    <color name="text_dim">#3D444D</color>
 
-    <color name="score_green">#10B981</color>
-    <color name="score_yellow">#F59E0B</color>
-    <color name="score_red">#EF4444</color>
+    <color name="success">#00FF41</color>
+    <color name="success_dim">#003311</color>
+    <color name="warning">#FFB300</color>
+    <color name="warning_dim">#3D2B00</color>
+    <color name="error">#FF3B30</color>
+    <color name="error_dim">#4A0000</color>
+
+    <color name="score_green">#00FF41</color>
+    <color name="score_yellow">#FFB300</color>
+    <color name="score_red">#FF3B30</color>
 
     <color name="white">#FFFFFFFF</color>
     <color name="black">#FF000000</color>
     <color name="transparent">#00000000</color>
-    <color name="scrim">#CC0A0F1E</color>
-
-    <color name="stroke_color">#2A3350</color>
-    <color name="chip_background_color">#1E2535</color>
-    <color name="accent_primary">#3B82F6</color>
-    <color name="accent_secondary">#8B5CF6</color>
+    <color name="scrim">#CC070A0E</color>
+    <color name="stroke_color">#1E2530</color>
+    <color name="chip_background_color">#0F1318</color>
 </resources>
