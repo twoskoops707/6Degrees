@@ -525,16 +525,47 @@ class ResultsFragment : Fragment() {
             "person" -> {
                 rows.add(sec("SUBJECT PROFILE"))
                 val bestAge = meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
-                    ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
+                    ?: meta["uspb_age"] ?: meta["tps_age"] ?: meta["demographics_age_estimate"]
                 bestAge?.takeIf { it.isNotBlank() }?.let { rows.add("Age" to it) }
                 meta["ftn_birth_year"]?.takeIf { it.isNotBlank() }?.let { rows.add("Birth Year" to "~${it}") }
                 meta["demographics_gender"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gender" to it) }
                 meta["demographics_nationality"]?.takeIf { it.isNotBlank() }?.let { rows.add("Nationality Est." to it) }
 
+                val tpsNames = meta["tps_names"]?.takeIf { it.isNotBlank() }
+                val ddgAbstract = meta["ddg_abstract"]?.takeIf { it.isNotBlank() }
+                if (tpsNames != null || ddgAbstract != null) {
+                    rows.add(sec("ADDITIONAL IDENTITY DATA"))
+                    tpsNames?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { rows.add("Matched Name" to it) }
+                    meta["tps_age"]?.takeIf { it.isNotBlank() }?.let { if (bestAge == null) rows.add("Age" to it) }
+                    meta["tps_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { rows.add("Location" to it) }
+                    meta["tps_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { rows.add("Associated Name" to it) }
+                    meta["tps_link"]?.takeIf { it.isNotBlank() }?.let { rows.add("TruePeopleSearch →" to it) }
+                    ddgAbstract?.let {
+                        rows.add(sec("PUBLIC PROFILE (DuckDuckGo)"))
+                        it.lines().filter { l -> l.isNotBlank() }.forEach { line -> rows.add("Profile" to line.trim()) }
+                        meta["ddg_source"]?.takeIf { it.isNotBlank() }?.let { s -> rows.add("Source" to s) }
+                        meta["ddg_url"]?.takeIf { it.isNotBlank() }?.let { u -> rows.add("Source Link →" to u) }
+                        meta["ddg_infobox"]?.takeIf { it.isNotBlank() }?.let { info ->
+                            info.lines().filter { l -> l.isNotBlank() }.forEach { fact -> rows.add("Fact" to fact) }
+                        }
+                    }
+                }
+
+                val sanctionsTotal = meta["opensanctions_total"]?.toIntOrNull() ?: 0
+                if (sanctionsTotal > 0) {
+                    rows.add(sec("⚠ SANCTIONS / PEP DATABASE"))
+                    rows.add("⚠ OpenSanctions Hits" to "$sanctionsTotal match${if (sanctionsTotal != 1) "es" else ""} in global sanctions/PEP data")
+                    meta["opensanctions_names"]?.takeIf { it.isNotBlank() }?.let { rows.add("Matched Names" to it) }
+                    meta["opensanctions_datasets"]?.takeIf { it.isNotBlank() }?.let { rows.add("Datasets" to it) }
+                    meta["opensanctions_countries"]?.takeIf { it.isNotBlank() }?.let { rows.add("Countries" to it) }
+                    meta["opensanctions_link"]?.takeIf { it.isNotBlank() }?.let { rows.add("OpenSanctions →" to it) }
+                }
+
                 val allPhones = linkedSetOf<String>()
                 meta["tt_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
                 meta["uspb_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
                 meta["fps_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                meta["tps_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
                 if (allPhones.isNotEmpty()) {
                     rows.add(sec("CONTACT INTEL"))
                     allPhones.forEach { rows.add("Phone" to it) }
@@ -545,6 +576,7 @@ class ResultsFragment : Fragment() {
                 meta["tt_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
                 meta["fps_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
                 meta["ftn_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                meta["tps_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
                 if (allAddresses.isNotEmpty()) {
                     rows.add(sec("ALL KNOWN ADDRESSES"))
                     allAddresses.forEach { rows.add("Address" to it) }
@@ -554,6 +586,7 @@ class ResultsFragment : Fragment() {
                 meta["tt_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 meta["fps_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 meta["ftn_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
+                meta["tps_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 meta["corpwiki_associates"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 if (allRelatives.isNotEmpty()) {
                     rows.add(sec("ALL KNOWN RELATIVES / ASSOCIATES"))
@@ -834,13 +867,49 @@ class ResultsFragment : Fragment() {
 
             }
             "image" -> {
+                rows.add(sec("◈ FACE RECOGNITION SEARCH"))
+                rows.add("Instructions" to "Tap any link below → open in browser → upload your photo → get instant results")
+                meta["face_facecheck_id_link"]?.let { rows.add("⟶ FaceCheck.id →" to it) }
+                meta["face_pimeyes_link"]?.let { rows.add("⟶ PimEyes (Best Face Match) →" to it) }
+                meta["face_search4faces_link"]?.let { rows.add("⟶ Search4Faces (Social Media) →" to it) }
+                meta["face_lenso_ai_link"]?.let { rows.add("⟶ Lenso.ai (AI Face Search) →" to it) }
                 rows.add(sec("◈ REVERSE IMAGE SEARCH"))
-                rows.add("Note" to "Reverse image search requires uploading the image to each engine. Tap to open.")
-                meta["tineye_link"]?.let { rows.add("TinEye →" to it) }
-                meta["google_lens_link"]?.let { rows.add("Google Lens →" to it) }
-                meta["yandex_images_link"]?.let { rows.add("Yandex Images →" to it) }
-                meta["facecheck_id_link"]?.let { rows.add("FaceCheck.id →" to it) }
-                meta["bing_visual_search_link"]?.let { rows.add("Bing Visual →" to it) }
+                rows.add("Note" to "Upload image to find where it appears on the web")
+                meta["rev_google_lens_link"]?.let { rows.add("⟶ Google Lens →" to it) }
+                meta["rev_yandex_images_link"]?.let { rows.add("⟶ Yandex Images (Best for faces) →" to it) }
+                meta["rev_tineye_link"]?.let { rows.add("⟶ TinEye →" to it) }
+                meta["rev_bing_visual_search_link"]?.let { rows.add("⟶ Bing Visual →" to it) }
+                meta["rev_karmadecay_link"]?.let { rows.add("⟶ KarmaDecay (Reddit) →" to it) }
+            }
+            "comprehensive" -> {
+                val name = meta["comp_name"]?.takeIf { it.isNotBlank() }
+                val phone = meta["comp_phone"]?.takeIf { it.isNotBlank() }
+                val email = meta["comp_email"]?.takeIf { it.isNotBlank() }
+                val ip = meta["comp_ip"]?.takeIf { it.isNotBlank() }
+                rows.add(sec("◈ COMPREHENSIVE INTEL PROFILE"))
+                if (name != null) rows.add("Name Searched" to name)
+                if (phone != null) rows.add("Phone Searched" to phone)
+                if (email != null) rows.add("Email Searched" to email)
+                if (ip != null) rows.add("IP Searched" to ip)
+                rows.addAll(buildDataRows(meta, "person"))
+                val hibpCount = meta["hibp_breach_count"]?.toIntOrNull() ?: 0
+                val proxyCount = meta["proxynova_breach_count"]?.toIntOrNull() ?: 0
+                val leakCount = meta["leakcheck_found"]?.toIntOrNull() ?: 0
+                if (email != null && (hibpCount > 0 || proxyCount > 0 || leakCount > 0)) {
+                    rows.add(sec("◈ EMAIL / BREACH INTEL"))
+                    rows.addAll(buildDataRows(meta, "email"))
+                }
+                val numverifyValid = meta["numverify_valid"]?.toBooleanStrictOrNull() ?: false
+                val ipqsPhone = meta["ipqs_phone_fraud_score"]?.toIntOrNull() ?: -1
+                if (phone != null && (numverifyValid || ipqsPhone >= 0)) {
+                    rows.add(sec("◈ PHONE / SIGNAL INTEL"))
+                    rows.addAll(buildDataRows(meta, "phone"))
+                }
+                val ipCity = meta["ip_city"]?.takeIf { it.isNotBlank() }
+                if (ip != null && ipCity != null) {
+                    rows.add(sec("◈ IP / NETWORK INTEL"))
+                    rows.addAll(buildDataRows(meta, "ip"))
+                }
             }
         }
         return rows
@@ -853,6 +922,7 @@ class ResultsFragment : Fragment() {
         "company" -> "▶  CORPORATE INTELLIGENCE"
         "phone" -> "▶  SIGNAL INTELLIGENCE"
         "image" -> "▶  VISUAL INTELLIGENCE"
+        "comprehensive" -> "▶  COMPREHENSIVE DOSSIER"
         else -> "▶  SUBJECT DOSSIER"
     }
 

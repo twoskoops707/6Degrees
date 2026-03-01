@@ -158,6 +158,7 @@ class OsintRepository(context: Context) {
             "ip", "domain" -> ipDomainSearch(query, metadata, sources, emit)
             "company" -> companySearch(query, metadata, sources, emit)
             "image" -> imageSearch(query, metadata, sources, emit)
+            "comprehensive" -> comprehensiveSearch(query, metadata, sources, emit)
             else -> personSearch(query, metadata, sources, emit)
         }
 
@@ -2000,6 +2001,9 @@ class OsintRepository(context: Context) {
         launch { voterRecordsScrape(query, meta, sources, emit) }
         launch { ahmiaSearch(query, meta, sources, emit) }
         launch { zoAiSynthesis(query, meta, sources, emit) }
+        launch { truePeopleSearchScrape(query, meta, sources, emit) }
+        launch { openSanctionsScrape(query, meta, sources, emit) }
+        launch { duckDuckGoPersonSearch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -2131,6 +2135,170 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("Zo AI Background Check", e.message ?: ""))
+        }
+    }
+
+    private suspend fun comprehensiveSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) = coroutineScope {
+        val fields = query.split("|").mapNotNull {
+            val parts = it.split("=", limit = 2)
+            if (parts.size == 2) parts[0].trim() to parts[1].trim() else null
+        }.toMap()
+        val name = fields["name"] ?: ""
+        val phone = fields["phone"] ?: ""
+        val email = fields["email"] ?: ""
+        val ip = fields["ip"] ?: ""
+        val location = fields["location"] ?: ""
+        meta["comprehensive_query"] = query
+        meta["comp_name"] = name
+        meta["comp_phone"] = phone
+        meta["comp_email"] = email
+        meta["comp_ip"] = ip
+        meta["comp_location"] = location
+
+        if (name.isNotBlank()) {
+            launch { personSearch(name, meta, sources, emit) }
+        }
+        if (email.isNotBlank()) {
+            launch { emailSearch(email, meta, sources, emit) }
+        }
+        if (phone.isNotBlank()) {
+            launch { phoneSearch(phone, meta, sources, emit) }
+        }
+        if (ip.isNotBlank()) {
+            launch { ipDomainSearch(ip, meta, sources, emit) }
+        }
+    }
+
+    private suspend fun truePeopleSearchScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("TruePeopleSearch"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://www.truepeoplesearch.com/results?name=$encoded&citystatezip=&rid=0")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .addHeader("Referer", "https://www.truepeoplesearch.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
+                emit(SearchProgressEvent.NotFound("TruePeopleSearch")); return
+            }
+            val names = Regex("<div[^>]*class=\"[^\"]*card-title[^\"]*\"[^>]*>([^<]{5,60})</div>", RegexOption.IGNORE_CASE)
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
+            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
+                .map { it.value.trim() }.filter { it.length >= 10 }.take(10).distinct().toList()
+            val cities = Regex("<span[^>]*>([A-Z][a-zA-Z ]+,\\s*[A-Z]{2})</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
+            val relatives = Regex("class=\"[^\"]*related[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.take(10).distinct().toList()
+            val hasData = names.isNotEmpty() || ages.isNotEmpty() || phones.isNotEmpty() || cities.isNotEmpty()
+            if (hasData) {
+                if (names.isNotEmpty()) meta["tps_names"] = names.joinToString(", ")
+                if (ages.isNotEmpty()) meta["tps_age"] = ages.first()
+                if (phones.isNotEmpty()) meta["tps_phones"] = phones.joinToString(", ")
+                if (cities.isNotEmpty()) meta["tps_locations"] = cities.joinToString(" | ")
+                if (relatives.isNotEmpty()) meta["tps_relatives"] = relatives.joinToString(", ")
+                meta["tps_link"] = "https://www.truepeoplesearch.com/results?name=$encoded"
+                sources.add(DataSource("TruePeopleSearch", meta["tps_link"], Date(), 0.75))
+                emit(SearchProgressEvent.Found("TruePeopleSearch", buildString {
+                    if (names.isNotEmpty()) append(names.first())
+                    if (ages.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("Age: ${ages.first()}") }
+                    if (cities.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cities.first()) }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("TruePeopleSearch"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("TruePeopleSearch", e.message ?: ""))
+        }
+    }
+
+    private suspend fun openSanctionsScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("OpenSanctions"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.opensanctions.org/search/default?q=$encoded&schema=Person&limit=5")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val total = Regex("\"total\":\\s*\\{[^}]*\"value\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val names = Regex("\"caption\":\\s*\"([^\"]{3,80})\"").findAll(body).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+            val datasets = Regex("\"dataset\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val countries = Regex("\"country\":\\s*\"([^\"]{2,50})\"").findAll(body).map { it.groupValues[1] }.distinct().take(3).toList()
+            if (total > 0 || names.isNotEmpty()) {
+                meta["opensanctions_total"] = total.toString()
+                if (names.isNotEmpty()) meta["opensanctions_names"] = names.joinToString(", ")
+                if (datasets.isNotEmpty()) meta["opensanctions_datasets"] = datasets.joinToString(", ")
+                if (countries.isNotEmpty()) meta["opensanctions_countries"] = countries.joinToString(", ")
+                meta["opensanctions_link"] = "https://www.opensanctions.org/search/?q=$encoded"
+                sources.add(DataSource("OpenSanctions", meta["opensanctions_link"], Date(), 0.9))
+                emit(SearchProgressEvent.Found("OpenSanctions", "⚠ $total sanctions/PEP match${if (total != 1) "es" else ""}: ${datasets.take(2).joinToString(", ")}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("OpenSanctions"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("OpenSanctions", e.message ?: ""))
+        }
+    }
+
+    private suspend fun duckDuckGoPersonSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("DuckDuckGo Instant"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.duckduckgo.com/?q=$encoded&format=json&no_html=1&skip_disambig=1")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val abstract_ = Regex("\"Abstract\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)?.replace("\\n", "\n")?.replace("\\\"", "\"")?.trim()
+            val abstractSource = Regex("\"AbstractSource\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
+            val abstractUrl = Regex("\"AbstractURL\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
+            val answer = Regex("\"Answer\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)?.trim()
+            val infobox = Regex("\"content\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body)
+                .map { it.groupValues[1].replace("\\\"", "\"").trim() }.filter { it.isNotBlank() && it.length > 5 }.take(6).toList()
+            if (!abstract_.isNullOrBlank() && abstract_.length > 20) {
+                meta["ddg_abstract"] = abstract_.take(500)
+                if (!abstractSource.isNullOrBlank()) meta["ddg_source"] = abstractSource
+                if (!abstractUrl.isNullOrBlank()) meta["ddg_url"] = abstractUrl
+                if (infobox.isNotEmpty()) meta["ddg_infobox"] = infobox.joinToString("\n")
+                sources.add(DataSource("DuckDuckGo Instant", abstractUrl, Date(), 0.7))
+                emit(SearchProgressEvent.Found("DuckDuckGo Instant", "${abstract_.take(80)}…"))
+            } else if (!answer.isNullOrBlank()) {
+                meta["ddg_answer"] = answer.take(200)
+                sources.add(DataSource("DuckDuckGo Instant", null, Date(), 0.6))
+                emit(SearchProgressEvent.Found("DuckDuckGo Instant", answer.take(80)))
+            } else {
+                emit(SearchProgressEvent.NotFound("DuckDuckGo Instant"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("DuckDuckGo Instant", e.message ?: ""))
         }
     }
 
@@ -2702,19 +2870,33 @@ class OsintRepository(context: Context) {
         emit: suspend (SearchProgressEvent) -> Unit
     ) {
         meta["image_path"] = imagePath
-        val links = listOf(
-            "TinEye" to "https://tineye.com/search",
+        val faceLinks = listOf(
+            "FaceCheck.id" to "https://facecheck.id/",
+            "PimEyes" to "https://pimeyes.com/en",
+            "Search4Faces" to "https://search4faces.com/",
+            "Lenso.ai" to "https://lenso.ai/en"
+        )
+        val reverseLinks = listOf(
             "Google Lens" to "https://lens.google.com/",
             "Yandex Images" to "https://yandex.com/images/",
-            "FaceCheck.id" to "https://facecheck.id/",
-            "Bing Visual Search" to "https://www.bing.com/visualsearch"
+            "TinEye" to "https://tineye.com/search",
+            "Bing Visual Search" to "https://www.bing.com/visualsearch",
+            "KarmaDecay" to "https://karmadecay.com/"
         )
-        links.forEach { (name, url) ->
+        meta["image_has_path"] = if (imagePath.startsWith("content://") || imagePath.startsWith("file://")) "true" else "false"
+        faceLinks.forEach { (name, url) ->
             emit(SearchProgressEvent.Checking(name))
-            delay(120)
-            meta["${name.lowercase().replace(" ", "_").replace(".", "_")}_link"] = url
+            delay(80)
+            meta["face_${name.lowercase().replace(" ", "_").replace(".", "_").replace("/","")}_link"] = url
+            sources.add(DataSource(name, url, Date(), 0.6))
+            emit(SearchProgressEvent.Found(name, "Upload photo → instant face match across the web"))
+        }
+        reverseLinks.forEach { (name, url) ->
+            emit(SearchProgressEvent.Checking(name))
+            delay(80)
+            meta["rev_${name.lowercase().replace(" ", "_").replace(".", "_").replace("/","")}_link"] = url
             sources.add(DataSource(name, url, Date(), 0.5))
-            emit(SearchProgressEvent.Found(name, "Open in browser — upload your image there"))
+            emit(SearchProgressEvent.Found(name, "Open → upload image for reverse search"))
         }
     }
 

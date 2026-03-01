@@ -67,32 +67,69 @@ class SearchFragment : Fragment() {
 
         binding.chipGroupType.setOnCheckedStateChangeListener { _, checkedIds ->
             val isImage = checkedIds.contains(R.id.chip_image)
-            binding.searchInputLayout.hint = if (isImage) "Tap camera or gallery below" else getString(R.string.search_hint)
-            if (isImage) {
-                binding.searchInput.isFocusable = false
-                binding.searchInput.isFocusableInTouchMode = false
-                showImageButtons()
-            } else {
-                binding.searchInput.isFocusable = true
-                binding.searchInput.isFocusableInTouchMode = true
-                hideImageButtons()
+            val isComprehensive = checkedIds.contains(R.id.chip_comprehensive)
+            when {
+                isComprehensive -> {
+                    binding.searchInputLayout.visibility = View.GONE
+                    binding.comprehensiveFieldsContainer.visibility = View.VISIBLE
+                    hideImageButtons()
+                }
+                isImage -> {
+                    binding.searchInputLayout.visibility = View.VISIBLE
+                    binding.comprehensiveFieldsContainer.visibility = View.GONE
+                    binding.searchInputLayout.hint = "Tap camera or gallery below"
+                    binding.searchInput.isFocusable = false
+                    binding.searchInput.isFocusableInTouchMode = false
+                    showImageButtons()
+                }
+                else -> {
+                    binding.searchInputLayout.visibility = View.VISIBLE
+                    binding.comprehensiveFieldsContainer.visibility = View.GONE
+                    binding.searchInputLayout.hint = getString(R.string.search_hint)
+                    binding.searchInput.isFocusable = true
+                    binding.searchInput.isFocusableInTouchMode = true
+                    hideImageButtons()
+                }
             }
         }
 
         val doSearch = {
             val type = getSelectedSearchType()
-            val query = binding.searchInput.text?.toString()?.trim() ?: ""
-            if (type == "image") {
-                if (query.isBlank()) {
-                    Toast.makeText(requireContext(), "Capture or select an image first", Toast.LENGTH_SHORT).show()
-                } else {
-                    navigateToProgress(query, "image")
+            when (type) {
+                "comprehensive" -> {
+                    val name = binding.inputCompName.text?.toString()?.trim() ?: ""
+                    if (name.isBlank()) {
+                        Toast.makeText(requireContext(), "Full name is required", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val phone = binding.inputCompPhone.text?.toString()?.trim() ?: ""
+                        val email = binding.inputCompEmail.text?.toString()?.trim() ?: ""
+                        val location = binding.inputCompLocation.text?.toString()?.trim() ?: ""
+                        val ip = binding.inputCompIp.text?.toString()?.trim() ?: ""
+                        val parts = mutableListOf("name=$name")
+                        if (phone.isNotBlank()) parts.add("phone=$phone")
+                        if (email.isNotBlank()) parts.add("email=$email")
+                        if (location.isNotBlank()) parts.add("location=$location")
+                        if (ip.isNotBlank()) parts.add("ip=$ip")
+                        navigateToProgress(parts.joinToString("|"), "comprehensive")
+                    }
                 }
-            } else if (query.isNotBlank()) {
-                binding.searchInputLayout.error = null
-                navigateToProgress(query, type)
-            } else {
-                binding.searchInputLayout.error = "Enter something to search"
+                "image" -> {
+                    val query = binding.searchInput.text?.toString()?.trim() ?: ""
+                    if (query.isBlank()) {
+                        Toast.makeText(requireContext(), "Capture or select an image first", Toast.LENGTH_SHORT).show()
+                    } else {
+                        navigateToProgress(query, "image")
+                    }
+                }
+                else -> {
+                    val query = binding.searchInput.text?.toString()?.trim() ?: ""
+                    if (query.isNotBlank()) {
+                        binding.searchInputLayout.error = null
+                        navigateToProgress(query, type)
+                    } else {
+                        binding.searchInputLayout.error = "Enter something to search"
+                    }
+                }
             }
         }
         binding.searchButton.setOnClickListener { doSearch() }
@@ -180,6 +217,7 @@ class SearchFragment : Fragment() {
             R.id.chip_ip -> "ip"
             R.id.chip_company -> "company"
             R.id.chip_image -> "image"
+            R.id.chip_comprehensive -> "comprehensive"
             else -> "person"
         }
     }
@@ -192,6 +230,7 @@ class SearchFragment : Fragment() {
             "ip" -> R.id.chip_ip
             "company" -> R.id.chip_company
             "image" -> R.id.chip_image
+            "comprehensive" -> R.id.chip_comprehensive
             else -> R.id.chip_person
         }
         binding.chipGroupType.check(chipId)

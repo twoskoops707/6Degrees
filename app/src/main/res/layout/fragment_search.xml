@@ -216,6 +216,19 @@
                         app:chipStrokeWidth="1dp"
                         android:letterSpacing="0.05"
                         app:checkedIconTint="?attr/colorPrimary" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_comprehensive"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="ALL FIELDS"
+                        android:textSize="11sp"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
                 </com.google.android.material.chip.ChipGroup>
             </HorizontalScrollView>
 
@@ -228,6 +241,125 @@
                 android:layout_marginTop="8dp"
                 android:gravity="center_horizontal"
                 android:visibility="gone" />
+
+            <!-- Comprehensive multi-field inputs (conditionally visible) -->
+            <LinearLayout
+                android:id="@+id/comprehensive_fields_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ENTER EVERYTHING YOU KNOW"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="9sp"
+                    android:letterSpacing="0.15"
+                    android:textAllCaps="true"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/input_name_layout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:hint="Full Name (required)"
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_comp_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:inputType="textPersonName"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/input_phone_layout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:hint="Phone Number (optional)"
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_comp_phone"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:inputType="phone"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/input_email_layout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:hint="Email Address (optional)"
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_comp_email"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:inputType="textEmailAddress"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/input_location_layout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:hint="City, State (optional)"
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_comp_location"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:inputType="text"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/input_ip_layout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="IP Address (optional)"
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_comp_ip"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:inputType="text"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
 
             <!-- Launch Button -->
             <com.google.android.material.button.MaterialButton
