@@ -612,21 +612,6 @@ class OsintRepository(context: Context) {
             }
         }
 
-        val clean = phone.replace(Regex("[^0-9+]"), "")
-        meta["truecaller_link"] = "https://www.truecaller.com/search/us/${clean.replace("+", "")}"
-        meta["whitepages_link"] = "https://www.whitepages.com/phone/${clean.replace("+", "")}"
-        meta["spokeo_link"] = "https://www.spokeo.com/phone/${clean.replace("+", "")}"
-
-        listOf(
-            "TrueCaller" to meta["truecaller_link"]!!,
-            "WhitePages" to meta["whitepages_link"]!!,
-            "Spokeo" to meta["spokeo_link"]!!
-        ).forEach { (name, url) ->
-            emit(SearchProgressEvent.Checking(name))
-            delay(80)
-            sources.add(DataSource(name, url, Date(), 0.5))
-            emit(SearchProgressEvent.Found(name, "Lookup link ready — tap to open"))
-        }
     }
 
     private suspend fun usernameSearch(
@@ -1465,9 +1450,6 @@ class OsintRepository(context: Context) {
             }
         }
 
-        meta["shodan_link"] = "https://www.shodan.io/host/$query"
-        meta["urlscan_link"] = "https://urlscan.io/search/#domain:$query"
-        meta["virustotal_link"] = "https://www.virustotal.com/gui/domain/$query"
     }
 
     private suspend fun personSearch(
@@ -1934,18 +1916,6 @@ class OsintRepository(context: Context) {
             }
         }
 
-        val encodedQuery = URLEncoder.encode(query, "UTF-8")
-        val dashQuery = query.replace(" ", "-").lowercase()
-        meta["judyrecords_link"] = "https://www.judyrecords.com/record/$dashQuery"
-        meta["spokeo_link"] = "https://www.spokeo.com/$dashQuery"
-        meta["beenverified_link"] = "https://www.beenverified.com/people-search/?q=$encodedQuery"
-        meta["fastpeoplesearch_link"] = "https://www.fastpeoplesearch.com/name/$dashQuery"
-        meta["truthfinder_link"] = "https://www.truthfinder.com/people-search/?firstName=${query.split(" ").firstOrNull() ?: ""}&lastName=${query.split(" ").drop(1).joinToString("+")}"
-        meta["familytreenow_link"] = "https://www.familytreenow.com/search/people/results?first=${query.split(" ").firstOrNull() ?: ""}&last=${query.split(" ").drop(1).joinToString("+")}"
-        meta["intelius_link"] = "https://www.intelius.com/people/$dashQuery"
-        meta["zabasearch_link"] = "https://www.zabasearch.com/people/$dashQuery"
-        meta["linkedin_person_link"] = "https://www.linkedin.com/search/results/people/?keywords=$encodedQuery"
-        meta["facebook_person_link"] = "https://www.facebook.com/search/people/?q=$encodedQuery"
         meta["person_query"] = query
 
         launch {
@@ -1995,6 +1965,9 @@ class OsintRepository(context: Context) {
 
         launch { thatsThenScrape(query, meta, sources, emit) }
         launch { usPhonebookScrape(query, meta, sources, emit) }
+        launch { fastPeopleSearchScrape(query, meta, sources, emit) }
+        launch { judyRecordsScrape(query, meta, sources, emit) }
+        launch { familyTreeNowScrape(query, meta, sources, emit) }
         launch { generateAndRunDorks(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
@@ -2563,12 +2536,6 @@ class OsintRepository(context: Context) {
             }
         }
 
-        val encodedQ = URLEncoder.encode(query, "UTF-8")
-        meta["sec_link"] = "https://efts.sec.gov/LATEST/search-index?q=%22$encodedQ%22"
-        meta["crunchbase_link"] = "https://www.crunchbase.com/textsearch?q=$encodedQ"
-        meta["linkedin_company_link"] = "https://www.linkedin.com/search/results/companies/?keywords=$encodedQ"
-        meta["opencorporates_link"] = "https://opencorporates.com/companies?q=$encodedQ"
-        meta["openbb_link"] = "https://openbb.co/stock-search?query=$encodedQ"
         meta["company_query"] = query
     }
 
@@ -2674,6 +2641,131 @@ class OsintRepository(context: Context) {
             gender = pipl.gender,
             profileImageUrl = pipl.images?.firstOrNull()?.url
         )
+    }
+
+    private suspend fun fastPeopleSearchScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("FastPeopleSearch"))
+        try {
+            val dashName = query.lowercase().replace(" ", "-")
+            val req = Request.Builder()
+                .url("https://www.fastpeoplesearch.com/name/$dashName")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""
+            resp.close()
+            if (html.isBlank() || resp.code == 403) { emit(SearchProgressEvent.NotFound("FastPeopleSearch")); return }
+            val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
+            val cities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val states = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(html).map { it.value.trim() }.take(5).distinct().toList()
+            val relatives = Regex("class=\"[^\"]*relative[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.take(8).distinct().toList()
+            val hasData = ages.isNotEmpty() || cities.isNotEmpty() || phones.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["fps_age"] = ages.first()
+                if (cities.isNotEmpty() && states.isNotEmpty()) {
+                    meta["fps_locations"] = cities.zip(states).take(4).joinToString(" | ") { (c, s) -> "$c, $s" }
+                } else if (cities.isNotEmpty()) {
+                    meta["fps_locations"] = cities.take(4).joinToString(" | ")
+                }
+                if (phones.isNotEmpty()) meta["fps_phones"] = phones.joinToString(", ")
+                if (relatives.isNotEmpty()) meta["fps_relatives"] = relatives.joinToString(", ")
+                sources.add(DataSource("FastPeopleSearch", null, Date(), 0.7))
+                emit(SearchProgressEvent.Found("FastPeopleSearch",
+                    buildString {
+                        if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                        if (cities.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cities.first()) }
+                        if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                    }
+                ))
+            } else emit(SearchProgressEvent.NotFound("FastPeopleSearch"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("FastPeopleSearch", e.message ?: "")) }
+    }
+
+    private suspend fun judyRecordsScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("JudyRecords"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://www.judyrecords.com/search/?q=$encoded")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""
+            resp.close()
+            if (html.isBlank() || resp.code == 403) { emit(SearchProgressEvent.NotFound("JudyRecords")); return }
+            val caseCount = Regex("(\\d+)\\s+result").find(html)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val caseNames = Regex("<div[^>]*class=\"[^\"]*case-name[^\"]*\"[^>]*>([^<]+)</div>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).distinct().toList()
+            val courts = Regex("<div[^>]*class=\"[^\"]*court[^\"]*\"[^>]*>([^<]+)</div>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val hasData = caseCount > 0 || caseNames.isNotEmpty()
+            if (hasData) {
+                if (caseCount > 0) meta["judyrecords_count"] = caseCount.toString()
+                if (caseNames.isNotEmpty()) meta["judyrecords_cases"] = caseNames.joinToString("\n")
+                if (courts.isNotEmpty()) meta["judyrecords_courts"] = courts.joinToString(", ")
+                sources.add(DataSource("JudyRecords", null, Date(), 0.75))
+                emit(SearchProgressEvent.Found("JudyRecords", "${if (caseCount > 0) "$caseCount cases found" else "${caseNames.size} records found"}"))
+            } else emit(SearchProgressEvent.NotFound("JudyRecords"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("JudyRecords", e.message ?: "")) }
+    }
+
+    private suspend fun familyTreeNowScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("FamilyTreeNow"))
+        try {
+            val parts = query.trim().split(" ")
+            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
+            val last = URLEncoder.encode(parts.drop(1).joinToString("+"), "UTF-8")
+            val req = Request.Builder()
+                .url("https://www.familytreenow.com/search/people/results?first=$first&last=$last")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""
+            resp.close()
+            if (html.isBlank() || resp.code == 403) { emit(SearchProgressEvent.NotFound("FamilyTreeNow")); return }
+            val birthYears = Regex("(?:Born|Birth)[^0-9]{0,20}(\\d{4})").findAll(html)
+                .map { it.groupValues[1] }.filter { it.toIntOrNull()?.let { y -> y in 1900..2010 } == true }.take(3).distinct().toList()
+            val cities = Regex("<span[^>]*class=\"[^\"]*city[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val relatives = Regex("(?:relative|family member)[^<]{0,100}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.take(8).distinct().toList()
+            val hasData = birthYears.isNotEmpty() || cities.isNotEmpty() || relatives.isNotEmpty()
+            if (hasData) {
+                if (birthYears.isNotEmpty()) meta["ftn_birth_year"] = birthYears.first()
+                if (cities.isNotEmpty()) meta["ftn_locations"] = cities.take(4).joinToString(" | ")
+                if (relatives.isNotEmpty()) meta["ftn_relatives"] = relatives.joinToString(", ")
+                sources.add(DataSource("FamilyTreeNow", null, Date(), 0.65))
+                emit(SearchProgressEvent.Found("FamilyTreeNow",
+                    buildString {
+                        if (birthYears.isNotEmpty()) append("Born ~${birthYears.first()}")
+                        if (relatives.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${relatives.size} relative${if (relatives.size != 1) "s" else ""}") }
+                    }.ifBlank { "Record found" }
+                ))
+            } else emit(SearchProgressEvent.NotFound("FamilyTreeNow"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("FamilyTreeNow", e.message ?: "")) }
     }
 
     private fun md5(input: String): String {

@@ -4,18 +4,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/background_primary">
+    android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/results_toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/background_primary"
         app:title="@string/results_title"
-        app:titleTextColor="@color/text_primary"
+        app:titleTextColor="?attr/colorOnSurface"
         app:navigationIcon="@drawable/ic_arrow_back"
-        app:navigationIconTint="@color/text_primary"
+        app:navigationIconTint="?attr/colorOnSurface"
         app:elevation="0dp">
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_export"
@@ -25,7 +23,7 @@
             android:layout_gravity="end"
             android:layout_marginEnd="8dp"
             android:text="@string/export_report"
-            android:textColor="@color/accent_blue"
+            android:textColor="?attr/colorPrimary"
             android:textSize="13sp" />
     </com.google.android.material.appbar.MaterialToolbar>
 
@@ -60,12 +58,7 @@
                 android:id="@+id/shady_score_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
+                android:layout_marginBottom="12dp">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -84,7 +77,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="—"
-                            android:textColor="@color/accent_blue"
+                            android:textColor="?attr/colorPrimary"
                             android:textSize="20sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -106,7 +99,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Analyzing..."
-                            android:textColor="@color/text_primary"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:layout_marginTop="3dp" />
@@ -136,12 +129,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
+                android:visibility="gone">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -151,7 +139,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/person_info_title"
-                        android:textColor="@color/accent_blue"
+                        android:textColor="?attr/colorPrimary"
                         android:textSize="11sp"
                         android:textAllCaps="true"
                         android:letterSpacing="0.1"
@@ -169,7 +157,7 @@
                             android:layout_weight="1" android:orientation="vertical">
                             <TextView android:id="@+id/full_name"
                                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:textColor="@color/text_primary" android:textSize="18sp" android:textStyle="bold" />
+                                android:textColor="?attr/colorOnSurface" android:textSize="18sp" android:textStyle="bold" />
                             <TextView android:id="@+id/job_title"
                                 android:layout_width="match_parent" android:layout_height="wrap_content"
                                 android:textColor="@color/text_secondary" android:textSize="13sp" android:layout_marginTop="2dp" />
@@ -191,17 +179,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
+                android:visibility="gone">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:padding="16dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@string/contact_info_title"
-                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textColor="?attr/colorPrimary" android:textSize="11sp"
                         android:textAllCaps="true" android:letterSpacing="0.1" android:layout_marginBottom="12dp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="Email" android:textColor="@color/text_secondary" android:textSize="11sp" android:textAllCaps="true" />
@@ -210,7 +193,7 @@
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="Phone" android:textColor="@color/text_secondary" android:textSize="11sp" android:textAllCaps="true" />
                     <TextView android:id="@+id/phone" android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:textColor="@color/text_primary" android:textSize="14sp" android:autoLink="phone" />
+                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:autoLink="phone" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -220,17 +203,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
+                android:visibility="gone">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:padding="16dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@string/social_profiles_title"
-                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textColor="?attr/colorPrimary" android:textSize="11sp"
                         android:textAllCaps="true" android:letterSpacing="0.1" android:layout_marginBottom="12dp" />
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/social_profiles_recycler"
@@ -245,17 +223,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
+                android:visibility="gone">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:padding="16dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@string/employment_history_title"
-                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textColor="?attr/colorPrimary" android:textSize="11sp"
                         android:textAllCaps="true" android:letterSpacing="0.1" android:layout_marginBottom="12dp" />
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/employment_recycler"
@@ -270,18 +243,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
+                android:visibility="gone">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="vertical" android:padding="16dp">
                     <TextView android:id="@+id/tv_data_section_label"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="INTELLIGENCE REPORT"
-                        android:textColor="@color/accent_blue" android:textSize="11sp"
+                        android:textColor="?attr/colorPrimary" android:textSize="11sp"
                         android:textAllCaps="true" android:letterSpacing="0.1"
                         android:layout_marginBottom="12dp" />
                     <androidx.recyclerview.widget.RecyclerView
@@ -314,7 +282,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/no_results_title"
-            android:textColor="@color/text_primary"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="18sp"
             android:textStyle="bold"
             android:gravity="center"

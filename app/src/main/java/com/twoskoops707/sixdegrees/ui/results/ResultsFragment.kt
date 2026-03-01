@@ -197,13 +197,14 @@ class ResultsFragment : Fragment() {
     }
 
     private fun sec(label: String): Pair<String, String> {
+        val clean = label.trimStart().removePrefix("◈ ").removePrefix("─── ").removeSuffix(" ───").trim()
         val prefix = when (themeBase()) {
             "hacker"   -> "> "
             "tactical" -> "══ "
             else       -> "◈ "
         }
         val suffix = if (themeBase() == "tactical") " ══" else ""
-        return "$prefix$label$suffix" to ""
+        return "$prefix$clean$suffix" to ""
     }
 
     private fun buildDataRows(meta: Map<String, String>, type: String): List<Pair<String, String>> {
@@ -281,8 +282,6 @@ class ResultsFragment : Fragment() {
                     meta["hackertarget_email_hosts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associated Hosts" to it) }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
-                meta["gravatar_url"]?.let { rows.add("Gravatar Profile →" to it) }
             }
             "ip", "domain" -> {
                 rows.add(sec("◈ GEOLOCATION"))
@@ -386,10 +385,6 @@ class ResultsFragment : Fragment() {
                     meta["whois"]?.takeIf { it.isNotBlank() }?.let { rows.add("WHOIS" to it.take(600)) }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
-                meta["shodan_link"]?.let { rows.add("Shodan →" to it) }
-                meta["urlscan_link"]?.let { rows.add("URLScan →" to it) }
-                meta["virustotal_link"]?.let { rows.add("VirusTotal →" to it) }
             }
             "username" -> {
                 val checked = meta["sites_checked"]?.toIntOrNull() ?: 0
@@ -450,16 +445,42 @@ class ResultsFragment : Fragment() {
                     }
                 }
 
+
                 val hasContacts = !meta["tt_phones"].isNullOrBlank() || !meta["uspb_phones"].isNullOrBlank()
+                    || !meta["fps_phones"].isNullOrBlank()
                 if (hasContacts) {
                     rows.add(sec("◈ CONTACT INTEL"))
-                    val phone = meta["tt_phones"] ?: meta["uspb_phones"]
+                    val phone = meta["tt_phones"] ?: meta["uspb_phones"] ?: meta["fps_phones"]
                     phone?.takeIf { it.isNotBlank() }?.let { rows.add("Phone" to it) }
                 }
 
+                val hasFps = !meta["fps_locations"].isNullOrBlank() || !meta["fps_relatives"].isNullOrBlank()
+                    || !meta["fps_age"].isNullOrBlank()
+                if (hasFps) {
+                    rows.add(sec("◈ PEOPLE SEARCH DATA"))
+                    meta["fps_age"]?.takeIf { it.isNotBlank() }?.let { rows.add("Age" to it) }
+                    meta["fps_locations"]?.takeIf { it.isNotBlank() }?.let {
+                        it.split(" | ").filter { s -> s.isNotBlank() }.forEach { loc -> rows.add("Location" to loc.trim()) }
+                    }
+                    meta["fps_relatives"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associates" to it) }
+                }
+
+                val hasFtn = !meta["ftn_birth_year"].isNullOrBlank() || !meta["ftn_relatives"].isNullOrBlank()
+                    || !meta["ftn_locations"].isNullOrBlank()
+                if (hasFtn) {
+                    rows.add(sec("◈ GENEALOGY RECORDS"))
+                    meta["ftn_birth_year"]?.takeIf { it.isNotBlank() }?.let { rows.add("Birth Year" to "~$it") }
+                    meta["ftn_locations"]?.takeIf { it.isNotBlank() }?.let {
+                        it.split(" | ").filter { s -> s.isNotBlank() }.forEach { loc -> rows.add("Location" to loc.trim()) }
+                    }
+                    meta["ftn_relatives"]?.takeIf { it.isNotBlank() }?.let { rows.add("Family Members" to it) }
+                }
+
+                val judyCount = meta["judyrecords_count"]?.toIntOrNull() ?: 0
                 val arrestCount = meta["arrest_count"]?.toIntOrNull() ?: 0
                 val courtCount = meta["courtlistener_count"]?.toIntOrNull() ?: 0
-                if (arrestCount > 0 || courtCount > 0) {
+                if (arrestCount > 0 || courtCount > 0 || judyCount > 0
+                    || !meta["judyrecords_cases"].isNullOrBlank()) {
                     rows.add(sec("◈ LEGAL RECORDS"))
                     if (arrestCount > 0) {
                         rows.add("⚠ Arrests" to "$arrestCount record${if (arrestCount != 1) "s" else ""} on file")
@@ -467,7 +488,12 @@ class ResultsFragment : Fragment() {
                             it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { record -> rows.add("Arrest" to record) }
                         }
                     }
-                    if (courtCount > 0) rows.add("Court Cases" to "$courtCount case${if (courtCount != 1) "s" else ""} found")
+                    if (courtCount > 0) rows.add("CourtListener Cases" to "$courtCount case${if (courtCount != 1) "s" else ""} found")
+                    if (judyCount > 0) rows.add("JudyRecords Cases" to "$judyCount court record${if (judyCount != 1) "s" else ""} found")
+                    meta["judyrecords_cases"]?.takeIf { it.isNotBlank() }?.let {
+                        it.lines().filter { l -> l.isNotBlank() }.take(6).forEach { c -> rows.add("Court Record" to c) }
+                    }
+                    meta["judyrecords_courts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Courts" to it) }
                 }
 
                 val officerCount = meta["officer_matches"]?.toIntOrNull() ?: 0
@@ -559,31 +585,6 @@ class ResultsFragment : Fragment() {
                     }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
-                meta["courtlistener_link"]?.let { rows.add("CourtListener →" to it) }
-                meta["judyrecords_link"]?.let { rows.add("JudyRecords →" to it) }
-                meta["wikipedia_link"]?.let { rows.add("Wikipedia →" to it) }
-                meta["wikidata_link"]?.let { rows.add("WikiData →" to it) }
-                meta["fec_link"]?.let { rows.add("FEC Campaign Finance →" to it) }
-                meta["sec_person_link"]?.let { rows.add("SEC EDGAR Form-4 →" to it) }
-                meta["sec_fulltext_link"]?.let { rows.add("SEC EDGAR All Forms →" to it) }
-                meta["gleif_link"]?.let { rows.add("GLEIF Entity Search →" to it) }
-                meta["ca_sos_officer_link"]?.let { rows.add("CA SOS Officers →" to it) }
-                meta["sunbiz_officer_link"]?.let { rows.add("FL SunBiz Officers →" to it) }
-                meta["corpwiki_person_link"]?.let { rows.add("Corporations Wiki →" to it) }
-                meta["sam_link"]?.let { rows.add("SAM.gov →" to it) }
-                meta["news_link"]?.let { rows.add("Google News →" to it) }
-                meta["thatsthem_link"]?.let { rows.add("ThatsThem →" to it) }
-                meta["usphonebook_link"]?.let { rows.add("USPhoneBook →" to it) }
-                meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }
-                meta["beenverified_link"]?.let { rows.add("BeenVerified →" to it) }
-                meta["fastpeoplesearch_link"]?.let { rows.add("FastPeopleSearch →" to it) }
-                meta["truthfinder_link"]?.let { rows.add("TruthFinder →" to it) }
-                meta["familytreenow_link"]?.let { rows.add("FamilyTreeNow →" to it) }
-                meta["intelius_link"]?.let { rows.add("Intelius →" to it) }
-                meta["zabasearch_link"]?.let { rows.add("ZabaSearch →" to it) }
-                meta["linkedin_person_link"]?.let { rows.add("LinkedIn →" to it) }
-                meta["facebook_person_link"]?.let { rows.add("Facebook →" to it) }
 
                 val dorkCount = meta["shadowdork_count"]?.toIntOrNull() ?: 0
                 if (dorkCount > 0) {
@@ -664,15 +665,6 @@ class ResultsFragment : Fragment() {
                     }
                 }
 
-                rows.add(sec("─── EXTERNAL SOURCES (tap to open) ───"))
-                meta["opencorporates_link"]?.let { rows.add("OpenCorporates →" to it) }
-                meta["sunbiz_link"]?.let { rows.add("FL SunBiz →" to it) }
-                meta["sam_link"]?.let { rows.add("SAM.gov →" to it) }
-                meta["gleif_company_link"]?.let { rows.add("GLEIF →" to it) }
-                meta["wikidata_company_link"]?.let { rows.add("WikiData →" to it) }
-                meta["sec_link"]?.let { rows.add("SEC EDGAR →" to it) }
-                meta["crunchbase_link"]?.let { rows.add("Crunchbase →" to it) }
-                meta["linkedin_company_link"]?.let { rows.add("LinkedIn →" to it) }
             }
             "phone" -> {
                 rows.add(sec("◈ LINE VALIDATION"))
@@ -699,15 +691,10 @@ class ResultsFragment : Fragment() {
                     meta["ipqs_phone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (IPQS)" to it) }
                 }
 
-                rows.add(sec("─── EXTERNAL LOOKUP (tap to open) ───"))
-                meta["truecaller_link"]?.let { rows.add("TrueCaller →" to it) }
-                meta["whitepages_link"]?.let { rows.add("WhitePages →" to it) }
-                meta["spokeo_link"]?.let { rows.add("Spokeo →" to it) }
             }
             "image" -> {
                 rows.add(sec("◈ REVERSE IMAGE SEARCH"))
-                rows.add("Instructions" to "Tap each source below to search for this image")
-                rows.add(sec("─── SEARCH ENGINES ───"))
+                rows.add("Note" to "Reverse image search requires uploading the image to each engine. Tap to open.")
                 meta["tineye_link"]?.let { rows.add("TinEye →" to it) }
                 meta["google_lens_link"]?.let { rows.add("Google Lens →" to it) }
                 meta["yandex_images_link"]?.let { rows.add("Yandex Images →" to it) }
