@@ -17,4 +17,5 @@
     <dimen name="card_corner_radius">12dp</dimen>
     <dimen name="card_elevation">2dp</dimen>
     <dimen name="stroke_width">1dp</dimen>
+    <dimen name="bottom_nav_padding">80dp</dimen>
 </resources>

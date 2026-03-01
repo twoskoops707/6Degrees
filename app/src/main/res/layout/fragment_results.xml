@@ -7,7 +7,7 @@
     android:orientation="vertical"
     android:background="?android:colorBackground">
 
-    <!-- ══════════ DOSSIER COMMAND BAR ══════════ -->
+    <!-- ══════════ COMMAND BAR ══════════ -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -47,442 +47,22 @@
             android:alpha="0.4" />
     </FrameLayout>
 
-    <!-- ══════════ LOADING STATE ══════════ -->
+    <!-- ══════════ LOADING ══════════ -->
     <ProgressBar
         android:id="@+id/loading_indicator"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:layout_marginTop="40dp"
         android:indeterminateTint="?attr/colorPrimary"
-        android:layout_marginTop="64dp"
         android:visibility="gone" />
-
-    <!-- ══════════ MAIN SCROLL CONTENT ══════════ -->
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/results_content"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <!-- ── RISK ASSESSMENT BANNER ── -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/shady_score_card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardCornerRadius="0dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingHorizontal="20dp"
-                    android:paddingVertical="16dp"
-                    android:gravity="center_vertical">
-
-                    <!-- Threat Level Indicator -->
-                    <FrameLayout
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        android:layout_marginEnd="16dp">
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:background="@drawable/bg_score_circle" />
-
-                        <TextView
-                            android:id="@+id/tv_score_number"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:text="—"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="26sp"
-                            android:textStyle="bold"
-                            android:gravity="center" />
-                    </FrameLayout>
-
-                    <!-- Risk Details -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="THREAT ASSESSMENT"
-                            android:textColor="?attr/colorControlNormal"
-                            android:textSize="9sp"
-                            android:letterSpacing="0.18"
-                            android:textAllCaps="true"
-                            android:layout_marginBottom="4dp" />
-
-                        <TextView
-                            android:id="@+id/tv_score_verdict"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="ANALYZING..."
-                            android:textColor="?attr/colorOnSurface"
-                            android:textSize="20sp"
-                            android:textStyle="bold"
-                            android:letterSpacing="0.05" />
-
-                        <TextView
-                            android:id="@+id/tv_score_detail"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColor="?attr/colorControlNormal"
-                            android:textSize="12sp"
-                            android:layout_marginTop="4dp"
-                            android:lineSpacingExtra="2dp" />
-
-                        <TextView
-                            android:id="@+id/tv_sources_count"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="10sp"
-                            android:letterSpacing="0.06"
-                            android:layout_marginTop="6dp" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ── HORIZONTAL ACCENT LINE ── -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="2dp"
-                android:background="?attr/colorPrimary"
-                android:alpha="0.3" />
-
-            <!-- ── TARGET IDENTITY CARD ── -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/person_card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginTop="12dp"
-                android:visibility="gone"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="?attr/colorPrimary">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="0dp">
-
-                    <!-- Card Header Bar -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="32dp"
-                        android:background="?attr/colorPrimary"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="12dp">
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="▶  TARGET IDENTIFICATION"
-                            android:textColor="?attr/colorOnPrimary"
-                            android:textSize="10sp"
-                            android:letterSpacing="0.12"
-                            android:textAllCaps="true"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="14dp"
-                        android:gravity="center_vertical">
-
-                        <ImageView
-                            android:id="@+id/profile_image"
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:layout_marginEnd="14dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/ic_person_placeholder"
-                            android:background="@drawable/bg_score_circle" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/full_name"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="?attr/colorOnSurface"
-                                android:textSize="20sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/job_title"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="?attr/colorPrimary"
-                                android:textSize="12sp"
-                                android:layout_marginTop="3dp" />
-
-                            <TextView
-                                android:id="@+id/location"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="?attr/colorControlNormal"
-                                android:textSize="12sp"
-                                android:layout_marginTop="2dp" />
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/bio"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textColor="?attr/colorControlNormal"
-                        android:textSize="12sp"
-                        android:paddingHorizontal="14dp"
-                        android:paddingBottom="14dp"
-                        android:lineSpacingExtra="3dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ── CONTACT CARD ── -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/contact_card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginTop="8dp"
-                android:visibility="gone"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="?attr/colorPrimary">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="32dp"
-                        android:background="?attr/colorPrimary"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="12dp">
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="▶  CONTACT CHANNELS"
-                            android:textColor="?attr/colorOnPrimary"
-                            android:textSize="10sp"
-                            android:letterSpacing="0.12"
-                            android:textAllCaps="true"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="EMAIL ADDRESS"
-                            android:textColor="?attr/colorControlNormal"
-                            android:textSize="9sp"
-                            android:letterSpacing="0.15"
-                            android:textAllCaps="true" />
-                        <TextView
-                            android:id="@+id/email"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="14sp"
-                            android:autoLink="email"
-                            android:layout_marginBottom="12dp"
-                            android:layout_marginTop="2dp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="PHONE NUMBER"
-                            android:textColor="?attr/colorControlNormal"
-                            android:textSize="9sp"
-                            android:letterSpacing="0.15"
-                            android:textAllCaps="true" />
-                        <TextView
-                            android:id="@+id/phone"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColor="?attr/colorOnSurface"
-                            android:textSize="14sp"
-                            android:autoLink="phone"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ── SOCIAL PROFILES CARD ── -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/social_card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginTop="8dp"
-                android:visibility="gone"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="?attr/colorPrimary">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="32dp"
-                        android:background="?attr/colorPrimary"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="12dp">
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="▶  SOCIAL NETWORK PROFILES"
-                            android:textColor="?attr/colorOnPrimary"
-                            android:textSize="10sp"
-                            android:letterSpacing="0.12"
-                            android:textAllCaps="true"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/social_profiles_recycler"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false"
-                        android:padding="8dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ── EMPLOYMENT CARD ── -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/employment_card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginTop="8dp"
-                android:visibility="gone"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="?attr/colorPrimary">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="32dp"
-                        android:background="?attr/colorPrimary"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="12dp">
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="▶  EMPLOYMENT HISTORY"
-                            android:textColor="?attr/colorOnPrimary"
-                            android:textSize="10sp"
-                            android:letterSpacing="0.12"
-                            android:textAllCaps="true"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/employment_recycler"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false"
-                        android:padding="8dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ── INTELLIGENCE DATA CARD ── -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/data_card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="12dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="12dp"
-                android:visibility="gone"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="?attr/colorPrimary">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="32dp"
-                        android:background="?attr/colorPrimary"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="12dp">
-                        <TextView
-                            android:id="@+id/tv_data_section_label"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="▶  INTELLIGENCE REPORT"
-                            android:textColor="?attr/colorOnPrimary"
-                            android:textSize="10sp"
-                            android:letterSpacing="0.12"
-                            android:textAllCaps="true"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rv_data_rows"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="8dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <Space android:layout_width="match_parent" android:layout_height="80dp" />
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
 
     <!-- ══════════ EMPTY STATE ══════════ -->
     <LinearLayout
         android:id="@+id/empty_state"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="center"
         android:padding="32dp"
@@ -515,5 +95,190 @@
             android:textColor="?attr/colorControlNormal"
             android:textSize="13sp"
             android:gravity="center" />
+    </LinearLayout>
+
+    <!-- ══════════ RESULTS CONTENT ══════════ -->
+    <LinearLayout
+        android:id="@+id/results_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- ── THREAT ASSESSMENT BANNER ── -->
+        <LinearLayout
+            android:id="@+id/shady_score_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:gravity="center_vertical"
+            android:background="?attr/colorSurface">
+
+            <FrameLayout
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="14dp">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_score_circle" />
+
+                <TextView
+                    android:id="@+id/tv_score_number"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text="—"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="THREAT LEVEL"
+                    android:textColor="?attr/colorControlNormal"
+                    android:textSize="9sp"
+                    android:letterSpacing="0.18"
+                    android:textAllCaps="true"
+                    android:layout_marginBottom="2dp" />
+
+                <TextView
+                    android:id="@+id/tv_score_verdict"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ANALYZING..."
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05" />
+
+                <TextView
+                    android:id="@+id/tv_score_detail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorControlNormal"
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_sources_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="9sp"
+                android:letterSpacing="0.05"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorPrimary"
+            android:alpha="0.2" />
+
+        <!-- ── SUBJECT IDENTITY STRIP ── -->
+        <LinearLayout
+            android:id="@+id/person_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="10dp"
+            android:gravity="center_vertical"
+            android:background="?attr/colorSurface">
+
+            <ImageView
+                android:id="@+id/profile_image"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="12dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_person_placeholder"
+                android:background="@drawable/bg_score_circle" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/full_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/job_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/location"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorControlNormal"
+                    android:textSize="11sp"
+                    android:layout_marginTop="1dp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorPrimary"
+            android:alpha="0.25" />
+
+        <!-- ── TAB LAYOUT ── -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            app:tabGravity="fill"
+            app:tabMode="scrollable"
+            app:tabIndicatorColor="?attr/colorPrimary"
+            app:tabIndicatorHeight="2dp"
+            app:tabSelectedTextColor="?attr/colorPrimary"
+            app:tabTextColor="?attr/colorControlNormal"
+            app:tabTextAppearance="@style/TextAppearance.SixDegrees.TabLabel"
+            android:background="?attr/colorSurface" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorPrimary"
+            android:alpha="0.15" />
+
+        <!-- ── PAGER ── -->
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
     </LinearLayout>
 </LinearLayout>
