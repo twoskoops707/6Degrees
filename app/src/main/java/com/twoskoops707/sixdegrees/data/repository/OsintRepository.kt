@@ -24,8 +24,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Collections
@@ -445,10 +447,7 @@ class OsintRepository(context: Context) {
         if (fcKey.isNotBlank()) {
             emit(SearchProgressEvent.Checking("FullContact"))
             try {
-                val reqBody = okhttp3.RequestBody.create(
-                    okhttp3.MediaType.parse("application/json"),
-                    "{\"email\":\"$email\"}"
-                )
+                val reqBody = "{\"email\":\"$email\"}".toRequestBody("application/json".toMediaType())
                 val req = Request.Builder()
                     .url("https://api.fullcontact.com/v3/person.enrich")
                     .post(reqBody)
@@ -1845,7 +1844,7 @@ class OsintRepository(context: Context) {
                     .map { it.groupValues[1].trim() }
                     .filter { it.isNotBlank() && !it.contains("\\s{3,}".toRegex()) }
                     .distinct().take(8).toList()
-                val states = Regex("(?:incorporated|formed|registered)[^<]*<[^>]*>([A-Z]{2})<").findAll(html, RegexOption.IGNORE_CASE)
+                val states = Regex("(?:incorporated|formed|registered)[^<]*<[^>]*>([A-Z]{2})<", RegexOption.IGNORE_CASE).findAll(html)
                     .map { it.groupValues[1] }.take(8).toList()
                 val officers = Regex("class=\"[^\"]*officer[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
                     .map { it.groupValues[1] }.distinct().take(5).toList()
@@ -2506,7 +2505,7 @@ class OsintRepository(context: Context) {
                     .map { it.groupValues[1].trim() }
                     .filter { it.isNotBlank() && !it.contains("\\s{3,}".toRegex()) }
                     .distinct().take(8).toList()
-                val states = Regex("(?:incorporated|formed|registered)[^<]*<[^>]*>([A-Z]{2})<").findAll(html, RegexOption.IGNORE_CASE)
+                val states = Regex("(?:incorporated|formed|registered)[^<]*<[^>]*>([A-Z]{2})<", RegexOption.IGNORE_CASE).findAll(html)
                     .map { it.groupValues[1] }.take(8).toList()
                 val officers = Regex("class=\"[^\"]*officer[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
                     .map { it.groupValues[1] }.distinct().take(8).toList()
