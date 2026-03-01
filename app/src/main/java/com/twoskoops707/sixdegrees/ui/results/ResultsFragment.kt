@@ -597,6 +597,7 @@ class ResultsFragment : Fragment() {
                     meta["dork_vehicle"]?.let { rows.add("Vehicle Records" to it) }
                     meta["dork_social"]?.let { rows.add("Social Media" to it) }
                     meta["dork_leaks"]?.let { rows.add("⚠ Leaked Data (Pastebin)" to it) }
+                    meta["dork_files"]?.let { rows.add("⬇ File Dump (PDF/DOC/XLS/CSV)" to it) }
                 }
             }
             "company" -> {
@@ -849,7 +850,18 @@ class ResultsFragment : Fragment() {
                 if (isLink) {
                     holder.b.tvRowValue.setTextColor(ContextCompat.getColor(holder.b.root.context, R.color.accent_cyan))
                     holder.b.root.setOnClickListener {
-                        it.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value)))
+                        val linkPrefs = it.context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
+                        val isDork = value.contains("google.com/search") || value.contains("bing.com/search")
+                        val pkg = if (isDork) "com.android.chrome" else when (linkPrefs.getString("pref_browser", "firefox")) {
+                            "ddg"     -> "com.duckduckgo.mobile.android"
+                            "chrome"  -> "com.android.chrome"
+                            "default" -> null
+                            else      -> "org.mozilla.firefox"
+                        }
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(value))
+                        if (pkg != null) intent.setPackage(pkg)
+                        try { it.context.startActivity(intent) }
+                        catch (_: Exception) { it.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))) }
                     }
                 } else {
                     holder.b.tvRowValue.setTextColor(ContextCompat.getColor(holder.b.root.context, R.color.text_primary))

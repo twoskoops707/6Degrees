@@ -43,6 +43,7 @@ private class DateAdapter {
 
 class OsintRepository(context: Context) {
 
+    private val appCtx = context.applicationContext
     private val apiKeyManager = ApiKeyManager(context)
     private val db = OsintDatabase.getDatabase(context)
     private val moshi = Moshi.Builder().add(DateAdapter()).add(KotlinJsonAdapterFactory()).build()
@@ -140,6 +141,12 @@ class OsintRepository(context: Context) {
     }
 
     fun searchWithProgress(query: String, type: String): Flow<SearchProgressEvent> = channelFlow {
+        val prefs = appCtx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("pref_connections_enabled", true)) {
+            send(SearchProgressEvent.Complete("", 0))
+            return@channelFlow
+        }
+
         val metadata = ConcurrentHashMap<String, String>()
         val sources = Collections.synchronizedList(mutableListOf<DataSource>())
         val emit: suspend (SearchProgressEvent) -> Unit = { send(it) }
@@ -630,7 +637,7 @@ class OsintRepository(context: Context) {
                         try {
                             val req = Request.Builder()
                                 .url(url)
-                                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                                 .build()
                             val resp = fastHttpClient.newCall(req).execute()
                             val code = resp.code
@@ -1754,7 +1761,7 @@ class OsintRepository(context: Context) {
                 val encoded = URLEncoder.encode(query, "UTF-8")
                 val req = Request.Builder()
                     .url("https://services.sunbiz.org/Filings/OfficerSearch/ByOfficerName?searchTerm=$encoded")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                     .addHeader("Accept", "application/json, text/javascript, */*")
                     .addHeader("Referer", "https://search.sunbiz.org/")
                     .build()
@@ -1815,7 +1822,7 @@ class OsintRepository(context: Context) {
                 val encoded = URLEncoder.encode(query, "UTF-8")
                 val req = Request.Builder()
                     .url("https://www.corporationswiki.com/l/search?q=$encoded")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                     .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .addHeader("Accept-Language", "en-US,en;q=0.5")
                     .addHeader("Referer", "https://www.corporationswiki.com/")
@@ -1851,7 +1858,7 @@ class OsintRepository(context: Context) {
                 val encoded = URLEncoder.encode(query, "UTF-8")
                 val req = Request.Builder()
                     .url("https://businesssearch.sos.ca.gov/CBS/SearchResults?filing_type=ALL&status=ACTIVE&SearchType=O&SearchValue=$encoded")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                     .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .addHeader("Referer", "https://businesssearch.sos.ca.gov/")
                     .build()
@@ -1992,7 +1999,7 @@ class OsintRepository(context: Context) {
             val dashName = query.lowercase().replace(" ", "-")
             val req = Request.Builder()
                 .url("https://thatsthem.com/name/$dashName")
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.5")
                 .build()
@@ -2053,7 +2060,7 @@ class OsintRepository(context: Context) {
             val encodedName = URLEncoder.encode(query, "UTF-8")
             val req = Request.Builder()
                 .url("https://www.usphonebook.com/$encodedName")
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                 .addHeader("Accept", "text/html")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
@@ -2114,7 +2121,8 @@ class OsintRepository(context: Context) {
             "court_deep" to "\"$query\" site:courtlistener.com OR site:judyrecords.com OR site:unicourt.com",
             "voter_records" to "\"$query\" (\"registered voter\" OR \"voter registration\" OR precinct OR \"party affiliation\")",
             "obituary_cross" to "\"$query\" obituary (survived by OR relatives OR children OR spouse)",
-            "dark_mentions" to "\"$query\" (\"ssn\" OR \"social security\" OR \"date of birth\" OR dob) -form -request"
+            "dark_mentions" to "\"$query\" (\"ssn\" OR \"social security\" OR \"date of birth\" OR dob) -form -request",
+            "files_dump" to "\"$query\" (filetype:pdf OR filetype:doc OR filetype:docx OR filetype:xls OR filetype:xlsx OR filetype:csv OR filetype:txt OR filetype:ppt OR filetype:pptx) (name OR address OR phone OR email OR \"date of birth\" OR resume OR cv OR application OR record)"
         )
 
         val gBase = "https://www.google.com/search?q="
@@ -2143,6 +2151,8 @@ class OsintRepository(context: Context) {
         meta["dork_vehicle"] = "${gBase}$vehicleDork"
         val socialDork = URLEncoder.encode("\"$query\" facebook OR instagram OR twitter OR tiktok OR snapchat -news -buy", "UTF-8")
         meta["dork_social"] = "${gBase}$socialDork"
+        val filesDork = URLEncoder.encode("\"$query\" (filetype:pdf OR filetype:doc OR filetype:docx OR filetype:xls OR filetype:xlsx OR filetype:csv OR filetype:txt OR filetype:ppt OR filetype:pptx) (name OR address OR phone OR email OR \"date of birth\" OR resume OR cv OR application OR record)", "UTF-8")
+        meta["dork_files"] = "${gBase}$filesDork"
 
         sources.add(DataSource("ShadowDork Engine", null, Date(), 0.5))
         emit(SearchProgressEvent.Found("ShadowDork Engine", "${dorks.size} specialized search dorks generated"))
@@ -2374,7 +2384,7 @@ class OsintRepository(context: Context) {
                 val encoded = URLEncoder.encode(query, "UTF-8")
                 val req = Request.Builder()
                     .url("https://search.sunbiz.org/Inquiry/CorporationSearch/GetListCorporations?SearchType=N&SearchTerm=$encoded&ListStartIndex=0")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                     .addHeader("Accept", "application/json, text/javascript, */*")
                     .addHeader("X-Requested-With", "XMLHttpRequest")
                     .addHeader("Referer", "https://search.sunbiz.org/")
@@ -2467,7 +2477,7 @@ class OsintRepository(context: Context) {
                 val encoded = URLEncoder.encode(query, "UTF-8")
                 val req = Request.Builder()
                     .url("https://www.corporationswiki.com/l/search?q=$encoded")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                     .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .addHeader("Accept-Language", "en-US,en;q=0.5")
                     .addHeader("Referer", "https://www.corporationswiki.com/")
@@ -2503,7 +2513,7 @@ class OsintRepository(context: Context) {
                 val encoded = URLEncoder.encode(query, "UTF-8")
                 val req = Request.Builder()
                     .url("https://businesssearch.sos.ca.gov/CBS/SearchResults?filing_type=ALL&status=ACTIVE&SearchType=B&SearchValue=$encoded")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                     .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .addHeader("Referer", "https://businesssearch.sos.ca.gov/")
                     .build()
@@ -2654,7 +2664,7 @@ class OsintRepository(context: Context) {
             val dashName = query.lowercase().replace(" ", "-")
             val req = Request.Builder()
                 .url("https://www.fastpeoplesearch.com/name/$dashName")
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.5")
                 .build()
@@ -2703,7 +2713,7 @@ class OsintRepository(context: Context) {
             val encoded = URLEncoder.encode(query, "UTF-8")
             val req = Request.Builder()
                 .url("https://www.judyrecords.com/search/?q=$encoded")
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                 .addHeader("Accept", "text/html,application/xhtml+xml")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
@@ -2739,7 +2749,7 @@ class OsintRepository(context: Context) {
             val last = URLEncoder.encode(parts.drop(1).joinToString("+"), "UTF-8")
             val req = Request.Builder()
                 .url("https://www.familytreenow.com/search/people/results?first=$first&last=$last")
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                 .addHeader("Accept", "text/html,application/xhtml+xml")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()

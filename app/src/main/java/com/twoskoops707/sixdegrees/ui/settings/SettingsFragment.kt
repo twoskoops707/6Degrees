@@ -63,6 +63,28 @@ class SettingsFragment : Fragment() {
         }
 
         binding.switchAnimations.isChecked = prefs.getBoolean("pref_animations", true)
+        binding.switchConnections.isChecked = prefs.getBoolean("pref_connections_enabled", true)
+
+        when (prefs.getString("pref_browser", "firefox")) {
+            "ddg"     -> binding.chipBrowserDdg.isChecked = true
+            "chrome"  -> binding.chipBrowserChrome.isChecked = true
+            "default" -> binding.chipBrowserDefault.isChecked = true
+            else      -> binding.chipBrowserFirefox.isChecked = true
+        }
+
+        binding.chipGroupBrowser.setOnCheckedStateChangeListener { _, checkedIds ->
+            val browser = when (checkedIds.firstOrNull()) {
+                R.id.chip_browser_ddg     -> "ddg"
+                R.id.chip_browser_chrome  -> "chrome"
+                R.id.chip_browser_default -> "default"
+                else -> "firefox"
+            }
+            prefs.edit().putString("pref_browser", browser).apply()
+        }
+
+        binding.switchConnections.setOnCheckedChangeListener { _, enabled ->
+            prefs.edit().putBoolean("pref_connections_enabled", enabled).apply()
+        }
 
         binding.chipGroupFont.setOnCheckedStateChangeListener { _, checkedIds ->
             val size = when (checkedIds.firstOrNull()) {
