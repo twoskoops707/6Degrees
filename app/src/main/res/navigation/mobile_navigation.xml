@@ -53,6 +53,9 @@
         <action
             android:id="@+id/action_wizard_to_dork_builder"
             app:destination="@id/nav_dork_builder" />
+        <action
+            android:id="@+id/action_wizard_to_api_settings"
+            app:destination="@id/nav_api_settings" />
     </fragment>
 
     <fragment

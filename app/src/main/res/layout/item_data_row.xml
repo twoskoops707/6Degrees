@@ -9,40 +9,42 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:minHeight="40dp">
+        android:minHeight="44dp"
+        android:gravity="center_vertical">
 
         <View
             android:id="@+id/row_accent_stripe"
             android:layout_width="3dp"
             android:layout_height="match_parent"
-            android:background="?attr/colorPrimary" />
+            android:visibility="gone" />
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:paddingHorizontal="12dp"
-            android:paddingVertical="8dp">
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="9dp">
 
             <TextView
                 android:id="@+id/tv_row_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="?attr/colorControlNormal"
-                android:textSize="9sp"
+                android:textSize="10sp"
                 android:textAllCaps="true"
-                android:letterSpacing="0.12" />
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="3dp" />
 
             <TextView
                 android:id="@+id/tv_row_value"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="?attr/colorOnSurface"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textIsSelectable="true"
-                android:lineSpacingExtra="2dp"
-                android:layout_marginTop="1dp" />
+                android:lineSpacingExtra="2dp" />
+
         </LinearLayout>
     </LinearLayout>
 
@@ -50,5 +52,6 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="?attr/colorControlNormal"
-        android:alpha="0.08" />
+        android:alpha="0.07" />
+
 </LinearLayout>

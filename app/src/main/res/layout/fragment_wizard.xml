@@ -264,6 +264,34 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tile_setup"
+                android:layout_width="match_parent"
+                android:layout_height="90dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="@color/success_dim"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/success"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                    android:orientation="horizontal" android:gravity="center_vertical" android:padding="20dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="🔑" android:textSize="28sp" android:layout_marginEnd="16dp" />
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Setup APIs &amp; Profile" android:textColor="@color/text_primary"
+                            android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Configure API keys to unlock more OSINT data"
+                            android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <Space android:layout_width="match_parent" android:layout_height="24dp" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

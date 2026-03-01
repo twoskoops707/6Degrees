@@ -36,6 +36,9 @@ class WizardFragment : Fragment() {
         binding.tileDorkBuilder.setOnClickListener {
             findNavController().navigate(R.id.action_wizard_to_dork_builder)
         }
+        binding.tileSetup.setOnClickListener {
+            findNavController().navigate(R.id.action_wizard_to_api_settings)
+        }
     }
 
     private fun navigateToSearch(type: String) {
