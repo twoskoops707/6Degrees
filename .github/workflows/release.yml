@@ -17,8 +17,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - uses: gradle/actions/setup-gradle@v3
+          cache: 'gradle'
 
       - run: chmod +x ./gradlew
 
