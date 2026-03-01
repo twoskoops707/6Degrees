@@ -1,6 +1,5 @@
 package com.twoskoops707.sixdegrees.ui.settings
 
-import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -89,11 +88,7 @@ class SettingsFragment : Fragment() {
 
         binding.switchAnimations.setOnCheckedChangeListener { _, enabled ->
             prefs.edit().putBoolean("pref_animations", enabled).apply()
-            ValueAnimator.setDurationScale(if (enabled) 1f else 0f)
         }
-
-        val animEnabled = prefs.getBoolean("pref_animations", true)
-        ValueAnimator.setDurationScale(if (animEnabled) 1f else 0f)
     }
 
     private fun selectThemeBase(base: String, prefs: android.content.SharedPreferences) {
