@@ -525,7 +525,7 @@ class ResultsFragment : Fragment() {
             "person" -> {
                 rows.add(sec("SUBJECT PROFILE"))
                 val bestAge = meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
-                    ?: meta["uspb_age"] ?: meta["tps_age"] ?: meta["demographics_age_estimate"]
+                    ?: meta["uspb_age"] ?: meta["tps_age"] ?: meta["zaba_age"] ?: meta["411_age"] ?: meta["demographics_age_estimate"]
                 bestAge?.takeIf { it.isNotBlank() }?.let { rows.add("Age" to it) }
                 meta["ftn_birth_year"]?.takeIf { it.isNotBlank() }?.let { rows.add("Birth Year" to "~${it}") }
                 meta["demographics_gender"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gender" to it) }
@@ -566,9 +566,11 @@ class ResultsFragment : Fragment() {
                 meta["uspb_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
                 meta["fps_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
                 meta["tps_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                meta["zaba_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                meta["411_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
                 if (allPhones.isNotEmpty()) {
                     rows.add(sec("CONTACT INTEL"))
-                    allPhones.forEach { rows.add("Phone" to it) }
+                    allPhones.forEach { rows.add("Phone Number" to it) }
                 }
 
                 val allAddresses = linkedSetOf<String>()
@@ -577,9 +579,12 @@ class ResultsFragment : Fragment() {
                 meta["fps_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
                 meta["ftn_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
                 meta["tps_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                meta["zaba_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                meta["zaba_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                meta["411_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
                 if (allAddresses.isNotEmpty()) {
                     rows.add(sec("ALL KNOWN ADDRESSES"))
-                    allAddresses.forEach { rows.add("Address" to it) }
+                    allAddresses.forEach { rows.add("Address / Location" to it) }
                 }
 
                 val allRelatives = linkedSetOf<String>()
@@ -587,9 +592,10 @@ class ResultsFragment : Fragment() {
                 meta["fps_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 meta["ftn_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 meta["tps_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
+                meta["411_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 meta["corpwiki_associates"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
                 if (allRelatives.isNotEmpty()) {
-                    rows.add(sec("ALL KNOWN RELATIVES / ASSOCIATES"))
+                    rows.add(sec("KNOWN RELATIVES / ASSOCIATES"))
                     allRelatives.forEach { rows.add("Name" to it) }
                 }
 
@@ -673,15 +679,22 @@ class ResultsFragment : Fragment() {
 
                 val wikiHits = meta["wikipedia_hits"]?.toIntOrNull() ?: 0
                 val newsCount = meta["news_article_count"]?.toIntOrNull() ?: 0
-                if (wikiHits > 0 || newsCount > 0 || !meta["wikidata_descriptions"].isNullOrBlank()) {
-                    rows.add(sec("PUBLIC RECORDS"))
+                val gnewsCount = meta["gnews_count"]?.toIntOrNull() ?: 0
+                if (wikiHits > 0 || newsCount > 0 || gnewsCount > 0 || !meta["wikidata_descriptions"].isNullOrBlank()) {
+                    rows.add(sec("NEWS & PUBLIC RECORDS"))
                     meta["wikipedia_titles"]?.takeIf { it.isNotBlank() }?.let { rows.add("Wikipedia" to it) }
                     meta["wikidata_descriptions"]?.takeIf { it.isNotBlank() }?.let { rows.add("WikiData" to it) }
                     if (newsCount > 0) {
-                        rows.add("News Mentions" to "$newsCount article${if (newsCount != 1) "s" else ""}")
-                        meta["news_sources_list"]?.takeIf { it.isNotBlank() }?.let { rows.add("Sources" to it) }
                         meta["news_titles"]?.takeIf { it.isNotBlank() }?.let {
                             it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("Headline" to t) }
+                        }
+                    }
+                    if (gnewsCount > 0) {
+                        meta["gnews_articles"]?.takeIf { it.isNotBlank() }?.let {
+                            it.split("\n---\n").filter { a -> a.isNotBlank() }.forEach { article ->
+                                val lines = article.lines().filter { l -> l.isNotBlank() }
+                                if (lines.isNotEmpty()) rows.add("News" to lines.joinToString(" "))
+                            }
                         }
                     }
                 }
@@ -702,19 +715,6 @@ class ResultsFragment : Fragment() {
                     }
                 }
 
-                val dorkCount = meta["shadowdork_count"]?.toIntOrNull() ?: 0
-                if (dorkCount > 0) {
-                    rows.add(sec("DEEP SEARCH QUERIES (tap to run in Chrome)"))
-                    meta["dork_identity"]?.let { rows.add("Identity Confirm" to it) }
-                    meta["dork_relatives"]?.let { rows.add("Relatives Map" to it) }
-                    meta["dork_address"]?.let { rows.add("Address Records" to it) }
-                    meta["dork_criminal"]?.let { rows.add("Criminal Records" to it) }
-                    meta["dork_property"]?.let { rows.add("Property Records" to it) }
-                    meta["dork_vehicle"]?.let { rows.add("Vehicle / Registration" to it) }
-                    meta["dork_social"]?.let { rows.add("Social Media Discovery" to it) }
-                    meta["dork_leaks"]?.let { rows.add("⚠ Data Leaks (Pastebin)" to it) }
-                    meta["dork_files"]?.let { rows.add("⬇ File Dump (PDF/DOC/XLS/CSV)" to it) }
-                }
 
                 val voterNames = meta["voter_names"]?.takeIf { it.isNotBlank() }
                 val voterAddresses = meta["voter_addresses"]?.takeIf { it.isNotBlank() }
@@ -729,15 +729,11 @@ class ResultsFragment : Fragment() {
 
                 val ahmiaCount = meta["ahmia_count"]?.toIntOrNull() ?: 0
                 if (ahmiaCount > 0) {
-                    rows.add(sec("⚠ DARK WEB MENTIONS (Ahmia Index)"))
-                    rows.add("Dark Web Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found on Tor-indexed sites")
+                    rows.add(sec("⚠ DARK WEB MENTIONS"))
+                    rows.add("⚠ Dark Web Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} indexed on Tor-accessible sites")
                     meta["ahmia_titles"]?.takeIf { it.isNotBlank() }?.let {
-                        it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("⚠ Dark Web Title" to t) }
+                        it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("⚠ Tor Site" to t) }
                     }
-                    meta["ahmia_urls"]?.takeIf { it.isNotBlank() }?.let {
-                        it.lines().filter { l -> l.isNotBlank() }.forEach { u -> rows.add("Ahmia Result →" to u) }
-                    }
-                    meta["ahmia_link"]?.takeIf { it.isNotBlank() }?.let { rows.add("Full Dark Web Search →" to it) }
                 }
 
                 meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let { summary ->

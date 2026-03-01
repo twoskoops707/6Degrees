@@ -2004,6 +2004,9 @@ class OsintRepository(context: Context) {
         launch { truePeopleSearchScrape(query, meta, sources, emit) }
         launch { openSanctionsScrape(query, meta, sources, emit) }
         launch { duckDuckGoPersonSearch(query, meta, sources, emit) }
+        launch { zabaSearchScrape(query, meta, sources, emit) }
+        launch { fourOneOneScrape(query, meta, sources, emit) }
+        launch { gNewsFetch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -3104,6 +3107,143 @@ class OsintRepository(context: Context) {
                 ))
             } else emit(SearchProgressEvent.NotFound("FamilyTreeNow"))
         } catch (e: Exception) { emit(SearchProgressEvent.Failed("FamilyTreeNow", e.message ?: "")) }
+    }
+
+    private suspend fun zabaSearchScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("ZabaSearch"))
+        try {
+            val slug = query.trim().replace(" ", "+")
+            val req = Request.Builder()
+                .url("https://www.zabasearch.com/people/$slug/")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .addHeader("Referer", "https://www.zabasearch.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
+                emit(SearchProgressEvent.NotFound("ZabaSearch")); return
+            }
+            val ages = Regex("(?:Age|age)\\s*:?\\s*(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
+            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
+                .map { it.value.replace(Regex("[^\\d]"), "").let { d -> if (d.length == 10) "(${d.substring(0,3)}) ${d.substring(3,6)}-${d.substring(6)}" else it.value } }
+                .filter { it.length >= 10 }.take(10).distinct().toList()
+            val addresses = Regex("(?:address|street|avenue|boulevard|drive|road|lane|way|court|place)[^<]{0,5}<[^>]+>([^<]{10,80}(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)[^<]{0,10})</", RegexOption.IGNORE_CASE)
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(10).toList()
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || addresses.isNotEmpty() || cityState.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["zaba_age"] = ages.first()
+                if (phones.isNotEmpty()) meta["zaba_phones"] = phones.joinToString(", ")
+                if (addresses.isNotEmpty()) meta["zaba_addresses"] = addresses.joinToString(" | ")
+                if (cityState.isNotEmpty()) meta["zaba_locations"] = cityState.joinToString(" | ")
+                sources.add(DataSource("ZabaSearch", "https://www.zabasearch.com/people/$slug/", Date(), 0.7))
+                emit(SearchProgressEvent.Found("ZabaSearch", buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("ZabaSearch"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("ZabaSearch", e.message ?: "")) }
+    }
+
+    private suspend fun fourOneOneScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("411.com"))
+        try {
+            val parts = query.trim().split(" ")
+            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
+            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+            val req = Request.Builder()
+                .url("https://www.411.com/name/$first-$last/")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .addHeader("Referer", "https://www.411.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
+                emit(SearchProgressEvent.NotFound("411.com")); return
+            }
+            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
+                .map { it.value.trim() }.filter { it.length >= 10 }.take(10).distinct().toList()
+            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
+                .map { it.groupValues[1].trim() }.distinct().take(10).toList()
+            val relatives = Regex("(?:relative|associate|related|alias)[^<]{0,80}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(10).toList()
+            val hasData = phones.isNotEmpty() || ages.isNotEmpty() || cityState.isNotEmpty()
+            if (hasData) {
+                if (phones.isNotEmpty()) meta["411_phones"] = phones.joinToString(", ")
+                if (ages.isNotEmpty()) meta["411_age"] = ages.first()
+                if (cityState.isNotEmpty()) meta["411_locations"] = cityState.joinToString(" | ")
+                if (relatives.isNotEmpty()) meta["411_relatives"] = relatives.joinToString(", ")
+                sources.add(DataSource("411.com", null, Date(), 0.7))
+                emit(SearchProgressEvent.Found("411.com", buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("411.com"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("411.com", e.message ?: "")) }
+    }
+
+    private suspend fun gNewsFetch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("GNews"))
+        try {
+            val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
+            val req = Request.Builder()
+                .url("https://gnews.io/api/v4/search?q=$encoded&lang=en&max=5&token=free")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val titles = Regex("\"title\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body)
+                .map { it.groupValues[1].replace("\\\"", "\"").trim() }.filter { it.isNotBlank() }.take(5).toList()
+            val descriptions = Regex("\"description\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body)
+                .map { it.groupValues[1].replace("\\\"", "\"").replace("\\n", " ").trim() }.filter { it.isNotBlank() }.take(5).toList()
+            val sources2 = Regex("\"name\"\\s*:\\s*\"([^\"]{2,60})\"").findAll(body)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+            val publishedDates = Regex("\"publishedAt\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
+                .map { it.groupValues[1].take(10) }.take(5).toList()
+            if (titles.isNotEmpty()) {
+                meta["gnews_count"] = titles.size.toString()
+                val combined = titles.zip(descriptions.ifEmpty { List(titles.size) { "" } })
+                    .zip(publishedDates.ifEmpty { List(titles.size) { "" } })
+                    .mapIndexed { i, (td, date) ->
+                        val src = sources2.getOrNull(i) ?: ""
+                        "${td.first}${if (date.isNotBlank()) " [$date]" else ""}${if (src.isNotBlank()) " — $src" else ""}${if (td.second.isNotBlank()) "\n${td.second}" else ""}"
+                    }
+                meta["gnews_articles"] = combined.joinToString("\n---\n")
+                sources.add(DataSource("GNews", null, Date(), 0.75))
+                emit(SearchProgressEvent.Found("GNews", "${titles.size} news article${if (titles.size != 1) "s" else ""} found"))
+            } else {
+                val totalHits = Regex("\"totalArticles\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                if (totalHits == 0) emit(SearchProgressEvent.NotFound("GNews"))
+                else emit(SearchProgressEvent.NotFound("GNews"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("GNews", e.message ?: "")) }
     }
 
     private fun md5(input: String): String {
