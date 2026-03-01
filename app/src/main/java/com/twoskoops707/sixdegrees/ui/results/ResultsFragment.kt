@@ -490,9 +490,21 @@ class ResultsFragment : Fragment() {
         }
 
         if (proxyCount > 0) {
-            rows.add(sec("COMB DATASET — $proxyCount RECORD${if (proxyCount != 1) "S" else ""}"))
-            rows.add("Source" to "3.2 billion leaked credentials database")
-            meta["proxynova_samples"]?.takeIf { it.isNotBlank() }?.let { rows.add("Sample Entries" to it) }
+            rows.add(sec("COMB DATASET — $proxyCount TOTAL RECORD${if (proxyCount != 1) "S" else ""}"))
+            rows.add("Database" to "Collection of Many Breaches — 3.2B leaked credentials")
+            meta["proxynova_samples"]?.takeIf { it.isNotBlank() }?.let { samples ->
+                samples.lines().filter { it.isNotBlank() }.forEach { line ->
+                    val colonIdx = line.indexOf(':', line.indexOf('@').let { if (it >= 0) it + 1 else 0 })
+                    if (colonIdx > 0) {
+                        val user = line.substring(0, colonIdx).trim()
+                        val pass = line.substring(colonIdx + 1).trim()
+                        rows.add("Login" to user)
+                        rows.add("Password / Hash" to pass)
+                    } else {
+                        rows.add("Leaked Record" to line)
+                    }
+                }
+            }
         }
 
         if (leakCount > 0) {

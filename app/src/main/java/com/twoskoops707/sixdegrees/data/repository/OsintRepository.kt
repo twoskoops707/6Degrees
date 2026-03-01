@@ -371,7 +371,7 @@ class OsintRepository(context: Context) {
         try {
             val encoded = URLEncoder.encode(email, "UTF-8")
             val req = Request.Builder()
-                .url("https://api.proxynova.com/comb?query=$encoded&limit=10")
+                .url("https://api.proxynova.com/comb?query=$encoded&limit=100")
                 .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
                 .build()
             val resp = httpClient.newCall(req).execute()
@@ -382,8 +382,12 @@ class OsintRepository(context: Context) {
             val found = (total.takeIf { it > 0 } ?: count)
             if (found > 0) {
                 meta["proxynova_breach_count"] = found.toString()
-                val lines = Regex("\"line\":\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
-                if (lines.isNotEmpty()) meta["proxynova_samples"] = lines.joinToString(" | ")
+                val lines = Regex("\"line\":\"([^\"]+)\"").findAll(body)
+                    .map { it.groupValues[1].replace("\\n", "").replace("\\r", "").trim() }
+                    .filter { it.isNotBlank() }
+                    .take(25)
+                    .toList()
+                if (lines.isNotEmpty()) meta["proxynova_samples"] = lines.joinToString("\n")
                 sources.add(DataSource("ProxyNova COMB", null, Date(), 0.9))
                 emit(SearchProgressEvent.Found("ProxyNova Breach",
                     "$found breach record${if (found != 1) "s" else ""} in COMB dataset"))
