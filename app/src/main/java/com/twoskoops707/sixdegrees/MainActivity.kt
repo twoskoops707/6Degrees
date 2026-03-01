@@ -59,7 +59,30 @@ class MainActivity : AppCompatActivity() {
         val topLevelDestinations = setOf(R.id.nav_search, R.id.nav_history, R.id.nav_settings)
         appBarConfiguration = AppBarConfiguration(topLevelDestinations)
 
-        binding.appBarMain.contentMain.bottomNavView?.setupWithNavController(navController)
+        val bottomNav = binding.appBarMain.contentMain.bottomNavView
+        bottomNav?.setupWithNavController(navController)
+        bottomNav?.setOnItemSelectedListener { item ->
+            val currentDest = navController.currentDestination?.id
+            if (currentDest == item.itemId) return@setOnItemSelectedListener true
+            if (item.itemId in topLevelDestinations) {
+                navController.popBackStack(item.itemId, false)
+                if (navController.currentDestination?.id != item.itemId) {
+                    navController.navigate(item.itemId)
+                }
+                true
+            } else false
+        }
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            val menuId = when (destination.id) {
+                R.id.nav_search, R.id.nav_search_progress, R.id.nav_results, R.id.nav_wizard, R.id.nav_dork_builder -> R.id.nav_search
+                R.id.nav_history -> R.id.nav_history
+                R.id.nav_settings, R.id.nav_api_settings, R.id.nav_user_profile -> R.id.nav_settings
+                else -> null
+            }
+            menuId?.let { id ->
+                bottomNav?.menu?.findItem(id)?.isChecked = true
+            }
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {

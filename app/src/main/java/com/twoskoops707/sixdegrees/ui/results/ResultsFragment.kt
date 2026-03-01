@@ -244,8 +244,21 @@ class ResultsFragment : Fragment() {
                 if (hibpCount > 0 || proxyCount > 0 || leakCount > 0) {
                     rows.add(sec("◈ BREACH EXPOSURE"))
                     if (hibpCount > 0) {
-                        rows.add("HIBP Breaches" to "$hibpCount breach${if (hibpCount != 1) "es" else ""} found")
-                        meta["hibp_breaches"]?.takeIf { it.isNotBlank() }?.let { rows.add("Breach Names" to it) }
+                        rows.add("⚠ HIBP Breaches" to "$hibpCount breach${if (hibpCount != 1) "es" else ""} found")
+                        val nsfwDomains = setOf("ashleymadison.com","adultfriendfinder.com","fling.com","mate1.com","penthouse.com","brazzers.com","naughtyamerica.com","xvideos.com","pornhub.com")
+                        val nsfwDataClasses = setOf("Sexual fetishes","Sexual preferences","Sexual orientation","Adult content purchases","Intimate photos","Nude photos","Profile photos")
+                        meta["hibp_breach_details"]?.takeIf { it.isNotBlank() }?.let {
+                            it.lines().filter { l -> l.isNotBlank() }.forEach { detail ->
+                                val lDetail = detail.lowercase()
+                                val isNsfw = nsfwDomains.any { d -> lDetail.contains(d) }
+                                    || nsfwDataClasses.any { dc -> detail.contains(dc, ignoreCase = true) }
+                                    || detail.contains("[SENSITIVE]", ignoreCase = true)
+                                    || lDetail.contains("ashley madison") || lDetail.contains("adult friend finder")
+                                    || lDetail.contains("fling.com") || lDetail.contains("penthouse")
+                                val label = if (isNsfw) "⚠ NSFW Breach" else "Breach"
+                                rows.add(label to detail)
+                            }
+                        } ?: meta["hibp_breaches"]?.takeIf { it.isNotBlank() }?.let { rows.add("Breach Names" to it) }
                     }
                     if (proxyCount > 0) {
                         rows.add("COMB Dataset Hits" to "$proxyCount record${if (proxyCount != 1) "s" else ""} in 3.2B leaked credentials")
@@ -433,9 +446,79 @@ class ResultsFragment : Fragment() {
 
                 meta["found_urls"]?.takeIf { it.isNotBlank() }?.let {
                     rows.add(sec("◈ CONFIRMED PROFILES ($found)"))
+                    val siteDesc = mapOf(
+                        "GitHub" to "Code hosting & developer collaboration",
+                        "GitLab" to "DevOps & source code management",
+                        "Bitbucket" to "Git code hosting by Atlassian",
+                        "Reddit" to "Social news aggregation & discussion forum",
+                        "Twitter" to "Microblogging & social media platform",
+                        "Instagram" to "Photo & video sharing social network",
+                        "TikTok" to "Short-form video sharing platform",
+                        "YouTube" to "Video sharing & streaming platform",
+                        "Facebook" to "Social networking platform",
+                        "LinkedIn" to "Professional networking & career platform",
+                        "Pinterest" to "Visual discovery & idea sharing platform",
+                        "Snapchat" to "Ephemeral photo & video messaging app",
+                        "Twitch" to "Live streaming platform, primarily gaming",
+                        "Discord" to "Voice, video & text community platform",
+                        "Telegram" to "Encrypted messaging & channel platform",
+                        "Patreon" to "Creator monetization & membership platform",
+                        "Etsy" to "Marketplace for handmade & vintage goods",
+                        "Steam" to "Video game distribution & community platform",
+                        "Spotify" to "Music & podcast streaming service",
+                        "SoundCloud" to "Music sharing & audio streaming platform",
+                        "Bandcamp" to "Music publishing & fan support platform",
+                        "Medium" to "Online publishing & blogging platform",
+                        "Substack" to "Newsletter & subscription writing platform",
+                        "Dev.to" to "Developer blogging & community platform",
+                        "Hashnode" to "Developer blogging platform",
+                        "HackerNews" to "Tech news & startup discussion forum (Y Combinator)",
+                        "ProductHunt" to "Platform to discover new tech products",
+                        "AngelList" to "Startup & investor networking platform",
+                        "Crunchbase" to "Business information & startup database",
+                        "Keybase" to "Encrypted messaging & identity verification",
+                        "Gravatar" to "Globally recognized avatar service tied to email",
+                        "About.me" to "Personal profile & bio hosting",
+                        "Linktree" to "Link aggregation bio page service",
+                        "Behance" to "Creative portfolio showcase by Adobe",
+                        "Dribbble" to "Designer portfolio & community showcase",
+                        "Flickr" to "Photo sharing & hosting community",
+                        "500px" to "Photography community & portfolio platform",
+                        "Vimeo" to "High-quality video hosting & sharing platform",
+                        "Dailymotion" to "Video sharing & streaming platform",
+                        "Tumblr" to "Microblogging & social media platform",
+                        "Blogger" to "Google-owned blogging platform",
+                        "WordPress" to "Content management & blogging platform",
+                        "Quora" to "Q&A knowledge sharing platform",
+                        "StackOverflow" to "Developer Q&A and knowledge community",
+                        "StackExchange" to "Network of expert Q&A communities",
+                        "Fiverr" to "Freelance services marketplace",
+                        "Upwork" to "Freelance work & hiring platform",
+                        "Freelancer" to "Online freelancing & crowdsourcing marketplace",
+                        "Replit" to "Browser-based coding & collaboration platform",
+                        "CodePen" to "Frontend code editor & social dev platform",
+                        "JSFiddle" to "JavaScript testing & sharing platform",
+                        "npm" to "Node.js package manager & software registry",
+                        "PyPI" to "Python package index & software repository",
+                        "DockerHub" to "Container image registry & sharing platform",
+                        "Last.fm" to "Music tracking & social recommendation service",
+                        "Goodreads" to "Book discovery & reader community platform",
+                        "Chess.com" to "Online chess platform & community",
+                        "Lichess" to "Free & open-source online chess server",
+                        "Duolingo" to "Language learning & gamification platform",
+                        "Wikipedia" to "Free online encyclopedia",
+                        "Wattpad" to "Story sharing & reading community",
+                        "Roblox" to "Online game platform & creation system",
+                        "Minecraft" to "Sandbox game with online community features",
+                        "Fortnite" to "Online battle royale gaming platform"
+                    )
                     it.lines().filter { l -> l.isNotBlank() }.forEach { line ->
                         val parts = line.split(": ", limit = 2)
-                        rows.add("✓ ${parts.firstOrNull() ?: "Platform"}" to (parts.getOrNull(1) ?: line))
+                        val siteName = parts.firstOrNull() ?: "Platform"
+                        val url = parts.getOrNull(1) ?: line
+                        val desc = siteDesc[siteName]
+                        val label = if (desc != null) "✓ $siteName — $desc" else "✓ $siteName"
+                        rows.add(label to url)
                     }
                 }
             }
@@ -599,6 +682,63 @@ class ResultsFragment : Fragment() {
                     meta["dork_leaks"]?.let { rows.add("⚠ Data Leaks (Pastebin)" to it) }
                     meta["dork_files"]?.let { rows.add("⬇ File Dump (PDF/DOC/XLS/CSV)" to it) }
                 }
+
+                val voterNames = meta["voter_names"]?.takeIf { it.isNotBlank() }
+                val voterAddresses = meta["voter_addresses"]?.takeIf { it.isNotBlank() }
+                if (voterNames != null || voterAddresses != null) {
+                    rows.add(sec("VOTER REGISTRATION RECORDS"))
+                    voterNames?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { rows.add("Registered Voter" to it) }
+                    voterAddresses?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { rows.add("Registered Address" to it) }
+                    meta["voter_party"]?.takeIf { it.isNotBlank() }?.let { rows.add("Party Affiliation" to it) }
+                    meta["voter_age"]?.takeIf { it.isNotBlank() }?.let { rows.add("Voter Age" to it) }
+                    meta["voter_link"]?.takeIf { it.isNotBlank() }?.let { rows.add("VoterRecords.com →" to it) }
+                }
+
+                val ahmiaCount = meta["ahmia_count"]?.toIntOrNull() ?: 0
+                if (ahmiaCount > 0) {
+                    rows.add(sec("⚠ DARK WEB MENTIONS (Ahmia Index)"))
+                    rows.add("Dark Web Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found on Tor-indexed sites")
+                    meta["ahmia_titles"]?.takeIf { it.isNotBlank() }?.let {
+                        it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("⚠ Dark Web Title" to t) }
+                    }
+                    meta["ahmia_urls"]?.takeIf { it.isNotBlank() }?.let {
+                        it.lines().filter { l -> l.isNotBlank() }.forEach { u -> rows.add("Ahmia Result →" to u) }
+                    }
+                    meta["ahmia_link"]?.takeIf { it.isNotBlank() }?.let { rows.add("Full Dark Web Search →" to it) }
+                }
+
+                meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let { summary ->
+                    rows.add(sec("AI INTELLIGENCE SYNTHESIS"))
+                    summary.lines().filter { it.isNotBlank() }.forEach { line ->
+                        rows.add("AI Analysis" to line)
+                    }
+                    rows.add("Note" to "AI-synthesized from public data — verify independently")
+                }
+
+                val pivotPhones = linkedSetOf<String>()
+                meta["tt_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { pivotPhones.add(it) }
+                meta["uspb_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { pivotPhones.add(it) }
+                meta["fps_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { pivotPhones.add(it) }
+                val pivotEmails = linkedSetOf<String>()
+                meta["email"]?.takeIf { it.isNotBlank() }?.let { pivotEmails.add(it) }
+                meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
+                val pivotUsernames = meta["found_urls"]?.lines()?.filter { it.isNotBlank() }?.mapNotNull {
+                    it.split(": ", limit = 2).firstOrNull()
+                }?.take(5) ?: emptyList()
+                val searchQuery = arguments?.getString("searchQuery") ?: ""
+
+                if (pivotPhones.isNotEmpty() || pivotEmails.isNotEmpty() || pivotUsernames.isNotEmpty()) {
+                    rows.add(sec("PIVOT SEARCHES (tap to search)"))
+                    pivotPhones.take(5).forEach { phone -> rows.add("⟶ Phone Search" to "pivot://phone/$phone") }
+                    pivotEmails.take(3).forEach { email -> rows.add("⟶ Email Search" to "pivot://email/$email") }
+                    pivotUsernames.take(3).forEach { uname -> rows.add("⟶ Username Search" to "pivot://username/$uname") }
+                    if (searchQuery.isNotBlank()) {
+                        val nameParts = searchQuery.trim().split(" ")
+                        if (nameParts.size >= 2) {
+                            rows.add("⟶ Reverse Name (Last, First)" to "pivot://person/${nameParts.last()} ${nameParts.first()}")
+                        }
+                    }
+                }
             }
             "company" -> {
                 rows.add(sec("◈ COMPANY RECORDS"))
@@ -707,13 +847,13 @@ class ResultsFragment : Fragment() {
     }
 
     private fun sectionLabel(type: String) = when (type) {
-        "email" -> "EMAIL INTELLIGENCE"
-        "ip", "domain" -> "NETWORK INTELLIGENCE"
-        "username" -> "DIGITAL FOOTPRINT"
-        "company" -> "CORPORATE INTELLIGENCE"
-        "phone" -> "SIGNAL INTELLIGENCE"
-        "image" -> "VISUAL INTELLIGENCE"
-        else -> "SUBJECT DOSSIER"
+        "email" -> "▶  EMAIL INTELLIGENCE"
+        "ip", "domain" -> "▶  NETWORK INTELLIGENCE"
+        "username" -> "▶  DIGITAL FOOTPRINT"
+        "company" -> "▶  CORPORATE INTELLIGENCE"
+        "phone" -> "▶  SIGNAL INTELLIGENCE"
+        "image" -> "▶  VISUAL INTELLIGENCE"
+        else -> "▶  SUBJECT DOSSIER"
     }
 
     private fun shareReport(query: String, type: String, meta: Map<String, String>, person: com.twoskoops707.sixdegrees.data.local.entity.PersonEntity?) {
@@ -814,6 +954,7 @@ class ResultsFragment : Fragment() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val (label, value) = rows[position]
             val isSectionHeader = value.isEmpty() && (label.startsWith("◈") || label.startsWith("─") || label.startsWith("> ") || label.startsWith("══"))
+            val isPivot = value.startsWith("pivot://")
             val isLink = value.startsWith("http://") || value.startsWith("https://")
             val isSearchUrl = isLink && (value.contains("google.com/search") || value.contains("bing.com/search"))
             val ctx = holder.b.root.context
@@ -822,22 +963,49 @@ class ResultsFragment : Fragment() {
 
             if (isSectionHeader) {
                 holder.b.tvRowLabel.text = ""
-                holder.b.tvRowValue.text = label
-                val headerColor = when {
-                    label.startsWith("─") -> ContextCompat.getColor(ctx, R.color.text_secondary)
-                    currentTheme == "hacker" -> ContextCompat.getColor(ctx, R.color.hacker_green)
-                    currentTheme == "tactical" -> ContextCompat.getColor(ctx, R.color.accent_blue)
-                    else -> ContextCompat.getColor(ctx, R.color.accent_blue)
-                }
-                holder.b.tvRowValue.setTextColor(headerColor)
-                holder.b.tvRowValue.textSize = 11f
-                holder.b.tvRowValue.letterSpacing = if (currentTheme == "tactical") 0.15f else 0.1f
-                holder.b.tvRowValue.typeface = when (currentTheme) {
-                    "hacker" -> android.graphics.Typeface.MONOSPACE
-                    else -> android.graphics.Typeface.DEFAULT_BOLD
-                }
+                val cleanLabel = label.trimStart().removePrefix("◈ ").removePrefix("> ").removePrefix("══ ").removeSuffix(" ══").trim()
+                holder.b.tvRowValue.text = "  $cleanLabel"
+                val tv2 = android.util.TypedValue()
+                ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv2, true)
+                holder.b.tvRowValue.setTextColor(tv2.data)
+                holder.b.tvRowValue.textSize = 10f
+                holder.b.tvRowValue.letterSpacing = 0.15f
+                holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT_BOLD
+                holder.b.rowAccentStripe.visibility = View.GONE
+                holder.b.root.setBackgroundColor(tv2.data and 0x30FFFFFF or 0x0D000000)
                 holder.b.root.setOnClickListener(null)
+            } else if (isPivot) {
+                holder.b.rowAccentStripe.visibility = View.VISIBLE
+                holder.b.root.setBackgroundColor(0)
+                val tv3 = android.util.TypedValue()
+                ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv3, true)
+                holder.b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+                holder.b.tvRowLabel.text = label
+                val parts = value.removePrefix("pivot://").split("/", limit = 2)
+                val pivotType = parts.getOrNull(0) ?: "person"
+                val pivotQuery = parts.getOrNull(1) ?: ""
+                holder.b.tvRowValue.text = pivotQuery
+                holder.b.tvRowValue.textSize = 13f
+                holder.b.tvRowValue.letterSpacing = 0f
+                holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT
+                holder.b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+                holder.b.root.setOnClickListener {
+                    val bundle = android.os.Bundle().apply {
+                        putString("query", pivotQuery)
+                        putString("type", pivotType)
+                    }
+                    this@ResultsFragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
+                }
             } else {
+                val isWarning = label.startsWith("⚠")
+                holder.b.rowAccentStripe.visibility = if (isWarning || isLink) View.VISIBLE else View.INVISIBLE
+                if (isWarning) holder.b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.score_red))
+                else if (isLink) {
+                    val tvP = android.util.TypedValue()
+                    ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tvP, true)
+                    holder.b.rowAccentStripe.setBackgroundColor(tvP.data)
+                }
+                holder.b.root.setBackgroundColor(0)
                 holder.b.tvRowLabel.text = label
                 val displayValue = if (isSearchUrl) {
                     try { Uri.parse(value).getQueryParameter("q") ?: value }
@@ -864,7 +1032,9 @@ class ResultsFragment : Fragment() {
                         catch (_: Exception) { it.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))) }
                     }
                 } else {
-                    holder.b.tvRowValue.setTextColor(ContextCompat.getColor(holder.b.root.context, R.color.text_primary))
+                    val tv = android.util.TypedValue()
+                    holder.b.root.context.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, tv, true)
+                    holder.b.tvRowValue.setTextColor(tv.data)
                     holder.b.root.setOnClickListener(null)
                 }
             }

@@ -79,7 +79,7 @@ class SearchFragment : Fragment() {
             }
         }
 
-        binding.searchButton.setOnClickListener {
+        val doSearch = {
             val type = getSelectedSearchType()
             val query = binding.searchInput.text?.toString()?.trim() ?: ""
             if (type == "image") {
@@ -94,6 +94,13 @@ class SearchFragment : Fragment() {
             } else {
                 binding.searchInputLayout.error = "Enter something to search"
             }
+        }
+        binding.searchButton.setOnClickListener { doSearch() }
+        binding.searchInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                doSearch()
+                true
+            } else false
         }
 
         recentAdapter = RecentSearchAdapter { report ->

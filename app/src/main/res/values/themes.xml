@@ -252,6 +252,13 @@
         <item name="android:textAllCaps">true</item>
     </style>
 
+    <style name="TextAppearance.SixDegrees.DossierTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textSize">13sp</item>
+        <item name="android:letterSpacing">0.15</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
     <style name="Widget.SixDegrees.Button.Primary" parent="Widget.MaterialComponents.Button">
         <item name="android:background">@drawable/bg_button_primary</item>
         <item name="android:textColor">@color/white</item>

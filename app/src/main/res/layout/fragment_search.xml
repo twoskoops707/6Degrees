@@ -3,208 +3,307 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?android:colorBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="vertical">
 
-        <!-- Header -->
+        <!-- ═══════════════ HERO HEADER ═══════════════ -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="4dp">
-            <LinearLayout
-                android:layout_width="0dp"
+            android:layout_height="200dp"
+            android:background="@drawable/bg_dossier_header"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingTop="24dp"
+            android:paddingBottom="16dp"
+            android:paddingHorizontal="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/search_title"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/search_subtitle"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
+                android:text="⬡"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="48sp"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SIXDEGREES"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.2" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DEEP OSINT INTELLIGENCE PLATFORM"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="10sp"
+                android:letterSpacing="0.3"
+                android:textAllCaps="true"
+                android:layout_marginTop="4dp" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_wizard"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/open_wizard"
-                android:textSize="12sp"
-                app:cornerRadius="18dp"
-                app:strokeColor="?attr/colorPrimary" />
+                android:layout_height="32dp"
+                android:text="WIZARD MODE"
+                android:textSize="10sp"
+                android:layout_marginTop="12dp"
+                app:cornerRadius="2dp"
+                app:strokeColor="?attr/colorPrimary"
+                app:strokeWidth="1dp"
+                android:textColor="?attr/colorPrimary"
+                android:letterSpacing="0.1" />
         </LinearLayout>
 
-        <!-- Search Input -->
-        <com.google.android.material.card.MaterialCardView
+        <!-- ═══════════════ SEARCH PANEL ═══════════════ -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp">
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="8dp">
+
+            <!-- Search Input -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/search_input_layout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Target: name, email, phone, username..."
+                app:endIconMode="clear_text"
+                app:startIconDrawable="@drawable/ic_search"
+                app:startIconTint="?attr/colorPrimary"
+                app:endIconTint="?attr/colorControlNormal"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:boxStrokeWidthFocused="2dp"
+                app:hintTextColor="?attr/colorControlNormal"
+                app:boxBackgroundColor="#0A0F1E">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/search_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="15sp"
+                    android:imeOptions="actionSearch" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Search Type Selector -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SEARCH MODE"
+                android:textColor="?attr/colorControlNormal"
+                android:textSize="9sp"
+                android:letterSpacing="0.15"
+                android:textAllCaps="true"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="6dp" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chip_group_type"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleSelection="true"
+                    app:chipSpacingHorizontal="6dp">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_person"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="PERSON"
+                        android:textSize="11sp"
+                        android:checked="true"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_email"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="EMAIL"
+                        android:textSize="11sp"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_phone"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="PHONE"
+                        android:textSize="11sp"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_username"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="USERNAME"
+                        android:textSize="11sp"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_ip"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="IP/DOMAIN"
+                        android:textSize="11sp"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_company"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="COMPANY"
+                        android:textSize="11sp"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_image"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="IMAGE"
+                        android:textSize="11sp"
+                        app:chipBackgroundColor="@color/chip_selector"
+                        app:chipStrokeColor="?attr/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        android:letterSpacing="0.05"
+                        app:checkedIconTint="?attr/colorPrimary" />
+                </com.google.android.material.chip.ChipGroup>
+            </HorizontalScrollView>
+
+            <!-- Image search buttons (conditionally visible) -->
+            <LinearLayout
+                android:id="@+id/image_buttons_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:gravity="center_horizontal"
+                android:visibility="gone" />
+
+            <!-- Launch Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/search_button"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="16dp"
+                android:text="◉  LAUNCH INTELLIGENCE SEARCH"
+                android:textColor="@color/white"
+                android:textSize="13sp"
+                android:letterSpacing="0.1"
+                app:backgroundTint="?attr/colorPrimary"
+                app:cornerRadius="4dp"
+                app:icon="@null" />
+        </LinearLayout>
+
+        <!-- ═══════════════ DIVIDER ═══════════════ -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorPrimary"
+            android:alpha="0.2"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- ═══════════════ RECENT SEARCHES ═══════════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/search_input_layout"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
+                <View
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:background="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:hint="@string/search_hint"
-                    app:endIconMode="clear_text"
-                    app:startIconDrawable="@drawable/ic_search"
-                    app:boxStrokeColor="?attr/colorPrimary"
-                    app:hintTextColor="@color/text_secondary">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/search_input"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:maxLines="1"
-                        android:textColor="?attr/colorOnSurface"
-                        android:imeOptions="actionSearch" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- Type chips -->
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:scrollbars="none">
-                    <com.google.android.material.chip.ChipGroup
-                        android:id="@+id/chip_group_type"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        app:singleSelection="true">
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chip_person"
-                            style="@style/Widget.MaterialComponents.Chip.Choice"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/search_person"
-                            android:checked="true"
-                            app:chipBackgroundColor="@color/chip_background_color"
-                            app:checkedIconTint="?attr/colorPrimary" />
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chip_email"
-                            style="@style/Widget.MaterialComponents.Chip.Choice"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/search_email"
-                            app:chipBackgroundColor="@color/chip_background_color" />
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chip_phone"
-                            style="@style/Widget.MaterialComponents.Chip.Choice"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/search_phone"
-                            app:chipBackgroundColor="@color/chip_background_color" />
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chip_username"
-                            style="@style/Widget.MaterialComponents.Chip.Choice"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/search_username"
-                            app:chipBackgroundColor="@color/chip_background_color" />
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chip_ip"
-                            style="@style/Widget.MaterialComponents.Chip.Choice"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/search_ip"
-                            app:chipBackgroundColor="@color/chip_background_color" />
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chip_company"
-                            style="@style/Widget.MaterialComponents.Chip.Choice"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/search_company"
-                            app:chipBackgroundColor="@color/chip_background_color" />
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chip_image"
-                            style="@style/Widget.MaterialComponents.Chip.Choice"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/search_image"
-                            app:chipBackgroundColor="@color/chip_background_color" />
-                    </com.google.android.material.chip.ChipGroup>
-                </HorizontalScrollView>
-
-                <LinearLayout
-                    android:id="@+id/image_buttons_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="10dp"
-                    android:gravity="center_horizontal"
-                    android:visibility="gone" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/search_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="14dp"
-                    android:text="@string/search_button"
-                    android:textColor="?attr/colorOnPrimary"
-                    android:textSize="15sp"
-                    app:backgroundTint="?attr/colorPrimary"
-                    app:cornerRadius="8dp" />
+                    android:layout_weight="1"
+                    android:text="RECENT OPERATIONS"
+                    android:textColor="?attr/colorControlNormal"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.12"
+                    android:textAllCaps="true" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
 
-        <!-- Recent Searches -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/recent_searches_title"
-            android:textColor="@color/text_secondary"
-            android:textSize="11sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            <TextView
+                android:id="@+id/no_recent_searches"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No previous searches"
+                android:textColor="?attr/colorControlNormal"
+                android:alpha="0.5"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:padding="20dp"
+                android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/no_recent_searches"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/no_recent_searches"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:gravity="center"
-            android:padding="16dp"
-            android:visibility="gone" />
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recent_searches_recycler"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+        </LinearLayout>
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recent_searches_recycler"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
-
-        <Space android:layout_width="match_parent" android:layout_height="80dp" />
+        <Space android:layout_width="match_parent" android:layout_height="100dp" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

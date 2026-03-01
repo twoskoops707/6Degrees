@@ -3,31 +3,52 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingVertical="8dp">
+    android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/tv_row_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@color/text_secondary"
-        android:textSize="10sp"
-        android:textAllCaps="true"
-        android:letterSpacing="0.1" />
-
-    <TextView
-        android:id="@+id/tv_row_value"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/text_primary"
-        android:textSize="13sp"
-        android:layout_marginTop="2dp"
-        android:textIsSelectable="true"
-        android:lineSpacingExtra="2dp" />
+        android:orientation="horizontal"
+        android:minHeight="40dp">
+
+        <View
+            android:id="@+id/row_accent_stripe"
+            android:layout_width="3dp"
+            android:layout_height="match_parent"
+            android:background="?attr/colorPrimary" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp">
+
+            <TextView
+                android:id="@+id/tv_row_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="?attr/colorControlNormal"
+                android:textSize="9sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.12" />
+
+            <TextView
+                android:id="@+id/tv_row_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="13sp"
+                android:textIsSelectable="true"
+                android:lineSpacingExtra="2dp"
+                android:layout_marginTop="1dp" />
+        </LinearLayout>
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/border"
-        android:layout_marginTop="8dp" />
+        android:background="?attr/colorControlNormal"
+        android:alpha="0.08" />
 </LinearLayout>

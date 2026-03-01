@@ -105,6 +105,11 @@
             android:name="reportId"
             app:argType="string"
             android:defaultValue="" />
+        <action
+            android:id="@+id/action_results_to_progress"
+            app:destination="@id/nav_search_progress"
+            app:popUpTo="@id/nav_search"
+            app:popUpToInclusive="false" />
     </fragment>
 
     <fragment

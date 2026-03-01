@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_primary">
+    android:background="?android:colorBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -19,10 +19,6 @@
             android:layout_marginEnd="16dp"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="@color/surface"
-            app:cardCornerRadius="14dp"
-            app:strokeColor="@color/accent_blue"
-            app:strokeWidth="1dp"
             app:cardElevation="0dp">
 
             <LinearLayout
@@ -43,7 +39,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:textColor="@color/text_primary"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:ellipsize="end"
@@ -55,8 +51,8 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         android:textSize="11sp"
-                        app:chipBackgroundColor="@color/accent_blue_dim"
-                        android:textColor="@color/white" />
+                        app:chipBackgroundColor="?attr/colorPrimaryVariant"
+                        android:textColor="?attr/colorOnPrimary" />
                 </LinearLayout>
 
                 <TextView
@@ -64,7 +60,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Initializing search…"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="?attr/colorControlNormal"
                     android:textSize="13sp"
                     android:layout_marginBottom="10dp" />
 
@@ -74,7 +70,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="4dp"
                     android:indeterminate="true"
-                    android:indeterminateTint="@color/accent_blue"
+                    android:indeterminateTint="?attr/colorPrimary"
                     android:progress="0" />
 
                 <LinearLayout
@@ -131,10 +127,10 @@
         android:layout_gravity="bottom|center_horizontal"
         android:layout_margin="16dp"
         android:text="View Full Report"
-        android:textColor="@color/white"
-        app:backgroundTint="@color/accent_blue"
+        android:textColor="?attr/colorOnPrimary"
+        app:backgroundTint="?attr/colorPrimary"
         app:icon="@drawable/ic_check"
-        app:iconTint="@color/white"
+        app:iconTint="?attr/colorOnPrimary"
         android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

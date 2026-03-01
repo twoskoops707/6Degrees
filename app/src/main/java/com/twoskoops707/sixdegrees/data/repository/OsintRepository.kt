@@ -203,7 +203,28 @@ class OsintRepository(context: Context) {
                         apiKeyManager.recordUsage("hibp")
                         val breaches = resp.body()!!
                         meta["hibp_breach_count"] = breaches.size.toString()
-                        meta["hibp_breaches"] = breaches.take(5).mapNotNull { it.name }.joinToString(", ")
+                        meta["hibp_breaches"] = breaches.mapNotNull { it.name }.joinToString(", ")
+                        val breachDetails = breaches.joinToString("\n") { b ->
+                            val pwnFmt = b.pwnCount?.let { c ->
+                                when {
+                                    c >= 1_000_000_000 -> "${c / 1_000_000_000}B records"
+                                    c >= 1_000_000 -> "${c / 1_000_000}M records"
+                                    c >= 1_000 -> "${c / 1_000}K records"
+                                    else -> "$c records"
+                                }
+                            } ?: ""
+                            val dataTypes = b.dataClasses?.joinToString(", ") ?: ""
+                            val verified = if (b.isVerified == true) "" else " [UNVERIFIED]"
+                            val sensitive = if (b.isSensitive == true) " [SENSITIVE]" else ""
+                            buildString {
+                                append("${b.title ?: b.name}${verified}${sensitive}")
+                                if (b.domain?.isNotBlank() == true) append(" (${b.domain})")
+                                if (b.breachDate?.isNotBlank() == true) append(" — ${b.breachDate}")
+                                if (pwnFmt.isNotBlank()) append(" — $pwnFmt")
+                                if (dataTypes.isNotBlank()) append(" — EXPOSED: $dataTypes")
+                            }
+                        }
+                        meta["hibp_breach_details"] = breachDetails
                         sources.add(DataSource("HaveIBeenPwned", null, Date(), 0.95))
                         val names = breaches.take(3).mapNotNull { it.name }.joinToString(", ")
                         emit(SearchProgressEvent.Found("HaveIBeenPwned",
@@ -1976,6 +1997,9 @@ class OsintRepository(context: Context) {
         launch { judyRecordsScrape(query, meta, sources, emit) }
         launch { familyTreeNowScrape(query, meta, sources, emit) }
         launch { generateAndRunDorks(query, meta, sources, emit) }
+        launch { voterRecordsScrape(query, meta, sources, emit) }
+        launch { ahmiaSearch(query, meta, sources, emit) }
+        launch { zoAiSynthesis(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -1985,6 +2009,128 @@ class OsintRepository(context: Context) {
         val bKey = apiKeyManager.bingSearchKey
         if (bKey.isNotBlank()) {
             launch { bingPersonSearch(query, bKey, meta, sources, emit) }
+        }
+    }
+
+    private suspend fun voterRecordsScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("VoterRecords.com"))
+        try {
+            val parts = query.trim().split(" ")
+            val firstName = parts.firstOrNull() ?: return
+            val lastName = parts.drop(1).joinToString("-").ifBlank { return }
+            val slug = "${firstName.lowercase()}-${lastName.lowercase()}"
+            val req = Request.Builder()
+                .url("https://voterrecords.com/voters/$slug/1")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code == 403 || html.isBlank()) {
+                emit(SearchProgressEvent.NotFound("VoterRecords.com"))
+                return
+            }
+            val names = Regex("<h5[^>]*class=\"[^\"]*card-title[^\"]*\"[^>]*>([^<]{5,60})</h5>", RegexOption.IGNORE_CASE)
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+            val addresses = Regex("(?:address|location)[^<]*<[^>]+>([A-Z][^<]{10,80})</", RegexOption.IGNORE_CASE)
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+            val parties = Regex("(?:party|affiliation)[^<]*<[^>]+>(Democratic|Republican|Independent|Green|Libertarian|NPA|No Party Affiliation)[^<]*<", RegexOption.IGNORE_CASE)
+                .findAll(html).map { it.groupValues[1].trim() }.distinct().take(3).toList()
+            val ageMatch = Regex("(?:age|born)[^<]*<[^>]+>(\\d{1,3})[^<]*<", RegexOption.IGNORE_CASE).find(html)?.groupValues?.get(1)
+            if (names.isNotEmpty() || addresses.isNotEmpty()) {
+                if (names.isNotEmpty()) meta["voter_names"] = names.joinToString(", ")
+                if (addresses.isNotEmpty()) meta["voter_addresses"] = addresses.joinToString(" | ")
+                if (parties.isNotEmpty()) meta["voter_party"] = parties.joinToString(", ")
+                if (ageMatch != null) meta["voter_age"] = ageMatch
+                meta["voter_link"] = "https://voterrecords.com/voters/$slug/1"
+                sources.add(DataSource("VoterRecords.com", meta["voter_link"], Date(), 0.8))
+                emit(SearchProgressEvent.Found("VoterRecords.com",
+                    "${names.size} voter record${if (names.size != 1) "s" else ""}${if (addresses.isNotEmpty()) " · ${addresses.first().take(40)}" else ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("VoterRecords.com"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("VoterRecords.com", e.message ?: ""))
+        }
+    }
+
+    private suspend fun ahmiaSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Ahmia Dark Web"))
+        try {
+            val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
+            val req = Request.Builder()
+                .url("https://ahmia.fi/search/?q=$encoded")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            val titles = Regex("<h4>([^<]{5,120})</h4>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).toList()
+            val onionUrls = Regex("href=\"(/search/redirect\\?[^\"]+)\"").findAll(html)
+                .map { "https://ahmia.fi${it.groupValues[1]}" }.take(5).toList()
+            val countMatch = Regex("About\\s+(\\d[\\d,]+)\\s+result").find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            if (titles.isNotEmpty() || (countMatch != null && countMatch > 0)) {
+                val count = countMatch ?: titles.size
+                meta["ahmia_count"] = count.toString()
+                meta["ahmia_titles"] = titles.joinToString("\n")
+                if (onionUrls.isNotEmpty()) meta["ahmia_urls"] = onionUrls.joinToString("\n")
+                meta["ahmia_link"] = "https://ahmia.fi/search/?q=$encoded"
+                sources.add(DataSource("Ahmia (Dark Web Index)", meta["ahmia_link"], Date(), 0.6))
+                emit(SearchProgressEvent.Found("Ahmia Dark Web", "$count dark web mention${if (count != 1) "s" else ""} indexed"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Ahmia Dark Web"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Ahmia Dark Web", e.message ?: ""))
+        }
+    }
+
+    private suspend fun zoAiSynthesis(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Zo AI Background Check"))
+        try {
+            val prompt = "You are an OSINT analyst. Provide a concise factual background summary for the person named \"$query\" using only publicly available information. Include: known profession or public role, any notable activities, public controversies or news mentions, professional history, and any notable public associations. Be factual and brief (3-5 sentences). If this is a private individual with no public profile, say so."
+            val reqBody = """{"prompt":"${prompt.replace("\"","\\\"").replace("\n"," ")}","model":"claude-3-haiku"}""".toRequestBody("application/json".toMediaType())
+            val req = Request.Builder()
+                .url("https://api.zo.computer/zo/ask")
+                .post(reqBody)
+                .addHeader("Authorization", "Bearer zo_sk_pmDTqQAkltmtTXI0Uowg0ozph9iXe0reyHsBM53Ij7M")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val answer = Regex("\"answer\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)
+                ?.replace("\\n", "\n")?.replace("\\\"", "\"")?.trim()
+                ?: Regex("\"response\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)
+                    ?.replace("\\n", "\n")?.replace("\\\"", "\"")?.trim()
+                ?: Regex("\"text\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)
+                    ?.replace("\\n", "\n")?.replace("\\\"", "\"")?.trim()
+            if (!answer.isNullOrBlank() && answer.length > 20) {
+                meta["ai_summary"] = answer.take(1000)
+                sources.add(DataSource("Zo AI Synthesis", null, Date(), 0.5))
+                emit(SearchProgressEvent.Found("Zo AI Background Check", "AI background analysis complete"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Zo AI Background Check"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Zo AI Background Check", e.message ?: ""))
         }
     }
 
