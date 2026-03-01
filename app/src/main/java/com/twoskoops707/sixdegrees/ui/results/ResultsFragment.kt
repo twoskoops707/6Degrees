@@ -191,7 +191,20 @@ class ResultsFragment : Fragment() {
         binding.tvScoreDetail.text = verdict.second
     }
 
-    private fun sec(label: String) = label to ""
+    private fun themeBase(): String {
+        val prefs = requireContext().getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
+        return prefs.getString("pref_theme_base", "modern") ?: "modern"
+    }
+
+    private fun sec(label: String): Pair<String, String> {
+        val prefix = when (themeBase()) {
+            "hacker"   -> "> "
+            "tactical" -> "══ "
+            else       -> "◈ "
+        }
+        val suffix = if (themeBase() == "tactical") " ══" else ""
+        return "$prefix$label$suffix" to ""
+    }
 
     private fun buildDataRows(meta: Map<String, String>, type: String): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
@@ -812,21 +825,29 @@ class ResultsFragment : Fragment() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val (label, value) = rows[position]
-            val isSectionHeader = value.isEmpty() && (label.startsWith("◈") || label.startsWith("─"))
+            val isSectionHeader = value.isEmpty() && (label.startsWith("◈") || label.startsWith("─") || label.startsWith("> ") || label.startsWith("══"))
             val isLink = value.startsWith("http://") || value.startsWith("https://")
             val isSearchUrl = isLink && (value.contains("google.com/search") || value.contains("bing.com/search"))
+            val ctx = holder.b.root.context
+            val themePrefs = ctx.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
+            val currentTheme = themePrefs.getString("pref_theme_base", "modern") ?: "modern"
 
             if (isSectionHeader) {
                 holder.b.tvRowLabel.text = ""
                 holder.b.tvRowValue.text = label
-                val headerColor = if (label.startsWith("◈"))
-                    ContextCompat.getColor(holder.b.root.context, R.color.accent_blue)
-                else
-                    ContextCompat.getColor(holder.b.root.context, R.color.text_secondary)
+                val headerColor = when {
+                    label.startsWith("─") -> ContextCompat.getColor(ctx, R.color.text_secondary)
+                    currentTheme == "hacker" -> ContextCompat.getColor(ctx, R.color.hacker_green)
+                    currentTheme == "tactical" -> ContextCompat.getColor(ctx, R.color.accent_blue)
+                    else -> ContextCompat.getColor(ctx, R.color.accent_blue)
+                }
                 holder.b.tvRowValue.setTextColor(headerColor)
-                holder.b.tvRowValue.textSize = if (label.startsWith("◈")) 11f else 10f
-                holder.b.tvRowValue.letterSpacing = 0.1f
-                holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT_BOLD
+                holder.b.tvRowValue.textSize = 11f
+                holder.b.tvRowValue.letterSpacing = if (currentTheme == "tactical") 0.15f else 0.1f
+                holder.b.tvRowValue.typeface = when (currentTheme) {
+                    "hacker" -> android.graphics.Typeface.MONOSPACE
+                    else -> android.graphics.Typeface.DEFAULT_BOLD
+                }
                 holder.b.root.setOnClickListener(null)
             } else {
                 holder.b.tvRowLabel.text = label

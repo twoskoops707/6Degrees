@@ -55,6 +55,12 @@ class SearchFragment : Fragment() {
 
         arguments?.getString("searchType")?.let { type -> setChipForType(type) }
 
+        val prefs = requireContext().getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
+        if ((prefs.getString("pref_theme_base", "modern") ?: "modern") == "hacker") {
+            binding.searchInputLayout.prefixText = "> "
+            binding.searchInputLayout.hint = "target.query"
+        }
+
         binding.btnWizard.setOnClickListener {
             findNavController().navigate(R.id.action_search_to_wizard)
         }

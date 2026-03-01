@@ -30,11 +30,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
-        when (prefs.getString("pref_accent", "blue")) {
-            "cyan" -> setTheme(R.style.Theme_SixDegrees_Cyan)
-            "green" -> setTheme(R.style.Theme_SixDegrees_Green)
-            "purple" -> setTheme(R.style.Theme_SixDegrees_Purple)
+        val base = prefs.getString("pref_theme_base", "modern") ?: "modern"
+        val accent = prefs.getString("pref_accent", "blue") ?: "blue"
+        val themeRes = when ("${base}_${accent}") {
+            "modern_cyan"     -> R.style.Theme_SixDegrees_Modern_Cyan
+            "modern_green"    -> R.style.Theme_SixDegrees_Modern_Green
+            "modern_purple"   -> R.style.Theme_SixDegrees_Modern_Purple
+            "hacker_green"    -> R.style.Theme_SixDegrees_Hacker_Green
+            "hacker_amber"    -> R.style.Theme_SixDegrees_Hacker_Amber
+            "hacker_blue"     -> R.style.Theme_SixDegrees_Hacker_Blue
+            "hacker_cyan"     -> R.style.Theme_SixDegrees_Hacker_Cyan
+            "tactical_blue"   -> R.style.Theme_SixDegrees_Tactical_Blue
+            "tactical_cyan"   -> R.style.Theme_SixDegrees_Tactical_Cyan
+            "tactical_green"  -> R.style.Theme_SixDegrees_Tactical_Green
+            "tactical_purple" -> R.style.Theme_SixDegrees_Tactical_Purple
+            else              -> R.style.Theme_SixDegrees_Modern_Blue
         }
+        setTheme(themeRes)
 
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)

@@ -1,5 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- MODERN (default) — rounded 16dp, navy dark, clean -->
+    <!-- ══════════════════════════════════════════════════ -->
     <style name="Theme.SixDegrees" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">modern</item>
         <item name="colorPrimary">@color/accent_blue</item>
         <item name="colorPrimaryVariant">@color/accent_blue_dim</item>
         <item name="colorOnPrimary">@color/white</item>
@@ -15,7 +21,10 @@
         <item name="android:navigationBarColor">@color/background_primary</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Modern.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Modern.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Modern.Large</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Modern</item>
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav</item>
     </style>
 
@@ -40,27 +49,201 @@
         <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
     </style>
 
-    <style name="Theme.SixDegrees.NoActionBar">
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
+    <!-- Modern named aliases for theme picker -->
+    <style name="Theme.SixDegrees.Modern" parent="Theme.SixDegrees" />
+    <style name="Theme.SixDegrees.Modern.Blue" parent="Theme.SixDegrees" />
+    <style name="Theme.SixDegrees.Modern.Cyan" parent="Theme.SixDegrees.Cyan" />
+    <style name="Theme.SixDegrees.Modern.Green" parent="Theme.SixDegrees.Green" />
+    <style name="Theme.SixDegrees.Modern.Purple" parent="Theme.SixDegrees.Purple" />
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- HACKER — pure black, monospace, sharp 0dp corners -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.Hacker" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">hacker</item>
+        <item name="colorPrimary">@color/hacker_green</item>
+        <item name="colorPrimaryVariant">@color/hacker_green_dim</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/hacker_amber</item>
+        <item name="colorSecondaryVariant">@color/hacker_amber_dim</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:colorBackground">@color/hacker_bg</item>
+        <item name="colorSurface">@color/hacker_surface</item>
+        <item name="colorOnSurface">@color/hacker_green</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/hacker_bg</item>
+        <item name="android:navigationBarColor">@color/hacker_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Hacker</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Hacker</item>
     </style>
 
-    <style name="Theme.SixDegrees.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
-    <style name="Theme.SixDegrees.PopupOverlay" parent="ThemeOverlay.AppCompat.Dark" />
+    <style name="Theme.SixDegrees.Hacker.Green" parent="Theme.SixDegrees.Hacker" />
 
-    <style name="Widget.SixDegrees.CardView" parent="Widget.MaterialComponents.CardView">
+    <style name="Theme.SixDegrees.Hacker.Amber" parent="Theme.SixDegrees.Hacker">
+        <item name="colorPrimary">@color/hacker_amber</item>
+        <item name="colorPrimaryVariant">@color/hacker_amber_dim</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/hacker_green</item>
+        <item name="colorSecondaryVariant">@color/hacker_green_dim</item>
+        <item name="colorOnSurface">@color/hacker_amber</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Hacker.Amber</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Hacker.Blue" parent="Theme.SixDegrees.Hacker">
+        <item name="colorPrimary">@color/accent_blue</item>
+        <item name="colorPrimaryVariant">@color/accent_blue_dim</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnSurface">@color/accent_blue</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Hacker.Blue</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Hacker.Cyan" parent="Theme.SixDegrees.Hacker">
+        <item name="colorPrimary">@color/accent_cyan</item>
+        <item name="colorPrimaryVariant">@color/accent_cyan_dim</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorOnSurface">@color/accent_cyan</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Hacker.Cyan</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- TACTICAL — near-black military, condensed, 4dp corners  -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.Tactical" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">tactical</item>
+        <item name="colorPrimary">@color/accent_blue</item>
+        <item name="colorPrimaryVariant">@color/accent_blue_dim</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:colorBackground">@color/tactical_bg</item>
+        <item name="colorSurface">@color/tactical_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/tactical_bg</item>
+        <item name="android:navigationBarColor">@color/tactical_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Tactical.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Tactical.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Tactical.Medium</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Tactical</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Tactical</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Tactical.Blue" parent="Theme.SixDegrees.Tactical" />
+
+    <style name="Theme.SixDegrees.Tactical.Cyan" parent="Theme.SixDegrees.Tactical">
+        <item name="colorPrimary">@color/accent_cyan</item>
+        <item name="colorPrimaryVariant">@color/accent_cyan_dim</item>
+        <item name="colorSecondary">@color/accent_blue</item>
+        <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Tactical.Green" parent="Theme.SixDegrees.Tactical">
+        <item name="colorPrimary">@color/accent_green</item>
+        <item name="colorPrimaryVariant">@color/accent_green_dim</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Tactical.Purple" parent="Theme.SixDegrees.Tactical">
+        <item name="colorPrimary">@color/accent_violet</item>
+        <item name="colorPrimaryVariant">@color/accent_violet_dim</item>
+        <item name="colorSecondary">@color/accent_blue</item>
+        <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
+    </style>
+
+    <!-- ════════════════════ SHAPE APPEARANCES ════════════════════ -->
+
+    <style name="ShapeAppearance.Modern.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">8dp</item>
+    </style>
+    <style name="ShapeAppearance.Modern.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">16dp</item>
+    </style>
+    <style name="ShapeAppearance.Modern.Large" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerSize">20dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Hacker" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">0dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Tactical.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">2dp</item>
+    </style>
+    <style name="ShapeAppearance.Tactical.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">4dp</item>
+    </style>
+
+    <!-- ════════════════════ CARD STYLES ════════════════════ -->
+
+    <style name="Widget.SixDegrees.CardView.Modern" parent="Widget.MaterialComponents.CardView">
         <item name="cardBackgroundColor">@color/surface</item>
-        <item name="cardCornerRadius">12dp</item>
+        <item name="cardCornerRadius">16dp</item>
         <item name="cardElevation">0dp</item>
         <item name="strokeColor">@color/border</item>
         <item name="strokeWidth">1dp</item>
     </style>
+
+    <!-- Legacy alias — layouts that reference this directly keep working -->
+    <style name="Widget.SixDegrees.CardView" parent="Widget.SixDegrees.CardView.Modern" />
+
+    <style name="Widget.SixDegrees.CardView.Hacker" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/hacker_surface</item>
+        <item name="cardCornerRadius">0dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/hacker_green</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Hacker.Amber" parent="Widget.SixDegrees.CardView.Hacker">
+        <item name="strokeColor">@color/hacker_amber</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Hacker.Blue" parent="Widget.SixDegrees.CardView.Hacker">
+        <item name="strokeColor">@color/accent_blue</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Hacker.Cyan" parent="Widget.SixDegrees.CardView.Hacker">
+        <item name="strokeColor">@color/accent_cyan</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Tactical" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/tactical_surface</item>
+        <item name="cardCornerRadius">4dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/tactical_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <!-- ════════════════════ BOTTOM NAV STYLES ════════════════════ -->
 
     <style name="Widget.SixDegrees.BottomNav" parent="Widget.MaterialComponents.BottomNavigationView">
         <item name="android:background">@color/background_secondary</item>
         <item name="itemIconTint">@color/bottom_nav_color</item>
         <item name="itemTextColor">@color/bottom_nav_color</item>
     </style>
+
+    <style name="Widget.SixDegrees.BottomNav.Hacker" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/hacker_bg</item>
+    </style>
+
+    <style name="Widget.SixDegrees.BottomNav.Tactical" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/tactical_bg</item>
+    </style>
+
+    <!-- ════════════════════ TEXT / BUTTON STYLES ════════════════════ -->
 
     <style name="TextAppearance.SixDegrees.Label" parent="TextAppearance.MaterialComponents.Caption">
         <item name="android:textColor">@color/text_secondary</item>
@@ -75,4 +258,13 @@
         <item name="android:textSize">14sp</item>
         <item name="android:letterSpacing">0.05</item>
     </style>
+
+    <style name="Theme.SixDegrees.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <style name="Theme.SixDegrees.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+    <style name="Theme.SixDegrees.PopupOverlay" parent="ThemeOverlay.AppCompat.Dark" />
+
 </resources>

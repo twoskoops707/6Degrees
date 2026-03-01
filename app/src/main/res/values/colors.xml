@@ -37,6 +37,22 @@
     <color name="score_yellow">#F59E0B</color>
     <color name="score_red">#EF4444</color>
 
+    <!-- Hacker theme palette -->
+    <color name="hacker_bg">#000000</color>
+    <color name="hacker_surface">#0D0D0D</color>
+    <color name="hacker_surface_elevated">#141414</color>
+    <color name="hacker_border">#1A1A1A</color>
+    <color name="hacker_green">#00FF41</color>
+    <color name="hacker_green_dim">#001A08</color>
+    <color name="hacker_amber">#FFB000</color>
+    <color name="hacker_amber_dim">#261800</color>
+
+    <!-- Tactical theme palette -->
+    <color name="tactical_bg">#070A0F</color>
+    <color name="tactical_surface">#0D1320</color>
+    <color name="tactical_surface_elevated">#121A2A</color>
+    <color name="tactical_border">#162030</color>
+
     <color name="white">#FFFFFFFF</color>
     <color name="black">#FF000000</color>
     <color name="transparent">#00000000</color>

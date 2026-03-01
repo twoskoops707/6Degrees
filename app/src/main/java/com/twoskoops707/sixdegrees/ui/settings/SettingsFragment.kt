@@ -6,8 +6,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.card.MaterialCardView
 import com.twoskoops707.sixdegrees.BuildConfig
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentSettingsBinding
@@ -40,6 +42,13 @@ class SettingsFragment : Fragment() {
 
         binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME}"
 
+        val currentBase = prefs.getString("pref_theme_base", "modern") ?: "modern"
+        updateThemeCardSelection(currentBase)
+
+        binding.cardThemeModern.setOnClickListener { selectThemeBase("modern", prefs) }
+        binding.cardThemeHacker.setOnClickListener { selectThemeBase("hacker", prefs) }
+        binding.cardThemeTactical.setOnClickListener { selectThemeBase("tactical", prefs) }
+
         when (prefs.getString("pref_font_size", "normal")) {
             "small" -> binding.chipFontSmall.isChecked = true
             "large" -> binding.chipFontLarge.isChecked = true
@@ -47,10 +56,11 @@ class SettingsFragment : Fragment() {
         }
 
         when (prefs.getString("pref_accent", "blue")) {
-            "cyan" -> binding.chipAccentCyan.isChecked = true
-            "green" -> binding.chipAccentGreen.isChecked = true
+            "cyan"   -> binding.chipAccentCyan.isChecked = true
+            "green"  -> binding.chipAccentGreen.isChecked = true
             "purple" -> binding.chipAccentPurple.isChecked = true
-            else -> binding.chipAccentBlue.isChecked = true
+            "amber"  -> binding.chipAccentAmber.isChecked = true
+            else     -> binding.chipAccentBlue.isChecked = true
         }
 
         binding.switchAnimations.isChecked = prefs.getBoolean("pref_animations", true)
@@ -67,9 +77,10 @@ class SettingsFragment : Fragment() {
 
         binding.chipGroupAccent.setOnCheckedStateChangeListener { _, checkedIds ->
             val accent = when (checkedIds.firstOrNull()) {
-                R.id.chip_accent_cyan -> "cyan"
-                R.id.chip_accent_green -> "green"
+                R.id.chip_accent_cyan   -> "cyan"
+                R.id.chip_accent_green  -> "green"
                 R.id.chip_accent_purple -> "purple"
+                R.id.chip_accent_amber  -> "amber"
                 else -> "blue"
             }
             prefs.edit().putString("pref_accent", accent).apply()
@@ -83,6 +94,29 @@ class SettingsFragment : Fragment() {
 
         val animEnabled = prefs.getBoolean("pref_animations", true)
         ValueAnimator.setDurationScale(if (animEnabled) 1f else 0f)
+    }
+
+    private fun selectThemeBase(base: String, prefs: android.content.SharedPreferences) {
+        prefs.edit().putString("pref_theme_base", base).apply()
+        requireActivity().recreate()
+    }
+
+    private fun updateThemeCardSelection(selectedBase: String) {
+        val ctx = requireContext()
+        val activeStroke = ContextCompat.getColor(ctx, R.color.accent_blue)
+        val inactiveStroke = ContextCompat.getColor(ctx, R.color.border)
+        val dp = resources.displayMetrics.density
+        val activeWidth = (2 * dp).toInt()
+        val inactiveWidth = (1 * dp).toInt()
+
+        fun style(card: MaterialCardView, active: Boolean) {
+            card.strokeColor = if (active) activeStroke else inactiveStroke
+            card.strokeWidth = if (active) activeWidth else inactiveWidth
+        }
+
+        style(binding.cardThemeModern, selectedBase == "modern")
+        style(binding.cardThemeHacker, selectedBase == "hacker")
+        style(binding.cardThemeTactical, selectedBase == "tactical")
     }
 
     override fun onDestroyView() {
