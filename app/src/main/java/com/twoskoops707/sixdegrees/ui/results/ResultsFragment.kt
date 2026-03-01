@@ -119,12 +119,28 @@ class ResultsFragment : Fragment() {
         } else {
             binding.personCard.visibility = View.VISIBLE
             binding.fullName.text = report.searchQuery
-            binding.jobTitle.text = metadata["tt_ages"]?.let { "Age: $it" } ?: ""
-            binding.location.text = metadata["tt_locations"]?.split(",")?.firstOrNull()?.trim()
-                ?: metadata["uspb_addresses"]?.split(" | ")?.firstOrNull()?.trim() ?: ""
+            val ageDisplay = metadata["fps_age"] ?: metadata["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
+                ?: metadata["uspb_age"] ?: metadata["demographics_age_estimate"]
+            binding.jobTitle.text = buildString {
+                ageDisplay?.let { append("Age: $it") }
+                metadata["demographics_gender"]?.let { g -> if (isNotEmpty()) append(" · "); append(g) }
+                metadata["ftn_birth_year"]?.let { y -> if (isNotEmpty()) append(" · "); append("b.~$y") }
+            }
+            binding.location.text = metadata["uspb_addresses"]?.split(" | ")?.firstOrNull()?.trim()
+                ?: metadata["tt_locations"]?.split(" | ")?.firstOrNull()?.trim()
+                ?: metadata["fps_locations"]?.split(" | ")?.firstOrNull()?.trim() ?: ""
             binding.bio.text = buildString {
-                metadata["tt_relatives"]?.takeIf { it.isNotBlank() }?.let { append("Relatives: $it") }
-                if (isNotEmpty()) append(" · ")
+                val allPhones = linkedSetOf<String>()
+                metadata["tt_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                metadata["uspb_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                metadata["fps_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                if (allPhones.isNotEmpty()) append("Phone: ${allPhones.first()}")
+                val allRel = linkedSetOf<String>()
+                metadata["tt_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRel.add(it) }
+                metadata["fps_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRel.add(it) }
+                metadata["ftn_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRel.add(it) }
+                if (allRel.isNotEmpty()) { if (isNotEmpty()) append("\n"); append("Associates: ${allRel.take(3).joinToString(", ")}") }
+                if (isNotEmpty()) append("\n")
                 append("Searched ${dateFormat.format(report.generatedAt)}")
             }
         }
@@ -424,74 +440,58 @@ class ResultsFragment : Fragment() {
                 }
             }
             "person" -> {
-                rows.add(sec("◈ IDENTITY"))
-                val age = meta["tt_ages"] ?: meta["uspb_age"]
-                age?.takeIf { it.isNotBlank() }?.let { rows.add("Age" to it) }
-                meta["demographics_gender"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gender Est." to it) }
-                meta["demographics_age_estimate"]?.takeIf { it.isNotBlank() }?.let {
-                    if (age.isNullOrBlank()) rows.add("Age Est." to it)
-                }
+                rows.add(sec("SUBJECT PROFILE"))
+                val bestAge = meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
+                    ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
+                bestAge?.takeIf { it.isNotBlank() }?.let { rows.add("Age" to it) }
+                meta["ftn_birth_year"]?.takeIf { it.isNotBlank() }?.let { rows.add("Birth Year" to "~${it}") }
+                meta["demographics_gender"]?.takeIf { it.isNotBlank() }?.let { rows.add("Gender" to it) }
                 meta["demographics_nationality"]?.takeIf { it.isNotBlank() }?.let { rows.add("Nationality Est." to it) }
-                meta["tt_relatives"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associates / Relatives" to it) }
 
-                val hasLocations = !meta["tt_locations"].isNullOrBlank() || !meta["uspb_addresses"].isNullOrBlank()
-                if (hasLocations) {
-                    rows.add(sec("◈ KNOWN LOCATIONS"))
-                    meta["tt_locations"]?.takeIf { it.isNotBlank() }?.let {
-                        it.split(",").filter { s -> s.isNotBlank() }.take(5).forEach { loc -> rows.add("Location" to loc.trim()) }
-                    }
-                    meta["uspb_addresses"]?.takeIf { it.isNotBlank() }?.let {
-                        it.split(" | ").filter { a -> a.isNotBlank() }.take(4).forEach { addr -> rows.add("Address" to addr.trim()) }
-                    }
+                val allPhones = linkedSetOf<String>()
+                meta["tt_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                meta["uspb_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                meta["fps_phones"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allPhones.add(it) }
+                if (allPhones.isNotEmpty()) {
+                    rows.add(sec("CONTACT INTEL"))
+                    allPhones.forEach { rows.add("Phone" to it) }
                 }
 
-
-                val hasContacts = !meta["tt_phones"].isNullOrBlank() || !meta["uspb_phones"].isNullOrBlank()
-                    || !meta["fps_phones"].isNullOrBlank()
-                if (hasContacts) {
-                    rows.add(sec("◈ CONTACT INTEL"))
-                    val phone = meta["tt_phones"] ?: meta["uspb_phones"] ?: meta["fps_phones"]
-                    phone?.takeIf { it.isNotBlank() }?.let { rows.add("Phone" to it) }
+                val allAddresses = linkedSetOf<String>()
+                meta["uspb_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                meta["tt_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                meta["fps_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                meta["ftn_locations"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allAddresses.add(it) }
+                if (allAddresses.isNotEmpty()) {
+                    rows.add(sec("ALL KNOWN ADDRESSES"))
+                    allAddresses.forEach { rows.add("Address" to it) }
                 }
 
-                val hasFps = !meta["fps_locations"].isNullOrBlank() || !meta["fps_relatives"].isNullOrBlank()
-                    || !meta["fps_age"].isNullOrBlank()
-                if (hasFps) {
-                    rows.add(sec("◈ PEOPLE SEARCH DATA"))
-                    meta["fps_age"]?.takeIf { it.isNotBlank() }?.let { rows.add("Age" to it) }
-                    meta["fps_locations"]?.takeIf { it.isNotBlank() }?.let {
-                        it.split(" | ").filter { s -> s.isNotBlank() }.forEach { loc -> rows.add("Location" to loc.trim()) }
-                    }
-                    meta["fps_relatives"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associates" to it) }
-                }
-
-                val hasFtn = !meta["ftn_birth_year"].isNullOrBlank() || !meta["ftn_relatives"].isNullOrBlank()
-                    || !meta["ftn_locations"].isNullOrBlank()
-                if (hasFtn) {
-                    rows.add(sec("◈ GENEALOGY RECORDS"))
-                    meta["ftn_birth_year"]?.takeIf { it.isNotBlank() }?.let { rows.add("Birth Year" to "~$it") }
-                    meta["ftn_locations"]?.takeIf { it.isNotBlank() }?.let {
-                        it.split(" | ").filter { s -> s.isNotBlank() }.forEach { loc -> rows.add("Location" to loc.trim()) }
-                    }
-                    meta["ftn_relatives"]?.takeIf { it.isNotBlank() }?.let { rows.add("Family Members" to it) }
+                val allRelatives = linkedSetOf<String>()
+                meta["tt_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
+                meta["fps_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
+                meta["ftn_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
+                meta["corpwiki_associates"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { allRelatives.add(it) }
+                if (allRelatives.isNotEmpty()) {
+                    rows.add(sec("ALL KNOWN RELATIVES / ASSOCIATES"))
+                    allRelatives.forEach { rows.add("Name" to it) }
                 }
 
                 val judyCount = meta["judyrecords_count"]?.toIntOrNull() ?: 0
                 val arrestCount = meta["arrest_count"]?.toIntOrNull() ?: 0
                 val courtCount = meta["courtlistener_count"]?.toIntOrNull() ?: 0
-                if (arrestCount > 0 || courtCount > 0 || judyCount > 0
-                    || !meta["judyrecords_cases"].isNullOrBlank()) {
-                    rows.add(sec("◈ LEGAL RECORDS"))
+                if (arrestCount > 0 || courtCount > 0 || judyCount > 0 || !meta["judyrecords_cases"].isNullOrBlank()) {
+                    rows.add(sec("LEGAL RECORDS"))
                     if (arrestCount > 0) {
-                        rows.add("⚠ Arrests" to "$arrestCount record${if (arrestCount != 1) "s" else ""} on file")
+                        rows.add("⚠ Arrests on File" to "$arrestCount record${if (arrestCount != 1) "s" else ""}")
                         meta["arrest_records"]?.takeIf { it.isNotBlank() }?.let {
-                            it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { record -> rows.add("Arrest" to record) }
+                            it.lines().filter { l -> l.isNotBlank() }.forEach { record -> rows.add("Arrest Record" to record) }
                         }
                     }
-                    if (courtCount > 0) rows.add("CourtListener Cases" to "$courtCount case${if (courtCount != 1) "s" else ""} found")
-                    if (judyCount > 0) rows.add("JudyRecords Cases" to "$judyCount court record${if (judyCount != 1) "s" else ""} found")
+                    if (courtCount > 0) rows.add("CourtListener" to "$courtCount case${if (courtCount != 1) "s" else ""} found")
+                    if (judyCount > 0) rows.add("JudyRecords" to "$judyCount court record${if (judyCount != 1) "s" else ""} found")
                     meta["judyrecords_cases"]?.takeIf { it.isNotBlank() }?.let {
-                        it.lines().filter { l -> l.isNotBlank() }.take(6).forEach { c -> rows.add("Court Record" to c) }
+                        it.lines().filter { l -> l.isNotBlank() }.forEach { c -> rows.add("Case" to c) }
                     }
                     meta["judyrecords_courts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Courts" to it) }
                 }
@@ -504,37 +504,36 @@ class ResultsFragment : Fragment() {
                 val sunbizOfficerCount = meta["sunbiz_officer_count"]?.toIntOrNull() ?: 0
                 val samEntityCount = meta["sam_entity_count"]?.toIntOrNull() ?: 0
                 val caOfficerCount = meta["ca_sos_officer_count"]?.toIntOrNull() ?: 0
-                val corpwikiCount = meta["corpwiki_person_companies"]?.lines()?.size ?: 0
+                val corpwikiCount = meta["corpwiki_person_companies"]?.lines()?.filter { it.isNotBlank() }?.size ?: 0
                 if (officerCount > 0 || secHits > 0 || secFulltextHits > 0 || fecCount > 0 || gleifEntities != null
                     || sunbizOfficerCount > 0 || samEntityCount > 0 || caOfficerCount > 0 || corpwikiCount > 0) {
-                    rows.add(sec("◈ CORPORATE & FINANCIAL"))
+                    rows.add(sec("CORPORATE & FINANCIAL"))
                     meta["officer_details"]?.takeIf { it.isNotBlank() }?.let {
-                        it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { detail -> rows.add("Corporate Role" to detail) }
+                        it.lines().filter { l -> l.isNotBlank() }.forEach { detail -> rows.add("Corporate Role" to detail) }
                     }
                     if (caOfficerCount > 0) {
                         rows.add("CA SOS Officer Records" to "$caOfficerCount California entit${if (caOfficerCount != 1) "ies" else "y"}")
                         meta["ca_sos_officer_entities"]?.takeIf { it.isNotBlank() }?.let {
-                            it.lines().filter { l -> l.isNotBlank() }.take(8).forEach { e -> rows.add("CA Entity" to e) }
+                            it.lines().filter { l -> l.isNotBlank() }.forEach { e -> rows.add("CA Entity" to e) }
                         }
                     }
                     if (sunbizOfficerCount > 0) {
-                        rows.add("FL SOS Officer Records" to "$sunbizOfficerCount Florida corporate filing${if (sunbizOfficerCount != 1) "s" else ""}")
+                        rows.add("FL SOS Officer Records" to "$sunbizOfficerCount Florida filing${if (sunbizOfficerCount != 1) "s" else ""}")
                         meta["sunbiz_officer_companies"]?.takeIf { it.isNotBlank() }?.let {
-                            it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { co -> rows.add("FL Company" to co) }
+                            it.lines().filter { l -> l.isNotBlank() }.forEach { co -> rows.add("FL Company" to co) }
                         }
                     }
                     if (corpwikiCount > 0) {
                         rows.add("Corporations Wiki" to "$corpwikiCount record${if (corpwikiCount != 1) "s" else ""}")
                         meta["corpwiki_person_companies"]?.takeIf { it.isNotBlank() }?.let {
-                            it.lines().filter { l -> l.isNotBlank() }.take(8).forEach { co -> rows.add("Corp Wiki" to co) }
+                            it.lines().filter { l -> l.isNotBlank() }.forEach { co -> rows.add("Company" to co) }
                         }
                         meta["corpwiki_person_states"]?.takeIf { it.isNotBlank() }?.let { rows.add("States" to it) }
-                        meta["corpwiki_associates"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associates" to it) }
                     }
                     if (samEntityCount > 0) {
-                        rows.add("SAM.gov Federal Entities" to "$samEntityCount registered entit${if (samEntityCount != 1) "ies" else "y"}")
+                        rows.add("SAM.gov Federal Entities" to "$samEntityCount entit${if (samEntityCount != 1) "ies" else "y"}")
                         meta["sam_entities"]?.takeIf { it.isNotBlank() }?.let {
-                            it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { e -> rows.add("Federal Entity" to e) }
+                            it.lines().filter { l -> l.isNotBlank() }.forEach { e -> rows.add("Federal Entity" to e) }
                         }
                         meta["sam_uei_codes"]?.takeIf { it.isNotBlank() }?.let { rows.add("UEI Code(s)" to it) }
                     }
@@ -543,13 +542,13 @@ class ResultsFragment : Fragment() {
                         meta["sec_person_entities"]?.takeIf { it.isNotBlank() }?.let { rows.add("Affiliated Companies" to it) }
                     }
                     if (secFulltextHits > 0) {
-                        rows.add("SEC EDGAR All Forms" to "$secFulltextHits filing${if (secFulltextHits != 1) "s" else ""} across all form types")
+                        rows.add("SEC EDGAR All Forms" to "$secFulltextHits filing${if (secFulltextHits != 1) "s" else ""}")
                         meta["sec_fulltext_forms"]?.takeIf { it.isNotBlank() }?.let { rows.add("Form Types" to it) }
                         meta["sec_fulltext_entities"]?.takeIf { it.isNotBlank() }?.let { rows.add("SEC Entities" to it) }
                     }
                     if (gleifEntities != null) {
-                        rows.add("GLEIF Legal Entities" to "${gleifEntities.lines().size} found")
-                        gleifEntities.lines().filter { it.isNotBlank() }.take(5).forEach { e -> rows.add("Legal Entity" to e) }
+                        rows.add("GLEIF Legal Entities" to "${gleifEntities.lines().filter { it.isNotBlank() }.size} found")
+                        gleifEntities.lines().filter { it.isNotBlank() }.forEach { e -> rows.add("Legal Entity" to e) }
                     }
                     meta["fec_candidates"]?.takeIf { it.isNotBlank() }?.let {
                         it.lines().filter { l -> l.isNotBlank() }.forEach { r -> rows.add("FEC Campaign" to r) }
@@ -559,44 +558,45 @@ class ResultsFragment : Fragment() {
                 val wikiHits = meta["wikipedia_hits"]?.toIntOrNull() ?: 0
                 val newsCount = meta["news_article_count"]?.toIntOrNull() ?: 0
                 if (wikiHits > 0 || newsCount > 0 || !meta["wikidata_descriptions"].isNullOrBlank()) {
-                    rows.add(sec("◈ PUBLIC RECORDS"))
+                    rows.add(sec("PUBLIC RECORDS"))
                     meta["wikipedia_titles"]?.takeIf { it.isNotBlank() }?.let { rows.add("Wikipedia" to it) }
                     meta["wikidata_descriptions"]?.takeIf { it.isNotBlank() }?.let { rows.add("WikiData" to it) }
                     if (newsCount > 0) {
                         rows.add("News Mentions" to "$newsCount article${if (newsCount != 1) "s" else ""}")
+                        meta["news_sources_list"]?.takeIf { it.isNotBlank() }?.let { rows.add("Sources" to it) }
                         meta["news_titles"]?.takeIf { it.isNotBlank() }?.let {
-                            it.lines().filter { l -> l.isNotBlank() }.take(4).forEach { t -> rows.add("Headline" to t) }
+                            it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("Headline" to t) }
                         }
                     }
                 }
 
                 val hasSearchIntel = !meta["cse_snippets"].isNullOrBlank() || !meta["bing_snippets"].isNullOrBlank()
                 if (hasSearchIntel) {
-                    rows.add(sec("◈ SEARCH ENGINE INTEL"))
+                    rows.add(sec("SEARCH ENGINE INTEL"))
+                    meta["bing_total"]?.let { t -> (t.toLongOrNull() ?: 0L).let { if (it > 0) rows.add("Bing Total Results" to t) } }
                     meta["cse_snippets"]?.takeIf { it.isNotBlank() }?.let {
-                        it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { snippet ->
+                        it.split("\n---\n").filter { s -> s.isNotBlank() }.forEach { snippet ->
                             rows.add("Google CSE" to snippet.trim())
                         }
                     }
                     meta["bing_snippets"]?.takeIf { it.isNotBlank() }?.let {
-                        it.split("\n---\n").filter { s -> s.isNotBlank() }.take(4).forEach { snippet ->
+                        it.split("\n---\n").filter { s -> s.isNotBlank() }.forEach { snippet ->
                             rows.add("Bing" to snippet.trim())
                         }
                     }
                 }
 
-
                 val dorkCount = meta["shadowdork_count"]?.toIntOrNull() ?: 0
                 if (dorkCount > 0) {
-                    rows.add(sec("◈ DEEP SEARCH QUERIES (tap to run)"))
-                    meta["dork_identity"]?.let { rows.add("Identity" to it) }
-                    meta["dork_relatives"]?.let { rows.add("Relatives" to it) }
+                    rows.add(sec("DEEP SEARCH QUERIES (tap to run in Chrome)"))
+                    meta["dork_identity"]?.let { rows.add("Identity Confirm" to it) }
+                    meta["dork_relatives"]?.let { rows.add("Relatives Map" to it) }
                     meta["dork_address"]?.let { rows.add("Address Records" to it) }
                     meta["dork_criminal"]?.let { rows.add("Criminal Records" to it) }
                     meta["dork_property"]?.let { rows.add("Property Records" to it) }
-                    meta["dork_vehicle"]?.let { rows.add("Vehicle Records" to it) }
-                    meta["dork_social"]?.let { rows.add("Social Media" to it) }
-                    meta["dork_leaks"]?.let { rows.add("⚠ Leaked Data (Pastebin)" to it) }
+                    meta["dork_vehicle"]?.let { rows.add("Vehicle / Registration" to it) }
+                    meta["dork_social"]?.let { rows.add("Social Media Discovery" to it) }
+                    meta["dork_leaks"]?.let { rows.add("⚠ Data Leaks (Pastebin)" to it) }
                     meta["dork_files"]?.let { rows.add("⬇ File Dump (PDF/DOC/XLS/CSV)" to it) }
                 }
             }

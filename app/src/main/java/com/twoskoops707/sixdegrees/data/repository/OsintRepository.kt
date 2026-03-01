@@ -2012,12 +2012,12 @@ class OsintRepository(context: Context) {
             }
             val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
             val cities = Regex("<span[^>]*class=\"[^\"]*city[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
             val states = Regex("<span[^>]*class=\"[^\"]*state[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
-            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(html).map { it.value.trim() }.take(5).distinct().toList()
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
+            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(html).map { it.value.trim() }.take(10).distinct().toList()
             val relatives = Regex("(?:Relative|Associated|Related)[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
-                .map { it.groupValues[1] }.take(8).distinct().toList()
+                .map { it.groupValues[1] }.take(15).distinct().toList()
             val imgUrls = Regex("src=\"(https://[^\"]+(?:photo|profile|avatar|thumb)[^\"]+)\"").findAll(html)
                 .map { it.groupValues[1] }.take(3).distinct().toList()
 
@@ -2025,9 +2025,9 @@ class OsintRepository(context: Context) {
             if (hasData) {
                 if (ages.isNotEmpty()) meta["tt_ages"] = ages.joinToString(", ")
                 if (cities.isNotEmpty() && states.isNotEmpty()) {
-                    meta["tt_locations"] = cities.zip(states).take(3).joinToString(" | ") { (c, s) -> "$c, $s" }
+                    meta["tt_locations"] = cities.zip(states).take(10).joinToString(" | ") { (c, s) -> "$c, $s" }
                 } else if (cities.isNotEmpty()) {
-                    meta["tt_locations"] = cities.take(3).joinToString(", ")
+                    meta["tt_locations"] = cities.take(10).joinToString(" | ")
                 }
                 if (phones.isNotEmpty()) meta["tt_phones"] = phones.joinToString(", ")
                 if (relatives.isNotEmpty()) meta["tt_relatives"] = relatives.joinToString(", ")
@@ -2071,10 +2071,10 @@ class OsintRepository(context: Context) {
                 return
             }
             val addresses = Regex("(?:address|street)[^<]{0,50}<[^>]+>([^<]+[A-Z]{2}\\s+\\d{5}[^<]*)").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.take(3).distinct().toList()
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.take(10).distinct().toList()
             val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
-                .map { it.value.trim() }.filter { it.length >= 10 }.take(5).distinct().toList()
-            val ages = Regex("Age[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
+                .map { it.value.trim() }.filter { it.length >= 10 }.take(10).distinct().toList()
+            val ages = Regex("Age[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
 
             val hasData = addresses.isNotEmpty() || phones.isNotEmpty()
             if (hasData) {
@@ -2674,19 +2674,19 @@ class OsintRepository(context: Context) {
             if (html.isBlank() || resp.code == 403) { emit(SearchProgressEvent.NotFound("FastPeopleSearch")); return }
             val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
             val cities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
             val states = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
-            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(html).map { it.value.trim() }.take(5).distinct().toList()
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
+            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(html).map { it.value.trim() }.take(10).distinct().toList()
             val relatives = Regex("class=\"[^\"]*relative[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
-                .map { it.groupValues[1] }.take(8).distinct().toList()
+                .map { it.groupValues[1] }.take(15).distinct().toList()
             val hasData = ages.isNotEmpty() || cities.isNotEmpty() || phones.isNotEmpty()
             if (hasData) {
                 if (ages.isNotEmpty()) meta["fps_age"] = ages.first()
                 if (cities.isNotEmpty() && states.isNotEmpty()) {
-                    meta["fps_locations"] = cities.zip(states).take(4).joinToString(" | ") { (c, s) -> "$c, $s" }
+                    meta["fps_locations"] = cities.zip(states).take(10).joinToString(" | ") { (c, s) -> "$c, $s" }
                 } else if (cities.isNotEmpty()) {
-                    meta["fps_locations"] = cities.take(4).joinToString(" | ")
+                    meta["fps_locations"] = cities.take(10).joinToString(" | ")
                 }
                 if (phones.isNotEmpty()) meta["fps_phones"] = phones.joinToString(", ")
                 if (relatives.isNotEmpty()) meta["fps_relatives"] = relatives.joinToString(", ")
@@ -2765,7 +2765,7 @@ class OsintRepository(context: Context) {
             val hasData = birthYears.isNotEmpty() || cities.isNotEmpty() || relatives.isNotEmpty()
             if (hasData) {
                 if (birthYears.isNotEmpty()) meta["ftn_birth_year"] = birthYears.first()
-                if (cities.isNotEmpty()) meta["ftn_locations"] = cities.take(4).joinToString(" | ")
+                if (cities.isNotEmpty()) meta["ftn_locations"] = cities.take(10).joinToString(" | ")
                 if (relatives.isNotEmpty()) meta["ftn_relatives"] = relatives.joinToString(", ")
                 sources.add(DataSource("FamilyTreeNow", null, Date(), 0.65))
                 emit(SearchProgressEvent.Found("FamilyTreeNow",
