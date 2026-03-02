@@ -168,7 +168,6 @@ class ApiSettingsFragment : Fragment() {
         "IPQualityScore" to "https://www.ipqualityscore.com/create-account",
         "Veriphone" to "https://veriphone.io/signup",
         "VirusTotal" to "https://www.virustotal.com/gui/join-us",
-        "HaveIBeenPwned" to "https://haveibeenpwned.com/API/Key",
         "Hunter.io" to "https://hunter.io/users/sign_up",
         "People Data Labs" to "https://www.peopledatalabs.com/signup",
         "Numverify" to "https://numverify.com/product",
