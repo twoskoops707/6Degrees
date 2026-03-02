@@ -273,7 +273,7 @@
         <item name="android:letterSpacing">0.05</item>
     </style>
 
-    <style name="Theme.SixDegrees.NoActionBar">
+    <style name="Theme.SixDegrees.NoActionBar" parent="Theme.SixDegrees">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>

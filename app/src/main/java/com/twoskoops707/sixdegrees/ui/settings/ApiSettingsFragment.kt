@@ -316,6 +316,11 @@ class ApiSettingsFragment : Fragment() {
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()
     }
 
+    override fun onStop() {
+        super.onStop()
+        saveApiKeys()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

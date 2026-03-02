@@ -329,8 +329,9 @@ class ApiSignupWebFragment : Fragment() {
 
     override fun onDestroyView() {
         binding.webView.stopLoading()
-        binding.webView.destroy()
+        binding.webView.removeAllViews()
         super.onDestroyView()
+        binding.webView.destroy()
         _binding = null
     }
 }

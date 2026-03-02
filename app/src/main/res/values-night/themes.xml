@@ -1,10 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.SixDegrees" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">modern</item>
         <item name="colorPrimary">@color/accent_blue</item>
         <item name="colorPrimaryVariant">@color/accent_blue_dim</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/accent_violet</item>
-        <item name="colorSecondaryVariant">@color/accent_violet_dim</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
         <item name="colorOnSecondary">@color/white</item>
         <item name="android:colorBackground">@color/background_primary</item>
         <item name="colorSurface">@color/surface</item>
@@ -14,7 +16,11 @@
         <item name="android:statusBarColor">@color/background_primary</item>
         <item name="android:navigationBarColor">@color/background_primary</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
-        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Modern.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Modern.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Modern.Large</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Modern</item>
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav</item>
     </style>
 </resources>

@@ -93,7 +93,7 @@ class SettingsFragment : Fragment() {
                 else -> "normal"
             }
             prefs.edit().putString("pref_font_size", size).apply()
-            requireActivity().recreate()
+            activity?.recreate()
         }
 
         binding.chipGroupAccent.setOnCheckedStateChangeListener { _, checkedIds ->
@@ -105,7 +105,7 @@ class SettingsFragment : Fragment() {
                 else -> "blue"
             }
             prefs.edit().putString("pref_accent", accent).apply()
-            requireActivity().recreate()
+            activity?.recreate()
         }
 
         binding.switchAnimations.setOnCheckedChangeListener { _, enabled ->
@@ -115,7 +115,8 @@ class SettingsFragment : Fragment() {
 
     private fun selectThemeBase(base: String, prefs: android.content.SharedPreferences) {
         prefs.edit().putString("pref_theme_base", base).apply()
-        requireActivity().recreate()
+        updateThemeCardSelection(base)
+        activity?.recreate()
     }
 
     private fun updateThemeCardSelection(selectedBase: String) {
