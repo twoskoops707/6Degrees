@@ -224,7 +224,7 @@
                             android:layout_weight="1" android:text="HaveIBeenPwned"
                             android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Free · 250/day" android:textColor="@color/success" android:textSize="11sp" />
+                            android:text="Paid · $3.50/mo" android:textColor="@color/warning" android:textSize="11sp" />
                     </LinearLayout>
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/hibp_key_layout"
