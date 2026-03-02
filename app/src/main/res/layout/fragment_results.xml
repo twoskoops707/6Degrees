@@ -7,7 +7,6 @@
     android:orientation="vertical"
     android:background="?android:colorBackground">
 
-    <!-- ══════════ COMMAND BAR ══════════ -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -47,7 +46,6 @@
             android:alpha="0.4" />
     </FrameLayout>
 
-    <!-- ══════════ LOADING ══════════ -->
     <ProgressBar
         android:id="@+id/loading_indicator"
         android:layout_width="wrap_content"
@@ -57,7 +55,6 @@
         android:indeterminateTint="?attr/colorPrimary"
         android:visibility="gone" />
 
-    <!-- ══════════ EMPTY STATE ══════════ -->
     <LinearLayout
         android:id="@+id/empty_state"
         android:layout_width="match_parent"
@@ -97,7 +94,6 @@
             android:gravity="center" />
     </LinearLayout>
 
-    <!-- ══════════ RESULTS CONTENT ══════════ -->
     <LinearLayout
         android:id="@+id/results_content"
         android:layout_width="match_parent"
@@ -106,37 +102,25 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <!-- ── THREAT ASSESSMENT BANNER ── -->
+        <!-- ── THREAT ASSESSMENT ── -->
         <LinearLayout
             android:id="@+id/shady_score_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="12dp"
+            android:paddingStart="0dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
             android:gravity="center_vertical"
             android:background="?attr/colorSurface">
 
-            <FrameLayout
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_marginEnd="14dp">
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/bg_score_circle" />
-
-                <TextView
-                    android:id="@+id/tv_score_number"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:text="—"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    android:gravity="center" />
-            </FrameLayout>
+            <View
+                android:id="@+id/score_accent_bar"
+                android:layout_width="4dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="14dp"
+                android:background="?attr/colorPrimary" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -147,7 +131,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="THREAT LEVEL"
+                    android:text="THREAT ASSESSMENT"
                     android:textColor="?attr/colorControlNormal"
                     android:textSize="9sp"
                     android:letterSpacing="0.18"
@@ -160,7 +144,7 @@
                     android:layout_height="wrap_content"
                     android:text="ANALYZING..."
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="16sp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.05" />
 
@@ -173,14 +157,32 @@
                     android:layout_marginTop="2dp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_sources_count"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="?attr/colorPrimary"
-                android:textSize="9sp"
-                android:letterSpacing="0.05"
-                android:gravity="center" />
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginStart="12dp">
+
+                <TextView
+                    android:id="@+id/tv_score_number"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/tv_sources_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorControlNormal"
+                    android:textSize="9sp"
+                    android:letterSpacing="0.05"
+                    android:gravity="center" />
+            </LinearLayout>
         </LinearLayout>
 
         <View
@@ -189,22 +191,22 @@
             android:background="?attr/colorPrimary"
             android:alpha="0.2" />
 
-        <!-- ── SUBJECT IDENTITY STRIP ── -->
+        <!-- ── SUBJECT IDENTITY ── -->
         <LinearLayout
             android:id="@+id/person_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="10dp"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
             android:gravity="center_vertical"
             android:background="?attr/colorSurface">
 
             <ImageView
                 android:id="@+id/profile_image"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginEnd="12dp"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_marginEnd="14dp"
                 android:scaleType="centerCrop"
                 android:src="@drawable/ic_person_placeholder"
                 android:background="@drawable/bg_score_circle" />
@@ -220,7 +222,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="17sp"
+                    android:textSize="20sp"
                     android:textStyle="bold"
                     android:maxLines="1"
                     android:ellipsize="end" />
@@ -230,8 +232,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorPrimary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp"
+                    android:textSize="12sp"
+                    android:layout_marginTop="3dp"
                     android:maxLines="1"
                     android:ellipsize="end" />
 
@@ -241,9 +243,10 @@
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorControlNormal"
                     android:textSize="11sp"
-                    android:layout_marginTop="1dp"
+                    android:layout_marginTop="2dp"
                     android:maxLines="1"
                     android:ellipsize="end" />
+
             </LinearLayout>
         </LinearLayout>
 
@@ -257,11 +260,11 @@
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tab_layout"
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="42dp"
             app:tabGravity="fill"
             app:tabMode="scrollable"
             app:tabIndicatorColor="?attr/colorPrimary"
-            app:tabIndicatorHeight="2dp"
+            app:tabIndicatorHeight="3dp"
             app:tabSelectedTextColor="?attr/colorPrimary"
             app:tabTextColor="?attr/colorControlNormal"
             app:tabTextAppearance="@style/TextAppearance.SixDegrees.TabLabel"

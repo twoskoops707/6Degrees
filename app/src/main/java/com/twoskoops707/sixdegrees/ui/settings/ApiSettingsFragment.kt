@@ -18,7 +18,7 @@ import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
 import com.twoskoops707.sixdegrees.data.UserProfileManager
 import com.twoskoops707.sixdegrees.databinding.FragmentApiSettingsBinding
-import com.twoskoops707.sixdegrees.ui.profile.QuickApplyBottomSheet
+import androidx.core.os.bundleOf
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
@@ -82,6 +82,7 @@ class ApiSettingsFragment : Fragment() {
         loadSavedApiKeys()
         binding.saveApiKeysButton.setOnClickListener { saveApiKeys() }
         setupQuickApplyButtons()
+        setupAutoApplyAll()
         populateUsageCounters()
     }
 
@@ -161,26 +162,63 @@ class ApiSettingsFragment : Fragment() {
         }
     }
 
-    private fun setupQuickApplyButtons() {
-        data class ApiEntry(val apiName: String, val signupUrl: String)
+    private val allSignupApis = listOf(
+        "AbuseIPDB" to "https://www.abuseipdb.com/register",
+        "URLScan.io" to "https://urlscan.io/user/signup",
+        "IPQualityScore" to "https://www.ipqualityscore.com/create-account",
+        "Veriphone" to "https://veriphone.io/signup",
+        "VirusTotal" to "https://www.virustotal.com/gui/join-us",
+        "HaveIBeenPwned" to "https://haveibeenpwned.com/API/Key",
+        "Hunter.io" to "https://hunter.io/users/sign_up",
+        "People Data Labs" to "https://www.peopledatalabs.com/signup",
+        "Numverify" to "https://numverify.com/product",
+        "Shodan" to "https://account.shodan.io/register"
+    )
 
-        val entries = mapOf(
-            binding.btnQuickApplyHibp to ApiEntry("HaveIBeenPwned", "https://haveibeenpwned.com/API/Key"),
-            binding.btnQuickApplyHunter to ApiEntry("Hunter.io", "https://hunter.io/users/sign_up"),
-            binding.btnQuickApplyPdl to ApiEntry("People Data Labs", "https://www.peopledatalabs.com/signup"),
-            binding.btnQuickApplyNumverify to ApiEntry("Numverify", "https://numverify.com/product"),
-            binding.btnQuickApplyShodan to ApiEntry("Shodan", "https://account.shodan.io/register"),
-            binding.btnQuickApplyPipl to ApiEntry("Pipl", "https://pipl.com/api/")
+    private fun buildQueueJson(apis: List<Pair<String, String>>): String =
+        "[" + apis.joinToString(",") { (name, url) ->
+            "{\"name\":${jsonString(name)},\"url\":${jsonString(url)}}"
+        } + "]"
+
+    private fun jsonString(s: String) = "\"${s.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+    private fun navigateToSignup(apiName: String, signupUrl: String, queue: List<Pair<String, String>> = listOf(apiName to signupUrl), position: Int = 0) {
+        if (!profileManager.hasProfile()) {
+            Toast.makeText(requireContext(), "Set up your profile first — tap Edit Profile", Toast.LENGTH_LONG).show()
+            return
+        }
+        findNavController().navigate(
+            R.id.action_api_settings_to_signup_web,
+            bundleOf(
+                "apiName" to apiName,
+                "signupUrl" to signupUrl,
+                "queueJson" to buildQueueJson(queue),
+                "queuePosition" to position
+            )
         )
+    }
 
-        entries.forEach { (button, entry) ->
-            button.setOnClickListener {
-                if (!profileManager.hasProfile()) {
-                    Toast.makeText(requireContext(), "Set up your profile first — tap Edit Profile", Toast.LENGTH_LONG).show()
-                    return@setOnClickListener
-                }
-                QuickApplyBottomSheet.show(this, entry.apiName, entry.signupUrl, profileManager.load())
+    private fun setupQuickApplyButtons() {
+        mapOf(
+            binding.btnQuickApplyHibp to ("HaveIBeenPwned" to "https://haveibeenpwned.com/API/Key"),
+            binding.btnQuickApplyHunter to ("Hunter.io" to "https://hunter.io/users/sign_up"),
+            binding.btnQuickApplyPdl to ("People Data Labs" to "https://www.peopledatalabs.com/signup"),
+            binding.btnQuickApplyNumverify to ("Numverify" to "https://numverify.com/product"),
+            binding.btnQuickApplyShodan to ("Shodan" to "https://account.shodan.io/register"),
+            binding.btnQuickApplyPipl to ("Pipl" to "https://pipl.com/api/")
+        ).forEach { (button, entry) ->
+            button.setOnClickListener { navigateToSignup(entry.first, entry.second) }
+        }
+    }
+
+    private fun setupAutoApplyAll() {
+        binding.btnAutoApplyAll.setOnClickListener {
+            if (!profileManager.hasProfile()) {
+                Toast.makeText(requireContext(), "Set up your profile first — tap Edit Profile", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
             }
+            val first = allSignupApis.first()
+            navigateToSignup(first.first, first.second, allSignupApis, 0)
         }
     }
 

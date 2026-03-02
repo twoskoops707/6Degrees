@@ -123,6 +123,25 @@
         <action
             android:id="@+id/action_api_settings_to_profile"
             app:destination="@id/nav_user_profile" />
+        <action
+            android:id="@+id/action_api_settings_to_signup_web"
+            app:destination="@id/nav_api_signup_web" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_api_signup_web"
+        android:name="com.twoskoops707.sixdegrees.ui.settings.ApiSignupWebFragment"
+        android:label="API Signup"
+        tools:layout="@layout/fragment_api_signup_web">
+        <argument android:name="apiName" app:argType="string" android:defaultValue="" />
+        <argument android:name="signupUrl" app:argType="string" android:defaultValue="" />
+        <argument android:name="queueJson" app:argType="string" android:defaultValue="[]" />
+        <argument android:name="queuePosition" app:argType="integer" android:defaultValue="0" />
+        <action
+            android:id="@+id/action_signup_web_self"
+            app:destination="@id/nav_api_signup_web"
+            app:popUpTo="@id/nav_api_signup_web"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment

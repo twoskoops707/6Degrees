@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?android:colorBackground">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_dossier_header">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/web_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:navigationIconTint="?attr/colorPrimary"
+            app:titleTextColor="?attr/colorPrimary"
+            app:titleTextAppearance="@style/TextAppearance.SixDegrees.DossierTitle"
+            app:elevation="0dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_gravity="bottom"
+            android:background="?attr/colorPrimary"
+            android:alpha="0.4" />
+    </FrameLayout>
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/web_progress"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        app:trackColor="@android:color/transparent"
+        app:indicatorColor="?attr/colorPrimary"
+        android:indeterminate="true"
+        android:visibility="visible" />
+
+    <TextView
+        android:id="@+id/tv_queue_progress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"
+        android:textSize="12sp"
+        android:textColor="?attr/colorPrimary"
+        android:visibility="gone" />
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/queue_progress_bar"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="6dp"
+        app:trackColor="@color/border"
+        app:indicatorColor="?attr/colorPrimary"
+        android:indeterminate="false"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tv_fill_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="9dp"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <WebView
+        android:id="@+id/web_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorPrimary"
+        android:alpha="0.2" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="?attr/colorSurface">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/key_input_layout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Paste API key here"
+                android:layout_marginEnd="8dp"
+                app:boxBackgroundColor="@color/surface_elevated"
+                app:boxStrokeColor="@color/border"
+                app:hintTextColor="@color/text_secondary">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_api_key"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorOnSurface"
+                    android:inputType="text"
+                    android:fontFamily="monospace"
+                    android:imeOptions="actionDone" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save_key"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SAVE"
+                android:textSize="12sp"
+                android:letterSpacing="0.08"
+                app:cornerRadius="6dp"
+                app:backgroundTint="?attr/colorPrimary" />
+
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_skip"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Skip to next API"
+            android:textSize="12sp"
+            android:visibility="gone"
+            app:cornerRadius="6dp"
+            app:strokeColor="?attr/colorPrimary" />
+
+    </LinearLayout>
+
+</LinearLayout>

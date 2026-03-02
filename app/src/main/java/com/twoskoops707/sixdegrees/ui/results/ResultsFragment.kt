@@ -1,23 +1,30 @@
 package com.twoskoops707.sixdegrees.ui.results
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.tabs.TabLayoutMediator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
-import com.twoskoops707.sixdegrees.databinding.ItemSectionHeaderBinding
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -932,6 +939,7 @@ class ResultsFragment : Fragment() {
         binding.tvScoreVerdict.text = verdict
         binding.tvScoreVerdict.setTextColor(color)
         binding.tvScoreDetail.text = detail
+        binding.scoreAccentBar.setBackgroundColor(color)
     }
 
     private fun shareReport(query: String, type: String, meta: Map<String, String>) {
@@ -994,177 +1002,225 @@ class ResultsFragment : Fragment() {
         _binding = null
     }
 
+    private fun groupIntoSections(rows: List<Pair<String, String>>): List<Pair<String, List<Pair<String, String>>>> {
+        val sections = mutableListOf<Pair<String, MutableList<Pair<String, String>>>>()
+        var currentTitle = ""
+        var currentRows = mutableListOf<Pair<String, String>>()
+        for ((label, value) in rows) {
+            if (value.isEmpty()) {
+                if (currentRows.isNotEmpty() || currentTitle.isNotEmpty()) {
+                    sections.add(currentTitle to currentRows)
+                    currentRows = mutableListOf()
+                }
+                currentTitle = label.trimStart()
+                    .removePrefix("◈ ").removePrefix("> ").removePrefix("══ ")
+                    .removeSuffix(" ══").trim()
+            } else {
+                currentRows.add(label to value)
+            }
+        }
+        if (currentRows.isNotEmpty() || currentTitle.isNotEmpty()) {
+            sections.add(currentTitle to currentRows)
+        }
+        return sections.map { it.first to it.second.toList() }
+    }
+
+    private fun buildSectionCard(ctx: Context, inflater: LayoutInflater, title: String, rows: List<Pair<String, String>>): View {
+        val density = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+
+        val tv = TypedValue()
+        ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+        val colorPrimary = tv.data
+
+        val isWarning = title.startsWith("⚠")
+        val accentColor = if (isWarning) ContextCompat.getColor(ctx, R.color.score_red) else colorPrimary
+        val cardBg = if (isWarning) ContextCompat.getColor(ctx, R.color.error_dim) else ContextCompat.getColor(ctx, R.color.surface)
+        val borderColor = if (isWarning) ContextCompat.getColor(ctx, R.color.score_red) else ContextCompat.getColor(ctx, R.color.border)
+
+        val card = MaterialCardView(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also {
+                it.topMargin = dp(8f)
+                it.bottomMargin = dp(4f)
+            }
+            radius = dp(10f).toFloat()
+            strokeWidth = dp(1f)
+            strokeColor = borderColor
+            cardElevation = 0f
+            setCardBackgroundColor(cardBg)
+        }
+
+        val inner = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+
+        if (title.isNotBlank()) {
+            val r = Color.red(accentColor)
+            val g = Color.green(accentColor)
+            val b = Color.blue(accentColor)
+            val header = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14f), dp(9f), dp(16f), dp(9f))
+                setBackgroundColor(Color.argb(26, r, g, b))
+            }
+            header.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(3f), dp(14f)).also { it.marginEnd = dp(10f) }
+                setBackgroundColor(accentColor)
+            })
+            header.addView(TextView(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                text = title
+                textSize = 10f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                isAllCaps = true
+                letterSpacing = 0.15f
+                setTextColor(accentColor)
+            })
+            inner.addView(header)
+            inner.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1f))
+                setBackgroundColor(borderColor)
+                alpha = 0.5f
+            })
+        }
+
+        for ((label, value) in rows) {
+            val rowBinding = ItemDataRowBinding.inflate(inflater, inner, false)
+            bindDataRow(rowBinding, label, value, ctx)
+            inner.addView(rowBinding.root)
+        }
+
+        card.addView(inner)
+        return card
+    }
+
+    private fun bindDataRow(b: ItemDataRowBinding, label: String, value: String, ctx: Context) {
+        val isPivot = value.startsWith("pivot://")
+        val isLink = value.startsWith("http://") || value.startsWith("https://")
+        val isWarning = label.startsWith("⚠")
+        val isCredential = label == "Login" || label == "Password / Hash" || label == "Leaked Record"
+
+        when {
+            isWarning -> {
+                b.rowAccentStripe.visibility = View.VISIBLE
+                b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.score_red))
+                b.root.setBackgroundColor(ContextCompat.getColor(ctx, R.color.error_dim))
+            }
+            isPivot -> {
+                b.rowAccentStripe.visibility = View.VISIBLE
+                b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+                b.root.setBackgroundColor(Color.TRANSPARENT)
+            }
+            isLink -> {
+                b.rowAccentStripe.visibility = View.VISIBLE
+                val tv = TypedValue()
+                ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+                b.rowAccentStripe.setBackgroundColor(tv.data)
+                b.root.setBackgroundColor(Color.TRANSPARENT)
+            }
+            isCredential -> {
+                b.rowAccentStripe.visibility = View.GONE
+                b.root.setBackgroundColor(ContextCompat.getColor(ctx, R.color.surface_elevated))
+            }
+            else -> {
+                b.rowAccentStripe.visibility = View.GONE
+                b.root.setBackgroundColor(Color.TRANSPARENT)
+            }
+        }
+
+        b.tvRowLabel.text = label
+        val displayValue = if (isPivot) value.removePrefix("pivot://").split("/", limit = 2).getOrNull(1) ?: "" else value
+        b.tvRowValue.text = displayValue
+
+        when {
+            isCredential -> {
+                b.tvRowValue.typeface = Typeface.MONOSPACE
+                b.tvRowValue.textSize = 12f
+                val tv = TypedValue()
+                ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, tv, true)
+                b.tvRowValue.setTextColor(tv.data)
+            }
+            isWarning -> {
+                b.tvRowValue.typeface = Typeface.DEFAULT_BOLD
+                b.tvRowValue.textSize = 14f
+                b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.score_red))
+            }
+            isLink || isPivot -> {
+                b.tvRowValue.typeface = Typeface.DEFAULT
+                b.tvRowValue.textSize = 13f
+                b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+            }
+            else -> {
+                b.tvRowValue.typeface = Typeface.DEFAULT_BOLD
+                b.tvRowValue.textSize = 14f
+                val tv = TypedValue()
+                ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, tv, true)
+                b.tvRowValue.setTextColor(tv.data)
+            }
+        }
+
+        when {
+            isPivot -> {
+                val parts = value.removePrefix("pivot://").split("/", limit = 2)
+                val pivotType = parts.getOrNull(0) ?: "person"
+                val pivotQuery = parts.getOrNull(1) ?: ""
+                b.root.setOnClickListener {
+                    val bundle = Bundle().apply {
+                        putString("query", pivotQuery)
+                        putString("type", pivotType)
+                    }
+                    this@ResultsFragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
+                }
+            }
+            isLink -> {
+                b.root.setOnClickListener {
+                    val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                    val pkg = when (prefs.getString("pref_browser", "firefox")) {
+                        "ddg" -> "com.duckduckgo.mobile.android"
+                        "chrome" -> "com.android.chrome"
+                        "default" -> null
+                        else -> "org.mozilla.firefox"
+                    }
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(value))
+                    if (pkg != null) intent.setPackage(pkg)
+                    try { startActivity(intent) }
+                    catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))) }
+                }
+            }
+            else -> b.root.setOnClickListener(null)
+        }
+    }
+
     private inner class DossierPagerAdapter(
         private val pages: List<List<Pair<String, String>>>
     ) : RecyclerView.Adapter<DossierPagerAdapter.PageVH>() {
 
-        inner class PageVH(val rv: RecyclerView) : RecyclerView.ViewHolder(rv)
+        inner class PageVH(val sv: NestedScrollView, val container: LinearLayout) : RecyclerView.ViewHolder(sv)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageVH {
-            val rv = RecyclerView(parent.context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                layoutManager = LinearLayoutManager(parent.context)
-                setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.bottom_nav_padding))
-                clipToPadding = false
+            val density = parent.context.resources.displayMetrics.density
+            fun dp(f: Float) = (f * density).toInt()
+            val container = LinearLayout(parent.context).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                setPadding(dp(10f), dp(8f), dp(10f), resources.getDimensionPixelSize(R.dimen.bottom_nav_padding))
             }
-            return PageVH(rv)
+            val sv = NestedScrollView(parent.context).apply {
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                clipToPadding = false
+                addView(container)
+            }
+            return PageVH(sv, container)
         }
 
         override fun onBindViewHolder(holder: PageVH, position: Int) {
-            holder.rv.adapter = DataRowAdapter(pages[position])
+            holder.container.removeAllViews()
+            val inflater = LayoutInflater.from(holder.container.context)
+            val sections = groupIntoSections(pages[position])
+            for ((title, rows) in sections) {
+                holder.container.addView(buildSectionCard(holder.container.context, inflater, title, rows))
+            }
         }
 
         override fun getItemCount() = pages.size
-    }
-
-    private inner class DataRowAdapter(
-        private val rows: List<Pair<String, String>>
-    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
-        private val TYPE_HEADER = 0
-        private val TYPE_ROW = 1
-
-        inner class HeaderVH(val b: ItemSectionHeaderBinding) : RecyclerView.ViewHolder(b.root)
-        inner class DataVH(val b: ItemDataRowBinding) : RecyclerView.ViewHolder(b.root)
-
-        override fun getItemViewType(position: Int): Int {
-            val (_, value) = rows[position]
-            return if (value.isEmpty()) TYPE_HEADER else TYPE_ROW
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            return if (viewType == TYPE_HEADER) {
-                HeaderVH(ItemSectionHeaderBinding.inflate(LayoutInflater.from(parent.context), parent, false))
-            } else {
-                DataVH(ItemDataRowBinding.inflate(LayoutInflater.from(parent.context), parent, false))
-            }
-        }
-
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            val (label, value) = rows[position]
-
-            if (holder is HeaderVH) {
-                val clean = label.trimStart()
-                    .removePrefix("◈ ").removePrefix("> ").removePrefix("══ ")
-                    .removeSuffix(" ══").trim()
-                holder.b.tvSectionTitle.text = clean
-                val isWarningHeader = clean.startsWith("⚠")
-                if (isWarningHeader) {
-                    holder.b.tvSectionTitle.setTextColor(ContextCompat.getColor(holder.b.root.context, R.color.score_red))
-                    holder.b.headerBar.setBackgroundColor(ContextCompat.getColor(holder.b.root.context, R.color.score_red))
-                } else {
-                    val tv = android.util.TypedValue()
-                    holder.b.root.context.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
-                    holder.b.tvSectionTitle.setTextColor(tv.data)
-                    holder.b.headerBar.setBackgroundColor(tv.data)
-                }
-                return
-            }
-
-            holder as DataVH
-            val ctx = holder.b.root.context
-            val isPivot = value.startsWith("pivot://")
-            val isLink = value.startsWith("http://") || value.startsWith("https://")
-            val isWarning = label.startsWith("⚠")
-            val isCredential = label == "Login" || label == "Password / Hash" || label == "Leaked Record"
-
-            when {
-                isWarning -> {
-                    holder.b.rowAccentStripe.visibility = View.VISIBLE
-                    holder.b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.score_red))
-                    holder.b.root.setBackgroundColor(ContextCompat.getColor(ctx, R.color.error_dim))
-                }
-                isPivot -> {
-                    holder.b.rowAccentStripe.visibility = View.VISIBLE
-                    holder.b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
-                    holder.b.root.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                }
-                isLink -> {
-                    holder.b.rowAccentStripe.visibility = View.VISIBLE
-                    val tv = android.util.TypedValue()
-                    ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
-                    holder.b.rowAccentStripe.setBackgroundColor(tv.data)
-                    holder.b.root.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                }
-                isCredential -> {
-                    holder.b.rowAccentStripe.visibility = View.GONE
-                    holder.b.root.setBackgroundColor(ContextCompat.getColor(ctx, R.color.surface_elevated))
-                }
-                else -> {
-                    holder.b.rowAccentStripe.visibility = View.GONE
-                    holder.b.root.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                }
-            }
-
-            holder.b.tvRowLabel.text = label
-
-            val displayValue = if (isPivot) {
-                value.removePrefix("pivot://").split("/", limit = 2).getOrNull(1) ?: ""
-            } else value
-            holder.b.tvRowValue.text = displayValue
-
-            when {
-                isCredential -> {
-                    holder.b.tvRowValue.typeface = android.graphics.Typeface.MONOSPACE
-                    holder.b.tvRowValue.textSize = 12f
-                    val tv = android.util.TypedValue()
-                    ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, tv, true)
-                    holder.b.tvRowValue.setTextColor(tv.data)
-                }
-                isWarning -> {
-                    holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    holder.b.tvRowValue.textSize = 14f
-                    holder.b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.score_red))
-                }
-                isLink || isPivot -> {
-                    holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT
-                    holder.b.tvRowValue.textSize = 13f
-                    holder.b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
-                }
-                else -> {
-                    holder.b.tvRowValue.typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    holder.b.tvRowValue.textSize = 14f
-                    val tv = android.util.TypedValue()
-                    ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, tv, true)
-                    holder.b.tvRowValue.setTextColor(tv.data)
-                }
-            }
-
-            when {
-                isPivot -> {
-                    val parts = value.removePrefix("pivot://").split("/", limit = 2)
-                    val pivotType = parts.getOrNull(0) ?: "person"
-                    val pivotQuery = parts.getOrNull(1) ?: ""
-                    holder.b.root.setOnClickListener {
-                        val bundle = Bundle().apply {
-                            putString("query", pivotQuery)
-                            putString("type", pivotType)
-                        }
-                        this@ResultsFragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
-                    }
-                }
-                isLink -> {
-                    holder.b.root.setOnClickListener {
-                        val prefs = it.context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
-                        val pkg = when (prefs.getString("pref_browser", "firefox")) {
-                            "ddg" -> "com.duckduckgo.mobile.android"
-                            "chrome" -> "com.android.chrome"
-                            "default" -> null
-                            else -> "org.mozilla.firefox"
-                        }
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(value))
-                        if (pkg != null) intent.setPackage(pkg)
-                        try { it.context.startActivity(intent) }
-                        catch (_: Exception) { it.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))) }
-                    }
-                }
-                else -> holder.b.root.setOnClickListener(null)
-            }
-        }
-
-        override fun getItemCount() = rows.size
     }
 }
