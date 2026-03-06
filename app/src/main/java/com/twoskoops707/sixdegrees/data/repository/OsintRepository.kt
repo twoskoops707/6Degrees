@@ -1575,23 +1575,33 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("JailBase"))
             try {
-                val resp = RetrofitClient.jailBaseService.search(name = query)
-                if (resp.isSuccessful && resp.body() != null) {
-                    val records = resp.body()!!.records ?: emptyList()
-                    val total = resp.body()!!.total_records ?: records.size
+                val parts = query.trim().split(" ")
+                val firstName = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
+                val lastName = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+                val req = Request.Builder()
+                    .url("https://www.jailbase.com/api/1/search/?source_id=all&last_name=$lastName&first_name=$firstName&page_no=1")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .addHeader("Accept", "application/json")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val total = Regex("\"total_records\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val names = Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).toList()
+                val charges = Regex("\"charges\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.take(5).toList()
+                val bookDates = Regex("\"book_date\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.take(5).toList()
+                val counties = Regex("\"county_state\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.take(5).toList()
+                if (total > 0 && names.isNotEmpty()) {
                     meta["arrest_count"] = total.toString()
-                    if (records.isNotEmpty()) {
-                        meta["arrest_records"] = records.take(5).joinToString("\n") { r ->
-                            "${r.first_name ?: ""} ${r.last_name ?: ""} | ${r.charge ?: "Unknown charge"} | ${r.arrest_date ?: "Unknown date"} | ${r.agency ?: "Unknown agency"}"
-                        }
-                        sources.add(DataSource("JailBase", null, Date(), 0.85))
-                        emit(SearchProgressEvent.Found("JailBase",
-                            "$total arrest record${if (total != 1) "s" else ""} found"))
-                    } else {
-                        emit(SearchProgressEvent.NotFound("JailBase"))
-                    }
+                    meta["arrest_records"] = names.mapIndexed { i, name ->
+                        val charge = charges.getOrNull(i) ?: "Unknown charge"
+                        val date = bookDates.getOrNull(i) ?: ""
+                        val county = counties.getOrNull(i) ?: ""
+                        "$name | $charge${if (date.isNotBlank()) " | $date" else ""}${if (county.isNotBlank()) " | $county" else ""}"
+                    }.joinToString("\n")
+                    sources.add(DataSource("JailBase", null, Date(), 0.85))
+                    emit(SearchProgressEvent.Found("JailBase", "$total arrest record${if (total != 1) "s" else ""} found"))
                 } else {
-                    emit(SearchProgressEvent.Failed("JailBase", "HTTP ${resp.code()}"))
+                    emit(SearchProgressEvent.NotFound("JailBase"))
                 }
             } catch (e: Exception) {
                 emit(SearchProgressEvent.Failed("JailBase", e.message ?: ""))
@@ -2196,34 +2206,52 @@ class OsintRepository(context: Context) {
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.9")
                 .addHeader("Referer", "https://www.truepeoplesearch.com/")
+                .addHeader("sec-ch-ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"")
+                .addHeader("sec-ch-ua-mobile", "?0")
+                .addHeader("sec-ch-ua-platform", "\"Windows\"")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
-            if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
+            if (resp.code == 403 || resp.code == 429 || html.isBlank()
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)
+                || html.contains("Checking if the site connection is secure", ignoreCase = true)) {
                 emit(SearchProgressEvent.NotFound("TruePeopleSearch")); return
             }
-            val names = Regex("<div[^>]*class=\"[^\"]*card-title[^\"]*\"[^>]*>([^<]{5,60})</div>", RegexOption.IGNORE_CASE)
-                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
-            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
+            val names = (Regex("<div[^>]*class=\"[^\"]*card-title[^\"]*\"[^>]*>([^<]{5,60})</div>", RegexOption.IGNORE_CASE).findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()
+                + Regex("<h2[^>]*>\\s*([A-Z][a-z]+ (?:[A-Z][a-z]+ )?[A-Z][a-z]+)\\s*</h2>").findAll(html)
+                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()).distinct().take(5)
+            val ages = Regex("(?:Age|AGE)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
             val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
                 .map { it.value.trim() }.filter { it.length >= 10 }.take(10).distinct().toList()
-            val cities = Regex("<span[^>]*>([A-Z][a-zA-Z ]+,\\s*[A-Z]{2})</span>").findAll(html)
+            val localities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(html)
                 .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
-            val relatives = Regex("class=\"[^\"]*related[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
-                .map { it.groupValues[1] }.take(10).distinct().toList()
-            val hasData = names.isNotEmpty() || ages.isNotEmpty() || phones.isNotEmpty() || cities.isNotEmpty()
+            val regions = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
+            val cityState = if (localities.isNotEmpty() && regions.isNotEmpty()) {
+                localities.zip(regions).map { (c, s) -> "$c, $s" }
+            } else {
+                Regex("([A-Z][a-zA-Z ]+,\\s*[A-Z]{2})(?=\\s*<|\\s*\\d{5})").findAll(html)
+                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(10).toList()
+            }
+            val relatives = (Regex("class=\"[^\"]*related[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.toList()
+                + Regex("(?:Relative|Associate)[^<]{0,30}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                    .map { it.groupValues[1] }.toList()).distinct().take(10)
+            val hasData = names.isNotEmpty() || ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
             if (hasData) {
                 if (names.isNotEmpty()) meta["tps_names"] = names.joinToString(", ")
                 if (ages.isNotEmpty()) meta["tps_age"] = ages.first()
                 if (phones.isNotEmpty()) meta["tps_phones"] = phones.joinToString(", ")
-                if (cities.isNotEmpty()) meta["tps_locations"] = cities.joinToString(" | ")
+                if (cityState.isNotEmpty()) meta["tps_locations"] = cityState.joinToString(" | ")
                 if (relatives.isNotEmpty()) meta["tps_relatives"] = relatives.joinToString(", ")
                 meta["tps_link"] = "https://www.truepeoplesearch.com/results?name=$encoded"
                 sources.add(DataSource("TruePeopleSearch", meta["tps_link"], Date(), 0.75))
                 emit(SearchProgressEvent.Found("TruePeopleSearch", buildString {
                     if (names.isNotEmpty()) append(names.first())
                     if (ages.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("Age: ${ages.first()}") }
-                    if (cities.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cities.first()) }
+                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
                 }))
             } else {
                 emit(SearchProgressEvent.NotFound("TruePeopleSearch"))
@@ -2327,7 +2355,9 @@ class OsintRepository(context: Context) {
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""
             resp.close()
-            if (html.isBlank() || resp.code == 403) {
+            if (html.isBlank() || resp.code == 403 || resp.code == 429
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)) {
                 emit(SearchProgressEvent.NotFound("ThatsThem"))
                 return
             }
@@ -2387,7 +2417,9 @@ class OsintRepository(context: Context) {
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""
             resp.close()
-            if (html.isBlank() || resp.code == 403) {
+            if (html.isBlank() || resp.code == 403 || resp.code == 429
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)) {
                 emit(SearchProgressEvent.NotFound("USPhoneBook"))
                 return
             }
@@ -3006,7 +3038,11 @@ class OsintRepository(context: Context) {
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""
             resp.close()
-            if (html.isBlank() || resp.code == 403) { emit(SearchProgressEvent.NotFound("FastPeopleSearch")); return }
+            if (html.isBlank() || resp.code == 403 || resp.code == 429
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)) {
+                emit(SearchProgressEvent.NotFound("FastPeopleSearch")); return
+            }
             val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
             val cities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(html)
                 .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
@@ -3214,40 +3250,42 @@ class OsintRepository(context: Context) {
         sources: MutableList<DataSource>,
         emit: suspend (SearchProgressEvent) -> Unit
     ) {
-        emit(SearchProgressEvent.Checking("GNews"))
+        emit(SearchProgressEvent.Checking("Google News"))
         try {
             val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
             val req = Request.Builder()
-                .url("https://gnews.io/api/v4/search?q=$encoded&lang=en&max=5&token=free")
-                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .url("https://news.google.com/rss/search?q=$encoded&hl=en-US&gl=US&ceid=US:en")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "application/rss+xml, application/xml, text/xml, */*")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val body = resp.body?.string() ?: ""; resp.close()
-            val titles = Regex("\"title\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body)
-                .map { it.groupValues[1].replace("\\\"", "\"").trim() }.filter { it.isNotBlank() }.take(5).toList()
-            val descriptions = Regex("\"description\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body)
-                .map { it.groupValues[1].replace("\\\"", "\"").replace("\\n", " ").trim() }.filter { it.isNotBlank() }.take(5).toList()
-            val sources2 = Regex("\"name\"\\s*:\\s*\"([^\"]{2,60})\"").findAll(body)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
-            val publishedDates = Regex("\"publishedAt\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
-                .map { it.groupValues[1].take(10) }.take(5).toList()
+            val itemBlocks = Regex("<item>(.+?)</item>", RegexOption.DOT_MATCHES_ALL).findAll(body)
+                .map { it.groupValues[1] }.take(5).toList()
+            val titles = itemBlocks.mapNotNull { block ->
+                Regex("<title>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?</title>", RegexOption.DOT_MATCHES_ALL)
+                    .find(block)?.groupValues?.get(1)?.trim()?.replace("&amp;", "&")?.replace("&lt;", "<")?.replace("&gt;", ">")
+            }.filter { it.isNotBlank() && it != "Google News" }
+            val pubDates = itemBlocks.mapNotNull { block ->
+                Regex("<pubDate>([^<]+)</pubDate>").find(block)?.groupValues?.get(1)?.trim()?.take(16)
+            }
+            val srcNames = itemBlocks.mapNotNull { block ->
+                Regex("<source[^>]*>([^<]+)</source>").find(block)?.groupValues?.get(1)?.trim()
+            }
             if (titles.isNotEmpty()) {
                 meta["gnews_count"] = titles.size.toString()
-                val combined = titles.zip(descriptions.ifEmpty { List(titles.size) { "" } })
-                    .zip(publishedDates.ifEmpty { List(titles.size) { "" } })
-                    .mapIndexed { i, (td, date) ->
-                        val src = sources2.getOrNull(i) ?: ""
-                        "${td.first}${if (date.isNotBlank()) " [$date]" else ""}${if (src.isNotBlank()) " — $src" else ""}${if (td.second.isNotBlank()) "\n${td.second}" else ""}"
-                    }
+                val combined = titles.mapIndexed { i, title ->
+                    val date = pubDates.getOrNull(i) ?: ""
+                    val src = srcNames.getOrNull(i) ?: ""
+                    "$title${if (date.isNotBlank()) " [$date]" else ""}${if (src.isNotBlank()) " — $src" else ""}"
+                }
                 meta["gnews_articles"] = combined.joinToString("\n---\n")
-                sources.add(DataSource("GNews", null, Date(), 0.75))
-                emit(SearchProgressEvent.Found("GNews", "${titles.size} news article${if (titles.size != 1) "s" else ""} found"))
+                sources.add(DataSource("Google News", null, Date(), 0.75))
+                emit(SearchProgressEvent.Found("Google News", "${titles.size} news article${if (titles.size != 1) "s" else ""}: ${titles.firstOrNull()?.take(60) ?: ""}"))
             } else {
-                val totalHits = Regex("\"totalArticles\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                if (totalHits == 0) emit(SearchProgressEvent.NotFound("GNews"))
-                else emit(SearchProgressEvent.NotFound("GNews"))
+                emit(SearchProgressEvent.NotFound("Google News"))
             }
-        } catch (e: Exception) { emit(SearchProgressEvent.Failed("GNews", e.message ?: "")) }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Google News", e.message ?: "")) }
     }
 
     private fun md5(input: String): String {
