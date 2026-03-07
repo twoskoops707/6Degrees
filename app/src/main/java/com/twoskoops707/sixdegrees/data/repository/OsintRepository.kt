@@ -28,6 +28,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Collections
@@ -58,6 +60,21 @@ class OsintRepository(context: Context) {
         .readTimeout(7, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
+
+    private val torHttpClient: OkHttpClient? by lazy {
+        try {
+            val probe = java.net.Socket()
+            probe.connect(InetSocketAddress("127.0.0.1", 9050), 1500)
+            probe.close()
+            val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9050))
+            OkHttpClient.Builder()
+                .proxy(proxy)
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .build()
+        } catch (_: Exception) { null }
+    }
 
     private val usernameSites = linkedMapOf(
         "GitHub" to "https://github.com/{u}",
@@ -128,7 +145,28 @@ class OsintRepository(context: Context) {
         "GoodReads" to "https://www.goodreads.com/{u}",
         "OkCupid" to "https://www.okcupid.com/profile/{u}",
         "Xing" to "https://www.xing.com/profile/{u}",
-        "Exercism" to "https://exercism.org/profiles/{u}"
+        "Exercism" to "https://exercism.org/profiles/{u}",
+        "Pornhub" to "https://www.pornhub.com/users/{u}",
+        "Chaturbate" to "https://chaturbate.com/{u}/",
+        "ManyVids" to "https://www.manyvids.com/Profile/{u}/Store/Videos/",
+        "Fansly" to "https://fansly.com/{u}",
+        "RedGIFs" to "https://www.redgifs.com/users/{u}",
+        "XVIDEOS" to "https://www.xvideos.com/profile/{u}",
+        "BDSMLR" to "https://{u}.bdsmlr.com",
+        "Stripchat" to "https://stripchat.com/{u}",
+        "MyFreeCams" to "https://profiles.myfreecams.com/{u}",
+        "CamSoda" to "https://www.camsoda.com/{u}",
+        "Tinder" to "https://tinder.com/@{u}",
+        "Bumble" to "https://bumble.com/en/profile/{u}",
+        "Ashley Madison" to "https://www.ashleymadison.com/profile/{u}",
+        "Seeking" to "https://seeking.com/dating/{u}",
+        "FurAffinity" to "https://www.furaffinity.net/user/{u}/"
+    )
+
+    private val nsfwSites = setOf(
+        "OnlyFans", "Pornhub", "Chaturbate", "ManyVids", "Fansly",
+        "RedGIFs", "XVIDEOS", "BDSMLR", "Stripchat", "MyFreeCams",
+        "CamSoda", "Ashley Madison", "Seeking"
     )
 
     suspend fun search(query: String, type: String): Result<String> {
@@ -814,7 +852,10 @@ class OsintRepository(context: Context) {
         val found = sources.filter { it.url != null }
         meta["sites_checked"] = (usernameSites.size + 4).toString()
         meta["sites_found"] = found.size.toString()
-        meta["found_urls"] = found.joinToString("\n") { "${it.name}: ${it.url}" }
+        meta["found_urls"] = found.joinToString("\n") {
+            val prefix = if (nsfwSites.contains(it.name)) "⚠NSFW:" else ""
+            "$prefix${it.name}: ${it.url}"
+        }
     }
 
     private suspend fun ipDomainSearch(
@@ -1992,6 +2033,8 @@ class OsintRepository(context: Context) {
         launch { fourOneOneScrape(query, meta, sources, emit) }
         launch { gNewsFetch(query, meta, sources, emit) }
         launch { openCorporatesOfficerSearch(query, meta, sources, emit) }
+        launch { pasteDumpSearch(query, meta, sources, emit) }
+        launch { grepAppSearch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -2061,26 +2104,32 @@ class OsintRepository(context: Context) {
         emit(SearchProgressEvent.Checking("Ahmia Dark Web"))
         try {
             val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
+            val client = torHttpClient ?: fastHttpClient
             val req = Request.Builder()
                 .url("https://ahmia.fi/search/?q=$encoded")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .build()
-            val resp = fastHttpClient.newCall(req).execute()
+            val resp = client.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
             val titles = Regex("<h4>([^<]{5,120})</h4>").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).toList()
-            val onionUrls = Regex("href=\"(/search/redirect\\?[^\"]+)\"").findAll(html)
-                .map { "https://ahmia.fi${it.groupValues[1]}" }.take(5).toList()
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
+            val onionUrls = Regex("redirect\\?redirect_url=([^&\"]+)").findAll(html)
+                .map { java.net.URLDecoder.decode(it.groupValues[1], "UTF-8") }.filter { it.contains(".onion") }.distinct().take(8).toList()
+            val descriptions = Regex("<p[^>]*class=\"[^\"]*desc[^\"]*\"[^>]*>([^<]{10,300})</p>", RegexOption.IGNORE_CASE).findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
             val countMatch = Regex("About\\s+(\\d[\\d,]+)\\s+result").find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            val viaToR = torHttpClient != null
             if (titles.isNotEmpty() || (countMatch != null && countMatch > 0)) {
                 val count = countMatch ?: titles.size
                 meta["ahmia_count"] = count.toString()
                 meta["ahmia_titles"] = titles.joinToString("\n")
                 if (onionUrls.isNotEmpty()) meta["ahmia_urls"] = onionUrls.joinToString("\n")
+                if (descriptions.isNotEmpty()) meta["ahmia_descs"] = descriptions.joinToString("\n---\n")
                 meta["ahmia_link"] = "https://ahmia.fi/search/?q=$encoded"
+                meta["ahmia_via_tor"] = viaToR.toString()
                 sources.add(DataSource("Ahmia (Dark Web Index)", meta["ahmia_link"], Date(), 0.6))
-                emit(SearchProgressEvent.Found("Ahmia Dark Web", "$count dark web mention${if (count != 1) "s" else ""} indexed"))
+                emit(SearchProgressEvent.Found("Ahmia Dark Web", "$count dark web mention${if (count != 1) "s" else ""} indexed${if (viaToR) " via Tor" else ""}"))
             } else {
                 emit(SearchProgressEvent.NotFound("Ahmia Dark Web"))
             }
@@ -2166,6 +2215,76 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("OpenCorporates", e.message ?: ""))
+        }
+    }
+
+    private suspend fun pasteDumpSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Paste Dumps"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://psbdmp.ws/api/v3/search/$encoded")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (resp.code != 200 || body.isBlank()) { emit(SearchProgressEvent.NotFound("Paste Dumps")); return }
+            val count = Regex("\"count\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val snippets = Regex("\"text\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body)
+                .map { it.groupValues[1].replace("\\n", " ").replace("\\\"", "\"").trim().take(200) }
+                .filter { it.isNotBlank() }.take(5).toList()
+            val pasteIds = Regex("\"id\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
+                .map { it.groupValues[1] }.take(5).toList()
+            if (count > 0) {
+                meta["paste_count"] = count.toString()
+                if (snippets.isNotEmpty()) meta["paste_snippets"] = snippets.joinToString("\n---\n")
+                if (pasteIds.isNotEmpty()) meta["paste_ids"] = pasteIds.joinToString(", ")
+                sources.add(DataSource("Paste Dumps (psbdmp)", "https://psbdmp.ws/search/$encoded", Date(), 0.7))
+                emit(SearchProgressEvent.Found("Paste Dumps", "$count paste${if (count != 1) "s" else ""} found mentioning subject"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Paste Dumps"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Paste Dumps", e.message ?: ""))
+        }
+    }
+
+    private suspend fun grepAppSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Code Repository Search"))
+        try {
+            val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
+            val req = Request.Builder()
+                .url("https://grep.app/api/search?q=$encoded&case=false")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (resp.code != 200 || body.isBlank()) { emit(SearchProgressEvent.NotFound("Code Repository Search")); return }
+            val total = Regex("\"total\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val repos = Regex("\"repo\"\\s*:\\s*\\{[^}]*\"name\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+            if (total > 0) {
+                meta["grep_code_count"] = total.toString()
+                if (repos.isNotEmpty()) meta["grep_code_repos"] = repos.joinToString(", ")
+                sources.add(DataSource("Grep.app (Code Search)", "https://grep.app/search?q=$encoded", Date(), 0.6))
+                emit(SearchProgressEvent.Found("Code Repository Search", "$total code repo match${if (total != 1) "es" else ""}${if (repos.isNotEmpty()) ": ${repos.first()}" else ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Code Repository Search"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Code Repository Search", e.message ?: ""))
         }
     }
 

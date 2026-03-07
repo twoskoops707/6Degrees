@@ -1,8 +1,12 @@
 package com.twoskoops707.sixdegrees
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
@@ -52,6 +56,8 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        initTorConnection()
+
         val navHostFragment =
             (supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment?)!!
         val navController = navHostFragment.navController
@@ -88,5 +94,41 @@ class MainActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
+    }
+
+    private fun initTorConnection() {
+        val orbotPackage = "org.torproject.android"
+        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
+        val torDismissed = prefs.getBoolean("tor_dialog_dismissed", false)
+        val isOrbotInstalled = try {
+            packageManager.getPackageInfo(orbotPackage, 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) { false }
+
+        if (isOrbotInstalled) {
+            try {
+                val intent = Intent("org.torproject.android.intent.action.START")
+                intent.setPackage(orbotPackage)
+                intent.putExtra("org.torproject.android.intent.extra.PACKAGE_NAME", packageName)
+                startService(intent)
+            } catch (_: Exception) {}
+        } else if (!torDismissed) {
+            AlertDialog.Builder(this)
+                .setTitle("Tor Network (Optional)")
+                .setMessage(
+                    "SixDegrees can route dark web searches through Tor for anonymity and access to .onion sites.\n\n" +
+                    "Install Orbot (Tor for Android) to enable this. Dark web searches still work without it via the Ahmia clearnet index.\n\n" +
+                    "Recommended: Install Orbot from Google Play or Guardian Project."
+                )
+                .setPositiveButton("Install Orbot") { _, _ ->
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=org.torproject.android")))
+                    } catch (_: Exception) {}
+                }
+                .setNegativeButton("Skip") { _, _ ->
+                    prefs.edit().putBoolean("tor_dialog_dismissed", true).apply()
+                }
+                .show()
+        }
     }
 }

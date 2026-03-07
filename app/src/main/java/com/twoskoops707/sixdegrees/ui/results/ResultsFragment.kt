@@ -427,15 +427,36 @@ class ResultsFragment : Fragment() {
             }
         }
 
+        val pasteCount = meta["paste_count"]?.toIntOrNull() ?: 0
+        if (pasteCount > 0) {
+            rows.add(sec("⚠ PASTE DUMPS"))
+            rows.add("⚠ Paste Hits" to "$pasteCount paste dump${if (pasteCount != 1) "s" else ""} mention this subject")
+            meta["paste_snippets"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(5)?.forEach { s ->
+                rows.add("Paste Excerpt" to s.trim())
+            }
+            meta["paste_ids"]?.let { rows.add("Paste IDs" to it) }
+        }
+
+        val grepCount = meta["grep_code_count"]?.toIntOrNull() ?: 0
+        if (grepCount > 0) {
+            rows.add(sec("CODE REPOSITORY MENTIONS"))
+            rows.add("Repo Hits" to "$grepCount match${if (grepCount != 1) "es" else ""} in public code repositories")
+            meta["grep_code_repos"]?.let { rows.add("Repositories" to it) }
+        }
+
         val ahmiaCount = meta["ahmia_count"]?.toIntOrNull() ?: 0
         if (ahmiaCount > 0) {
             rows.add(sec("⚠ DARK WEB MENTIONS"))
             rows.add("⚠ Indexed Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found via Ahmia.fi Tor index")
+            val viaToR = meta["ahmia_via_tor"]?.toBooleanStrictOrNull() == true
+            if (viaToR) rows.add("⚠ Connection" to "Fetched via Tor network")
             val titleLines = meta["ahmia_titles"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
             val urlLines = meta["ahmia_urls"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+            val descLines = meta["ahmia_descs"]?.split("\n---\n")?.filter { it.isNotBlank() } ?: emptyList()
             titleLines.forEachIndexed { i, t ->
-                rows.add("⚠ Tor Site Title" to t)
-                urlLines.getOrNull(i)?.let { u -> rows.add("  Source URL" to u) }
+                rows.add("⚠ Tor Site" to t)
+                descLines.getOrNull(i)?.takeIf { it.isNotBlank() }?.let { d -> rows.add("  Description" to d) }
+                urlLines.getOrNull(i)?.let { u -> rows.add("  .onion URL" to u) }
             }
             rows.add("⚠ Note" to "Ahmia indexes publicly-accessible Tor hidden services. Subject to index freshness.")
         }
@@ -672,44 +693,98 @@ class ResultsFragment : Fragment() {
         val siteDesc = mapOf(
             "GitHub" to "Code hosting & developer collaboration",
             "Reddit" to "Social news aggregation & discussion",
-            "Twitter" to "Microblogging & social media",
+            "Twitter/X" to "Microblogging & social network",
             "Instagram" to "Photo & video sharing",
             "TikTok" to "Short-form video sharing",
             "YouTube" to "Video sharing & streaming",
             "LinkedIn" to "Professional networking",
             "Pinterest" to "Visual discovery & idea sharing",
-            "Twitch" to "Live streaming platform",
-            "Discord" to "Voice & text communities",
-            "Telegram" to "Encrypted messaging & channels",
-            "Patreon" to "Creator monetization",
+            "Twitch" to "Live game streaming platform",
+            "Flickr" to "Photo sharing & community",
+            "Tumblr" to "Blogging & creative content",
             "Medium" to "Online publishing & blogging",
+            "DeviantArt" to "Digital art & creative community",
+            "SoundCloud" to "Music sharing & audio streaming",
+            "Spotify" to "Music & podcast streaming",
+            "GitLab" to "DevOps code repository",
             "Keybase" to "Encrypted identity verification",
+            "Replit" to "Browser-based coding environment",
+            "HackerNews" to "Tech news & discussion (Y Combinator)",
+            "ProductHunt" to "Product launch & discovery",
             "Gravatar" to "Globally recognized avatar service",
+            "About.me" to "Personal profile page",
+            "Wattpad" to "Story sharing & reading community",
+            "Patreon" to "Creator subscription monetization",
+            "Venmo" to "Peer-to-peer payment app",
+            "Etsy" to "Handmade & vintage marketplace",
             "Behance" to "Creative portfolio (Adobe)",
             "Dribbble" to "Designer portfolio & community",
-            "StackOverflow" to "Developer Q&A",
-            "Quora" to "Q&A knowledge sharing",
-            "Replit" to "Browser-based coding",
-            "DevTo" to "Developer blogging community",
-            "HackerNews" to "Tech news (Y Combinator)",
-            "Steam" to "Video game distribution & community",
-            "Spotify" to "Music & podcast streaming",
-            "SoundCloud" to "Music sharing & audio streaming",
-            "Bandcamp" to "Music publishing & fan support",
-            "Fiverr" to "Freelance services marketplace",
-            "Upwork" to "Freelance work & hiring",
             "Last.fm" to "Music tracking & social recommendation",
+            "Lichess" to "Free open-source chess platform",
             "Chess.com" to "Online chess platform",
-            "Duolingo" to "Language learning",
-            "Wattpad" to "Story sharing & reading community"
+            "Codecademy" to "Interactive coding education",
+            "Duolingo" to "Language learning platform",
+            "NameMC" to "Minecraft username tracker",
+            "VSCO" to "Photography & creative community",
+            "Snapchat" to "Disappearing photo/video messaging",
+            "Xbox Gamertag" to "Xbox gaming profile",
+            "PSN Profiles" to "PlayStation Network gaming profile",
+            "Cashapp" to "Cash App payment profile",
+            "VK" to "Russian social network (VKontakte)",
+            "Telegram" to "Encrypted messaging & channels",
+            "Mastodon" to "Federated open-source social network",
+            "Bluesky" to "Decentralized social network (AT Protocol)",
+            "Threads" to "Instagram's text-based social network",
+            "Substack" to "Newsletter & subscription publishing",
+            "Ko-fi" to "Creator tip jar & supporter platform",
+            "Linktree" to "Link aggregator profile page",
+            "Letterboxd" to "Film diary & social movie tracking",
+            "ArtStation" to "Professional game & film art portfolio",
+            "Unsplash" to "Free stock photography platform",
+            "Mixcloud" to "DJ mix & podcast streaming",
+            "Audiomack" to "Free music streaming & discovery",
+            "Bandcamp" to "Music publishing & direct fan support",
+            "ReverbNation" to "Musician marketing & promotion",
+            "Steemit" to "Blockchain-based social blogging",
+            "Odysee" to "Decentralized video platform (LBRY)",
+            "Rumble" to "Alternative video hosting platform",
+            "Minds" to "Open-source decentralized social network",
+            "Kaggle" to "Data science & ML competition platform",
+            "Codeforces" to "Competitive programming platform",
+            "LeetCode" to "Coding interview prep platform",
+            "CodePen" to "Front-end code playground",
+            "Angel.co" to "Startup jobs & investor network",
+            "GoodReads" to "Book tracking & reading community",
+            "OkCupid" to "Dating app & matchmaking service",
+            "Xing" to "European professional networking",
+            "Exercism" to "Programming practice & mentorship",
+            "OnlyFans" to "⚠ Adult content subscription platform",
+            "Pornhub" to "⚠ Adult video streaming site",
+            "Chaturbate" to "⚠ Adult live cam broadcasting",
+            "ManyVids" to "⚠ Adult content creator marketplace",
+            "Fansly" to "⚠ Adult content subscription platform",
+            "RedGIFs" to "⚠ Adult GIF & video sharing",
+            "XVIDEOS" to "⚠ Adult video streaming site",
+            "BDSMLR" to "⚠ Adult BDSM-focused social blogging",
+            "Stripchat" to "⚠ Adult live cam platform",
+            "MyFreeCams" to "⚠ Adult webcam model platform",
+            "CamSoda" to "⚠ Adult cam broadcasting platform",
+            "Tinder" to "Dating app",
+            "Bumble" to "Dating & networking app",
+            "Ashley Madison" to "⚠ Extramarital affairs dating platform",
+            "Seeking" to "⚠ Sugar dating platform",
+            "FurAffinity" to "Furry art & community platform"
         )
         meta["found_urls"]?.takeIf { it.isNotBlank() }?.let {
             it.lines().filter { l -> l.isNotBlank() }.forEach { line ->
-                val parts = line.split(": ", limit = 2)
+                val isNsfw = line.startsWith("⚠NSFW:")
+                val cleanLine = if (isNsfw) line.removePrefix("⚠NSFW:") else line
+                val parts = cleanLine.split(": ", limit = 2)
                 val siteName = parts.firstOrNull() ?: "Platform"
-                val url = parts.getOrNull(1) ?: line
+                val url = parts.getOrNull(1) ?: cleanLine
                 val desc = siteDesc[siteName]
-                rows.add("✓ $siteName${if (desc != null) " — $desc" else ""}" to url)
+                val label = if (isNsfw) "⚠ NSFW/$siteName" else "✓ $siteName"
+                rows.add("$label${if (desc != null) " — ${desc.removePrefix("⚠ ")}" else ""}" to url)
             }
         }
         if (rows.isEmpty()) rows.add("Status" to "No profiles found on tracked platforms")
