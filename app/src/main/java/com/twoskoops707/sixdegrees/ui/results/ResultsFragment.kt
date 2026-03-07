@@ -157,7 +157,7 @@ class ResultsFragment : Fragment() {
     private fun extractBestAge(meta: Map<String, String>): String? =
         meta["tps_age"] ?: meta["zaba_age"] ?: meta["411_age"]
             ?: meta["voter_age"] ?: meta["radaris_age"] ?: meta["peekyou_age"]
-            ?: meta["nuwber_age"] ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
+            ?: meta["nuwber_age"] ?: meta["wp_age"] ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
             ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
 
     private fun extractBestLocation(meta: Map<String, String>): String =
@@ -172,6 +172,7 @@ class ResultsFragment : Fragment() {
             ?: meta["radaris_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: meta["peekyou_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: meta["nuwber_locations"]?.split(" | ")?.firstOrNull()?.trim()
+            ?: meta["wp_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: ""
 
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
@@ -1117,7 +1118,7 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones")
+        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
@@ -1131,7 +1132,7 @@ class ResultsFragment : Fragment() {
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
         listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations",
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
-            "radaris_locations", "peekyou_locations", "nuwber_locations")
+            "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }
@@ -1139,7 +1140,7 @@ class ResultsFragment : Fragment() {
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
         listOf("tps_relatives", "ftn_relatives", "411_relatives", "tt_relatives", "fps_relatives",
-            "corpwiki_associates", "radaris_relatives", "nuwber_relatives")
+            "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }

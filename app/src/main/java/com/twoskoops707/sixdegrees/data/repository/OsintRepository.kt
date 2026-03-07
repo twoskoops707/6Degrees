@@ -2038,6 +2038,7 @@ class OsintRepository(context: Context) {
         launch { radarisSearch(query, meta, sources, emit) }
         launch { peekYouSearch(query, meta, sources, emit) }
         launch { nuwberSearch(query, meta, sources, emit) }
+        launch { whitepagesScrape(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -3637,6 +3638,63 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.NotFound("Nuwber"))
             }
         } catch (e: Exception) { emit(SearchProgressEvent.Failed("Nuwber", e.message ?: "")) }
+    }
+
+    private suspend fun whitepagesScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("WhitePages"))
+        try {
+            val parts = query.trim().split(" ")
+            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
+            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+            val req = Request.Builder()
+                .url("https://www.whitepages.com/name/$first-$last")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .addHeader("Referer", "https://www.whitepages.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (html.isBlank() || resp.code == 403 || resp.code == 429
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)
+                || html.contains("Access Denied", ignoreCase = true)
+                || html.contains("Enable JavaScript", ignoreCase = true)) {
+                emit(SearchProgressEvent.NotFound("WhitePages")); return
+            }
+            val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
+            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+                .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .map { (area, mid, last2) -> "($area) $mid-$last2" }
+                .distinct().take(5).toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]{2,},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.distinct().take(8).toList()
+            val relatives = Regex("(?:relative|associate|related|household)[^<]{0,100}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(10).toList()
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["wp_age"] = ages.first()
+                if (phones.isNotEmpty()) meta["wp_phones"] = phones.joinToString(", ")
+                if (cityState.isNotEmpty()) meta["wp_locations"] = cityState.joinToString(" | ")
+                if (relatives.isNotEmpty()) meta["wp_relatives"] = relatives.joinToString(", ")
+                meta["wp_link"] = "https://www.whitepages.com/name/$first-$last"
+                sources.add(DataSource("WhitePages", meta["wp_link"], Date(), 0.8))
+                emit(SearchProgressEvent.Found("WhitePages", buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("WhitePages"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("WhitePages", e.message ?: "")) }
     }
 
     private fun md5(input: String): String {
