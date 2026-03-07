@@ -142,7 +142,7 @@ class ResultsFragment : Fragment() {
     private fun extractBestAge(meta: Map<String, String>): String? =
         meta["tps_age"] ?: meta["zaba_age"] ?: meta["411_age"]
             ?: meta["voter_age"] ?: meta["radaris_age"] ?: meta["peekyou_age"]
-            ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
+            ?: meta["nuwber_age"] ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
             ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
 
     private fun extractBestLocation(meta: Map<String, String>): String =
@@ -333,6 +333,7 @@ class ResultsFragment : Fragment() {
         val emails = linkedSetOf<String>()
         meta["pipl_email"]?.takeIf { it.isNotBlank() }?.let { emails.add(it) }
         meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
+        meta["nuwber_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
         meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
         if (emails.isNotEmpty()) {
             rows.add(sec("EMAIL ADDRESSES (${emails.size})"))
@@ -550,6 +551,32 @@ class ResultsFragment : Fragment() {
             meta["dork_social"]?.let { rows.add("⟶ Social Discovery" to it) }
             meta["dork_leaks"]?.let { rows.add("⟶ Leaked Data Search" to it) }
             meta["dork_files"]?.let { rows.add("⟶ Leaked File Dump" to it) }
+            val shownDorkKeys = setOf(
+                "identity_confirm", "address_records", "relatives_map", "criminal_records",
+                "property_records", "vehicle_trace", "social_discovery", "leaked_data", "files_dump"
+            )
+            val extraDorkLabels = mapOf(
+                "financial_exposure" to "Financial Exposure",
+                "email_patterns" to "Email Patterns",
+                "business_ties" to "Business Ties",
+                "court_deep" to "Court Deep Search",
+                "voter_records" to "Voter Records",
+                "obituary_cross" to "Obituary Cross-Reference",
+                "dark_mentions" to "Dark Data Mentions"
+            )
+            meta["shadowdork_links"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
+                val keyEnd = line.indexOf("::")
+                if (keyEnd > 0) {
+                    val key = line.substring(0, keyEnd)
+                    if (key !in shownDorkKeys && key in extraDorkLabels) {
+                        val gStart = line.indexOf("::G:") + 4
+                        val gEnd = line.indexOf("::B:")
+                        if (gStart > 4 && gEnd > gStart) {
+                            rows.add("⟶ ${extraDorkLabels[key]}" to line.substring(gStart, gEnd))
+                        }
+                    }
+                }
+            }
         }
 
         val socialLinks = buildSocialLinks(meta)
@@ -575,6 +602,7 @@ class ResultsFragment : Fragment() {
         meta["email"]?.takeIf { it.isNotBlank() }?.let { pivotEmails.add(it) }
         meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
         meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
+        meta["nuwber_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
         val searchQuery = arguments?.getString("searchQuery") ?: ""
         if (pivotPhones.isNotEmpty() || pivotEmails.isNotEmpty()) {
             rows.add(sec("PIVOT SEARCHES"))
@@ -1069,7 +1097,7 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones")
+        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
@@ -1083,7 +1111,7 @@ class ResultsFragment : Fragment() {
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
         listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations",
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
-            "radaris_locations", "peekyou_locations")
+            "radaris_locations", "peekyou_locations", "nuwber_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }
@@ -1091,7 +1119,7 @@ class ResultsFragment : Fragment() {
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
         listOf("tps_relatives", "ftn_relatives", "411_relatives", "tt_relatives", "fps_relatives",
-            "corpwiki_associates", "radaris_relatives")
+            "corpwiki_associates", "radaris_relatives", "nuwber_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }

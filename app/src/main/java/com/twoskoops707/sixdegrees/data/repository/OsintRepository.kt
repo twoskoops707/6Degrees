@@ -2037,6 +2037,7 @@ class OsintRepository(context: Context) {
         launch { grepAppSearch(query, meta, sources, emit) }
         launch { radarisSearch(query, meta, sources, emit) }
         launch { peekYouSearch(query, meta, sources, emit) }
+        launch { nuwberSearch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -3575,6 +3576,67 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.NotFound("PeekYou"))
             }
         } catch (e: Exception) { emit(SearchProgressEvent.Failed("PeekYou", e.message ?: "")) }
+    }
+
+    private suspend fun nuwberSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Nuwber"))
+        try {
+            val parts = query.trim().split(" ")
+            val first = parts.firstOrNull()?.lowercase()?.ifBlank { null } ?: return
+            val last = parts.drop(1).joinToString("-").lowercase().ifBlank { return }
+            val req = Request.Builder()
+                .url("https://nuwber.com/people/$first-$last")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .addHeader("Referer", "https://nuwber.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (html.isBlank() || resp.code == 403 || resp.code == 429
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)
+                || html.contains("Access Denied", ignoreCase = true)) {
+                emit(SearchProgressEvent.NotFound("Nuwber")); return
+            }
+            val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
+            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+                .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .map { (area, mid, last2) -> "($area) $mid-$last2" }
+                .distinct().take(5).toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]{2,},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.distinct().take(5).toList()
+            val relatives = Regex("(?:relative|associate|related)[^<]{0,100}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(10).toList()
+            val emails = Regex("[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}").findAll(html)
+                .map { it.value.lowercase() }
+                .filter { !it.contains("nuwber") && !it.contains("example") && !it.contains("noreply") && it.length < 60 }
+                .distinct().take(3).toList()
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["nuwber_age"] = ages.first()
+                if (phones.isNotEmpty()) meta["nuwber_phones"] = phones.joinToString(", ")
+                if (cityState.isNotEmpty()) meta["nuwber_locations"] = cityState.joinToString(" | ")
+                if (relatives.isNotEmpty()) meta["nuwber_relatives"] = relatives.joinToString(", ")
+                if (emails.isNotEmpty()) meta["nuwber_emails"] = emails.joinToString(", ")
+                meta["nuwber_link"] = "https://nuwber.com/people/$first-$last"
+                sources.add(DataSource("Nuwber", meta["nuwber_link"], Date(), 0.65))
+                emit(SearchProgressEvent.Found("Nuwber", buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("Nuwber"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Nuwber", e.message ?: "")) }
     }
 
     private fun md5(input: String): String {
