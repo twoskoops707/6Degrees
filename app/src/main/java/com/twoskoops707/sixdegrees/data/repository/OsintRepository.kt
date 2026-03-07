@@ -1857,41 +1857,7 @@ class OsintRepository(context: Context) {
             }
         }
 
-        launch {
-            emit(SearchProgressEvent.Checking("Corporations Wiki"))
-            try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
-                val req = Request.Builder()
-                    .url("https://www.corporationswiki.com/l/search?q=$encoded")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
-                    .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                    .addHeader("Accept-Language", "en-US,en;q=0.5")
-                    .addHeader("Referer", "https://www.corporationswiki.com/")
-                    .build()
-                val resp = fastHttpClient.newCall(req).execute()
-                val html = resp.body?.string() ?: ""; resp.close()
-                val companyNames = Regex("<a[^>]+href=\"/p/[^\"]+\"[^>]*>([^<]{3,80})</a>").findAll(html)
-                    .map { it.groupValues[1].trim() }
-                    .filter { it.isNotBlank() && !it.contains("\\s{3,}".toRegex()) }
-                    .distinct().take(8).toList()
-                val states = Regex("(?:incorporated|formed|registered)[^<]*<[^>]*>([A-Z]{2})<", RegexOption.IGNORE_CASE).findAll(html)
-                    .map { it.groupValues[1] }.take(8).toList()
-                val officers = Regex("class=\"[^\"]*officer[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
-                    .map { it.groupValues[1] }.distinct().take(5).toList()
-                if (companyNames.isNotEmpty()) {
-                    meta["corpwiki_person_companies"] = companyNames.joinToString("\n")
-                    meta["corpwiki_person_link"] = "https://www.corporationswiki.com/l/search?q=$encoded"
-                    if (states.isNotEmpty()) meta["corpwiki_person_states"] = states.distinct().take(5).joinToString(", ")
-                    if (officers.isNotEmpty()) meta["corpwiki_associates"] = officers.joinToString(", ")
-                    sources.add(DataSource("Corporations Wiki", meta["corpwiki_person_link"], Date(), 0.75))
-                    emit(SearchProgressEvent.Found("Corporations Wiki", "${companyNames.size} corporate record${if (companyNames.size != 1) "s" else ""}: ${companyNames.firstOrNull() ?: ""}"))
-                } else {
-                    emit(SearchProgressEvent.NotFound("Corporations Wiki"))
-                }
-            } catch (e: Exception) {
-                emit(SearchProgressEvent.Failed("Corporations Wiki", e.message ?: ""))
-            }
-        }
+        launch { openCorporatesOfficerSearch(query, meta, sources, emit) }
 
         launch {
             emit(SearchProgressEvent.Checking("California SOS Officers"))
@@ -2019,13 +1985,13 @@ class OsintRepository(context: Context) {
         launch { generateAndRunDorks(query, meta, sources, emit) }
         launch { voterRecordsScrape(query, meta, sources, emit) }
         launch { ahmiaSearch(query, meta, sources, emit) }
-        launch { zoAiSynthesis(query, meta, sources, emit) }
         launch { truePeopleSearchScrape(query, meta, sources, emit) }
         launch { openSanctionsScrape(query, meta, sources, emit) }
         launch { duckDuckGoPersonSearch(query, meta, sources, emit) }
         launch { zabaSearchScrape(query, meta, sources, emit) }
         launch { fourOneOneScrape(query, meta, sources, emit) }
         launch { gNewsFetch(query, meta, sources, emit) }
+        launch { openCorporatesOfficerSearch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -2160,6 +2126,49 @@ class OsintRepository(context: Context) {
         }
     }
 
+    private suspend fun openCorporatesOfficerSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("OpenCorporates"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.opencorporates.com/v0.4/officers/search?q=$encoded&format=json&per_page=10")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (resp.code != 200 || body.isBlank()) { emit(SearchProgressEvent.NotFound("OpenCorporates")); return }
+            val companyNames = Regex("\"company_name\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(8).toList()
+            val positions = Regex("\"position\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(8).toList()
+            val jurisdictions = Regex("\"jurisdiction_code\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
+                .map { it.groupValues[1].uppercase() }.distinct().take(5).toList()
+            val startDates = Regex("\"start_date\"\\s*:\\s*\"([^\"]+)\"").findAll(body)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+            val totalCount = Regex("\"total_count\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: companyNames.size
+            if (companyNames.isNotEmpty()) {
+                meta["corpwiki_person_companies"] = companyNames.joinToString("\n")
+                if (positions.isNotEmpty()) meta["opencorp_positions"] = positions.take(companyNames.size).joinToString(", ")
+                if (jurisdictions.isNotEmpty()) meta["corpwiki_person_states"] = jurisdictions.joinToString(", ")
+                if (startDates.isNotEmpty()) meta["opencorp_start_dates"] = startDates.joinToString(", ")
+                meta["corpwiki_person_link"] = "https://opencorporates.com/officers?q=$encoded"
+                sources.add(DataSource("OpenCorporates", meta["corpwiki_person_link"], Date(), 0.85))
+                val posDesc = positions.firstOrNull()?.let { " ($it)" } ?: ""
+                emit(SearchProgressEvent.Found("OpenCorporates", "$totalCount officer record${if (totalCount != 1) "s" else ""}: ${companyNames.first()}$posDesc"))
+            } else {
+                emit(SearchProgressEvent.NotFound("OpenCorporates"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("OpenCorporates", e.message ?: ""))
+        }
+    }
+
     private suspend fun comprehensiveSearch(
         query: String,
         meta: ConcurrentHashMap<String, String>,
@@ -2208,8 +2217,7 @@ class OsintRepository(context: Context) {
             val encoded = URLEncoder.encode(query, "UTF-8")
             val location = meta["person_location"] ?: ""
             val locationEncoded = if (location.isNotBlank()) URLEncoder.encode(location, "UTF-8") else ""
-            val req = Request.Builder()
-                .url("https://www.truepeoplesearch.com/results?name=$encoded&citystatezip=$locationEncoded&rid=0")
+            val headers = Request.Builder()
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.9")
@@ -2217,41 +2225,65 @@ class OsintRepository(context: Context) {
                 .addHeader("sec-ch-ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"")
                 .addHeader("sec-ch-ua-mobile", "?0")
                 .addHeader("sec-ch-ua-platform", "\"Windows\"")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val html = resp.body?.string() ?: ""; resp.close()
-            if (resp.code == 403 || resp.code == 429 || html.isBlank()
-                || html.contains("Just a moment", ignoreCase = true)
-                || html.contains("cf-browser-verification", ignoreCase = true)
-                || html.contains("Checking if the site connection is secure", ignoreCase = true)) {
+
+            val listReq = headers.url("https://www.truepeoplesearch.com/results?name=$encoded&citystatezip=$locationEncoded&rid=0").build()
+            val listResp = fastHttpClient.newCall(listReq).execute()
+            val listHtml = listResp.body?.string() ?: ""; listResp.close()
+            if (listResp.code == 403 || listResp.code == 429 || listHtml.isBlank()
+                || listHtml.contains("Just a moment", ignoreCase = true)
+                || listHtml.contains("cf-browser-verification", ignoreCase = true)
+                || listHtml.contains("Checking if the site connection is secure", ignoreCase = true)) {
                 emit(SearchProgressEvent.NotFound("TruePeopleSearch")); return
             }
-            val names = (Regex("<div[^>]*class=\"[^\"]*card-title[^\"]*\"[^>]*>([^<]{5,60})</div>", RegexOption.IGNORE_CASE).findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()
-                + Regex("<h2[^>]*>\\s*([A-Z][a-z]+ (?:[A-Z][a-z]+ )?[A-Z][a-z]+)\\s*</h2>").findAll(html)
-                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()).distinct().take(5)
-            val ages = Regex("(?:Age|AGE)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
-            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
-                .map { it.value.trim() }.filter { it.length >= 10 }.take(10).distinct().toList()
-            val localities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
-            val regions = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
+
+            val detailPath = Regex("href=\"(/details[^\"]+)\"").find(listHtml)?.groupValues?.get(1)
+            val profileHtml = if (detailPath != null) {
+                val detailReq = headers.url("https://www.truepeoplesearch.com$detailPath").build()
+                val detailResp = fastHttpClient.newCall(detailReq).execute()
+                val h = detailResp.body?.string() ?: ""; detailResp.close()
+                if (detailResp.code == 200 && h.isNotBlank()) h else listHtml
+            } else listHtml
+
+            val names = Regex("<h1[^>]*>\\s*([A-Z][a-z]+(?: [A-Z][a-z]+){1,3})\\s*</h1>").findAll(profileHtml)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(3).toList()
+                .ifEmpty {
+                    Regex("<div[^>]*class=\"[^\"]*card-title[^\"]*\"[^>]*>([^<]{5,60})</div>", RegexOption.IGNORE_CASE).findAll(listHtml)
+                        .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(3).toList()
+                }
+            val ages = Regex("(?:Age|AGE)[:\\s]+(\\d{2,3})").findAll(profileHtml).map { it.groupValues[1] }.take(3).distinct().toList()
+            val phones = Regex("(?<![\\d])\\(?(\\d{3})\\)?[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(profileHtml)
+                .map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }.distinct().take(8).toList()
+            val streetAddrs = Regex("<span[^>]*itemprop=\"streetAddress\"[^>]*>([^<]+)</span>").findAll(profileHtml)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val localities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(profileHtml)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val regions = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(profileHtml)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val zips = Regex("<span[^>]*itemprop=\"postalCode\"[^>]*>([^<]+)</span>").findAll(profileHtml)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val fullAddresses = streetAddrs.mapIndexed { i, street ->
+                val city = localities.getOrNull(i) ?: ""
+                val state = regions.getOrNull(i) ?: ""
+                val zip = zips.getOrNull(i) ?: ""
+                buildString {
+                    append(street)
+                    if (city.isNotBlank()) append(", $city")
+                    if (state.isNotBlank()) append(", $state")
+                    if (zip.isNotBlank()) append(" $zip")
+                }
+            }.filter { it.isNotBlank() }
             val cityState = if (localities.isNotEmpty() && regions.isNotEmpty()) {
                 localities.zip(regions).map { (c, s) -> "$c, $s" }
-            } else {
-                Regex("([A-Z][a-zA-Z ]+,\\s*[A-Z]{2})(?=\\s*<|\\s*\\d{5})").findAll(html)
-                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(10).toList()
-            }
-            val relatives = (Regex("class=\"[^\"]*related[^\"]*\"[^>]*>[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
-                .map { it.groupValues[1] }.toList()
-                + Regex("(?:Relative|Associate)[^<]{0,30}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
-                    .map { it.groupValues[1] }.toList()).distinct().take(10)
-            val hasData = names.isNotEmpty() || ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
+            } else emptyList()
+            val relatives = Regex("(?:data-name|itemprop=\"name\")[^>]*>\\s*([A-Z][a-z]+ [A-Z][a-z]+)\\s*<").findAll(profileHtml)
+                .map { it.groupValues[1] }.filter { !it.equals(query, ignoreCase = true) }.distinct().take(8).toList()
+
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty() || fullAddresses.isNotEmpty()
             if (hasData) {
                 if (names.isNotEmpty()) meta["tps_names"] = names.joinToString(", ")
                 if (ages.isNotEmpty()) meta["tps_age"] = ages.first()
                 if (phones.isNotEmpty()) meta["tps_phones"] = phones.joinToString(", ")
+                if (fullAddresses.isNotEmpty()) meta["tps_full_addresses"] = fullAddresses.joinToString(" | ")
                 if (cityState.isNotEmpty()) meta["tps_locations"] = cityState.joinToString(" | ")
                 if (relatives.isNotEmpty()) meta["tps_relatives"] = relatives.joinToString(", ")
                 meta["tps_link"] = "https://www.truepeoplesearch.com/results?name=$encoded"
@@ -2259,7 +2291,8 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.Found("TruePeopleSearch", buildString {
                     if (names.isNotEmpty()) append(names.first())
                     if (ages.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("Age: ${ages.first()}") }
-                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (fullAddresses.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(fullAddresses.first()) }
+                    else if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
                 }))
             } else {
                 emit(SearchProgressEvent.NotFound("TruePeopleSearch"))
@@ -2433,8 +2466,8 @@ class OsintRepository(context: Context) {
             }
             val addresses = Regex("(?:address|street)[^<]{0,50}<[^>]+>([^<]+[A-Z]{2}\\s+\\d{5}[^<]*)").findAll(html)
                 .map { it.groupValues[1].trim() }.filter { it.length > 5 }.take(10).distinct().toList()
-            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
-                .map { it.value.trim() }.filter { it.length >= 10 }.take(10).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+                .map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }.distinct().take(10).toList()
             val ages = Regex("Age[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
 
             val hasData = addresses.isNotEmpty() || phones.isNotEmpty()
@@ -3183,9 +3216,9 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.NotFound("ZabaSearch")); return
             }
             val ages = Regex("(?:Age|age)\\s*:?\\s*(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
-            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
-                .map { it.value.replace(Regex("[^\\d]"), "").let { d -> if (d.length == 10) "(${d.substring(0,3)}) ${d.substring(3,6)}-${d.substring(6)}" else it.value } }
-                .filter { it.length >= 10 }.take(10).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+                .map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }
+                .distinct().take(10).toList()
             val addresses = Regex("(?:address|street|avenue|boulevard|drive|road|lane|way|court|place)[^<]{0,5}<[^>]+>([^<]{10,80}(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)[^<]{0,10})</", RegexOption.IGNORE_CASE)
                 .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
             val cityState = Regex("([A-Z][a-zA-Z ]+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
@@ -3236,8 +3269,9 @@ class OsintRepository(context: Context) {
             if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("411.com")); return
             }
-            val phones = Regex("\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}").findAll(html)
-                .map { it.value.trim() }.filter { it.length >= 10 }.take(10).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+                .map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }
+                .distinct().take(10).toList()
             val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
             val cityState = Regex("([A-Z][a-zA-Z ]+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
                 .map { it.groupValues[1].trim() }.distinct().take(10).toList()

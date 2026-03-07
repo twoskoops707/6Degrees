@@ -377,11 +377,15 @@ class ResultsFragment : Fragment() {
                 }
             }
             if (corpwikiCount > 0) {
-                rows.add("Corporations Wiki" to "$corpwikiCount record${if (corpwikiCount != 1) "s" else ""}")
-                meta["corpwiki_person_companies"]?.takeIf { it.isNotBlank() }?.let {
-                    it.lines().filter { l -> l.isNotBlank() }.forEach { co -> rows.add("Company" to co) }
+                rows.add("OpenCorporates" to "$corpwikiCount officer record${if (corpwikiCount != 1) "s" else ""}")
+                val companies = meta["corpwiki_person_companies"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+                val positions = meta["opencorp_positions"]?.split(",")?.map { it.trim() } ?: emptyList()
+                companies.forEachIndexed { i, co ->
+                    val pos = positions.getOrNull(i)
+                    rows.add("Company" to if (pos != null && pos.isNotBlank()) "$co — $pos" else co)
                 }
-                meta["corpwiki_person_states"]?.let { rows.add("States" to it) }
+                meta["corpwiki_person_states"]?.let { rows.add("Jurisdictions" to it) }
+                meta["opencorp_start_dates"]?.let { rows.add("Active Since" to it) }
             }
             if (samEntityCount > 0) {
                 rows.add("SAM.gov Entities" to "$samEntityCount entit${if (samEntityCount != 1) "ies" else "y"}")
@@ -426,16 +430,20 @@ class ResultsFragment : Fragment() {
         val ahmiaCount = meta["ahmia_count"]?.toIntOrNull() ?: 0
         if (ahmiaCount > 0) {
             rows.add(sec("⚠ DARK WEB MENTIONS"))
-            rows.add("⚠ Dark Web Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} on Tor sites")
-            meta["ahmia_titles"]?.takeIf { it.isNotBlank() }?.let {
-                it.lines().filter { l -> l.isNotBlank() }.forEach { t -> rows.add("⚠ Tor Site" to t) }
+            rows.add("⚠ Indexed Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found via Ahmia.fi Tor index")
+            val titleLines = meta["ahmia_titles"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+            val urlLines = meta["ahmia_urls"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+            titleLines.forEachIndexed { i, t ->
+                rows.add("⚠ Tor Site Title" to t)
+                urlLines.getOrNull(i)?.let { u -> rows.add("  Source URL" to u) }
             }
+            rows.add("⚠ Note" to "Ahmia indexes publicly-accessible Tor hidden services. Subject to index freshness.")
         }
 
         meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("AI INTELLIGENCE SYNTHESIS"))
             it.lines().filter { l -> l.isNotBlank() }.forEach { line -> rows.add("AI Analysis" to line) }
-            rows.add("Note" to "AI-synthesized from public data — verify independently")
+            rows.add("⚠ Disclaimer" to "AI-generated summary — may not reflect actual individual. Verify all claims independently.")
         }
 
         val pivotPhones = extractPhones(meta).take(5)
@@ -886,7 +894,7 @@ class ResultsFragment : Fragment() {
 
     private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
-        listOf("tps_locations", "zaba_addresses", "zaba_locations", "411_locations", "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations")
+        listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations", "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }
