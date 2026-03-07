@@ -112,7 +112,20 @@ class ResultsFragment : Fragment() {
         } catch (_: Exception) { 0 }
         binding.tvSourcesCount.text = "$sourceCount\nsources"
 
-        val tabs = buildTabs(meta, searchType)
+        val enrichedMeta = meta.toMutableMap()
+        if (person != null) {
+            val allJobs = parseAllJobs(person.employmentHistoryJson)
+            if (allJobs.isNotEmpty()) enrichedMeta["pipl_employment"] = allJobs.joinToString("\n")
+            val allAddrs = parseAllAddresses(person.addressesJson)
+            if (allAddrs.isNotEmpty()) enrichedMeta["pipl_addresses"] = allAddrs.joinToString(" | ")
+            val allSocials = parseAllSocials(person.socialProfilesJson)
+            if (allSocials.isNotEmpty()) enrichedMeta["pipl_socials"] = allSocials.joinToString("\n")
+            person.emailAddress?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_email"] = it }
+            person.phoneNumber?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_phone"] = it }
+            person.gender?.takeIf { it.isNotBlank() }?.let { enrichedMeta.getOrPut("pipl_gender") { it } }
+        }
+
+        val tabs = buildTabs(enrichedMeta, searchType)
         val tabNames = tabs.map { it.first }
         val tabData = tabs.map { it.second }
 
@@ -123,7 +136,7 @@ class ResultsFragment : Fragment() {
             tab.text = tabNames[pos]
         }.attach()
 
-        binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, meta) }
+        binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
     }
 
     private fun extractBestAge(meta: Map<String, String>): String? =
@@ -220,7 +233,13 @@ class ResultsFragment : Fragment() {
         bestAge?.let { rows.add("Age" to it) }
         meta["ftn_birth_year"]?.let { rows.add("Birth Year" to "~$it") }
         meta["demographics_gender"]?.let { rows.add("Gender" to it) }
+        meta["pipl_gender"]?.takeIf { meta["demographics_gender"].isNullOrBlank() }?.let { rows.add("Gender" to it) }
         meta["demographics_nationality"]?.let { rows.add("Nationality Est." to it) }
+
+        meta["pipl_employment"]?.takeIf { it.isNotBlank() }?.let { emp ->
+            rows.add(sec("EMPLOYMENT HISTORY"))
+            emp.lines().filter { it.isNotBlank() }.forEach { rows.add("Job" to it) }
+        }
 
         val allPhones = extractPhones(meta)
         if (allPhones.isNotEmpty()) {
@@ -312,6 +331,7 @@ class ResultsFragment : Fragment() {
         }
 
         val emails = linkedSetOf<String>()
+        meta["pipl_email"]?.takeIf { it.isNotBlank() }?.let { emails.add(it) }
         meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
         meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
         if (emails.isNotEmpty()) {
@@ -533,7 +553,19 @@ class ResultsFragment : Fragment() {
         }
 
         val socialLinks = buildSocialLinks(meta)
-        if (socialLinks.isNotEmpty()) {
+        meta["pipl_socials"]?.takeIf { it.isNotBlank() }?.let { socials ->
+            val allLinks = if (socialLinks.isEmpty()) mutableListOf() else socialLinks.toMutableList()
+            socials.lines().filter { it.isNotBlank() }.forEach { line ->
+                val parts = line.split(": ", limit = 2)
+                val platform = parts.firstOrNull() ?: "Social"
+                val url = parts.getOrNull(1) ?: line
+                allLinks.add("⟶ $platform" to url)
+            }
+            if (allLinks.isNotEmpty()) {
+                rows.add(sec("SOCIAL & WEB PROFILES"))
+                allLinks.distinct().take(15).forEach { (label, url) -> rows.add(label to url) }
+            }
+        } ?: if (socialLinks.isNotEmpty()) {
             rows.add(sec("SOCIAL PROFILES (PeekYou)"))
             socialLinks.forEach { (label, url) -> rows.add(label to url) }
         }
@@ -1036,6 +1068,7 @@ class ResultsFragment : Fragment() {
         val tollfree = setOf("800", "888", "877", "866", "855", "844", "833", "822")
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
+        meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
@@ -1047,6 +1080,7 @@ class ResultsFragment : Fragment() {
 
     private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
+        meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
         listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations",
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
             "radaris_locations", "peekyou_locations")
@@ -1145,6 +1179,48 @@ class ResultsFragment : Fragment() {
                 ?: jobs.firstOrNull()?.let { "${it.jobTitle} at ${it.companyName}" }
                 ?: ""
         } catch (_: Exception) { "" }
+    }
+
+    private fun parseAllJobs(json: String): List<String> {
+        return try {
+            val type = Types.newParameterizedType(List::class.java, com.twoskoops707.sixdegrees.domain.model.Employment::class.java)
+            moshi.adapter<List<com.twoskoops707.sixdegrees.domain.model.Employment>>(type).fromJson(json)
+                ?.filter { it.companyName.isNotBlank() || it.jobTitle.isNotBlank() }
+                ?.map { e ->
+                    buildString {
+                        if (e.jobTitle.isNotBlank()) append(e.jobTitle)
+                        if (e.companyName.isNotBlank()) { if (isNotEmpty()) append(" at "); else append("Employee at "); append(e.companyName) }
+                        if (e.isCurrent) append(" (Current)")
+                        else if (e.endDate != null) append(" (until ${e.endDate})")
+                    }
+                } ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun parseAllAddresses(json: String): List<String> {
+        return try {
+            val type = Types.newParameterizedType(List::class.java, com.twoskoops707.sixdegrees.domain.model.Address::class.java)
+            moshi.adapter<List<com.twoskoops707.sixdegrees.domain.model.Address>>(type).fromJson(json)
+                ?.filter { it.city.isNotBlank() || it.state.isNotBlank() }
+                ?.map { a ->
+                    listOfNotNull(
+                        a.street.takeIf { it.isNotBlank() },
+                        a.city.takeIf { it.isNotBlank() },
+                        a.state.takeIf { it.isNotBlank() },
+                        a.postalCode.takeIf { it.isNotBlank() }
+                    ).joinToString(", ")
+                }?.filter { it.isNotBlank() } ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun parseAllSocials(json: String): List<String> {
+        return try {
+            val type = Types.newParameterizedType(List::class.java, com.twoskoops707.sixdegrees.domain.model.SocialProfile::class.java)
+            moshi.adapter<List<com.twoskoops707.sixdegrees.domain.model.SocialProfile>>(type).fromJson(json)
+                ?.filter { !it.url.isNullOrBlank() }
+                ?.map { s -> "${s.platform}: ${s.url}" }
+                ?: emptyList()
+        } catch (_: Exception) { emptyList() }
     }
 
     private fun showLoading() {
