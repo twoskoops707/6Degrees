@@ -123,6 +123,21 @@ class ResultsFragment : Fragment() {
             person.emailAddress?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_email"] = it }
             person.phoneNumber?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_phone"] = it }
             person.gender?.takeIf { it.isNotBlank() }?.let { enrichedMeta.getOrPut("pipl_gender") { it } }
+            person.dateOfBirth?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_dob"] = it }
+            try {
+                val aliasType = com.squareup.moshi.Types.newParameterizedType(List::class.java, String::class.java)
+                moshi.adapter<List<String>>(aliasType).fromJson(person.aliasesJson)
+                    ?.filter { it.isNotBlank() }?.let { aliases ->
+                        if (aliases.isNotEmpty()) enrichedMeta["pipl_aliases"] = aliases.joinToString(", ")
+                    }
+            } catch (_: Exception) {}
+            try {
+                val natType = com.squareup.moshi.Types.newParameterizedType(List::class.java, String::class.java)
+                moshi.adapter<List<String>>(natType).fromJson(person.nationalitiesJson)
+                    ?.filter { it.isNotBlank() }?.let { nats ->
+                        if (nats.isNotEmpty()) enrichedMeta["pipl_nationalities"] = nats.joinToString(", ")
+                    }
+            } catch (_: Exception) {}
         }
 
         val tabs = buildTabs(enrichedMeta, searchType)
@@ -156,6 +171,7 @@ class ResultsFragment : Fragment() {
             ?: meta["fps_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: meta["radaris_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: meta["peekyou_locations"]?.split(" | ")?.firstOrNull()?.trim()
+            ?: meta["nuwber_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: ""
 
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
@@ -231,10 +247,13 @@ class ResultsFragment : Fragment() {
         rows.add(sec("IDENTITY"))
         val bestAge = extractBestAge(meta)
         bestAge?.let { rows.add("Age" to it) }
+        meta["pipl_dob"]?.takeIf { it.isNotBlank() }?.let { rows.add("Date of Birth" to it) }
         meta["ftn_birth_year"]?.let { rows.add("Birth Year" to "~$it") }
         meta["demographics_gender"]?.let { rows.add("Gender" to it) }
         meta["pipl_gender"]?.takeIf { meta["demographics_gender"].isNullOrBlank() }?.let { rows.add("Gender" to it) }
         meta["demographics_nationality"]?.let { rows.add("Nationality Est." to it) }
+        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() }?.let { rows.add("Nationalities" to it) }
+        meta["pipl_aliases"]?.takeIf { it.isNotBlank() }?.let { rows.add("Known Aliases" to it) }
 
         meta["pipl_employment"]?.takeIf { it.isNotBlank() }?.let { emp ->
             rows.add(sec("EMPLOYMENT HISTORY"))
