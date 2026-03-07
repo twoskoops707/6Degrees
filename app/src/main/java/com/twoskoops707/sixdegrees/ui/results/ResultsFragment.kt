@@ -128,7 +128,7 @@ class ResultsFragment : Fragment() {
 
     private fun extractBestAge(meta: Map<String, String>): String? =
         meta["tps_age"] ?: meta["zaba_age"] ?: meta["411_age"]
-            ?: meta["voter_age"]
+            ?: meta["voter_age"] ?: meta["radaris_age"] ?: meta["peekyou_age"]
             ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
             ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
 
@@ -141,6 +141,8 @@ class ResultsFragment : Fragment() {
             ?: meta["uspb_addresses"]?.split(" | ")?.firstOrNull()?.trim()
             ?: meta["tt_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: meta["fps_locations"]?.split(" | ")?.firstOrNull()?.trim()
+            ?: meta["radaris_locations"]?.split(" | ")?.firstOrNull()?.trim()
+            ?: meta["peekyou_locations"]?.split(" | ")?.firstOrNull()?.trim()
             ?: ""
 
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
@@ -251,8 +253,41 @@ class ResultsFragment : Fragment() {
             tpsNames.split(",").map { it.trim() }.filter { it.isNotBlank() }.forEach { rows.add("Name" to it) }
         }
 
+        val ddgInfobox = meta["ddg_infobox"]?.takeIf { it.isNotBlank() }
+        if (ddgInfobox != null) {
+            if (meta["ddg_abstract"].isNullOrBlank()) rows.add(sec("PUBLIC PROFILE"))
+            ddgInfobox.lines().filter { it.isNotBlank() }.take(6).forEach { rows.add("Detail" to it.trim()) }
+        }
+
+        meta["ddg_answer"]?.takeIf { it.isNotBlank() && meta["ddg_abstract"].isNullOrBlank() && ddgInfobox == null }?.let {
+            rows.add(sec("QUICK ANSWER"))
+            rows.add("Answer" to it)
+        }
+
+        val socialLinks = buildSocialLinks(meta)
+        if (socialLinks.isNotEmpty()) {
+            rows.add(sec("SOCIAL DISCOVERY"))
+            socialLinks.take(8).forEach { (label, url) -> rows.add(label to url) }
+        }
+
         if (rows.size <= 2) rows.add("Status" to "No identity data found for this subject")
         return rows
+    }
+
+    private fun buildSocialLinks(meta: Map<String, String>): List<Pair<String, String>> {
+        val links = mutableListOf<Pair<String, String>>()
+        meta["peekyou_social"]?.lines()?.filter { it.isNotBlank() }?.forEach { url ->
+            val platform = when {
+                url.contains("twitter.com") || url.contains("x.com") -> "Twitter/X"
+                url.contains("facebook.com") -> "Facebook"
+                url.contains("instagram.com") -> "Instagram"
+                url.contains("linkedin.com") -> "LinkedIn"
+                url.contains("tiktok.com") -> "TikTok"
+                else -> "Social"
+            }
+            links.add("⟶ $platform" to url)
+        }
+        return links
     }
 
     private fun buildPersonContacts(meta: Map<String, String>): List<Pair<String, String>> {
@@ -274,6 +309,14 @@ class ResultsFragment : Fragment() {
         if (allRel.isNotEmpty()) {
             rows.add(sec("RELATIVES & ASSOCIATES (${allRel.size})"))
             allRel.forEach { rows.add("Name" to it) }
+        }
+
+        val emails = linkedSetOf<String>()
+        meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
+        meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
+        if (emails.isNotEmpty()) {
+            rows.add(sec("EMAIL ADDRESSES (${emails.size})"))
+            emails.forEach { rows.add("Email" to it) }
         }
 
         val voterNames = meta["voter_names"]?.takeIf { it.isNotBlank() }
@@ -303,7 +346,10 @@ class ResultsFragment : Fragment() {
                     it.lines().filter { l -> l.isNotBlank() }.forEach { r -> rows.add("Arrest Record" to r) }
                 }
             }
-            if (courtCount > 0) rows.add("CourtListener" to "$courtCount case${if (courtCount != 1) "s" else ""}")
+            if (courtCount > 0) {
+                rows.add("CourtListener" to "$courtCount case${if (courtCount != 1) "s" else ""}")
+                meta["courtlistener_link"]?.let { rows.add("⟶ View CourtListener" to it) }
+            }
             if (judyCount > 0) rows.add("JudyRecords" to "$judyCount court record${if (judyCount != 1) "s" else ""}")
             meta["judyrecords_cases"]?.takeIf { it.isNotBlank() }?.let {
                 it.lines().filter { l -> l.isNotBlank() }.forEach { c -> rows.add("Case" to c) }
@@ -318,6 +364,7 @@ class ResultsFragment : Fragment() {
             meta["opensanctions_names"]?.let { rows.add("Matched Names" to it) }
             meta["opensanctions_datasets"]?.let { rows.add("Datasets" to it) }
             meta["opensanctions_countries"]?.let { rows.add("Countries" to it) }
+            meta["opensanctions_link"]?.let { rows.add("⟶ View OpenSanctions" to it) }
         }
 
         if (rows.isEmpty()) rows.add("Status" to "No legal records found for this subject")
@@ -333,7 +380,9 @@ class ResultsFragment : Fragment() {
         if (gnewsCount > 0 || newsCount > 0 || wikiHits > 0 || !meta["wikidata_descriptions"].isNullOrBlank()) {
             rows.add(sec("NEWS & PUBLIC RECORDS"))
             meta["wikipedia_titles"]?.let { rows.add("Wikipedia" to it) }
+            meta["wikipedia_link"]?.takeIf { wikiHits > 0 }?.let { rows.add("⟶ View on Wikipedia" to it) }
             meta["wikidata_descriptions"]?.let { rows.add("WikiData" to it) }
+            meta["wikidata_link"]?.let { rows.add("⟶ View on WikiData" to it) }
             if (gnewsCount > 0) {
                 meta["gnews_articles"]?.takeIf { it.isNotBlank() }?.let {
                     it.split("\n---\n").filter { a -> a.isNotBlank() }.forEach { article ->
@@ -467,10 +516,33 @@ class ResultsFragment : Fragment() {
             rows.add("⚠ Disclaimer" to "AI-generated summary — may not reflect actual individual. Verify all claims independently.")
         }
 
+        val dorkCount = meta["shadowdork_count"]?.toIntOrNull() ?: 0
+        val hasDorkLinks = !meta["dork_identity"].isNullOrBlank()
+        if (dorkCount > 0 || hasDorkLinks) {
+            rows.add(sec("INVESTIGATIVE SEARCH DORKS"))
+            rows.add("Note" to "Tap a dork to run it in your browser — targeted searches pre-built for this subject")
+            meta["dork_identity"]?.let { rows.add("⟶ Identity & Age" to it) }
+            meta["dork_relatives"]?.let { rows.add("⟶ Relatives & Family" to it) }
+            meta["dork_address"]?.let { rows.add("⟶ Address Records" to it) }
+            meta["dork_criminal"]?.let { rows.add("⟶ Criminal Records" to it) }
+            meta["dork_property"]?.let { rows.add("⟶ Property Records" to it) }
+            meta["dork_vehicle"]?.let { rows.add("⟶ Vehicle Trace" to it) }
+            meta["dork_social"]?.let { rows.add("⟶ Social Discovery" to it) }
+            meta["dork_leaks"]?.let { rows.add("⟶ Leaked Data Search" to it) }
+            meta["dork_files"]?.let { rows.add("⟶ Leaked File Dump" to it) }
+        }
+
+        val socialLinks = buildSocialLinks(meta)
+        if (socialLinks.isNotEmpty()) {
+            rows.add(sec("SOCIAL PROFILES (PeekYou)"))
+            socialLinks.forEach { (label, url) -> rows.add(label to url) }
+        }
+
         val pivotPhones = extractPhones(meta).take(5)
         val pivotEmails = linkedSetOf<String>()
         meta["email"]?.takeIf { it.isNotBlank() }?.let { pivotEmails.add(it) }
         meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
+        meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
         val searchQuery = arguments?.getString("searchQuery") ?: ""
         if (pivotPhones.isNotEmpty() || pivotEmails.isNotEmpty()) {
             rows.add(sec("PIVOT SEARCHES"))
@@ -964,7 +1036,7 @@ class ResultsFragment : Fragment() {
         val tollfree = setOf("800", "888", "877", "866", "855", "844", "833", "822")
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
-        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones")
+        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
@@ -975,14 +1047,17 @@ class ResultsFragment : Fragment() {
 
     private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
-        listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations", "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations")
+        listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations",
+            "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
+            "radaris_locations", "peekyou_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }
 
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
-        listOf("tps_relatives", "ftn_relatives", "411_relatives", "tt_relatives", "fps_relatives", "corpwiki_associates")
+        listOf("tps_relatives", "ftn_relatives", "411_relatives", "tt_relatives", "fps_relatives",
+            "corpwiki_associates", "radaris_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }

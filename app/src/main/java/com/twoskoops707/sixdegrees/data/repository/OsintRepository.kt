@@ -2035,6 +2035,8 @@ class OsintRepository(context: Context) {
         launch { openCorporatesOfficerSearch(query, meta, sources, emit) }
         launch { pasteDumpSearch(query, meta, sources, emit) }
         launch { grepAppSearch(query, meta, sources, emit) }
+        launch { radarisSearch(query, meta, sources, emit) }
+        launch { peekYouSearch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -3469,6 +3471,110 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.NotFound("Google News"))
             }
         } catch (e: Exception) { emit(SearchProgressEvent.Failed("Google News", e.message ?: "")) }
+    }
+
+    private suspend fun radarisSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Radaris"))
+        try {
+            val dashName = query.trim().lowercase().replace(" ", "-")
+            val req = Request.Builder()
+                .url("https://radaris.com/p/$dashName/")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (html.isBlank() || resp.code == 403 || resp.code == 429
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)) {
+                emit(SearchProgressEvent.NotFound("Radaris")); return
+            }
+            val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
+            val ages = Regex("(?:Age|age)\\s*:?\\s*(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+                .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .map { (area, mid, last) -> "($area) $mid-$last" }
+                .distinct().take(5).toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]{2,},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.distinct().take(5).toList()
+            val relatives = Regex("(?:relative|associate|family)[^<]{0,100}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(10).toList()
+            val emails = Regex("[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}").findAll(html)
+                .map { it.value.lowercase() }
+                .filter { !it.contains("radaris") && !it.contains("example") && !it.contains("noreply") && it.length < 60 }
+                .distinct().take(3).toList()
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["radaris_age"] = ages.first()
+                if (phones.isNotEmpty()) meta["radaris_phones"] = phones.joinToString(", ")
+                if (cityState.isNotEmpty()) meta["radaris_locations"] = cityState.joinToString(" | ")
+                if (relatives.isNotEmpty()) meta["radaris_relatives"] = relatives.joinToString(", ")
+                if (emails.isNotEmpty()) meta["radaris_emails"] = emails.joinToString(", ")
+                meta["radaris_link"] = "https://radaris.com/p/$dashName/"
+                sources.add(DataSource("Radaris", meta["radaris_link"], Date(), 0.7))
+                emit(SearchProgressEvent.Found("Radaris", buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("Radaris"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Radaris", e.message ?: "")) }
+    }
+
+    private suspend fun peekYouSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("PeekYou"))
+        try {
+            val parts = query.trim().split(" ")
+            val first = parts.firstOrNull()?.lowercase()?.ifBlank { null } ?: return
+            val last = parts.drop(1).joinToString("-").lowercase().ifBlank { return }
+            val req = Request.Builder()
+                .url("https://www.peekyou.com/${first}_${last}")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (html.isBlank() || resp.code == 403 || resp.code == 429
+                || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)) {
+                emit(SearchProgressEvent.NotFound("PeekYou")); return
+            }
+            val ages = Regex("\\b(\\d{2,3})\\s*(?:years?\\s*old|yr\\b)").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
+            val locations = Regex("([A-Z][a-zA-Z ]{2,},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.distinct().take(5).toList()
+            val socialLinks = Regex("href=\"(https?://(?:twitter\\.com|facebook\\.com|instagram\\.com|linkedin\\.com/in|tiktok\\.com)[^\"]{3,120})\"").findAll(html)
+                .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(8).toList()
+            val hasData = ages.isNotEmpty() || locations.isNotEmpty() || socialLinks.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["peekyou_age"] = ages.first()
+                if (locations.isNotEmpty()) meta["peekyou_locations"] = locations.joinToString(" | ")
+                if (socialLinks.isNotEmpty()) meta["peekyou_social"] = socialLinks.joinToString("\n")
+                meta["peekyou_link"] = "https://www.peekyou.com/${first}_${last}"
+                sources.add(DataSource("PeekYou", meta["peekyou_link"], Date(), 0.65))
+                emit(SearchProgressEvent.Found("PeekYou", buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (locations.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(locations.first()) }
+                    if (socialLinks.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("${socialLinks.size} social profile${if (socialLinks.size != 1) "s" else ""}") }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("PeekYou"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("PeekYou", e.message ?: "")) }
     }
 
     private fun md5(input: String): String {
