@@ -961,9 +961,15 @@ class ResultsFragment : Fragment() {
     }
 
     private fun extractPhones(meta: Map<String, String>): LinkedHashSet<String> {
+        val tollfree = setOf("800", "888", "877", "866", "855", "844", "833", "822")
+        val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones")
-            .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
+            .forEach { key ->
+                meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
+                    phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
+                }?.forEach { set.add(it) }
+            }
         return set
     }
 

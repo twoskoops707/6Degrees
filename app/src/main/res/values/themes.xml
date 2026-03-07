@@ -112,6 +112,14 @@
         <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Hacker.Cyan</item>
     </style>
 
+    <style name="Theme.SixDegrees.Hacker.Purple" parent="Theme.SixDegrees.Hacker">
+        <item name="colorPrimary">@color/accent_violet</item>
+        <item name="colorPrimaryVariant">@color/accent_violet_dim</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnSurface">@color/accent_violet</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Hacker.Purple</item>
+    </style>
+
     <!-- ════════════════════════════════════════════════════════ -->
     <!-- TACTICAL — near-black military, condensed, 4dp corners  -->
     <!-- ════════════════════════════════════════════════════════ -->
@@ -217,6 +225,10 @@
 
     <style name="Widget.SixDegrees.CardView.Hacker.Cyan" parent="Widget.SixDegrees.CardView.Hacker">
         <item name="strokeColor">@color/accent_cyan</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Hacker.Purple" parent="Widget.SixDegrees.CardView.Hacker">
+        <item name="strokeColor">@color/accent_violet</item>
     </style>
 
     <style name="Widget.SixDegrees.CardView.Tactical" parent="Widget.MaterialComponents.CardView">

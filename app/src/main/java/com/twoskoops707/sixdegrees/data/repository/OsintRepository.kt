@@ -3322,8 +3322,14 @@ class OsintRepository(context: Context) {
         emit(SearchProgressEvent.Checking("ZabaSearch"))
         try {
             val slug = query.trim().replace(" ", "+")
+            val location = meta["person_location"] ?: ""
+            val stateSuffix = if (location.isNotBlank()) {
+                val statePart = location.split(",").getOrNull(1)?.trim() ?: ""
+                if (statePart.isNotBlank()) "$statePart/" else ""
+            } else ""
+            val url = "https://www.zabasearch.com/people/$slug/$stateSuffix"
             val req = Request.Builder()
-                .url("https://www.zabasearch.com/people/$slug/")
+                .url(url)
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.9")
@@ -3334,21 +3340,23 @@ class OsintRepository(context: Context) {
             if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("ZabaSearch")); return
             }
-            val ages = Regex("(?:Age|age)\\s*:?\\s*(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
-            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
-                .map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }
-                .distinct().take(10).toList()
-            val addresses = Regex("(?:address|street|avenue|boulevard|drive|road|lane|way|court|place)[^<]{0,5}<[^>]+>([^<]{10,80}(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)[^<]{0,10})</", RegexOption.IGNORE_CASE)
-                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
-            val cityState = Regex("([A-Z][a-zA-Z ]+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(10).toList()
-            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || addresses.isNotEmpty() || cityState.isNotEmpty()
+            val firstCard = Regex("(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result)[^>]*>(.+?)(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result[1-9])", RegexOption.DOT_MATCHES_ALL)
+                .find(html)?.groupValues?.get(1) ?: html.take(8000)
+            val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833", "822", "880", "881", "882", "883", "884", "885", "886", "887", "889")
+            val ages = Regex("(?:Age|age)\\s*:?\\s*(\\d{2,3})").findAll(firstCard).map { it.groupValues[1] }.take(3).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(firstCard)
+                .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .map { (area, mid, last) -> "($area) $mid-$last" }
+                .distinct().take(5).toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]{2,}+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 && it.isNotBlank() }.distinct().take(5).toList()
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
             if (hasData) {
                 if (ages.isNotEmpty()) meta["zaba_age"] = ages.first()
                 if (phones.isNotEmpty()) meta["zaba_phones"] = phones.joinToString(", ")
-                if (addresses.isNotEmpty()) meta["zaba_addresses"] = addresses.joinToString(" | ")
                 if (cityState.isNotEmpty()) meta["zaba_locations"] = cityState.joinToString(" | ")
-                sources.add(DataSource("ZabaSearch", "https://www.zabasearch.com/people/$slug/", Date(), 0.7))
+                sources.add(DataSource("ZabaSearch", url, Date(), 0.7))
                 emit(SearchProgressEvent.Found("ZabaSearch", buildString {
                     if (ages.isNotEmpty()) append("Age: ${ages.first()}")
                     if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
@@ -3388,13 +3396,18 @@ class OsintRepository(context: Context) {
             if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("411.com")); return
             }
-            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
-                .map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }
-                .distinct().take(10).toList()
-            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
-            val cityState = Regex("([A-Z][a-zA-Z ]+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
-                .map { it.groupValues[1].trim() }.distinct().take(10).toList()
-            val relatives = Regex("(?:relative|associate|related|alias)[^<]{0,80}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+            val firstCard = Regex("(?:class=\"[^\"]*(?:result|record|person|card)[^\"]*\")[^>]*>(.+?)(?=class=\"[^\"]*(?:result|record|person|card)[^\"]*\"|</(?:div|ul|section)>\\s*<(?:div|ul|section))", RegexOption.DOT_MATCHES_ALL)
+                .find(html)?.groupValues?.get(1) ?: html.take(8000)
+            val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(firstCard)
+                .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .map { (area, mid, last) -> "($area) $mid-$last" }
+                .distinct().take(5).toList()
+            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(firstCard).map { it.groupValues[1] }.take(3).distinct().toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]{2,},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.distinct().take(5).toList()
+            val relatives = Regex("(?:relative|associate|related|alias)[^<]{0,80}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(firstCard)
                 .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(10).toList()
             val hasData = phones.isNotEmpty() || ages.isNotEmpty() || cityState.isNotEmpty()
             if (hasData) {

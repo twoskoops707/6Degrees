@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
             "hacker_amber"    -> R.style.Theme_SixDegrees_Hacker_Amber
             "hacker_blue"     -> R.style.Theme_SixDegrees_Hacker_Blue
             "hacker_cyan"     -> R.style.Theme_SixDegrees_Hacker_Cyan
+            "hacker_purple"   -> R.style.Theme_SixDegrees_Hacker_Purple
             "tactical_blue"   -> R.style.Theme_SixDegrees_Tactical_Blue
             "tactical_cyan"   -> R.style.Theme_SixDegrees_Tactical_Cyan
             "tactical_green"  -> R.style.Theme_SixDegrees_Tactical_Green
@@ -113,22 +114,26 @@ class MainActivity : AppCompatActivity() {
                 startService(intent)
             } catch (_: Exception) {}
         } else if (!torDismissed) {
-            AlertDialog.Builder(this)
-                .setTitle("Tor Network (Optional)")
-                .setMessage(
-                    "SixDegrees can route dark web searches through Tor for anonymity and access to .onion sites.\n\n" +
-                    "Install Orbot (Tor for Android) to enable this. Dark web searches still work without it via the Ahmia clearnet index.\n\n" +
-                    "Recommended: Install Orbot from Google Play or Guardian Project."
-                )
-                .setPositiveButton("Install Orbot") { _, _ ->
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=org.torproject.android")))
-                    } catch (_: Exception) {}
+            window?.decorView?.post {
+                if (!isFinishing && !isDestroyed) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Tor Network (Optional)")
+                        .setMessage(
+                            "SixDegrees can route dark web searches through Tor for anonymity and access to .onion sites.\n\n" +
+                            "Install Orbot (Tor for Android) to enable this. Dark web searches still work without it via the Ahmia clearnet index.\n\n" +
+                            "Recommended: Install Orbot from Google Play or Guardian Project."
+                        )
+                        .setPositiveButton("Install Orbot") { _, _ ->
+                            try {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=org.torproject.android")))
+                            } catch (_: Exception) {}
+                        }
+                        .setNegativeButton("Skip") { _, _ ->
+                            prefs.edit().putBoolean("tor_dialog_dismissed", true).apply()
+                        }
+                        .show()
                 }
-                .setNegativeButton("Skip") { _, _ ->
-                    prefs.edit().putBoolean("tor_dialog_dismissed", true).apply()
-                }
-                .show()
+            }
         }
     }
 }

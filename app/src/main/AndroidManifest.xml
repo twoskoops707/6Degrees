@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <queries>
+        <package android:name="org.torproject.android" />
+        <package android:name="org.torproject.torbrowser" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
@@ -15,6 +17,9 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="org.torproject.android.intent.action.START" />
         </intent>
     </queries>
 
