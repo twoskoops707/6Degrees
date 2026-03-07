@@ -580,9 +580,10 @@ class ResultsFragment : Fragment() {
         }
 
         val socialLinks = buildSocialLinks(meta)
-        meta["pipl_socials"]?.takeIf { it.isNotBlank() }?.let { socials ->
+        val piplSocials = meta["pipl_socials"]?.takeIf { it.isNotBlank() }
+        if (piplSocials != null) {
             val allLinks = if (socialLinks.isEmpty()) mutableListOf() else socialLinks.toMutableList()
-            socials.lines().filter { it.isNotBlank() }.forEach { line ->
+            piplSocials.lines().filter { it.isNotBlank() }.forEach { line ->
                 val parts = line.split(": ", limit = 2)
                 val platform = parts.firstOrNull() ?: "Social"
                 val url = parts.getOrNull(1) ?: line
@@ -592,7 +593,7 @@ class ResultsFragment : Fragment() {
                 rows.add(sec("SOCIAL & WEB PROFILES"))
                 allLinks.distinct().take(15).forEach { (label, url) -> rows.add(label to url) }
             }
-        } ?: if (socialLinks.isNotEmpty()) {
+        } else if (socialLinks.isNotEmpty()) {
             rows.add(sec("SOCIAL PROFILES (PeekYou)"))
             socialLinks.forEach { (label, url) -> rows.add(label to url) }
         }
