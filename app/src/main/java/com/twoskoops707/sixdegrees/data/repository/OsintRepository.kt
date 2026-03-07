@@ -151,19 +151,24 @@ class OsintRepository(context: Context) {
         val sources = Collections.synchronizedList(mutableListOf<DataSource>())
         val emit: suspend (SearchProgressEvent) -> Unit = { send(it) }
 
+        val cityIdx = query.indexOf("|city=")
+        val cleanQuery = if (cityIdx != -1) query.substring(0, cityIdx) else query
+        val personLocation = if (cityIdx != -1) query.substring(cityIdx + 6) else ""
+        if (personLocation.isNotBlank()) metadata["person_location"] = personLocation
+
         when (type) {
-            "email" -> emailSearch(query, metadata, sources, emit)
-            "phone" -> phoneSearch(query, metadata, sources, emit)
-            "username" -> usernameSearch(query, metadata, sources, emit)
-            "ip", "domain" -> ipDomainSearch(query, metadata, sources, emit)
-            "company" -> companySearch(query, metadata, sources, emit)
-            "image" -> imageSearch(query, metadata, sources, emit)
-            "comprehensive" -> comprehensiveSearch(query, metadata, sources, emit)
-            else -> personSearch(query, metadata, sources, emit)
+            "email" -> emailSearch(cleanQuery, metadata, sources, emit)
+            "phone" -> phoneSearch(cleanQuery, metadata, sources, emit)
+            "username" -> usernameSearch(cleanQuery, metadata, sources, emit)
+            "ip", "domain" -> ipDomainSearch(cleanQuery, metadata, sources, emit)
+            "company" -> companySearch(cleanQuery, metadata, sources, emit)
+            "image" -> imageSearch(cleanQuery, metadata, sources, emit)
+            "comprehensive" -> comprehensiveSearch(cleanQuery, metadata, sources, emit)
+            else -> personSearch(cleanQuery, metadata, sources, emit)
         }
 
         metadata["search_type"] = type
-        val reportId = saveReport(query, null, sources, metadata.toMap())
+        val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
         send(SearchProgressEvent.Complete(reportId, sources.size))
     }
 
@@ -2178,6 +2183,7 @@ class OsintRepository(context: Context) {
         meta["comp_location"] = location
 
         if (name.isNotBlank()) {
+            if (location.isNotBlank()) meta["person_location"] = location
             launch { personSearch(name, meta, sources, emit) }
         }
         if (email.isNotBlank()) {
@@ -2200,8 +2206,10 @@ class OsintRepository(context: Context) {
         emit(SearchProgressEvent.Checking("TruePeopleSearch"))
         try {
             val encoded = URLEncoder.encode(query, "UTF-8")
+            val location = meta["person_location"] ?: ""
+            val locationEncoded = if (location.isNotBlank()) URLEncoder.encode(location, "UTF-8") else ""
             val req = Request.Builder()
-                .url("https://www.truepeoplesearch.com/results?name=$encoded&citystatezip=&rid=0")
+                .url("https://www.truepeoplesearch.com/results?name=$encoded&citystatezip=$locationEncoded&rid=0")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.9")
@@ -3118,8 +3126,12 @@ class OsintRepository(context: Context) {
             val parts = query.trim().split(" ")
             val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
             val last = URLEncoder.encode(parts.drop(1).joinToString("+"), "UTF-8")
+            val location = meta["person_location"] ?: ""
+            val locationParts = location.split(",").map { it.trim() }
+            val cityParam = if (locationParts.isNotEmpty() && locationParts[0].isNotBlank()) "&city=${URLEncoder.encode(locationParts[0], "UTF-8")}" else ""
+            val stateParam = if (locationParts.size > 1 && locationParts[1].isNotBlank()) "&state=${URLEncoder.encode(locationParts[1], "UTF-8")}" else ""
             val req = Request.Builder()
-                .url("https://www.familytreenow.com/search/people/results?first=$first&last=$last")
+                .url("https://www.familytreenow.com/search/people/results?first=$first&last=$last$cityParam$stateParam")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
                 .addHeader("Accept", "text/html,application/xhtml+xml")
                 .build()
@@ -3207,8 +3219,13 @@ class OsintRepository(context: Context) {
             val parts = query.trim().split(" ")
             val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
             val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+            val location = meta["person_location"] ?: ""
+            val stateSuffix = if (location.isNotBlank()) {
+                val statePart = location.split(",").getOrNull(1)?.trim() ?: ""
+                if (statePart.isNotBlank()) "$statePart/" else ""
+            } else ""
             val req = Request.Builder()
-                .url("https://www.411.com/name/$first-$last/")
+                .url("https://www.411.com/name/$first-$last/$stateSuffix")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.9")

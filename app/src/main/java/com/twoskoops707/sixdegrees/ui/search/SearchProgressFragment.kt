@@ -48,8 +48,11 @@ class SearchProgressFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val query = arguments?.getString("query") ?: ""
+        val rawQuery = arguments?.getString("query") ?: ""
         val type = arguments?.getString("type") ?: "person"
+        val cityIdx = rawQuery.indexOf("|city=")
+        val query = if (cityIdx != -1) rawQuery.substring(0, cityIdx) else rawQuery
+        val locationHint = if (cityIdx != -1) rawQuery.substring(cityIdx + 6) else ""
 
         searchStartMs = System.currentTimeMillis()
         estimatedTotal = when (type) {
@@ -62,12 +65,12 @@ class SearchProgressFragment : Fragment() {
             else -> 10
         }
 
-        binding.tvSearchQuery.text = query
+        binding.tvSearchQuery.text = if (locationHint.isNotBlank()) "$query · $locationHint" else query
         binding.chipSearchType.text = type.uppercase()
 
         viewModel = ViewModelProvider(
             this,
-            SearchProgressViewModel.Factory(requireActivity().application, query, type)
+            SearchProgressViewModel.Factory(requireActivity().application, rawQuery, type)
         )[SearchProgressViewModel::class.java]
 
         adapter = SourceAdapter()

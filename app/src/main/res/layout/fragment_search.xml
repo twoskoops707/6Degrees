@@ -101,6 +101,33 @@
                     android:imeOptions="actionSearch" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Location field (person mode only) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/search_location_layout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="City, State (optional)"
+                app:endIconMode="clear_text"
+                app:endIconTint="?attr/colorControlNormal"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:boxStrokeWidthFocused="2dp"
+                app:hintTextColor="?attr/colorControlNormal"
+                app:boxBackgroundColor="#0A0F1E"
+                android:visibility="visible">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/search_location_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="14sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <!-- Search Type Selector -->
             <TextView
                 android:layout_width="wrap_content"

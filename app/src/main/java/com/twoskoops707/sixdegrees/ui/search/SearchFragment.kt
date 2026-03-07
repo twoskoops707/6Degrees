@@ -71,11 +71,13 @@ class SearchFragment : Fragment() {
             when {
                 isComprehensive -> {
                     binding.searchInputLayout.visibility = View.GONE
+                    binding.searchLocationLayout.visibility = View.GONE
                     binding.comprehensiveFieldsContainer.visibility = View.VISIBLE
                     hideImageButtons()
                 }
                 isImage -> {
                     binding.searchInputLayout.visibility = View.VISIBLE
+                    binding.searchLocationLayout.visibility = View.GONE
                     binding.comprehensiveFieldsContainer.visibility = View.GONE
                     binding.searchInputLayout.hint = "Tap camera or gallery below"
                     binding.searchInput.isFocusable = false
@@ -84,6 +86,7 @@ class SearchFragment : Fragment() {
                 }
                 else -> {
                     binding.searchInputLayout.visibility = View.VISIBLE
+                    binding.searchLocationLayout.visibility = View.VISIBLE
                     binding.comprehensiveFieldsContainer.visibility = View.GONE
                     binding.searchInputLayout.hint = getString(R.string.search_hint)
                     binding.searchInput.isFocusable = true
@@ -125,7 +128,9 @@ class SearchFragment : Fragment() {
                     val query = binding.searchInput.text?.toString()?.trim() ?: ""
                     if (query.isNotBlank()) {
                         binding.searchInputLayout.error = null
-                        navigateToProgress(query, type)
+                        val location = if (type == "person") binding.searchLocationInput.text?.toString()?.trim() ?: "" else ""
+                        val fullQuery = if (location.isNotBlank()) "$query|city=$location" else query
+                        navigateToProgress(fullQuery, type)
                     } else {
                         binding.searchInputLayout.error = "Enter something to search"
                     }
