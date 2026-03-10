@@ -189,10 +189,19 @@ class OsintRepository(context: Context) {
         val sources = Collections.synchronizedList(mutableListOf<DataSource>())
         val emit: suspend (SearchProgressEvent) -> Unit = { send(it) }
 
-        val cityIdx = query.indexOf("|city=")
-        val cleanQuery = if (cityIdx != -1) query.substring(0, cityIdx) else query
-        val personLocation = if (cityIdx != -1) query.substring(cityIdx + 6) else ""
+        val parsedFields = query.split("|").mapNotNull {
+            val p = it.split("=", limit = 2)
+            if (p.size == 2) p[0].trim() to p[1].trim() else null
+        }.toMap()
+        val locCity = parsedFields["city"] ?: ""
+        val locState = parsedFields["state"] ?: ""
+        val personLocation = listOf(locCity, locState).filter { it.isNotBlank() }.joinToString(", ")
         if (personLocation.isNotBlank()) metadata["person_location"] = personLocation
+        if (locState.isNotBlank()) metadata["person_state"] = locState
+        if (locCity.isNotBlank()) metadata["person_city"] = locCity
+        val cleanQuery = if (type == "comprehensive") query else {
+            query.split("|").filter { !it.startsWith("city=") && !it.startsWith("state=") }.joinToString("|")
+        }
 
         when (type) {
             "email" -> emailSearch(cleanQuery, metadata, sources, emit)
@@ -1165,6 +1174,94 @@ class OsintRepository(context: Context) {
         }
 
         launch {
+            emit(SearchProgressEvent.Checking("VirusTotal"))
+            try {
+                val vtKey = apiKeyManager.virusTotalKey
+                val endpoint = if (isIp)
+                    "https://www.virustotal.com/api/v3/ip_addresses/$query"
+                else
+                    "https://www.virustotal.com/api/v3/domains/$query"
+                val req = Request.Builder()
+                    .url(endpoint)
+                    .addHeader("x-apikey", vtKey)
+                    .addHeader("Accept", "application/json")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""
+                resp.close()
+                if (resp.code == 200) {
+                    val malicious = Regex("\"malicious\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val harmless = Regex("\"harmless\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val suspicious = Regex("\"suspicious\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val reputation = Regex("\"reputation\":\\s*(-?\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val country = Regex("\"country\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val asOwner = Regex("\"as_owner\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    meta["vt_malicious"] = malicious.toString()
+                    meta["vt_harmless"] = harmless.toString()
+                    meta["vt_suspicious"] = suspicious.toString()
+                    meta["vt_reputation"] = reputation.toString()
+                    if (country.isNotBlank()) meta["vt_country"] = country
+                    if (asOwner.isNotBlank()) meta["vt_as_owner"] = asOwner
+                    sources.add(DataSource("VirusTotal", null, Date(), 0.95))
+                    val summary = buildString {
+                        if (malicious > 0) append("⚠ $malicious malicious") else append("Clean")
+                        if (suspicious > 0) append(" · $suspicious suspicious")
+                        append(" · $harmless harmless")
+                        if (reputation != 0) append(" · Rep: $reputation")
+                    }
+                    if (malicious > 0 || suspicious > 0) {
+                        emit(SearchProgressEvent.Found("VirusTotal", summary))
+                    } else {
+                        emit(SearchProgressEvent.Found("VirusTotal", summary))
+                    }
+                } else if (resp.code == 404) {
+                    emit(SearchProgressEvent.NotFound("VirusTotal"))
+                } else {
+                    emit(SearchProgressEvent.Failed("VirusTotal", "HTTP ${resp.code}"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("VirusTotal", e.message ?: ""))
+            }
+        }
+
+        if (!isIp) {
+            launch {
+                emit(SearchProgressEvent.Checking("URLScan"))
+                try {
+                    val urlscanKey = apiKeyManager.urlScanKey
+                    val encodedQuery = java.net.URLEncoder.encode("page.domain:$query", "UTF-8")
+                    val req = Request.Builder()
+                        .url("https://urlscan.io/api/v1/search/?q=$encodedQuery&size=5&sort=date")
+                        .addHeader("API-Key", urlscanKey)
+                        .addHeader("Accept", "application/json")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""
+                    resp.close()
+                    if (resp.code == 200) {
+                        val total = Regex("\"total\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        val maliciousScans = Regex("\"malicious\":\\s*true").findAll(body).count()
+                        val ips = Regex("\"ip\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.toSet().take(5).toList()
+                        meta["urlscan_total_scans"] = total.toString()
+                        meta["urlscan_malicious_scans"] = maliciousScans.toString()
+                        if (ips.isNotEmpty()) meta["urlscan_ips"] = ips.joinToString(", ")
+                        if (total > 0) {
+                            sources.add(DataSource("URLScan", null, Date(), 0.85))
+                            emit(SearchProgressEvent.Found("URLScan",
+                                "$total scan${if (total != 1) "s" else ""}${if (maliciousScans > 0) " · ⚠ $maliciousScans malicious" else " · clean"}"))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("URLScan"))
+                        }
+                    } else {
+                        emit(SearchProgressEvent.Failed("URLScan", "HTTP ${resp.code}"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("URLScan", e.message ?: ""))
+                }
+            }
+        }
+
+        launch {
             emit(SearchProgressEvent.Checking("ThreatCrowd"))
             try {
                 if (isIp) {
@@ -2041,6 +2138,8 @@ class OsintRepository(context: Context) {
         launch { whitepagesScrape(query, meta, sources, emit) }
         launch { checkPeopleScrape(query, meta, sources, emit) }
 
+        launch { searXPersonSearch(query, meta, sources, emit) }
+
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
         if (gKey.isNotBlank() && gCx.isNotBlank()) {
@@ -2307,7 +2406,9 @@ class OsintRepository(context: Context) {
         val phone = fields["phone"] ?: ""
         val email = fields["email"] ?: ""
         val ip = fields["ip"] ?: ""
-        val location = fields["location"] ?: fields["city"] ?: ""
+        val city = fields["city"] ?: fields["location"] ?: ""
+        val state = fields["state"] ?: ""
+        val location = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
         val username = fields["username"] ?: ""
         val dob = fields["dob"] ?: ""
         val image = fields["image"] ?: ""
@@ -2317,6 +2418,8 @@ class OsintRepository(context: Context) {
         meta["comp_email"] = email
         meta["comp_ip"] = ip
         meta["comp_location"] = location
+        if (city.isNotBlank()) meta["person_city"] = city
+        if (state.isNotBlank()) meta["person_state"] = state
         if (username.isNotBlank()) meta["comp_username"] = username
         if (dob.isNotBlank()) meta["comp_dob"] = dob
 
@@ -2761,6 +2864,63 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("Bing Search", e.message ?: ""))
+        }
+    }
+
+    private suspend fun searXPersonSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("SearX Web Search"))
+        try {
+            val location = meta["person_location"]?.takeIf { it.isNotBlank() }?.let { " $it" } ?: ""
+            val dork = "\"${query}${location}\" (address OR relatives OR age OR criminal OR records)"
+            val encoded = URLEncoder.encode(dork, "UTF-8")
+            val instances = listOf(
+                "https://searx.be/search?q=$encoded&format=json&categories=general&language=en-US",
+                "https://search.mdosch.de/search?q=$encoded&format=json&categories=general",
+                "https://searx.tiekoetter.com/search?q=$encoded&format=json&categories=general"
+            )
+            var body = ""
+            for (url in instances) {
+                try {
+                    val req = Request.Builder()
+                        .url(url)
+                        .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        .addHeader("Accept", "application/json")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    body = resp.body?.string() ?: ""
+                    resp.close()
+                    if (resp.code == 200 && body.contains("\"results\"")) break
+                    body = ""
+                } catch (_: Exception) {}
+            }
+            if (body.isBlank()) {
+                emit(SearchProgressEvent.NotFound("SearX Web Search"))
+                return
+            }
+            val titles = Regex("\"title\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body).map {
+                it.groupValues[1].replace("\\\"", "\"").trim()
+            }.toList()
+            val contents = Regex("\"content\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(body).map {
+                it.groupValues[1].replace("\\\"", "\"").trim()
+            }.toList()
+            val urls = Regex("\"url\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.toList()
+            val snippets = contents.take(6).filter { it.length > 20 }
+            val links = titles.zip(urls).take(6).map { (t, u) -> "$t: $u" }
+            if (snippets.isNotEmpty()) {
+                meta["searx_snippets"] = snippets.joinToString("\n---\n")
+                meta["searx_links"] = links.joinToString("\n")
+                sources.add(DataSource("SearX Web Search", null, Date(), 0.75))
+                emit(SearchProgressEvent.Found("SearX Web Search", "${snippets.size} results from aggregated web search"))
+            } else {
+                emit(SearchProgressEvent.NotFound("SearX Web Search"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("SearX Web Search", e.message ?: ""))
         }
     }
 

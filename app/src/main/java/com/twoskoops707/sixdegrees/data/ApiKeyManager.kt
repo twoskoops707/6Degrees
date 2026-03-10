@@ -40,15 +40,18 @@ class ApiKeyManager(context: Context) {
         set(v) { prefs.edit().putString("shodan", v).apply() }
 
     var virusTotalKey: String
-        get() = prefs.getString("virustotal", "") ?: ""
+        get() = prefs.getString("virustotal", "")?.takeIf { it.isNotBlank() }
+            ?: "3458348328bb1d00d262f5d656bf950bf577c1e691b826f2a7945cf6635f0758"
         set(v) { prefs.edit().putString("virustotal", v).apply() }
 
     var abuseIpDbKey: String
-        get() = prefs.getString("abuseipdb", "") ?: ""
+        get() = prefs.getString("abuseipdb", "")?.takeIf { it.isNotBlank() }
+            ?: "3f1e420c88dbc5d63aa09806782040f6336b5fe01acab3f7f356ca38e631fde42c7cc1656cdc9dee"
         set(v) { prefs.edit().putString("abuseipdb", v).apply() }
 
     var urlScanKey: String
-        get() = prefs.getString("urlscan", "") ?: ""
+        get() = prefs.getString("urlscan", "")?.takeIf { it.isNotBlank() }
+            ?: "019cadfe-b7e1-77d9-82d9-8ac04c9c6cd5"
         set(v) { prefs.edit().putString("urlscan", v).apply() }
 
     var googleCseApiKey: String

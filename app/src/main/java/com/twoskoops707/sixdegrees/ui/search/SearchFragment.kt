@@ -63,6 +63,7 @@ class SearchFragment : Fragment() {
         binding.btnGallery.setOnClickListener { galleryLauncher.launch("image/*") }
 
         binding.searchButton.setOnClickListener { doSearch() }
+        binding.btnClearFields.setOnClickListener { clearCurrentForm() }
 
         binding.inputDomainValue.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
@@ -144,7 +145,8 @@ class SearchFragment : Fragment() {
                 val phone = binding.inputPhone.text?.toString()?.trim() ?: ""
                 val email = binding.inputEmail.text?.toString()?.trim() ?: ""
                 val username = binding.inputUsername.text?.toString()?.trim() ?: ""
-                val cityState = binding.inputCityState.text?.toString()?.trim() ?: ""
+                val city = binding.inputCity.text?.toString()?.trim() ?: ""
+                val state = binding.inputState.text?.toString()?.trim() ?: ""
                 val dob = binding.inputDob.text?.toString()?.trim() ?: ""
                 val imageUri = attachedImageUri
 
@@ -169,12 +171,9 @@ class SearchFragment : Fragment() {
                 if (username.isNotBlank()) parts.add("username=$username")
                 if (dob.isNotBlank()) parts.add("dob=$dob")
                 if (imageUri != null) parts.add("image=$imageUri")
-                val query = if (cityState.isNotBlank()) {
-                    parts.joinToString("|") + "|city=$cityState"
-                } else {
-                    parts.joinToString("|")
-                }
-                navigateToProgress(query, "comprehensive")
+                if (city.isNotBlank()) parts.add("city=$city")
+                if (state.isNotBlank()) parts.add("state=$state")
+                navigateToProgress(parts.joinToString("|"), "comprehensive")
             }
 
             "company" -> {
@@ -204,6 +203,31 @@ class SearchFragment : Fragment() {
                     return
                 }
                 navigateToProgress(value, if (value.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+"))) "ip" else "domain")
+            }
+        }
+    }
+
+    private fun clearCurrentForm() {
+        when (currentType) {
+            "person" -> {
+                binding.inputFirstName.text?.clear()
+                binding.inputLastName.text?.clear()
+                binding.inputPhone.text?.clear()
+                binding.inputEmail.text?.clear()
+                binding.inputUsername.text?.clear()
+                binding.inputCity.text?.clear()
+                binding.inputState.text?.clear()
+                binding.inputDob.text?.clear()
+                attachedImageUri = null
+                binding.tvImageAttached.visibility = View.GONE
+            }
+            "company" -> {
+                binding.inputCompanyName.text?.clear()
+                binding.inputCompanyDomain.text?.clear()
+                binding.inputCompanyCity.text?.clear()
+            }
+            "domain" -> {
+                binding.inputDomainValue.text?.clear()
             }
         }
     }

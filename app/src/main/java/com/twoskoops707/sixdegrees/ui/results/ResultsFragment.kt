@@ -93,14 +93,34 @@ class ResultsFragment : Fragment() {
             }
             binding.location.text = parseFirstAddress(person.addressesJson)
         } else {
-            binding.fullName.text = report.searchQuery
+            val qFields = report.searchQuery.split("|").mapNotNull {
+                val p = it.split("=", limit = 2); if (p.size == 2) p[0].trim() to p[1].trim() else null
+            }.toMap()
+            val displayName = qFields["name"]?.takeIf { it.isNotBlank() }
+                ?: qFields["email"]?.takeIf { it.isNotBlank() }
+                ?: qFields["username"]?.let { "@$it" }
+                ?: qFields["phone"]?.takeIf { it.isNotBlank() }
+                ?: meta["comp_name"]?.takeIf { it.isNotBlank() }
+                ?: report.searchQuery.split("|").firstOrNull()?.let {
+                    if (it.contains("=")) it.substringAfter("=").trim() else it.trim()
+                } ?: report.searchQuery
+            binding.fullName.text = displayName
             val bestAge = extractBestAge(meta)
             binding.jobTitle.text = buildString {
                 bestAge?.let { append("Age: $it") }
+                qFields["dob"]?.takeIf { it.isNotBlank() }?.let { if (isNotEmpty()) append(" · "); append(it) }
                 meta["demographics_gender"]?.let { g -> if (isNotEmpty()) append(" · "); append(g) }
-                meta["ftn_birth_year"]?.let { y -> if (isNotEmpty()) append(" · "); append("b.~$y") }
+                val subFields = listOfNotNull(
+                    qFields["phone"]?.takeIf { it.isNotBlank() && qFields["name"]?.isNotBlank() == true }?.let { "☎ $it" },
+                    qFields["email"]?.takeIf { it.isNotBlank() && displayName != it }?.let { "✉ $it" },
+                    qFields["username"]?.takeIf { it.isNotBlank() }?.let { "@ $it" }
+                )
+                if (subFields.isNotEmpty() && isEmpty()) append(subFields.joinToString("  ·  "))
             }
-            binding.location.text = extractBestLocation(meta)
+            val city = qFields["city"] ?: qFields["location"] ?: ""
+            val state = qFields["state"] ?: ""
+            val enteredLoc = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
+            binding.location.text = enteredLoc.ifBlank { extractBestLocation(meta) }
         }
 
         val sourceCount = try {
@@ -491,9 +511,14 @@ class ResultsFragment : Fragment() {
             }
         }
 
-        val hasSearchIntel = !meta["cse_snippets"].isNullOrBlank() || !meta["bing_snippets"].isNullOrBlank()
+        val hasSearchIntel = !meta["cse_snippets"].isNullOrBlank() || !meta["bing_snippets"].isNullOrBlank() || !meta["searx_snippets"].isNullOrBlank()
         if (hasSearchIntel) {
             rows.add(sec("SEARCH ENGINE INTEL"))
+            meta["searx_snippets"]?.takeIf { it.isNotBlank() }?.let {
+                it.split("\n---\n").filter { s -> s.isNotBlank() }.take(6).forEach { s ->
+                    rows.add("Web" to s.trim())
+                }
+            }
             meta["bing_total"]?.let { t -> if ((t.toLongOrNull() ?: 0L) > 0) rows.add("Bing Results" to t) }
             meta["cse_snippets"]?.takeIf { it.isNotBlank() }?.let {
                 it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s ->
@@ -703,6 +728,15 @@ class ResultsFragment : Fragment() {
             if (ipqsFraud >= 0) rows.add("Fraud Score" to "$ipqsFraud / 100${if (ipqsFraud > 70) " ⚠ HIGH RISK" else ""}")
             if (ipqsLeaked) rows.add("⚠ Dark Web Leaked" to "Found in dark web leaks")
             meta["ipqs_email_suspect"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Suspect" to "Flagged as suspect") }
+        }
+
+        val emailrepBreached = meta["emailrep_breach"]?.toBooleanStrictOrNull() ?: false
+        if (emailrepBreached && rows.isEmpty()) {
+            rows.add(sec("EMAILREP — BREACH CONFIRMED"))
+            rows.add("Status" to "Address found in known data breaches")
+            meta["emailrep_profiles"]?.takeIf { it.isNotBlank() }?.let { rows.add("Seen On" to it) }
+            meta["emailrep_references"]?.toIntOrNull()?.let { if (it > 0) rows.add("Reference Count" to "$it sources") }
+            rows.add("Note" to "Add HIBP key in Settings → API Keys for full breach names and exposed fields")
         }
 
         if (rows.isEmpty()) rows.add("Status" to "No breach data found for this email")
