@@ -37,7 +37,7 @@ class SearchProgressFragment : Fragment() {
         var state: State,
         var detail: String = ""
     ) {
-        enum class State { CHECKING, FOUND, NOT_FOUND, FAILED }
+        enum class State { CHECKING, FOUND, NOT_FOUND, FAILED, BLOCKED }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -151,6 +151,19 @@ class SearchProgressFragment : Fragment() {
                 checkedCount++
                 updateCounts()
             }
+            is SearchProgressEvent.Blocked -> {
+                val idx = sourceRows.indexOfFirst { it.source == event.source }
+                if (idx != -1) {
+                    sourceRows[idx].state = SourceRow.State.BLOCKED
+                    sourceRows[idx].detail = event.reason
+                    adapter.notifyItemChanged(idx)
+                } else {
+                    sourceRows.add(SourceRow(event.source, SourceRow.State.BLOCKED, event.reason))
+                    adapter.notifyItemInserted(sourceRows.lastIndex)
+                }
+                checkedCount++
+                updateCounts()
+            }
             is SearchProgressEvent.Complete -> {
                 completedReportId = event.reportId
                 binding.progressBar.visibility = View.GONE
@@ -244,6 +257,19 @@ class SearchProgressFragment : Fragment() {
                         holder.b.sourceDetail.visibility = View.GONE
                     }
                     holder.b.sourceBadge.visibility = View.GONE
+                    (holder.itemView as? com.google.android.material.card.MaterialCardView)
+                        ?.strokeColor = ContextCompat.getColor(requireContext(), R.color.border)
+                }
+                SourceRow.State.BLOCKED -> {
+                    holder.b.sourceSpinner.visibility = View.GONE
+                    holder.b.sourceIcon.visibility = View.VISIBLE
+                    holder.b.sourceIcon.setImageResource(R.drawable.ic_close_circle)
+                    holder.b.sourceDetail.text = "Blocked"
+                    holder.b.sourceDetail.visibility = View.VISIBLE
+                    holder.b.sourceBadge.visibility = View.VISIBLE
+                    holder.b.sourceBadge.text = "BLOCKED"
+                    holder.b.sourceBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
+                    holder.b.sourceBadge.setBackgroundResource(0)
                     (holder.itemView as? com.google.android.material.card.MaterialCardView)
                         ?.strokeColor = ContextCompat.getColor(requireContext(), R.color.border)
                 }
