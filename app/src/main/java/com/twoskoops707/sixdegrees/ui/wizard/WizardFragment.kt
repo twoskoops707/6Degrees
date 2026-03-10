@@ -152,7 +152,7 @@ class WizardFragment : Fragment() {
         termuxTools.forEach { (displayName, _) ->
             val label = toolRows[displayName] ?: return@forEach
             label.text = "Enable: Termux → Settings → Allow External Apps"
-            label.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_amber))
+            label.setTextColor(ContextCompat.getColor(requireContext(), R.color.warning))
         }
     }
 
