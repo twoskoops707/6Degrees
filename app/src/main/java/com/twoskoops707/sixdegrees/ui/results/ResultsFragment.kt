@@ -18,10 +18,8 @@ import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.tabs.TabLayoutMediator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
@@ -140,16 +138,8 @@ class ResultsFragment : Fragment() {
             } catch (_: Exception) {}
         }
 
-        val tabs = buildTabs(enrichedMeta, searchType)
-        val tabNames = tabs.map { it.first }
-        val tabData = tabs.map { it.second }
-
-        binding.viewPager.adapter = DossierPagerAdapter(tabData)
-        binding.viewPager.offscreenPageLimit = 1
-
-        TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, pos ->
-            tab.text = tabNames[pos]
-        }.attach()
+        val sections = buildTabs(enrichedMeta, searchType)
+        buildAccordion(sections)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
     }
@@ -1118,7 +1108,7 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones")
+        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
@@ -1132,7 +1122,7 @@ class ResultsFragment : Fragment() {
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
         listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations",
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
-            "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations")
+            "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }
@@ -1140,7 +1130,7 @@ class ResultsFragment : Fragment() {
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
         listOf("tps_relatives", "ftn_relatives", "411_relatives", "tt_relatives", "fps_relatives",
-            "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives")
+            "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives", "checkpeople_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         return set
     }
@@ -1270,6 +1260,91 @@ class ResultsFragment : Fragment() {
                 ?.map { s -> "${s.platform}: ${s.url}" }
                 ?: emptyList()
         } catch (_: Exception) { emptyList() }
+    }
+
+    private fun buildAccordion(sections: List<Pair<String, List<Pair<String, String>>>>) {
+        val container = binding.accordionContainer
+        container.removeAllViews()
+        val inflater = LayoutInflater.from(requireContext())
+        val density = requireContext().resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+        val tv = TypedValue()
+        requireContext().theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+        val colorPrimary = tv.data
+        val colorBorder = ContextCompat.getColor(requireContext(), R.color.border)
+        val colorSurface = ContextCompat.getColor(requireContext(), R.color.surface)
+
+        sections.forEachIndexed { index, (sectionName, rows) ->
+            val outerCard = MaterialCardView(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = dp(8f) }
+                radius = dp(12f).toFloat()
+                strokeWidth = dp(1f)
+                strokeColor = colorBorder
+                cardElevation = 0f
+                setCardBackgroundColor(colorSurface)
+            }
+
+            val outerLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
+
+            val headerRow = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16f), dp(14f), dp(16f), dp(14f))
+                setBackgroundColor(Color.argb(20, Color.red(colorPrimary), Color.green(colorPrimary), Color.blue(colorPrimary)))
+            }
+
+            val accentBar = View(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(3f), dp(16f)).also { it.marginEnd = dp(10f) }
+                setBackgroundColor(colorPrimary)
+            }
+
+            val sectionTitle = TextView(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                text = sectionName
+                textSize = 11f
+                setTypeface(typeface, Typeface.BOLD)
+                isAllCaps = true
+                letterSpacing = 0.12f
+                setTextColor(colorPrimary)
+            }
+
+            val chevron = TextView(requireContext()).apply {
+                text = if (index < 2) "▲" else "▼"
+                textSize = 10f
+                setTextColor(colorPrimary)
+            }
+
+            headerRow.addView(accentBar)
+            headerRow.addView(sectionTitle)
+            headerRow.addView(chevron)
+
+            val contentLayout = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = if (index < 2) View.VISIBLE else View.GONE
+            }
+
+            val subSections = groupIntoSections(rows)
+            for ((subTitle, subRows) in subSections) {
+                contentLayout.addView(buildSectionCard(requireContext(), inflater, subTitle, subRows))
+            }
+            if (subSections.isEmpty()) {
+                val empty = buildSectionCard(requireContext(), inflater, "", listOf("Status" to "No data available"))
+                contentLayout.addView(empty)
+            }
+
+            headerRow.setOnClickListener {
+                val isVisible = contentLayout.visibility == View.VISIBLE
+                contentLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
+                chevron.text = if (isVisible) "▼" else "▲"
+            }
+
+            outerLayout.addView(headerRow)
+            outerLayout.addView(contentLayout)
+            outerCard.addView(outerLayout)
+            container.addView(outerCard)
+        }
     }
 
     private fun showLoading() {
@@ -1483,37 +1558,4 @@ class ResultsFragment : Fragment() {
         }
     }
 
-    private inner class DossierPagerAdapter(
-        private val pages: List<List<Pair<String, String>>>
-    ) : RecyclerView.Adapter<DossierPagerAdapter.PageVH>() {
-
-        inner class PageVH(val sv: NestedScrollView, val container: LinearLayout) : RecyclerView.ViewHolder(sv)
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageVH {
-            val density = parent.context.resources.displayMetrics.density
-            fun dp(f: Float) = (f * density).toInt()
-            val container = LinearLayout(parent.context).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(dp(10f), dp(8f), dp(10f), resources.getDimensionPixelSize(R.dimen.bottom_nav_padding))
-            }
-            val sv = NestedScrollView(parent.context).apply {
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                clipToPadding = false
-                addView(container)
-            }
-            return PageVH(sv, container)
-        }
-
-        override fun onBindViewHolder(holder: PageVH, position: Int) {
-            holder.container.removeAllViews()
-            val inflater = LayoutInflater.from(holder.container.context)
-            val sections = groupIntoSections(pages[position])
-            for ((title, rows) in sections) {
-                holder.container.addView(buildSectionCard(holder.container.context, inflater, title, rows))
-            }
-        }
-
-        override fun getItemCount() = pages.size
-    }
 }

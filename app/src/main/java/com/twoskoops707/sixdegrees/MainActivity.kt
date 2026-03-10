@@ -90,6 +90,10 @@ class MainActivity : AppCompatActivity() {
                 bottomNav?.menu?.findItem(id)?.isChecked = true
             }
         }
+
+        if (savedInstanceState == null && !prefs.getBoolean("setup_complete", false)) {
+            navController.navigate(R.id.nav_wizard)
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {

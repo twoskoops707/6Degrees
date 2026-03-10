@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -28,20 +29,23 @@ class SearchFragment : Fragment() {
     private lateinit var recentAdapter: RecentSearchAdapter
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
 
+    private var currentType = "person"
     private var pendingImageUri: Uri? = null
+    private var attachedImageUri: Uri? = null
 
     private val cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
-            val uri = pendingImageUri ?: return@registerForActivityResult
-            binding.searchInput.setText(uri.toString())
-            binding.searchInputLayout.hint = "Image captured"
+            attachedImageUri = pendingImageUri
+            binding.tvImageAttached.text = "Photo captured"
+            binding.tvImageAttached.visibility = View.VISIBLE
         }
     }
 
     private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
-            binding.searchInput.setText(uri.toString())
-            binding.searchInputLayout.hint = "Image selected"
+            attachedImageUri = uri
+            binding.tvImageAttached.text = "Photo selected"
+            binding.tvImageAttached.visibility = View.VISIBLE
         }
     }
 
@@ -53,103 +57,24 @@ class SearchFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        arguments?.getString("searchType")?.let { type -> setChipForType(type) }
+        setupEntityTypeSelector()
 
-        val prefs = requireContext().getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
-        if ((prefs.getString("pref_theme_base", "modern") ?: "modern") == "hacker") {
-            binding.searchInputLayout.prefixText = "> "
-            binding.searchInputLayout.hint = "target.query"
-        }
+        binding.btnCamera.setOnClickListener { launchCamera() }
+        binding.btnGallery.setOnClickListener { galleryLauncher.launch("image/*") }
 
-        binding.btnWizard.setOnClickListener {
-            findNavController().navigate(R.id.action_search_to_wizard)
-        }
-
-        binding.chipGroupType.setOnCheckedStateChangeListener { _, checkedIds ->
-            val isImage = checkedIds.contains(R.id.chip_image)
-            val isComprehensive = checkedIds.contains(R.id.chip_comprehensive)
-            when {
-                isComprehensive -> {
-                    binding.searchInputLayout.visibility = View.GONE
-                    binding.searchLocationLayout.visibility = View.GONE
-                    binding.comprehensiveFieldsContainer.visibility = View.VISIBLE
-                    hideImageButtons()
-                }
-                isImage -> {
-                    binding.searchInputLayout.visibility = View.VISIBLE
-                    binding.searchLocationLayout.visibility = View.GONE
-                    binding.comprehensiveFieldsContainer.visibility = View.GONE
-                    binding.searchInputLayout.hint = "Tap camera or gallery below"
-                    binding.searchInput.isFocusable = false
-                    binding.searchInput.isFocusableInTouchMode = false
-                    showImageButtons()
-                }
-                else -> {
-                    binding.searchInputLayout.visibility = View.VISIBLE
-                    binding.searchLocationLayout.visibility = View.VISIBLE
-                    binding.comprehensiveFieldsContainer.visibility = View.GONE
-                    binding.searchInputLayout.hint = getString(R.string.search_hint)
-                    binding.searchInput.isFocusable = true
-                    binding.searchInput.isFocusableInTouchMode = true
-                    hideImageButtons()
-                }
-            }
-        }
-
-        val doSearch = {
-            val type = getSelectedSearchType()
-            when (type) {
-                "comprehensive" -> {
-                    val name = binding.inputCompName.text?.toString()?.trim() ?: ""
-                    if (name.isBlank()) {
-                        Toast.makeText(requireContext(), "Full name is required", Toast.LENGTH_SHORT).show()
-                    } else {
-                        val phone = binding.inputCompPhone.text?.toString()?.trim() ?: ""
-                        val email = binding.inputCompEmail.text?.toString()?.trim() ?: ""
-                        val location = binding.inputCompLocation.text?.toString()?.trim() ?: ""
-                        val ip = binding.inputCompIp.text?.toString()?.trim() ?: ""
-                        val parts = mutableListOf("name=$name")
-                        if (phone.isNotBlank()) parts.add("phone=$phone")
-                        if (email.isNotBlank()) parts.add("email=$email")
-                        if (location.isNotBlank()) parts.add("location=$location")
-                        if (ip.isNotBlank()) parts.add("ip=$ip")
-                        navigateToProgress(parts.joinToString("|"), "comprehensive")
-                    }
-                }
-                "image" -> {
-                    val query = binding.searchInput.text?.toString()?.trim() ?: ""
-                    if (query.isBlank()) {
-                        Toast.makeText(requireContext(), "Capture or select an image first", Toast.LENGTH_SHORT).show()
-                    } else {
-                        navigateToProgress(query, "image")
-                    }
-                }
-                else -> {
-                    val query = binding.searchInput.text?.toString()?.trim() ?: ""
-                    if (query.isNotBlank()) {
-                        binding.searchInputLayout.error = null
-                        val location = if (type == "person") binding.searchLocationInput.text?.toString()?.trim() ?: "" else ""
-                        val fullQuery = if (location.isNotBlank()) "$query|city=$location" else query
-                        navigateToProgress(fullQuery, type)
-                    } else {
-                        binding.searchInputLayout.error = "Enter something to search"
-                    }
-                }
-            }
-        }
         binding.searchButton.setOnClickListener { doSearch() }
-        binding.searchInput.setOnEditorActionListener { _, actionId, _ ->
+
+        binding.inputDomainValue.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
-                doSearch()
-                true
+                doSearch(); true
             } else false
         }
 
         recentAdapter = RecentSearchAdapter { report ->
             val searchType = try {
                 val type = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
-                moshi.adapter<Map<String, String>>(type).fromJson(report.companiesJson)?.get("search_type") ?: "person"
-            } catch (_: Exception) { "person" }
+                moshi.adapter<Map<String, String>>(type).fromJson(report.companiesJson)?.get("search_type") ?: "comprehensive"
+            } catch (_: Exception) { "comprehensive" }
             findNavController().navigate(
                 R.id.action_search_to_results,
                 Bundle().apply {
@@ -172,6 +97,120 @@ class SearchFragment : Fragment() {
         viewModel.loadRecentSearches()
     }
 
+    private fun setupEntityTypeSelector() {
+        val colorPrimary = com.google.android.material.R.attr.colorPrimary
+        val bgDark = "#0A0F1E"
+
+        fun selectType(type: String) {
+            currentType = type
+            attachedImageUri = null
+            binding.tvImageAttached.visibility = View.GONE
+
+            val personActive = type == "person"
+            val companyActive = type == "company"
+            val domainActive = type == "domain"
+
+            binding.formPerson.visibility = if (personActive) View.VISIBLE else View.GONE
+            binding.formCompany.visibility = if (companyActive) View.VISIBLE else View.GONE
+            binding.formDomain.visibility = if (domainActive) View.VISIBLE else View.GONE
+
+            val tv = android.util.TypedValue()
+            requireContext().theme.resolveAttribute(colorPrimary, tv, true)
+            val accentColor = tv.data
+            val bgColor = android.graphics.Color.parseColor(bgDark)
+
+            binding.cardTypePerson.setCardBackgroundColor(if (personActive) accentColor else bgColor)
+            binding.cardTypeCompany.setCardBackgroundColor(if (companyActive) accentColor else bgColor)
+            binding.cardTypeDomain.setCardBackgroundColor(if (domainActive) accentColor else bgColor)
+
+            val strokeInactive = ContextCompat.getColor(requireContext(), R.color.border)
+            binding.cardTypePerson.strokeColor = if (personActive) android.graphics.Color.TRANSPARENT else strokeInactive
+            binding.cardTypeCompany.strokeColor = if (companyActive) android.graphics.Color.TRANSPARENT else strokeInactive
+            binding.cardTypeDomain.strokeColor = if (domainActive) android.graphics.Color.TRANSPARENT else strokeInactive
+        }
+
+        binding.cardTypePerson.setOnClickListener { selectType("person") }
+        binding.cardTypeCompany.setOnClickListener { selectType("company") }
+        binding.cardTypeDomain.setOnClickListener { selectType("domain") }
+
+        selectType("person")
+    }
+
+    private fun doSearch() {
+        when (currentType) {
+            "person" -> {
+                val firstName = binding.inputFirstName.text?.toString()?.trim() ?: ""
+                val lastName = binding.inputLastName.text?.toString()?.trim() ?: ""
+                val phone = binding.inputPhone.text?.toString()?.trim() ?: ""
+                val email = binding.inputEmail.text?.toString()?.trim() ?: ""
+                val username = binding.inputUsername.text?.toString()?.trim() ?: ""
+                val cityState = binding.inputCityState.text?.toString()?.trim() ?: ""
+                val dob = binding.inputDob.text?.toString()?.trim() ?: ""
+                val imageUri = attachedImageUri
+
+                val hasAnyField = firstName.isNotBlank() || lastName.isNotBlank() || phone.isNotBlank() ||
+                        email.isNotBlank() || username.isNotBlank() || imageUri != null
+
+                if (!hasAnyField) {
+                    Toast.makeText(requireContext(), "Enter at least one field to search", Toast.LENGTH_SHORT).show()
+                    return
+                }
+
+                if (imageUri != null && !hasNameOrContact(firstName, lastName, phone, email, username)) {
+                    navigateToProgress(imageUri.toString(), "image")
+                    return
+                }
+
+                val parts = mutableListOf<String>()
+                val fullName = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ")
+                if (fullName.isNotBlank()) parts.add("name=$fullName")
+                if (phone.isNotBlank()) parts.add("phone=$phone")
+                if (email.isNotBlank()) parts.add("email=$email")
+                if (username.isNotBlank()) parts.add("username=$username")
+                if (dob.isNotBlank()) parts.add("dob=$dob")
+                if (imageUri != null) parts.add("image=$imageUri")
+                val query = if (cityState.isNotBlank()) {
+                    parts.joinToString("|") + "|city=$cityState"
+                } else {
+                    parts.joinToString("|")
+                }
+                navigateToProgress(query, "comprehensive")
+            }
+
+            "company" -> {
+                val name = binding.inputCompanyName.text?.toString()?.trim() ?: ""
+                val domain = binding.inputCompanyDomain.text?.toString()?.trim() ?: ""
+                val city = binding.inputCompanyCity.text?.toString()?.trim() ?: ""
+
+                val query = when {
+                    name.isNotBlank() -> if (city.isNotBlank()) "$name|city=$city" else name
+                    domain.isNotBlank() -> if (city.isNotBlank()) "$domain|city=$city" else domain
+                    else -> {
+                        Toast.makeText(requireContext(), "Enter a company name or domain", Toast.LENGTH_SHORT).show()
+                        return
+                    }
+                }
+                if (domain.isNotBlank() && name.isNotBlank()) {
+                    navigateToProgress("$name|domain=$domain${if (city.isNotBlank()) "|city=$city" else ""}", "company")
+                } else {
+                    navigateToProgress(query, "company")
+                }
+            }
+
+            "domain" -> {
+                val value = binding.inputDomainValue.text?.toString()?.trim() ?: ""
+                if (value.isBlank()) {
+                    Toast.makeText(requireContext(), "Enter a domain or IP address", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                navigateToProgress(value, if (value.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+"))) "ip" else "domain")
+            }
+        }
+    }
+
+    private fun hasNameOrContact(first: String, last: String, phone: String, email: String, username: String) =
+        first.isNotBlank() || last.isNotBlank() || phone.isNotBlank() || email.isNotBlank() || username.isNotBlank()
+
     private fun navigateToProgress(query: String, type: String) {
         findNavController().navigate(
             R.id.action_search_to_progress,
@@ -182,63 +221,11 @@ class SearchFragment : Fragment() {
         )
     }
 
-    private fun showImageButtons() {
-        if (binding.root.findViewWithTag<View>("img_buttons") != null) return
-        val ctx = requireContext()
-        val btnCamera = com.google.android.material.button.MaterialButton(ctx).apply {
-            tag = "img_buttons"
-            text = "Camera"
-            setIconResource(R.drawable.ic_camera_black_24dp)
-            setOnClickListener { launchCamera() }
-        }
-        val btnGallery = com.google.android.material.button.MaterialButton(ctx).apply {
-            text = "Gallery"
-            setIconResource(R.drawable.ic_gallery_black_24dp)
-            setOnClickListener { galleryLauncher.launch("image/*") }
-        }
-        val container = binding.imageButtonsContainer
-        container.visibility = View.VISIBLE
-        container.addView(btnCamera)
-        container.addView(btnGallery)
-    }
-
-    private fun hideImageButtons() {
-        binding.imageButtonsContainer.visibility = View.GONE
-        binding.imageButtonsContainer.removeAllViews()
-    }
-
     private fun launchCamera() {
         val imgFile = File(requireContext().cacheDir, "sixdegrees_capture_${System.currentTimeMillis()}.jpg")
         val uri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.provider", imgFile)
         pendingImageUri = uri
         cameraLauncher.launch(uri)
-    }
-
-    private fun getSelectedSearchType(): String {
-        return when (binding.chipGroupType.checkedChipId) {
-            R.id.chip_email -> "email"
-            R.id.chip_phone -> "phone"
-            R.id.chip_username -> "username"
-            R.id.chip_ip -> "ip"
-            R.id.chip_company -> "company"
-            R.id.chip_image -> "image"
-            R.id.chip_comprehensive -> "comprehensive"
-            else -> "person"
-        }
-    }
-
-    private fun setChipForType(type: String) {
-        val chipId = when (type) {
-            "email" -> R.id.chip_email
-            "phone" -> R.id.chip_phone
-            "username" -> R.id.chip_username
-            "ip" -> R.id.chip_ip
-            "company" -> R.id.chip_company
-            "image" -> R.id.chip_image
-            "comprehensive" -> R.id.chip_comprehensive
-            else -> R.id.chip_person
-        }
-        binding.chipGroupType.check(chipId)
     }
 
     override fun onDestroyView() {

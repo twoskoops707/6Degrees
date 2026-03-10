@@ -108,7 +108,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingStart="0dp"
             android:paddingEnd="16dp"
             android:paddingTop="12dp"
             android:paddingBottom="12dp"
@@ -246,7 +245,6 @@
                     android:layout_marginTop="2dp"
                     android:maxLines="1"
                     android:ellipsize="end" />
-
             </LinearLayout>
         </LinearLayout>
 
@@ -256,32 +254,22 @@
             android:background="?attr/colorPrimary"
             android:alpha="0.25" />
 
-        <!-- ── TAB LAYOUT ── -->
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/tab_layout"
-            android:layout_width="match_parent"
-            android:layout_height="42dp"
-            app:tabGravity="fill"
-            app:tabMode="scrollable"
-            app:tabIndicatorColor="?attr/colorPrimary"
-            app:tabIndicatorHeight="3dp"
-            app:tabSelectedTextColor="?attr/colorPrimary"
-            app:tabTextColor="?attr/colorControlNormal"
-            app:tabTextAppearance="@style/TextAppearance.SixDegrees.TabLabel"
-            android:background="?attr/colorSurface" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?attr/colorPrimary"
-            android:alpha="0.15" />
-
-        <!-- ── PAGER ── -->
-        <androidx.viewpager2.widget.ViewPager2
-            android:id="@+id/view_pager"
+        <!-- ── ACCORDION SECTIONS ── -->
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:clipToPadding="false">
+
+            <LinearLayout
+                android:id="@+id/accordion_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="10dp"
+                android:paddingBottom="80dp" />
+
+        </androidx.core.widget.NestedScrollView>
 
     </LinearLayout>
 </LinearLayout>

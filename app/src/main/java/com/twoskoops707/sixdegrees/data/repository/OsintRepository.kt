@@ -69,8 +69,8 @@ class OsintRepository(context: Context) {
             val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9050))
             OkHttpClient.Builder()
                 .proxy(proxy)
-                .connectTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
                 .followRedirects(true)
                 .build()
         } catch (_: Exception) { null }
@@ -2039,6 +2039,7 @@ class OsintRepository(context: Context) {
         launch { peekYouSearch(query, meta, sources, emit) }
         launch { nuwberSearch(query, meta, sources, emit) }
         launch { whitepagesScrape(query, meta, sources, emit) }
+        launch { checkPeopleScrape(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -2306,16 +2307,22 @@ class OsintRepository(context: Context) {
         val phone = fields["phone"] ?: ""
         val email = fields["email"] ?: ""
         val ip = fields["ip"] ?: ""
-        val location = fields["location"] ?: ""
+        val location = fields["location"] ?: fields["city"] ?: ""
+        val username = fields["username"] ?: ""
+        val dob = fields["dob"] ?: ""
+        val image = fields["image"] ?: ""
         meta["comprehensive_query"] = query
         meta["comp_name"] = name
         meta["comp_phone"] = phone
         meta["comp_email"] = email
         meta["comp_ip"] = ip
         meta["comp_location"] = location
+        if (username.isNotBlank()) meta["comp_username"] = username
+        if (dob.isNotBlank()) meta["comp_dob"] = dob
 
         if (name.isNotBlank()) {
             if (location.isNotBlank()) meta["person_location"] = location
+            if (dob.isNotBlank()) meta["person_dob"] = dob
             launch { personSearch(name, meta, sources, emit) }
         }
         if (email.isNotBlank()) {
@@ -2326,6 +2333,12 @@ class OsintRepository(context: Context) {
         }
         if (ip.isNotBlank()) {
             launch { ipDomainSearch(ip, meta, sources, emit) }
+        }
+        if (username.isNotBlank()) {
+            launch { usernameSearch(username, meta, sources, emit) }
+        }
+        if (image.isNotBlank() && name.isBlank()) {
+            launch { imageSearch(image, meta, sources, emit) }
         }
     }
 
@@ -2519,11 +2532,12 @@ class OsintRepository(context: Context) {
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""
             resp.close()
-            if (html.isBlank() || resp.code == 403 || resp.code == 429
-                || html.contains("Just a moment", ignoreCase = true)
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
                 || html.contains("cf-browser-verification", ignoreCase = true)) {
-                emit(SearchProgressEvent.NotFound("ThatsThem"))
-                return
+                emit(SearchProgressEvent.Blocked("ThatsThem")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
+                emit(SearchProgressEvent.NotFound("ThatsThem")); return
             }
             val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
             val cities = Regex("<span[^>]*class=\"[^\"]*city[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
@@ -2581,11 +2595,12 @@ class OsintRepository(context: Context) {
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""
             resp.close()
-            if (html.isBlank() || resp.code == 403 || resp.code == 429
-                || html.contains("Just a moment", ignoreCase = true)
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
                 || html.contains("cf-browser-verification", ignoreCase = true)) {
-                emit(SearchProgressEvent.NotFound("USPhoneBook"))
-                return
+                emit(SearchProgressEvent.Blocked("USPhoneBook")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
+                emit(SearchProgressEvent.NotFound("USPhoneBook")); return
             }
             val addresses = Regex("(?:address|street)[^<]{0,50}<[^>]+>([^<]+[A-Z]{2}\\s+\\d{5}[^<]*)").findAll(html)
                 .map { it.groupValues[1].trim() }.filter { it.length > 5 }.take(10).distinct().toList()
@@ -3202,9 +3217,11 @@ class OsintRepository(context: Context) {
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""
             resp.close()
-            if (html.isBlank() || resp.code == 403 || resp.code == 429
-                || html.contains("Just a moment", ignoreCase = true)
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
                 || html.contains("cf-browser-verification", ignoreCase = true)) {
+                emit(SearchProgressEvent.Blocked("FastPeopleSearch")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
                 emit(SearchProgressEvent.NotFound("FastPeopleSearch")); return
             }
             val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
@@ -3341,7 +3358,8 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
-            if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
+            if (resp.code == 403) { emit(SearchProgressEvent.Blocked("ZabaSearch")); return }
+            if (resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("ZabaSearch")); return
             }
             val firstCard = Regex("(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result)[^>]*>(.+?)(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result[1-9])", RegexOption.DOT_MATCHES_ALL)
@@ -3397,7 +3415,8 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
-            if (resp.code == 403 || resp.code == 429 || html.isBlank()) {
+            if (resp.code == 403) { emit(SearchProgressEvent.Blocked("411.com")); return }
+            if (resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("411.com")); return
             }
             val firstCard = Regex("(?:class=\"[^\"]*(?:result|record|person|card)[^\"]*\")[^>]*>(.+?)(?=class=\"[^\"]*(?:result|record|person|card)[^\"]*\"|</(?:div|ul|section)>\\s*<(?:div|ul|section))", RegexOption.DOT_MATCHES_ALL)
@@ -3492,9 +3511,11 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
-            if (html.isBlank() || resp.code == 403 || resp.code == 429
-                || html.contains("Just a moment", ignoreCase = true)
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
                 || html.contains("cf-browser-verification", ignoreCase = true)) {
+                emit(SearchProgressEvent.Blocked("Radaris")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
                 emit(SearchProgressEvent.NotFound("Radaris")); return
             }
             val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
@@ -3551,9 +3572,11 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
-            if (html.isBlank() || resp.code == 403 || resp.code == 429
-                || html.contains("Just a moment", ignoreCase = true)
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
                 || html.contains("cf-browser-verification", ignoreCase = true)) {
+                emit(SearchProgressEvent.Blocked("PeekYou")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
                 emit(SearchProgressEvent.NotFound("PeekYou")); return
             }
             val ages = Regex("\\b(\\d{2,3})\\s*(?:years?\\s*old|yr\\b)").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
@@ -3599,10 +3622,12 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
-            if (html.isBlank() || resp.code == 403 || resp.code == 429
-                || html.contains("Just a moment", ignoreCase = true)
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
                 || html.contains("cf-browser-verification", ignoreCase = true)
                 || html.contains("Access Denied", ignoreCase = true)) {
+                emit(SearchProgressEvent.Blocked("Nuwber")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
                 emit(SearchProgressEvent.NotFound("Nuwber")); return
             }
             val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
@@ -3660,11 +3685,13 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val html = resp.body?.string() ?: ""; resp.close()
-            if (html.isBlank() || resp.code == 403 || resp.code == 429
-                || html.contains("Just a moment", ignoreCase = true)
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
                 || html.contains("cf-browser-verification", ignoreCase = true)
                 || html.contains("Access Denied", ignoreCase = true)
                 || html.contains("Enable JavaScript", ignoreCase = true)) {
+                emit(SearchProgressEvent.Blocked("WhitePages")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
                 emit(SearchProgressEvent.NotFound("WhitePages")); return
             }
             val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
@@ -3695,6 +3722,64 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.NotFound("WhitePages"))
             }
         } catch (e: Exception) { emit(SearchProgressEvent.Failed("WhitePages", e.message ?: "")) }
+    }
+
+    private suspend fun checkPeopleScrape(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("CheckPeople"))
+        try {
+            val parts = query.trim().split(" ")
+            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
+            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+            val req = Request.Builder()
+                .url("https://checkpeople.com/people-search?fname=$first&lname=$last")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .addHeader("Referer", "https://checkpeople.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)
+                || html.contains("cf-browser-verification", ignoreCase = true)
+                || html.contains("Access Denied", ignoreCase = true)) {
+                emit(SearchProgressEvent.Blocked("CheckPeople")); return
+            }
+            if (html.isBlank() || resp.code == 429) {
+                emit(SearchProgressEvent.NotFound("CheckPeople")); return
+            }
+            val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
+            val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(3).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+                .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .map { (area, mid, last2) -> "($area) $mid-$last2" }
+                .distinct().take(5).toList()
+            val cityState = Regex("([A-Z][a-zA-Z ]{2,},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.distinct().take(8).toList()
+            val relatives = Regex("(?:relative|associate|related)[^<]{0,100}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+                .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(8).toList()
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
+            if (hasData) {
+                if (ages.isNotEmpty()) meta["checkpeople_age"] = ages.first()
+                if (phones.isNotEmpty()) meta["checkpeople_phones"] = phones.joinToString(", ")
+                if (cityState.isNotEmpty()) meta["checkpeople_locations"] = cityState.joinToString(" | ")
+                if (relatives.isNotEmpty()) meta["checkpeople_relatives"] = relatives.joinToString(", ")
+                meta["checkpeople_link"] = "https://checkpeople.com/people-search?fname=$first&lname=$last"
+                sources.add(DataSource("CheckPeople", meta["checkpeople_link"], Date(), 0.65))
+                emit(SearchProgressEvent.Found("CheckPeople", buildString {
+                    if (ages.isNotEmpty()) append("Age: ${ages.first()}")
+                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
+                }))
+            } else {
+                emit(SearchProgressEvent.NotFound("CheckPeople"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("CheckPeople", e.message ?: "")) }
     }
 
     private fun md5(input: String): String {

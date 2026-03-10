@@ -14,23 +14,14 @@
         android:background="@color/background_primary"
         app:navigationIcon="@drawable/ic_arrow_back"
         app:navigationIconTint="@color/text_primary"
-        app:title="@string/wizard_title"
+        app:title="Setup &amp; Status"
         app:titleTextColor="@color/text_primary" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/wizard_subtitle"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp"
-        android:paddingHorizontal="20dp"
-        android:paddingBottom="16dp" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="12dp"
+        android:padding="16dp"
         android:clipToPadding="false">
 
         <LinearLayout
@@ -38,261 +29,78 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <LinearLayout
+            <!-- ── API KEYS SECTION ── -->
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="12dp">
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/tile_person"
-                    android:layout_width="0dp"
-                    android:layout_height="110dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/border"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:orientation="vertical" android:gravity="center" android:padding="12dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="👤" android:textSize="32sp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Person" android:textColor="@color/text_primary"
-                            android:textSize="14sp" android:textStyle="bold" android:layout_marginTop="6dp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Name, DOB, records" android:textColor="@color/text_secondary"
-                            android:textSize="11sp" android:gravity="center" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/tile_email"
-                    android:layout_width="0dp"
-                    android:layout_height="110dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/border"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:orientation="vertical" android:gravity="center" android:padding="12dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="📧" android:textSize="32sp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Email" android:textColor="@color/text_primary"
-                            android:textSize="14sp" android:textStyle="bold" android:layout_marginTop="6dp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Breaches, reputation" android:textColor="@color/text_secondary"
-                            android:textSize="11sp" android:gravity="center" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="12dp">
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/tile_phone"
-                    android:layout_width="0dp"
-                    android:layout_height="110dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/border"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:orientation="vertical" android:gravity="center" android:padding="12dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="📱" android:textSize="32sp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Phone" android:textColor="@color/text_primary"
-                            android:textSize="14sp" android:textStyle="bold" android:layout_marginTop="6dp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Carrier, validation" android:textColor="@color/text_secondary"
-                            android:textSize="11sp" android:gravity="center" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/tile_username"
-                    android:layout_width="0dp"
-                    android:layout_height="110dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/border"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:orientation="vertical" android:gravity="center" android:padding="12dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="🔗" android:textSize="32sp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Username" android:textColor="@color/text_primary"
-                            android:textSize="14sp" android:textStyle="bold" android:layout_marginTop="6dp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="40+ social sites" android:textColor="@color/text_secondary"
-                            android:textSize="11sp" android:gravity="center" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="12dp">
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/tile_ip"
-                    android:layout_width="0dp"
-                    android:layout_height="110dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/border"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:orientation="vertical" android:gravity="center" android:padding="12dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="🌐" android:textSize="32sp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="IP / Domain" android:textColor="@color/text_primary"
-                            android:textSize="14sp" android:textStyle="bold" android:layout_marginTop="6dp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="WHOIS, DNS, geo" android:textColor="@color/text_secondary"
-                            android:textSize="11sp" android:gravity="center" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/tile_company"
-                    android:layout_width="0dp"
-                    android:layout_height="110dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/border"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:orientation="vertical" android:gravity="center" android:padding="12dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="🏢" android:textSize="32sp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Company" android:textColor="@color/text_primary"
-                            android:textSize="14sp" android:textStyle="bold" android:layout_marginTop="6dp" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Filings, officers" android:textColor="@color/text_secondary"
-                            android:textSize="11sp" android:gravity="center" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </LinearLayout>
+                android:text="API KEYS"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="10sp"
+                android:letterSpacing="0.15"
+                android:textAllCaps="true"
+                android:layout_marginBottom="8dp" />
 
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tile_image"
                 android:layout_width="match_parent"
-                android:layout_height="90dp"
-                android:clickable="true"
-                android:focusable="true"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
                 app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="14dp"
+                app:cardCornerRadius="12dp"
                 app:strokeColor="@color/border"
                 app:strokeWidth="1dp"
                 app:cardElevation="0dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                    android:orientation="horizontal" android:gravity="center_vertical" android:padding="20dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="📷" android:textSize="28sp" android:layout_marginEnd="16dp" />
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Image / Face" android:textColor="@color/text_primary"
-                            android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Reverse image search, face match"
-                            android:textColor="@color/text_secondary" android:textSize="12sp" />
-                    </LinearLayout>
-                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/api_keys_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="4dp" />
+
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- ── TERMUX TOOLS SECTION ── -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TERMUX TOOLS"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="10sp"
+                android:letterSpacing="0.15"
+                android:textAllCaps="true"
+                android:layout_marginBottom="8dp" />
 
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tile_dork_builder"
                 android:layout_width="match_parent"
-                android:layout_height="90dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="@color/accent_blue_dim"
-                app:cardCornerRadius="14dp"
-                app:strokeColor="@color/accent_blue"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/surface"
+                app:cardCornerRadius="12dp"
+                app:strokeColor="@color/border"
                 app:strokeWidth="1dp"
                 app:cardElevation="0dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                    android:orientation="horizontal" android:gravity="center_vertical" android:padding="20dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="🔍" android:textSize="28sp" android:layout_marginEnd="16dp" />
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Dork Builder" android:textColor="@color/text_primary"
-                            android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Custom Google dorks from a questionnaire"
-                            android:textColor="@color/text_secondary" android:textSize="12sp" />
-                    </LinearLayout>
-                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/termux_tools_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="4dp" />
+
             </com.google.android.material.card.MaterialCardView>
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tile_setup"
+            <!-- ── DONE BUTTON ── -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_done"
                 android:layout_width="match_parent"
-                android:layout_height="90dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="@color/success_dim"
-                app:cardCornerRadius="14dp"
-                app:strokeColor="@color/success"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                    android:orientation="horizontal" android:gravity="center_vertical" android:padding="20dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="🔑" android:textSize="28sp" android:layout_marginEnd="16dp" />
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:orientation="vertical">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Setup APIs &amp; Profile" android:textColor="@color/text_primary"
-                            android:textSize="15sp" android:textStyle="bold" />
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Configure API keys to unlock more OSINT data"
-                            android:textColor="@color/text_secondary" android:textSize="12sp" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:layout_height="52dp"
+                android:text="CONTINUE TO SEARCH"
+                android:textSize="13sp"
+                android:letterSpacing="0.08"
+                app:backgroundTint="?attr/colorPrimary"
+                app:cornerRadius="8dp" />
 
-            <Space android:layout_width="match_parent" android:layout_height="24dp" />
+            <Space android:layout_width="match_parent" android:layout_height="32dp" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

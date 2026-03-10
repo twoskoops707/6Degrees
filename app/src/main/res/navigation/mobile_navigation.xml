@@ -90,6 +90,9 @@
             app:destination="@id/nav_search"
             app:popUpTo="@id/nav_search"
             app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_settings_to_wizard"
+            app:destination="@id/nav_wizard" />
     </fragment>
 
     <fragment
