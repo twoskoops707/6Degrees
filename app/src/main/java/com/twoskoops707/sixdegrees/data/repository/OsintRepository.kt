@@ -2476,7 +2476,37 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.Blocked("TruePeopleSearch")); return
             }
 
-            val detailPath = Regex("href=\"(/details[^\"]+)\"").find(listHtml)?.groupValues?.get(1)
+            val allDetailPaths = Regex("href=\"(/details[^\"]+)\"").findAll(listHtml)
+                .map { it.groupValues[1].trim() }.distinct().take(10).toList()
+            val listCardTitles = Regex("""class="[^"]*card-title[^"]*"[^>]*>\s*([A-Z][A-Z '\-]{2,50})\s*<""")
+                .findAll(listHtml).map { it.groupValues[1].trim().lowercase().split(" ")
+                    .joinToString(" ") { w -> w.replaceFirstChar { c -> c.uppercase() } } }
+                .filter { it.isNotBlank() }.take(10).toList()
+            val listCardAges = Regex("""(?:Age|AGE)[:\s]+(\d{2,3})""")
+                .findAll(listHtml).map { it.groupValues[1].trim() }.take(10).toList()
+            val listCardLocations = Regex("""<span[^>]*itemprop="addressLocality"[^>]*>([^<]+)</span>\s*,?\s*<span[^>]*itemprop="addressRegion"[^>]*>([^<]+)</span>""")
+                .findAll(listHtml).map { "${it.groupValues[1].trim()}, ${it.groupValues[2].trim()}" }.take(10).toList()
+                .ifEmpty {
+                    Regex("""([A-Z][a-z]{2,20}),\s+([A-Z]{2})\b""").findAll(listHtml)
+                        .map { "${it.groupValues[1]}, ${it.groupValues[2]}" }.distinct().take(10).toList()
+                }
+            val listCardPhones = Regex("""(?<!\d)\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})(?!\d)""")
+                .findAll(listHtml).map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }
+                .distinct().take(10).toList()
+
+            val candidateLines = mutableListOf<String>()
+            for (i in listCardTitles.indices) {
+                val cName = listCardTitles.getOrNull(i) ?: continue
+                val cAge = listCardAges.getOrNull(i) ?: ""
+                val cLoc = listCardLocations.getOrNull(i) ?: ""
+                val cPhone = listCardPhones.getOrNull(i) ?: ""
+                candidateLines.add("$cName|$cAge|$cLoc|$cPhone")
+            }
+            if (candidateLines.size > 1) {
+                meta["tps_candidates"] = candidateLines.joinToString("\n")
+            }
+
+            val detailPath = allDetailPaths.firstOrNull()
             val profileHtml = if (detailPath != null) {
                 val detailReq = headers.url("https://www.truepeoplesearch.com$detailPath").build()
                 val detailResp = fastHttpClient.newCall(detailReq).execute()
@@ -2865,8 +2895,12 @@ class OsintRepository(context: Context) {
                         item.snippet?.let { allSnippets.add(it.take(200)) }
                         item.link?.let { allLinks.add("${item.displayLink ?: item.link}: $it") }
                     }
+                } else if (!resp.isSuccessful) {
+                    meta["cse_error"] = "HTTP ${resp.code}"
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                meta["cse_error"] = e.message?.take(100) ?: "Unknown error"
+            }
             delay(300)
         }
         if (allSnippets.isNotEmpty()) {

@@ -159,6 +159,7 @@ class ResultsFragment : Fragment() {
         }
 
         val sections = buildTabs(enrichedMeta, searchType)
+        buildCandidateDisambiguation(enrichedMeta)
         buildAccordion(sections)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
@@ -531,6 +532,7 @@ class ResultsFragment : Fragment() {
                     rows.add("Google CSE" to s.trim())
                 }
             }
+            meta["cse_error"]?.takeIf { it.isNotBlank() }?.let { rows.add("⚠ Google CSE Error" to it) }
             meta["bing_snippets"]?.takeIf { it.isNotBlank() }?.let {
                 it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s ->
                     rows.add("Bing" to s.trim())
@@ -645,13 +647,16 @@ class ResultsFragment : Fragment() {
         meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
         meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
         meta["nuwber_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
-        val searchQuery = arguments?.getString("searchQuery") ?: ""
+        val rawSearchQuery = arguments?.getString("searchQuery") ?: ""
+        val parsedSearchName = rawSearchQuery.split("|")
+            .firstOrNull { it.startsWith("name=") }?.substringAfter("=")?.trim()
+            ?: rawSearchQuery.split("|").firstOrNull { !it.contains("=") }?.trim() ?: ""
         if (pivotPhones.isNotEmpty() || pivotEmails.isNotEmpty()) {
             rows.add(sec("PIVOT SEARCHES"))
             pivotPhones.forEach { phone -> rows.add("⟶ Search Phone" to "pivot://phone/$phone") }
             pivotEmails.take(3).forEach { email -> rows.add("⟶ Search Email" to "pivot://email/$email") }
-            if (searchQuery.isNotBlank()) {
-                val parts = searchQuery.trim().split(" ")
+            if (parsedSearchName.isNotBlank()) {
+                val parts = parsedSearchName.trim().split(" ")
                 if (parts.size >= 2) rows.add("⟶ Reversed Name" to "pivot://person/${parts.last()} ${parts.first()}")
             }
         }
@@ -1300,6 +1305,130 @@ class ResultsFragment : Fragment() {
                 ?.map { s -> "${s.platform}: ${s.url}" }
                 ?: emptyList()
         } catch (_: Exception) { emptyList() }
+    }
+
+    private fun buildCandidateDisambiguation(meta: Map<String, String>) {
+        val raw = meta["tps_candidates"]?.takeIf { it.isNotBlank() } ?: return
+        val candidates = raw.lines().filter { it.isNotBlank() }
+        if (candidates.size < 2) return
+
+        val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+        val tv = TypedValue()
+        ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+        val colorPrimary = tv.data
+
+        val container = binding.accordionContainer
+
+        val headerCard = MaterialCardView(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = dp(12f) }
+            radius = dp(12f).toFloat()
+            strokeWidth = dp(1f)
+            strokeColor = colorPrimary
+            cardElevation = 0f
+            setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.surface))
+        }
+        val headerLayout = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14f), dp(12f), dp(14f), dp(4f))
+        }
+        headerLayout.addView(TextView(ctx).apply {
+            text = "MULTIPLE SUBJECTS FOUND — SELECT ONE"
+            textSize = 10f
+            letterSpacing = 0.1f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(colorPrimary)
+        })
+        headerLayout.addView(TextView(ctx).apply {
+            text = "${candidates.size} people found matching this name. Tap one to deep-search that person."
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(4f); it.bottomMargin = dp(8f) }
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+        })
+
+        candidates.forEach { line ->
+            val parts = line.split("|")
+            val cName = parts.getOrNull(0)?.trim() ?: return@forEach
+            val cAge = parts.getOrNull(1)?.trim() ?: ""
+            val cLoc = parts.getOrNull(2)?.trim() ?: ""
+            val cPhone = parts.getOrNull(3)?.trim() ?: ""
+
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(8f), 0, dp(8f))
+                isClickable = true
+                isFocusable = true
+                setBackgroundResource(android.R.attr.selectableItemBackground.let {
+                    val outValue = TypedValue()
+                    ctx.theme.resolveAttribute(it, outValue, true)
+                    outValue.resourceId
+                })
+                setOnClickListener {
+                    val stateCode = if (cLoc.contains(",")) cLoc.substringAfter(",").trim() else ""
+                    val ageNum = cAge.toIntOrNull()
+                    val refinedQuery = buildString {
+                        append("name=$cName")
+                        if (stateCode.isNotBlank()) append("|state=$stateCode")
+                        if (cPhone.isNotBlank()) append("|phone=$cPhone")
+                        if (ageNum != null) append("|dob~age$ageNum")
+                    }
+                    findNavController().navigate(
+                        R.id.action_results_to_progress,
+                        Bundle().apply {
+                            putString("query", refinedQuery)
+                            putString("type", "comprehensive")
+                        }
+                    )
+                }
+            }
+
+            val nameRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+            nameRow.addView(TextView(ctx).apply {
+                text = cName
+                textSize = 14f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            if (cAge.isNotBlank()) nameRow.addView(TextView(ctx).apply {
+                text = "Age $cAge"
+                textSize = 12f
+                setTextColor(colorPrimary)
+            })
+            row.addView(nameRow)
+
+            val detailParts = listOfNotNull(
+                cLoc.takeIf { it.isNotBlank() },
+                cPhone.takeIf { it.isNotBlank() }?.let { "☎ $it" }
+            )
+            if (detailParts.isNotEmpty()) {
+                row.addView(TextView(ctx).apply {
+                    text = detailParts.joinToString("   ")
+                    textSize = 12f
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).also { it.topMargin = dp(2f) }
+                })
+            }
+
+            headerLayout.addView(row)
+            headerLayout.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).also {
+                    it.topMargin = dp(4f)
+                }
+                setBackgroundColor(ContextCompat.getColor(ctx, R.color.border))
+                alpha = 0.5f
+            })
+        }
+
+        headerCard.addView(headerLayout)
+        container.addView(headerCard, 0)
     }
 
     private fun buildAccordion(sections: List<Pair<String, List<Pair<String, String>>>>) {
