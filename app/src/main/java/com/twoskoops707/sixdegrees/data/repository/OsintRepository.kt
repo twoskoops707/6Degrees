@@ -2896,7 +2896,7 @@ class OsintRepository(context: Context) {
                         item.link?.let { allLinks.add("${item.displayLink ?: item.link}: $it") }
                     }
                 } else if (!resp.isSuccessful) {
-                    meta["cse_error"] = "HTTP ${resp.code}"
+                    meta["cse_error"] = "HTTP ${resp.code()}"
                 }
             } catch (e: Exception) {
                 meta["cse_error"] = e.message?.take(100) ?: "Unknown error"

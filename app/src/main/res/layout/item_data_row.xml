@@ -34,7 +34,8 @@
                 android:textSize="10sp"
                 android:textAllCaps="true"
                 android:letterSpacing="0.1"
-                android:layout_marginBottom="3dp" />
+                android:layout_marginBottom="3dp"
+                android:textIsSelectable="true" />
 
             <TextView
                 android:id="@+id/tv_row_value"

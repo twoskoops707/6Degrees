@@ -145,7 +145,8 @@
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:letterSpacing="0.05" />
+                    android:letterSpacing="0.05"
+                    android:textIsSelectable="true" />
 
                 <TextView
                     android:id="@+id/tv_score_detail"
@@ -153,7 +154,8 @@
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorControlNormal"
                     android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
+                    android:layout_marginTop="2dp"
+                    android:textIsSelectable="true" />
             </LinearLayout>
 
             <LinearLayout
@@ -171,7 +173,8 @@
                     android:textColor="?attr/colorPrimary"
                     android:textSize="36sp"
                     android:textStyle="bold"
-                    android:gravity="center" />
+                    android:gravity="center"
+                    android:textIsSelectable="true" />
 
                 <TextView
                     android:id="@+id/tv_sources_count"
@@ -180,7 +183,8 @@
                     android:textColor="?attr/colorControlNormal"
                     android:textSize="9sp"
                     android:letterSpacing="0.05"
-                    android:gravity="center" />
+                    android:gravity="center"
+                    android:textIsSelectable="true" />
             </LinearLayout>
         </LinearLayout>
 
@@ -224,7 +228,8 @@
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:maxLines="1"
-                    android:ellipsize="end" />
+                    android:ellipsize="end"
+                    android:textIsSelectable="true" />
 
                 <TextView
                     android:id="@+id/job_title"
@@ -234,7 +239,8 @@
                     android:textSize="12sp"
                     android:layout_marginTop="3dp"
                     android:maxLines="1"
-                    android:ellipsize="end" />
+                    android:ellipsize="end"
+                    android:textIsSelectable="true" />
 
                 <TextView
                     android:id="@+id/location"
@@ -244,7 +250,8 @@
                     android:textSize="11sp"
                     android:layout_marginTop="2dp"
                     android:maxLines="1"
-                    android:ellipsize="end" />
+                    android:ellipsize="end"
+                    android:textIsSelectable="true" />
             </LinearLayout>
         </LinearLayout>
 

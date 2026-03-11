@@ -1341,6 +1341,7 @@ class ResultsFragment : Fragment() {
             letterSpacing = 0.1f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(colorPrimary)
+            setTextIsSelectable(true)
         })
         headerLayout.addView(TextView(ctx).apply {
             text = "${candidates.size} people found matching this name. Tap one to deep-search that person."
@@ -1349,6 +1350,7 @@ class ResultsFragment : Fragment() {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(4f); it.bottomMargin = dp(8f) }
             setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+            setTextIsSelectable(true)
         })
 
         candidates.forEach { line ->
@@ -1394,11 +1396,13 @@ class ResultsFragment : Fragment() {
                 setTypeface(typeface, Typeface.BOLD)
                 setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                setTextIsSelectable(true)
             })
             if (cAge.isNotBlank()) nameRow.addView(TextView(ctx).apply {
                 text = "Age $cAge"
                 textSize = 12f
                 setTextColor(colorPrimary)
+                setTextIsSelectable(true)
             })
             row.addView(nameRow)
 
@@ -1414,6 +1418,7 @@ class ResultsFragment : Fragment() {
                     layoutParams = LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
                     ).also { it.topMargin = dp(2f) }
+                    setTextIsSelectable(true)
                 })
             }
 
@@ -1477,6 +1482,7 @@ class ResultsFragment : Fragment() {
                 isAllCaps = true
                 letterSpacing = 0.12f
                 setTextColor(colorPrimary)
+                setTextIsSelectable(true)
             }
 
             val chevron = TextView(requireContext()).apply {
@@ -1611,6 +1617,7 @@ class ResultsFragment : Fragment() {
                 isAllCaps = true
                 letterSpacing = 0.15f
                 setTextColor(accentColor)
+                setTextIsSelectable(true)
             })
             inner.addView(header)
             inner.addView(View(ctx).apply {
