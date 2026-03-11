@@ -511,9 +511,15 @@ class ResultsFragment : Fragment() {
             }
         }
 
-        val hasSearchIntel = !meta["cse_snippets"].isNullOrBlank() || !meta["bing_snippets"].isNullOrBlank() || !meta["searx_snippets"].isNullOrBlank()
+        val hasSearchIntel = !meta["cse_snippets"].isNullOrBlank() || !meta["bing_snippets"].isNullOrBlank()
+            || !meta["searx_snippets"].isNullOrBlank() || !meta["ddg_web_snippets"].isNullOrBlank()
         if (hasSearchIntel) {
             rows.add(sec("SEARCH ENGINE INTEL"))
+            meta["ddg_web_snippets"]?.takeIf { it.isNotBlank() }?.let {
+                it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s ->
+                    rows.add("DDG" to s.trim())
+                }
+            }
             meta["searx_snippets"]?.takeIf { it.isNotBlank() }?.let {
                 it.split("\n---\n").filter { s -> s.isNotBlank() }.take(6).forEach { s ->
                     rows.add("Web" to s.trim())

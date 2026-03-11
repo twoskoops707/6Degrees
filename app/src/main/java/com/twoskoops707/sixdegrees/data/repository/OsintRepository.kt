@@ -2125,6 +2125,7 @@ class OsintRepository(context: Context) {
         launch { ahmiaSearch(query, meta, sources, emit) }
         launch { truePeopleSearchScrape(query, meta, sources, emit) }
         launch { openSanctionsScrape(query, meta, sources, emit) }
+        launch { duckDuckGoWebSearch(query, meta, sources, emit) }
         launch { duckDuckGoPersonSearch(query, meta, sources, emit) }
         launch { zabaSearchScrape(query, meta, sources, emit) }
         launch { fourOneOneScrape(query, meta, sources, emit) }
@@ -2472,7 +2473,7 @@ class OsintRepository(context: Context) {
                 || listHtml.contains("Just a moment", ignoreCase = true)
                 || listHtml.contains("cf-browser-verification", ignoreCase = true)
                 || listHtml.contains("Checking if the site connection is secure", ignoreCase = true)) {
-                emit(SearchProgressEvent.NotFound("TruePeopleSearch")); return
+                emit(SearchProgressEvent.Blocked("TruePeopleSearch")); return
             }
 
             val detailPath = Regex("href=\"(/details[^\"]+)\"").find(listHtml)?.groupValues?.get(1)
@@ -2574,6 +2575,51 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("OpenSanctions", e.message ?: ""))
+        }
+    }
+
+    private suspend fun duckDuckGoWebSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("DuckDuckGo Search"))
+        try {
+            val location = meta["person_location"]?.takeIf { it.isNotBlank() }?.let { " $it" } ?: ""
+            val dork = "\"$query\"$location"
+            val encoded = URLEncoder.encode(dork, "UTF-8")
+            val req = Request.Builder()
+                .url("https://html.duckduckgo.com/html/?q=$encoded")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (resp.code != 200 || body.isBlank()) {
+                emit(SearchProgressEvent.NotFound("DuckDuckGo Search")); return
+            }
+            val titles = Regex("""class="result__a"[^>]*>([^<]{3,120})</a>""").findAll(body)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()
+            val snippets = Regex("""class="result__snippet"[^>]*>([\s\S]{10,400}?)</a>""").findAll(body)
+                .map { it.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").trim() }
+                .filter { it.isNotBlank() }.toList()
+            val urls = Regex("""class="result__url"[^>]*>\s*([^\s<]{5,120})\s*</""").findAll(body)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()
+            if (snippets.isEmpty() && titles.isEmpty()) {
+                emit(SearchProgressEvent.NotFound("DuckDuckGo Search")); return
+            }
+            val snippetLines = snippets.take(8).filter { it.length > 15 }
+            val linkLines = titles.zip(urls).take(8).map { (t, u) -> "$t — $u" }
+            meta["ddg_web_snippets"] = snippetLines.joinToString("\n---\n")
+            meta["ddg_web_links"] = linkLines.joinToString("\n")
+            meta["ddg_web_count"] = snippets.size.toString()
+            sources.add(DataSource("DuckDuckGo Search", null, Date(), 0.8))
+            emit(SearchProgressEvent.Found("DuckDuckGo Search",
+                "${snippets.size} web results · ${titles.take(2).joinToString(", ")}"))
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("DuckDuckGo Search", e.message ?: ""))
         }
     }
 
