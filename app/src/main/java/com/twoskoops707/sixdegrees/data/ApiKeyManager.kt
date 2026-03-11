@@ -55,11 +55,12 @@ class ApiKeyManager(context: Context) {
         set(v) { prefs.edit().putString("urlscan", v).apply() }
 
     var googleCseApiKey: String
-        get() = prefs.getString("google_cse_key", "") ?: ""
+        get() = prefs.getString("google_cse_key", "")?.takeIf { it.isNotBlank() } ?: ""
         set(v) { prefs.edit().putString("google_cse_key", v).apply() }
 
     var googleCseId: String
-        get() = prefs.getString("google_cse_id", "") ?: ""
+        get() = prefs.getString("google_cse_id", "")?.takeIf { it.isNotBlank() }
+            ?: "1444c6d9fd95f4dde"
         set(v) { prefs.edit().putString("google_cse_id", v).apply() }
 
     var bingSearchKey: String
