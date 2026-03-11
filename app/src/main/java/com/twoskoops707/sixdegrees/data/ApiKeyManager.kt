@@ -55,7 +55,8 @@ class ApiKeyManager(context: Context) {
         set(v) { prefs.edit().putString("urlscan", v).apply() }
 
     var googleCseApiKey: String
-        get() = prefs.getString("google_cse_key", "")?.takeIf { it.isNotBlank() } ?: ""
+        get() = prefs.getString("google_cse_key", "")?.takeIf { it.isNotBlank() }
+            ?: "AIzaSyDVFF-Z2NsKb2j6CupZEQ2m7KN40fS7VZc"
         set(v) { prefs.edit().putString("google_cse_key", v).apply() }
 
     var googleCseId: String
