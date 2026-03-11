@@ -1,8 +1,12 @@
 package com.twoskoops707.sixdegrees.ui.wizard
 
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,13 +16,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
 import com.twoskoops707.sixdegrees.databinding.FragmentWizardBinding
-import java.io.File
 
 class WizardFragment : Fragment() {
 
@@ -54,7 +58,23 @@ class WizardFragment : Fragment() {
     private val toolRows = mutableMapOf<String, TextView>()
     private val toolDots = mutableMapOf<String, TextView>()
     private val handler = Handler(Looper.getMainLooper())
-    private val TOOLS_FILE = "sixdegrees_tools.txt"
+    private var termuxResultReceiver: BroadcastReceiver? = null
+
+    companion object {
+        private const val RESULT_ACTION = "com.twoskoops707.sixdegrees.TERMUX_RESULT"
+        private const val TERMUX_PERMISSION = "com.termux.permission.RUN_COMMAND"
+        private const val TIMEOUT_MS = 12000L
+    }
+
+    private val requestTermuxPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            requestTermuxToolCheck()
+        } else {
+            showPermissionDeniedError()
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWizardBinding.inflate(inflater, container, false)
@@ -71,7 +91,7 @@ class WizardFragment : Fragment() {
         val apiKeyManager = ApiKeyManager(requireContext())
         populateApiKeys(apiKeyManager)
         populateTermuxTools()
-        requestTermuxToolCheck()
+        checkTermuxPermissionAndRun()
 
         binding.btnDone.setOnClickListener {
             requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE)
@@ -80,26 +100,63 @@ class WizardFragment : Fragment() {
         }
     }
 
-    private fun getToolsOutputFile(): File {
-        return File(requireContext().getExternalFilesDir(null), TOOLS_FILE)
+    private fun checkTermuxPermissionAndRun() {
+        val ctx = requireContext()
+        val granted = ContextCompat.checkSelfPermission(ctx, TERMUX_PERMISSION) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            requestTermuxToolCheck()
+        } else {
+            requestTermuxPermission.launch(TERMUX_PERMISSION)
+        }
     }
 
     private fun requestTermuxToolCheck() {
-        val outputPath = getToolsOutputFile().also { it.parentFile?.mkdirs() }.absolutePath
-
         val binNames = termuxTools.map { it.second }
         val checkCmds = binNames.joinToString("; ") { bin ->
             "which $bin >/dev/null 2>&1 && echo '$bin:found' || echo '$bin:missing'"
         }
-        val fullCmd = "$checkCmds > '$outputPath' 2>&1"
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                handler.removeCallbacksAndMessages(null)
+                val bundle = intent.getBundleExtra("result")
+                val stdout = bundle?.getString("stdout") ?: ""
+                if (_binding == null) return
+                if (stdout.isBlank()) {
+                    showTermuxConnectError()
+                } else {
+                    parseAndShowToolResults(stdout)
+                }
+                unregisterSafely(context)
+            }
+        }
+        termuxResultReceiver = receiver
+
+        val filter = IntentFilter(RESULT_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requireContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            requireContext().registerReceiver(receiver, filter)
+        }
+
+        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            requireContext(),
+            1001,
+            Intent(RESULT_ACTION).setPackage(requireContext().packageName),
+            piFlags
+        )
 
         val intent = Intent().apply {
             setClassName("com.termux", "com.termux.app.RunCommandService")
             action = "com.termux.RUN_COMMAND"
             putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
-            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", fullCmd))
+            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", checkCmds))
             putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
             putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            putExtra("com.termux.RUN_COMMAND_PENDING_INTENT", pendingIntent)
         }
 
         try {
@@ -108,35 +165,40 @@ class WizardFragment : Fragment() {
             try { requireContext().startService(intent) } catch (_: Exception) {}
         }
 
-        handler.postDelayed({ readToolResults() }, 3500)
+        handler.postDelayed({
+            if (termuxResultReceiver != null) {
+                showTermuxConnectError()
+                unregisterSafely(requireContext())
+            }
+        }, TIMEOUT_MS)
     }
 
-    private fun readToolResults() {
-        if (_binding == null) return
-        val file = getToolsOutputFile()
-        if (!file.exists() || file.length() == 0L) {
-            showTermuxConnectError()
-            return
+    private fun unregisterSafely(context: Context) {
+        termuxResultReceiver?.let {
+            try { context.unregisterReceiver(it) } catch (_: Exception) {}
+            termuxResultReceiver = null
         }
+    }
+
+    private fun parseAndShowToolResults(stdout: String) {
+        if (_binding == null) return
         val results = mutableMapOf<String, Boolean>()
-        file.readLines().forEach { line ->
+        stdout.trim().lines().forEach { line ->
             val parts = line.trim().split(":")
-            if (parts.size == 2) {
+            if (parts.size >= 2) {
                 results[parts[0].trim()] = parts[1].trim() == "found"
             }
         }
         termuxTools.forEach { (displayName, binName) ->
             val found = results[binName]
-            if (found != null) {
-                updateToolRow(displayName, binName, found)
-            }
+            if (found != null) updateToolRow(displayName, binName, found)
         }
     }
 
     private fun updateToolRow(displayName: String, binName: String, installed: Boolean) {
         val dot = toolDots[displayName] ?: return
         val label = toolRows[displayName] ?: return
-        val ctx = requireContext()
+        val ctx = context ?: return
         dot.setTextColor(
             if (installed) ContextCompat.getColor(ctx, R.color.success)
             else ContextCompat.getColor(ctx, R.color.error)
@@ -149,10 +211,22 @@ class WizardFragment : Fragment() {
     }
 
     private fun showTermuxConnectError() {
+        if (_binding == null) return
+        val ctx = context ?: return
         termuxTools.forEach { (displayName, _) ->
             val label = toolRows[displayName] ?: return@forEach
-            label.text = "Enable: Termux → Settings → Allow External Apps"
-            label.setTextColor(ContextCompat.getColor(requireContext(), R.color.warning))
+            label.text = "No response — check termux.properties"
+            label.setTextColor(ContextCompat.getColor(ctx, R.color.warning))
+        }
+    }
+
+    private fun showPermissionDeniedError() {
+        if (_binding == null) return
+        val ctx = context ?: return
+        termuxTools.forEach { (displayName, _) ->
+            val label = toolRows[displayName] ?: return@forEach
+            label.text = "Permission denied"
+            label.setTextColor(ContextCompat.getColor(ctx, R.color.error))
         }
     }
 
@@ -259,6 +333,10 @@ class WizardFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         handler.removeCallbacksAndMessages(null)
+        termuxResultReceiver?.let {
+            try { requireContext().unregisterReceiver(it) } catch (_: Exception) {}
+            termuxResultReceiver = null
+        }
         _binding = null
     }
 }

@@ -59,6 +59,68 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- ── TERMUX SETUP INSTRUCTIONS ── -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TERMUX SETUP"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="10sp"
+                android:letterSpacing="0.15"
+                android:textAllCaps="true"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="@color/surface"
+                app:cardCornerRadius="12dp"
+                app:strokeColor="@color/border"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Step 1 — In Termux, run:"
+                        android:textColor="@color/text_primary"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="echo &#39;allow-external-apps = true&#39; >> ~/.termux/termux.properties"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="11sp"
+                        android:fontFamily="monospace"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Step 2 — Restart Termux, then return here and reopen Setup."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Step 3 — Tap &#34;Allow&#34; when the permission dialog appears."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- ── TERMUX TOOLS SECTION ── -->
             <TextView
                 android:layout_width="match_parent"
