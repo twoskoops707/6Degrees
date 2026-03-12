@@ -1016,8 +1016,9 @@ class ResultsFragment : Fragment() {
                 val siteName = parts.firstOrNull() ?: "Platform"
                 val url = parts.getOrNull(1) ?: cleanLine
                 val desc = siteDesc[siteName]
-                val label = if (isNsfw) "⚠ NSFW/$siteName" else "✓ $siteName"
-                rows.add("$label${if (desc != null) " — ${desc.removePrefix("⚠ ")}" else ""}" to url)
+                val label = if (isNsfw) "⚠ NSFW / $siteName" else "✓ $siteName"
+                rows.add(label to url)
+                if (desc != null) rows.add(if (isNsfw) "  ⚠ Genre" else "  Genre" to desc.removePrefix("⚠ "))
             }
         }
         if (rows.isEmpty()) rows.add("Status" to "No profiles found on tracked platforms")
@@ -1204,6 +1205,15 @@ class ResultsFragment : Fragment() {
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
                 }?.forEach { set.add(it) }
             }
+        val phonePattern = Regex("\\(\\d{3}\\)\\s*\\d{3}[-.]\\d{4}|\\d{3}[-.]\\d{3}[-.]\\d{4}")
+        listOf("ddg_web_snippets", "cse_snippets", "dork_address_results", "dork_criminal_results", "searx_snippets")
+            .forEach { key ->
+                meta[key]?.let { text ->
+                    phonePattern.findAll(text).map { it.value.trim() }.filter { phone ->
+                        phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
+                    }.forEach { set.add(it) }
+                }
+            }
         return set
     }
 
@@ -1214,6 +1224,13 @@ class ResultsFragment : Fragment() {
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
             "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
+        val addrPattern = Regex("[A-Z][a-zA-Z ]{2,25},\\s*[A-Z]{2}(?:\\s+\\d{5})?")
+        listOf("dork_address_results", "ddg_web_snippets", "cse_snippets")
+            .forEach { key ->
+                meta[key]?.let { text ->
+                    addrPattern.findAll(text).map { it.value.trim() }.filter { it.length > 5 && it.length < 60 }.forEach { set.add(it) }
+                }
+            }
         return set
     }
 
@@ -1353,132 +1370,141 @@ class ResultsFragment : Fragment() {
     }
 
     private fun buildCandidateDisambiguation(meta: Map<String, String>) {
-        val raw = meta["tps_candidates"]?.takeIf { it.isNotBlank() } ?: return
-        val candidates = raw.lines().filter { it.isNotBlank() }
-        if (candidates.size < 2) return
-
         val ctx = requireContext()
         val density = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * density).toInt()
         val tv = TypedValue()
         ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
         val colorPrimary = tv.data
-
         val container = binding.accordionContainer
 
-        val headerCard = MaterialCardView(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).also { it.bottomMargin = dp(12f) }
-            radius = dp(12f).toFloat()
-            strokeWidth = dp(1f)
-            strokeColor = colorPrimary
-            cardElevation = 0f
-            setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.surface))
-        }
-        val headerLayout = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(14f), dp(12f), dp(14f), dp(4f))
-        }
-        headerLayout.addView(TextView(ctx).apply {
-            text = "MULTIPLE SUBJECTS FOUND — SELECT ONE"
-            textSize = 10f
-            letterSpacing = 0.1f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(colorPrimary)
-            setTextIsSelectable(true)
-        })
-        headerLayout.addView(TextView(ctx).apply {
-            text = "${candidates.size} people found matching this name. Tap one to deep-search that person."
-            textSize = 12f
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).also { it.topMargin = dp(4f); it.bottomMargin = dp(8f) }
-            setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
-            setTextIsSelectable(true)
-        })
-
-        candidates.forEach { line ->
-            val parts = line.split("|")
-            val cName = parts.getOrNull(0)?.trim() ?: return@forEach
-            val cAge = parts.getOrNull(1)?.trim() ?: ""
-            val cLoc = parts.getOrNull(2)?.trim() ?: ""
-            val cPhone = parts.getOrNull(3)?.trim() ?: ""
-
-            val row = LinearLayout(ctx).apply {
+        fun makeCard(): Pair<MaterialCardView, LinearLayout> {
+            val card = MaterialCardView(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = dp(12f) }
+                radius = dp(12f).toFloat()
+                strokeWidth = dp(1f)
+                strokeColor = colorPrimary
+                cardElevation = 0f
+                setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.surface))
+            }
+            val layout = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(0, dp(8f), 0, dp(8f))
-                isClickable = true
-                isFocusable = true
-                setBackgroundResource(android.R.attr.selectableItemBackground.let {
-                    val outValue = TypedValue()
-                    ctx.theme.resolveAttribute(it, outValue, true)
-                    outValue.resourceId
-                })
-                setOnClickListener {
-                    val stateCode = if (cLoc.contains(",")) cLoc.substringAfter(",").trim() else ""
-                    val ageNum = cAge.toIntOrNull()
-                    val refinedQuery = buildString {
-                        append("name=$cName")
-                        if (stateCode.isNotBlank()) append("|state=$stateCode")
-                        if (cPhone.isNotBlank()) append("|phone=$cPhone")
-                        if (ageNum != null) append("|dob~age$ageNum")
-                    }
-                    findNavController().navigate(
-                        R.id.action_results_to_progress,
-                        Bundle().apply {
-                            putString("query", refinedQuery)
-                            putString("type", "comprehensive")
-                        }
-                    )
-                }
+                setPadding(dp(14f), dp(12f), dp(14f), dp(4f))
             }
+            return card to layout
+        }
 
-            val nameRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-            nameRow.addView(TextView(ctx).apply {
-                text = cName
-                textSize = 14f
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                setTextIsSelectable(true)
-            })
-            if (cAge.isNotBlank()) nameRow.addView(TextView(ctx).apply {
-                text = "Age $cAge"
-                textSize = 12f
-                setTextColor(colorPrimary)
-                setTextIsSelectable(true)
-            })
-            row.addView(nameRow)
-
-            val detailParts = listOfNotNull(
-                cLoc.takeIf { it.isNotBlank() },
-                cPhone.takeIf { it.isNotBlank() }?.let { "☎ $it" }
-            )
-            if (detailParts.isNotEmpty()) {
-                row.addView(TextView(ctx).apply {
-                    text = detailParts.joinToString("   ")
-                    textSize = 12f
-                    setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).also { it.topMargin = dp(2f) }
-                    setTextIsSelectable(true)
-                })
-            }
-
-            headerLayout.addView(row)
-            headerLayout.addView(View(ctx).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).also {
-                    it.topMargin = dp(4f)
-                }
+        fun addDivider(layout: LinearLayout) {
+            layout.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).also { it.topMargin = dp(4f) }
                 setBackgroundColor(ContextCompat.getColor(ctx, R.color.border))
                 alpha = 0.5f
             })
         }
 
-        headerCard.addView(headerLayout)
-        container.addView(headerCard, 0)
+        val raw = meta["tps_candidates"]?.takeIf { it.isNotBlank() }
+        val candidates = raw?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+
+        if (candidates.size >= 2) {
+            val (headerCard, headerLayout) = makeCard()
+            headerLayout.addView(TextView(ctx).apply {
+                text = "MULTIPLE SUBJECTS FOUND — SELECT ONE"
+                textSize = 10f; letterSpacing = 0.1f
+                setTypeface(typeface, Typeface.BOLD); setTextColor(colorPrimary); setTextIsSelectable(true)
+            })
+            headerLayout.addView(TextView(ctx).apply {
+                text = "${candidates.size} people found matching this name. Tap one to deep-search that person."
+                textSize = 12f
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(4f); it.bottomMargin = dp(8f) }
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary)); setTextIsSelectable(true)
+            })
+            candidates.forEach { line ->
+                val parts = line.split("|")
+                val cName = parts.getOrNull(0)?.trim() ?: return@forEach
+                val cAge = parts.getOrNull(1)?.trim() ?: ""
+                val cLoc = parts.getOrNull(2)?.trim() ?: ""
+                val cPhone = parts.getOrNull(3)?.trim() ?: ""
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL; setPadding(0, dp(8f), 0, dp(8f))
+                    isClickable = true; isFocusable = true
+                    setBackgroundResource(android.R.attr.selectableItemBackground.let { a -> val o = TypedValue(); ctx.theme.resolveAttribute(a, o, true); o.resourceId })
+                    setOnClickListener {
+                        val stateCode = if (cLoc.contains(",")) cLoc.substringAfter(",").trim() else ""
+                        val ageNum = cAge.toIntOrNull()
+                        val q = buildString {
+                            append("name=$cName")
+                            if (stateCode.isNotBlank()) append("|state=$stateCode")
+                            if (cPhone.isNotBlank()) append("|phone=$cPhone")
+                            if (ageNum != null) append("|dob~age$ageNum")
+                        }
+                        findNavController().navigate(R.id.action_results_to_progress, Bundle().apply { putString("query", q); putString("type", "comprehensive") })
+                    }
+                }
+                val nameRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+                nameRow.addView(TextView(ctx).apply {
+                    text = cName; textSize = 14f; setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); setTextIsSelectable(true)
+                })
+                if (cAge.isNotBlank()) nameRow.addView(TextView(ctx).apply { text = "Age $cAge"; textSize = 12f; setTextColor(colorPrimary); setTextIsSelectable(true) })
+                row.addView(nameRow)
+                val detailParts = listOfNotNull(cLoc.takeIf { it.isNotBlank() }, cPhone.takeIf { it.isNotBlank() }?.let { "☎ $it" })
+                if (detailParts.isNotEmpty()) row.addView(TextView(ctx).apply {
+                    text = detailParts.joinToString("   "); textSize = 12f
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(2f) }; setTextIsSelectable(true)
+                })
+                headerLayout.addView(row); addDivider(headerLayout)
+            }
+            headerCard.addView(headerLayout); container.addView(headerCard, 0)
+        }
+
+        val cseProfiles = meta["cse_profile_links"]?.takeIf { it.isNotBlank() }?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+        if (cseProfiles.size >= 2) {
+            val (profCard, profLayout) = makeCard()
+            profLayout.addView(TextView(ctx).apply {
+                text = "MATCHING PROFILES FOUND — TAP TO VIEW"
+                textSize = 10f; letterSpacing = 0.1f
+                setTypeface(typeface, Typeface.BOLD); setTextColor(colorPrimary); setTextIsSelectable(true)
+            })
+            profLayout.addView(TextView(ctx).apply {
+                text = "${cseProfiles.size} profiles indexed by Google. Tap to open in browser — view full contact info directly on the site."
+                textSize = 12f
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(4f); it.bottomMargin = dp(8f) }
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary)); setTextIsSelectable(true)
+            })
+            cseProfiles.forEach { line ->
+                val parts = line.split(" → ", limit = 2)
+                val site = parts.firstOrNull()?.trim() ?: "Profile"
+                val url = parts.getOrNull(1)?.trim() ?: line.trim()
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10f), 0, dp(10f))
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    isClickable = true; isFocusable = true
+                    setBackgroundResource(android.R.attr.selectableItemBackground.let { a -> val o = TypedValue(); ctx.theme.resolveAttribute(a, o, true); o.resourceId })
+                    setOnClickListener {
+                        val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                        val pkg = when (prefs.getString("pref_browser", "firefox")) {
+                            "ddg" -> "com.duckduckgo.mobile.android"; "chrome" -> "com.android.chrome"; "default" -> null; else -> "org.mozilla.firefox"
+                        }
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        if (pkg != null) intent.setPackage(pkg)
+                        try { startActivity(intent) } catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                    }
+                }
+                row.addView(TextView(ctx).apply {
+                    text = site; textSize = 13f; setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(colorPrimary)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); setTextIsSelectable(true)
+                })
+                row.addView(TextView(ctx).apply { text = "›"; textSize = 20f; setTextColor(colorPrimary) })
+                profLayout.addView(row); addDivider(profLayout)
+            }
+            profCard.addView(profLayout)
+            if (candidates.size >= 2) container.addView(profCard, 1) else container.addView(profCard, 0)
+        }
     }
 
     private fun buildAccordion(sections: List<Pair<String, List<Pair<String, String>>>>) {
