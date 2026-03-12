@@ -1018,7 +1018,7 @@ class ResultsFragment : Fragment() {
                 val desc = siteDesc[siteName]
                 val label = if (isNsfw) "⚠ NSFW / $siteName" else "✓ $siteName"
                 rows.add(label to url)
-                if (desc != null) rows.add(if (isNsfw) "  ⚠ Genre" else "  Genre" to desc.removePrefix("⚠ "))
+                if (desc != null) rows.add((if (isNsfw) "  ⚠ Genre" else "  Genre") to desc.removePrefix("⚠ "))
             }
         }
         if (rows.isEmpty()) rows.add("Status" to "No profiles found on tracked platforms")
