@@ -363,11 +363,19 @@ class ResultsFragment : Fragment() {
 
         meta["dork_address_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("ADDRESS INTEL (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(12).forEach { s -> rows.add("Address Intel" to s.trim()) }
         }
         meta["dork_relatives_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("RELATIVES INTEL (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(12).forEach { s -> rows.add("Relatives Intel" to s.trim()) }
+        }
+        meta["dork_voter_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("VOTER RECORDS (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("Voter" to s.trim()) }
+        }
+        meta["dork_email_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("EMAIL PATTERNS (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("Email Pattern" to s.trim()) }
         }
 
         val emails = linkedSetOf<String>()
@@ -430,11 +438,11 @@ class ResultsFragment : Fragment() {
 
         meta["dork_criminal_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("CRIMINAL INTEL (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(12).forEach { s -> rows.add("Criminal" to s.trim()) }
         }
         meta["dork_court_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("COURT INTEL (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(12).forEach { s -> rows.add("Court" to s.trim()) }
         }
 
         if (rows.isEmpty()) rows.add("Status" to "No legal records found for this subject")
@@ -532,11 +540,128 @@ class ResultsFragment : Fragment() {
 
         meta["dork_property_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("PROPERTY INTEL (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Property" to s.trim()) }
         }
         meta["dork_financial_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("FINANCIAL INTEL (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Financial" to s.trim()) }
+        }
+        meta["dork_vehicle_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("VEHICLE TRACE (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Vehicle" to s.trim()) }
+        }
+        meta["dork_education_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("EDUCATION & SCHOOL HISTORY (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Education" to s.trim()) }
+        }
+        meta["dork_yearbook_results"]?.takeIf { it.isNotBlank() }?.let {
+            val existing = meta["dork_education_results"]
+            if (existing.isNullOrBlank()) rows.add(sec("EDUCATION & SCHOOL HISTORY (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("Alumni" to s.trim()) }
+        }
+        meta["dork_awards_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("AWARDS & RECOGNITION (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Award" to s.trim()) }
+        }
+        meta["dork_sports_results"]?.takeIf { it.isNotBlank() }?.let {
+            val existing = meta["dork_awards_results"]
+            if (existing.isNullOrBlank()) rows.add(sec("AWARDS & RECOGNITION (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("Sports" to s.trim()) }
+        }
+        meta["dork_obituary_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("OBITUARY / GENEALOGY (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Obituary" to s.trim()) }
+        }
+        meta["dork_bio_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("PROFESSIONAL BIO (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Bio" to s.trim()) }
+        }
+        meta["dork_linkedin_results"]?.takeIf { it.isNotBlank() }?.let {
+            val existing = meta["dork_bio_results"]
+            if (existing.isNullOrBlank()) rows.add(sec("PROFESSIONAL BIO (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("LinkedIn" to s.trim()) }
+        }
+        meta["dork_philanthropy_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("PHILANTHROPY & BOARD ACTIVITY (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Philanthropy" to s.trim()) }
+        }
+        meta["dork_news_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("DEEP NEWS MENTIONS (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("News" to s.trim()) }
+        }
+        meta["dork_gov_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("GOVERNMENT DOCUMENT MENTIONS (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Gov Doc" to s.trim()) }
+        }
+        meta["dork_social_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("SOCIAL MEDIA TRACES (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Social" to s.trim()) }
+        }
+        meta["dork_leaks_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("⚠ LEAKED DATA (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("⚠ Leak" to s.trim()) }
+        }
+        meta["dork_dark_results"]?.takeIf { it.isNotBlank() }?.let {
+            val existing = meta["dork_leaks_results"]
+            if (existing.isNullOrBlank()) rows.add(sec("⚠ LEAKED DATA (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("⚠ Dark" to s.trim()) }
+        }
+        meta["dork_files_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("DOCUMENT DUMP RESULTS (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("File" to s.trim()) }
+        }
+        run {
+            val tps = meta["dork_tps_results"]; val wp = meta["dork_wp_results"]
+            val spk = meta["dork_spk_results"]; val fps = meta["dork_fps_results"]
+            val rad = meta["dork_rad_results"]; val z411 = meta["dork_411_results"]
+            val zaba = meta["dork_zaba_results"]; val bv = meta["dork_bv_results"]
+            val pf = meta["dork_pf_results"]; val ml = meta["dork_ml_results"]
+            val snippets = listOfNotNull(tps, wp, spk, fps, rad, z411, zaba, bv, pf, ml)
+                .flatMap { it.split("\n---\n") }.filter { it.isNotBlank() }.distinct().take(20)
+            if (snippets.isNotEmpty()) {
+                rows.add(sec("PEOPLE-SEARCH SITE SNIPPETS (AUTO-DORK)"))
+                snippets.forEach { s -> rows.add("Profile Data" to s.trim()) }
+            }
+        }
+
+        val chroniclingTotal = meta["chronicling_total"]?.toIntOrNull() ?: 0
+        if (chroniclingTotal > 0) {
+            rows.add(sec("HISTORICAL NEWSPAPERS (Library of Congress)"))
+            rows.add("Total Hits" to "$chroniclingTotal historical newspaper mention${if (chroniclingTotal != 1) "s" else ""}")
+            meta["chronicling_papers"]?.let { rows.add("Newspapers" to it) }
+            meta["chronicling_states"]?.let { rows.add("States Found In" to it) }
+            meta["chronicling_dates"]?.let { rows.add("Date Range" to it) }
+            meta["chronicling_excerpts"]?.takeIf { it.isNotBlank() }?.let {
+                it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Excerpt" to s.trim()) }
+            }
+            meta["chronicling_link"]?.let { rows.add("⟶ View All on LOC" to it) }
+        }
+
+        val openLibCount = meta["openlibrary_count"]?.toIntOrNull() ?: 0
+        val orcidCount = meta["orcid_count"]?.toIntOrNull() ?: 0
+        val crossrefTotal = meta["crossref_total"]?.toIntOrNull() ?: 0
+        if (openLibCount > 0 || orcidCount > 0 || crossrefTotal > 0) {
+            rows.add(sec("ACADEMIC & PUBLISHED WORKS"))
+            if (openLibCount > 0) {
+                rows.add("Open Library" to "$openLibCount book${if (openLibCount != 1) "s" else ""} found")
+                meta["openlibrary_titles"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { t -> rows.add("Book" to t) }
+                }
+                meta["openlibrary_link"]?.let { rows.add("⟶ Open Library" to it) }
+            }
+            if (orcidCount > 0) {
+                rows.add("ORCID" to "$orcidCount researcher profile${if (orcidCount != 1) "s" else ""}")
+                meta["orcid_ids"]?.let { rows.add("ORCID IDs" to it) }
+                meta["orcid_link"]?.let { rows.add("⟶ ORCID Search" to it) }
+            }
+            if (crossrefTotal > 0) {
+                rows.add("Crossref" to "$crossrefTotal academic publication${if (crossrefTotal != 1) "s" else ""}")
+                meta["crossref_titles"]?.takeIf { it.isNotBlank() }?.let {
+                    it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { t -> rows.add("Publication" to t) }
+                }
+                meta["crossref_journals"]?.let { rows.add("Journals" to it) }
+                meta["crossref_link"]?.let { rows.add("⟶ Crossref Search" to it) }
+            }
         }
 
         val hasSearchIntel = !meta["cse_snippets"].isNullOrBlank() || !meta["bing_snippets"].isNullOrBlank()
@@ -638,7 +763,7 @@ class ResultsFragment : Fragment() {
             meta["dork_people_sites"]?.let { rows.add("⟶ All People-Search Sites" to it) }
             val shownDorkKeys = setOf(
                 "identity_confirm", "address_records", "relatives_map", "criminal_records",
-                "property_records", "vehicle_trace", "social_discovery", "leaked_data", "files_dump",
+                "property_records", "vehicle_trace", "vehicle_records", "social_discovery", "leaked_data", "files_dump",
                 "people_search_tps", "people_search_wp", "people_search_spk", "people_search_fps",
                 "people_search_rad", "people_search_411", "people_search_zaba", "people_search_int",
                 "people_search_pf", "people_search_ml", "people_search_bv", "people_search_aw"
@@ -649,8 +774,17 @@ class ResultsFragment : Fragment() {
                 "business_ties" to "Business Ties",
                 "court_deep" to "Court Deep Search",
                 "voter_records" to "Voter Records",
-                "obituary_cross" to "Obituary Cross-Reference",
-                "dark_mentions" to "Dark Data Mentions"
+                "obituary_cross" to "Obituary / Genealogy",
+                "dark_mentions" to "Dark Data Mentions",
+                "education_school" to "Education & School",
+                "awards_recognition" to "Awards & Recognition",
+                "professional_bio" to "Professional Bio",
+                "linkedin_profile" to "LinkedIn Profile",
+                "philanthropy_board" to "Philanthropy & Boards",
+                "news_deep" to "Deep News Coverage",
+                "government_docs" to "Government Documents",
+                "sports_activity" to "Sports & Athletics",
+                "yearbook_alumni" to "Yearbook & Alumni"
             )
             meta["shadowdork_links"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
                 val keyEnd = line.indexOf("::")

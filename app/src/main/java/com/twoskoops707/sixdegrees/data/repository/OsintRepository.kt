@@ -2140,6 +2140,10 @@ class OsintRepository(context: Context) {
         launch { checkPeopleScrape(query, meta, sources, emit) }
 
         launch { searXPersonSearch(query, meta, sources, emit) }
+        launch { chroniclingAmericaSearch(query, meta, sources, emit) }
+        launch { openLibrarySearch(query, meta, sources, emit) }
+        launch { orcidSearch(query, meta, sources, emit) }
+        launch { crossrefSearch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -2277,6 +2281,148 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("Zo AI Background Check", e.message ?: ""))
+        }
+    }
+
+    private suspend fun chroniclingAmericaSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Chronicling America (LOC)"))
+        try {
+            val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
+            val req = Request.Builder()
+                .url("https://chroniclingamerica.loc.gov/search/pages/results/?andtext=$encoded&format=json&rows=10")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val totalItems = Regex("\"totalItems\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val dates = Regex("\"date\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(8).toList()
+            val papers = Regex("\"title_normal\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val states = Regex("\"state\"\\s*:\\s*\\[\"([^\"]+)\"\\]").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val ocr = Regex("\"ocr_eng\"\\s*:\\s*\"([^\"]{20,300})\"").findAll(body).map { it.groupValues[1].replace("\\n", " ").replace("\\r", "").trim() }.take(5).toList()
+            if (totalItems > 0) {
+                meta["chronicling_total"] = totalItems.toString()
+                if (papers.isNotEmpty()) meta["chronicling_papers"] = papers.joinToString(", ")
+                if (states.isNotEmpty()) meta["chronicling_states"] = states.joinToString(", ")
+                if (dates.isNotEmpty()) meta["chronicling_dates"] = dates.take(5).joinToString(", ")
+                if (ocr.isNotEmpty()) meta["chronicling_excerpts"] = ocr.joinToString("\n---\n")
+                meta["chronicling_link"] = "https://chroniclingamerica.loc.gov/search/pages/results/?andtext=$encoded"
+                sources.add(DataSource("Chronicling America", meta["chronicling_link"], Date(), 0.7))
+                emit(SearchProgressEvent.Found("Chronicling America (LOC)", "$totalItems historical newspaper mention${if (totalItems != 1) "s" else ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Chronicling America (LOC)"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Chronicling America (LOC)", e.message ?: ""))
+        }
+    }
+
+    private suspend fun openLibrarySearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Open Library (Books)"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://openlibrary.org/search?q=$encoded&mode=everything&fields=key,title,author_name,first_publish_year,subject&limit=10&format=json")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val numFound = Regex("\"numFound\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val titles = Regex("\"title\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(8).toList()
+            val authors = Regex("\"author_name\"\\s*:\\s*\\[\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val years = Regex("\"first_publish_year\"\\s*:\\s*(\\d{4})").findAll(body).map { it.groupValues[1] }.take(5).toList()
+            if (numFound > 0 && titles.isNotEmpty()) {
+                meta["openlibrary_count"] = numFound.toString()
+                meta["openlibrary_titles"] = titles.take(8).joinToString("\n")
+                if (authors.isNotEmpty()) meta["openlibrary_authors"] = authors.joinToString(", ")
+                if (years.isNotEmpty()) meta["openlibrary_years"] = years.joinToString(", ")
+                meta["openlibrary_link"] = "https://openlibrary.org/search?q=$encoded"
+                sources.add(DataSource("Open Library", meta["openlibrary_link"], Date(), 0.65))
+                emit(SearchProgressEvent.Found("Open Library (Books)", "$numFound book${if (numFound != 1) "s" else ""} found · ${titles.firstOrNull() ?: ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Open Library (Books)"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Open Library (Books)", e.message ?: ""))
+        }
+    }
+
+    private suspend fun orcidSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("ORCID (Academic)"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://pub.orcid.org/v3.0/search/?q=$encoded&rows=5")
+                .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val numFound = Regex("\"num-found\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val orcidIds = Regex("\"path\"\\s*:\\s*\"([\\d]{4}-[\\d]{4}-[\\d]{4}-[\\dX]{4})\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+            if (numFound > 0 && orcidIds.isNotEmpty()) {
+                meta["orcid_count"] = numFound.toString()
+                meta["orcid_ids"] = orcidIds.joinToString(", ")
+                meta["orcid_link"] = "https://orcid.org/orcid-search/search?searchQuery=$encoded"
+                sources.add(DataSource("ORCID", meta["orcid_link"], Date(), 0.8))
+                emit(SearchProgressEvent.Found("ORCID (Academic)", "$numFound researcher profile${if (numFound != 1) "s" else ""} · ${orcidIds.firstOrNull() ?: ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("ORCID (Academic)"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("ORCID (Academic)", e.message ?: ""))
+        }
+    }
+
+    private suspend fun crossrefSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Crossref (Publications)"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.crossref.org/works?query.author=$encoded&rows=5&select=title,author,published-print,DOI,container-title")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0 (mailto:osint@sixdegrees.app)")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val totalResults = Regex("\"total-results\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val titles = Regex("\"title\"\\s*:\\s*\\[\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(8).toList()
+            val journals = Regex("\"container-title\"\\s*:\\s*\\[\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val years = Regex("\"published-print\"\\s*:\\s*\\{[^}]*\"date-parts\"\\s*:\\s*\\[\\[(\\d{4})").findAll(body).map { it.groupValues[1] }.take(5).toList()
+            if (totalResults > 0 && titles.isNotEmpty()) {
+                meta["crossref_total"] = totalResults.toString()
+                meta["crossref_titles"] = titles.take(8).joinToString("\n")
+                if (journals.isNotEmpty()) meta["crossref_journals"] = journals.joinToString(", ")
+                if (years.isNotEmpty()) meta["crossref_years"] = years.joinToString(", ")
+                meta["crossref_link"] = "https://search.crossref.org/?q=$encoded&from_ui=yes"
+                sources.add(DataSource("Crossref", meta["crossref_link"], Date(), 0.75))
+                emit(SearchProgressEvent.Found("Crossref (Publications)", "$totalResults academic publication${if (totalResults != 1) "s" else ""} found"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Crossref (Publications)"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Crossref (Publications)", e.message ?: ""))
         }
     }
 
@@ -2822,7 +2968,7 @@ class OsintRepository(context: Context) {
             if (resp.code != 200 || body.isBlank()) return emptyList()
             Regex("""class="result__snippet"[^>]*>([\s\S]{10,400}?)</a>""").findAll(body)
                 .map { it.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").trim() }
-                .filter { it.isNotBlank() }.take(5).toList()
+                .filter { it.isNotBlank() }.take(15).toList()
         } catch (_: Exception) { emptyList() }
     }
 
@@ -2851,13 +2997,22 @@ class OsintRepository(context: Context) {
             "leaked_data"        to "\"$query\" site:pastebin.com OR site:ghostbin.co OR site:hastebin.com OR site:rentry.co",
             "social_discovery"   to "\"$query\" (instagram OR twitter OR facebook OR tiktok OR linkedin OR snapchat) -buy -sell -news",
             "email_patterns"     to "\"$firstLast\" OR \"$lastFirst\" (email OR contact OR gmail OR yahoo OR hotmail)",
-            "vehicle_trace"      to "\"$query\" (vehicle OR \"license plate\" OR registration OR VIN OR \"car owned\")$locSuffix -dealer",
+            "vehicle_trace"      to "\"$query\"$locSuffix (vehicle OR \"car registration\" OR VIN OR \"license plate\" OR DMV OR \"auto record\") -dealer -buy",
             "business_ties"      to "\"$query\" (CEO OR founder OR director OR owner OR LLC OR \"Inc.\") site:bloomberg.com OR site:linkedin.com OR site:opencorporates.com",
             "court_deep"         to "\"$query\"$locSuffix site:courtlistener.com OR site:judyrecords.com OR site:unicourt.com OR site:pacer.gov",
             "voter_records"      to "\"$query\"$locSuffix (\"registered voter\" OR \"voter registration\" OR precinct OR \"party affiliation\")",
-            "obituary_cross"     to "\"$query\" obituary (survived by OR relatives OR children OR spouse OR sibling OR brother OR sister)",
+            "obituary_cross"     to "\"$query\" obituary (survived by OR relatives OR children OR spouse OR sibling OR brother OR sister) site:legacy.com OR site:findagrave.com OR site:obits.com OR site:tributes.com",
             "dark_mentions"      to "\"$query\" (\"date of birth\" OR dob OR \"social security\" OR ssn) -form -request -apply",
             "files_dump"         to "\"$query\" (filetype:pdf OR filetype:doc OR filetype:xls OR filetype:csv OR filetype:txt) (address OR phone OR email OR \"date of birth\" OR resume OR application OR record)",
+            "education_school"   to "\"$query\" (\"high school\" OR alumni OR graduated OR \"class of\" OR university OR college OR GPA OR transcript OR degree OR commencement)$locSuffix",
+            "awards_recognition" to "\"$query\" (award OR trophy OR recipient OR honored OR inducted OR scholarship OR winner OR champion OR \"first place\" OR \"most valuable\" OR recognition OR achievement)",
+            "professional_bio"   to "\"$query\" (biography OR speaker OR expert OR author OR consultant OR practitioner OR specialist OR professional OR \"has been\") -obituary -news",
+            "linkedin_profile"   to "\"$query\"$locSuffix site:linkedin.com",
+            "philanthropy_board" to "\"$query\" (donor OR foundation OR nonprofit OR board OR trustee OR volunteer OR charity OR committee OR director) -job -hire",
+            "news_deep"          to "\"$query\" (reporter OR article OR interview OR featured OR profile OR coverage OR press release OR announced OR hired OR fired OR accused OR charged) -buy",
+            "government_docs"    to "\"$query\"$locSuffix site:.gov OR site:.us",
+            "sports_activity"    to "\"$query\" (team OR roster OR coach OR player OR athlete OR game OR tournament OR league OR season OR score)",
+            "yearbook_alumni"    to "\"$query\" (yearbook OR alumni OR reunion OR classmate OR \"class of\" OR graduation OR commencement OR diploma)$locSuffix",
             "people_search_tps"  to "\"$query\"$locSuffix site:truepeoplesearch.com",
             "people_search_wp"   to "\"$query\"$locSuffix site:whitepages.com",
             "people_search_spk"  to "\"$query\"$locSuffix site:spokeo.com",
@@ -2903,25 +3058,56 @@ class OsintRepository(context: Context) {
         val peopleSearchDork = URLEncoder.encode("\"$query\"$locSuffix site:truepeoplesearch.com OR site:whitepages.com OR site:spokeo.com OR site:fastpeoplesearch.com OR site:radaris.com OR site:intelius.com OR site:mylife.com", "UTF-8")
         meta["dork_people_sites"] = "${gBase}$peopleSearchDork"
 
-        val autoExecDorks = linkedMapOf(
-            "dork_criminal_results" to dorks["criminal_records"],
-            "dork_address_results" to dorks["address_records"],
-            "dork_relatives_results" to dorks["relatives_map"],
-            "dork_property_results" to dorks["property_records"],
-            "dork_court_results" to dorks["court_deep"],
-            "dork_financial_results" to dorks["financial_exposure"]
+        val autoExecMapping = mapOf(
+            "identity_confirm" to "dork_identity_results",
+            "address_records" to "dork_address_results",
+            "relatives_map" to "dork_relatives_results",
+            "criminal_records" to "dork_criminal_results",
+            "property_records" to "dork_property_results",
+            "financial_exposure" to "dork_financial_results",
+            "court_deep" to "dork_court_results",
+            "vehicle_trace" to "dork_vehicle_results",
+            "education_school" to "dork_education_results",
+            "awards_recognition" to "dork_awards_results",
+            "obituary_cross" to "dork_obituary_results",
+            "professional_bio" to "dork_bio_results",
+            "linkedin_profile" to "dork_linkedin_results",
+            "philanthropy_board" to "dork_philanthropy_results",
+            "news_deep" to "dork_news_results",
+            "government_docs" to "dork_gov_results",
+            "sports_activity" to "dork_sports_results",
+            "yearbook_alumni" to "dork_yearbook_results",
+            "leaked_data" to "dork_leaks_results",
+            "dark_mentions" to "dork_dark_results",
+            "social_discovery" to "dork_social_results",
+            "business_ties" to "dork_business_results",
+            "voter_records" to "dork_voter_results",
+            "people_search_tps" to "dork_tps_results",
+            "people_search_wp" to "dork_wp_results",
+            "people_search_spk" to "dork_spk_results",
+            "people_search_fps" to "dork_fps_results",
+            "people_search_rad" to "dork_rad_results",
+            "people_search_411" to "dork_411_results",
+            "people_search_zaba" to "dork_zaba_results",
+            "people_search_int" to "dork_int_results",
+            "people_search_pf" to "dork_pf_results",
+            "people_search_ml" to "dork_ml_results",
+            "people_search_bv" to "dork_bv_results",
+            "people_search_aw" to "dork_aw_results",
+            "files_dump" to "dork_files_results",
+            "email_patterns" to "dork_email_results"
         )
         var execCount = 0
-        for ((metaKey, dork) in autoExecDorks) {
-            if (dork == null) continue
-            val label = metaKey.removePrefix("dork_").removeSuffix("_results").replace("_", " ")
+        for ((dorkKey, metaKey) in autoExecMapping) {
+            val dork = dorks[dorkKey] ?: continue
+            val label = dorkKey.replace("_", " ")
             emit(SearchProgressEvent.Checking("Auto-Dork: $label"))
             val snippets = runDorkViaSearch(dork)
             if (snippets.isNotEmpty()) {
                 meta[metaKey] = snippets.joinToString("\n---\n")
                 execCount++
             }
-            delay(450)
+            delay(1500)
         }
 
         sources.add(DataSource("ShadowDork Engine", null, Date(), 0.5))
@@ -2943,11 +3129,17 @@ class OsintRepository(context: Context) {
 
         val topDorks = listOf(
             "\"$query\"$locSuffix (address OR city OR state OR age OR phone)",
-            "\"$query\"$locSuffix (relatives OR \"married to\" OR children OR spouse OR sibling)",
-            "\"$query\"$locSuffix (arrest OR criminal OR court OR lawsuit OR conviction)",
+            "\"$query\"$locSuffix (relatives OR \"married to\" OR children OR spouse OR sibling OR parent OR brother OR sister)",
+            "\"$query\"$locSuffix (arrest OR criminal OR court OR lawsuit OR conviction OR sentence OR felony OR misdemeanor)",
             "\"$query\"$locSuffix site:truepeoplesearch.com OR site:whitepages.com OR site:spokeo.com OR site:fastpeoplesearch.com",
             "\"$query\"$locSuffix site:radaris.com OR site:intelius.com OR site:mylife.com OR site:peoplefinder.com OR site:beenverified.com",
-            "\"$query\"$locSuffix site:411.com OR site:zabasearch.com OR site:anywho.com OR site:addresses.com"
+            "\"$query\"$locSuffix site:411.com OR site:zabasearch.com OR site:anywho.com OR site:addresses.com",
+            "\"$query\"$locSuffix (\"high school\" OR college OR university OR alumni OR graduated OR degree)",
+            "\"$query\"$locSuffix (award OR recognition OR trophy OR scholarship OR honor OR achievement)",
+            "\"$query\"$locSuffix (property OR deed OR mortgage OR \"tax record\" OR assessor OR parcel)",
+            "\"$query\"$locSuffix site:linkedin.com OR site:bloomberg.com OR site:crunchbase.com",
+            "\"$query\"$locSuffix obituary OR (survived by) OR memorial OR funeral",
+            "\"$query\"$locSuffix (vehicle OR registration OR VIN OR license OR \"car owner\") site:.gov"
         )
         val allSnippets = mutableListOf<String>()
         val allLinks = mutableListOf<String>()
