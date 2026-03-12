@@ -358,7 +358,16 @@ class ResultsFragment : Fragment() {
         val allRel = extractRelatives(meta)
         if (allRel.isNotEmpty()) {
             rows.add(sec("RELATIVES & ASSOCIATES (${allRel.size})"))
-            allRel.forEach { rows.add("Name" to it) }
+            allRel.forEach { rows.add("⟶ Pivot Search" to "pivot://person/$it") }
+        }
+
+        meta["dork_address_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("ADDRESS INTEL (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+        }
+        meta["dork_relatives_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("RELATIVES INTEL (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
         }
 
         val emails = linkedSetOf<String>()
@@ -417,6 +426,15 @@ class ResultsFragment : Fragment() {
             meta["opensanctions_datasets"]?.let { rows.add("Datasets" to it) }
             meta["opensanctions_countries"]?.let { rows.add("Countries" to it) }
             meta["opensanctions_link"]?.let { rows.add("⟶ View OpenSanctions" to it) }
+        }
+
+        meta["dork_criminal_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("CRIMINAL INTEL (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+        }
+        meta["dork_court_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("COURT INTEL (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
         }
 
         if (rows.isEmpty()) rows.add("Status" to "No legal records found for this subject")
@@ -510,6 +528,15 @@ class ResultsFragment : Fragment() {
             meta["fec_candidates"]?.takeIf { it.isNotBlank() }?.let {
                 it.lines().filter { l -> l.isNotBlank() }.forEach { r -> rows.add("FEC Campaign" to r) }
             }
+        }
+
+        meta["dork_property_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("PROPERTY INTEL (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
+        }
+        meta["dork_financial_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("FINANCIAL INTEL (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Web Intel" to s.trim()) }
         }
 
         val hasSearchIntel = !meta["cse_snippets"].isNullOrBlank() || !meta["bing_snippets"].isNullOrBlank()
@@ -1660,14 +1687,22 @@ class ResultsFragment : Fragment() {
         val isLink = value.startsWith("http://") || value.startsWith("https://")
         val isWarning = label.startsWith("⚠")
         val isCredential = label == "Login" || label == "Password / Hash" || label == "Leaked Record"
+        val isNsfwLink = isWarning && isLink
+        val isPhone = !isPivot && !isLink && value.matches(Regex("\\+?1?[\\s.\\-]?\\(?\\d{3}\\)?[\\s.\\-]\\d{3}[\\s.\\-]\\d{4}.*"))
+        val isEmail = !isPivot && !isLink && !isPhone && value.contains("@") && value.contains(".") && !value.contains(" ") && value.length < 100
 
         when {
+            isNsfwLink -> {
+                b.rowAccentStripe.visibility = View.VISIBLE
+                b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.score_red))
+                b.root.setBackgroundColor(ContextCompat.getColor(ctx, R.color.error_dim))
+            }
             isWarning -> {
                 b.rowAccentStripe.visibility = View.VISIBLE
                 b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.score_red))
                 b.root.setBackgroundColor(ContextCompat.getColor(ctx, R.color.error_dim))
             }
-            isPivot -> {
+            isPivot || isPhone || isEmail -> {
                 b.rowAccentStripe.visibility = View.VISIBLE
                 b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
                 b.root.setBackgroundColor(Color.TRANSPARENT)
@@ -1701,12 +1736,12 @@ class ResultsFragment : Fragment() {
                 ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, tv, true)
                 b.tvRowValue.setTextColor(tv.data)
             }
-            isWarning -> {
+            isWarning && !isLink -> {
                 b.tvRowValue.typeface = Typeface.DEFAULT_BOLD
                 b.tvRowValue.textSize = 14f
                 b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.score_red))
             }
-            isLink || isPivot -> {
+            isLink || isPivot || isPhone || isEmail -> {
                 b.tvRowValue.typeface = Typeface.DEFAULT
                 b.tvRowValue.textSize = 13f
                 b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
@@ -1748,8 +1783,24 @@ class ResultsFragment : Fragment() {
                     catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))) }
                 }
             }
+            isPhone -> {
+                val digits = value.replace(Regex("[^\\d+]"), "")
+                b.root.setOnClickListener {
+                    try { startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$digits"))) }
+                    catch (_: Exception) {}
+                }
+            }
+            isEmail -> {
+                b.root.setOnClickListener {
+                    try { startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$value"))) }
+                    catch (_: Exception) {}
+                }
+            }
             else -> b.root.setOnClickListener(null)
         }
+
+        b.tvRowValue.setTextIsSelectable(true)
+        b.tvRowLabel.setTextIsSelectable(true)
     }
 
 }

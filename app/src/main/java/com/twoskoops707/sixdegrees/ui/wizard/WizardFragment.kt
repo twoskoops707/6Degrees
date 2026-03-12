@@ -1,28 +1,24 @@
 package com.twoskoops707.sixdegrees.ui.wizard
 
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import android.os.Bundle
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
 import com.twoskoops707.sixdegrees.databinding.FragmentWizardBinding
+import java.io.File
 
 class WizardFragment : Fragment() {
 
@@ -42,6 +38,19 @@ class WizardFragment : Fragment() {
         "spiderfoot" to "sfcli.py"
     )
 
+    private val toolInstallCmds = mapOf(
+        "nmap" to "pkg install -y nmap",
+        "tor" to "pkg install -y tor",
+        "torsocks" to "pkg install -y torsocks",
+        "sherlock" to "pkg install -y python && pip install sherlock-project",
+        "theharvester" to "pkg install -y python && pip install theHarvester",
+        "hashcat" to "pkg install -y hashcat",
+        "tshark" to "pkg install -y tshark",
+        "recon-ng" to "pkg install -y python && pip install recon-ng",
+        "aircrack-ng" to "pkg install -y aircrack-ng",
+        "sfcli.py" to "pkg install -y python && pip install spiderfoot"
+    )
+
     private val apiDefs = listOf(
         Triple("Pipl", "pipl", "pipl"),
         Triple("People Data Labs", "pdl", "pdl"),
@@ -54,27 +63,6 @@ class WizardFragment : Fragment() {
         Triple("VirusTotal", "virustotal", "virustotal"),
         Triple("AbuseIPDB", "abuseipdb", "abuseipdb")
     )
-
-    private val toolRows = mutableMapOf<String, TextView>()
-    private val toolDots = mutableMapOf<String, TextView>()
-    private val handler = Handler(Looper.getMainLooper())
-    private var termuxResultReceiver: BroadcastReceiver? = null
-
-    companion object {
-        private const val RESULT_ACTION = "com.twoskoops707.sixdegrees.TERMUX_RESULT"
-        private const val TERMUX_PERMISSION = "com.termux.permission.RUN_COMMAND"
-        private const val TIMEOUT_MS = 12000L
-    }
-
-    private val requestTermuxPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            requestTermuxToolCheck()
-        } else {
-            showPermissionDeniedError()
-        }
-    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWizardBinding.inflate(inflater, container, false)
@@ -91,7 +79,6 @@ class WizardFragment : Fragment() {
         val apiKeyManager = ApiKeyManager(requireContext())
         populateApiKeys(apiKeyManager)
         populateTermuxTools()
-        checkTermuxPermissionAndRun()
 
         binding.btnDone.setOnClickListener {
             requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE)
@@ -100,133 +87,48 @@ class WizardFragment : Fragment() {
         }
     }
 
-    private fun checkTermuxPermissionAndRun() {
-        val ctx = requireContext()
-        val granted = ContextCompat.checkSelfPermission(ctx, TERMUX_PERMISSION) == PackageManager.PERMISSION_GRANTED
-        if (granted) {
-            requestTermuxToolCheck()
-        } else {
-            requestTermuxPermission.launch(TERMUX_PERMISSION)
+    private fun populateTermuxTools() {
+        val container = binding.termuxToolsContainer
+        for ((displayName, binName) in termuxTools) {
+            val binPath = "/data/data/com.termux/files/usr/bin/$binName"
+            val installed = File(binPath).exists()
+            val installCmd = toolInstallCmds[binName] ?: "pkg install -y $binName"
+            val (row, _, statusLabel) = buildStatusRowDetailed(
+                displayName,
+                if (installed) "READY" else "Tap to install",
+                pending = false,
+                isOk = installed
+            )
+            if (!installed) {
+                statusLabel.text = installCmd
+                row.setOnClickListener { launchTermuxInstall(installCmd) }
+            }
+            container.addView(row)
+            if (termuxTools.last().first != displayName) container.addView(buildDivider())
         }
     }
 
-    private fun requestTermuxToolCheck() {
-        val binNames = termuxTools.map { it.second }
-        val checkCmds = binNames.joinToString("; ") { bin ->
-            "which $bin >/dev/null 2>&1 && echo '$bin:found' || echo '$bin:missing'"
-        }
-
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                handler.removeCallbacksAndMessages(null)
-                val bundle = intent.getBundleExtra("result")
-                val stdout = bundle?.getString("stdout") ?: ""
-                if (_binding == null) return
-                if (stdout.isBlank()) {
-                    showTermuxConnectError()
-                } else {
-                    parseAndShowToolResults(stdout)
-                }
-                unregisterSafely(context)
-            }
-        }
-        termuxResultReceiver = receiver
-
-        val filter = IntentFilter(RESULT_ACTION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            requireContext().registerReceiver(receiver, filter)
-        }
-
-        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
-
-        val pendingIntent = PendingIntent.getBroadcast(
-            requireContext(),
-            1001,
-            Intent(RESULT_ACTION).setPackage(requireContext().packageName),
-            piFlags
-        )
-
-        val intent = Intent().apply {
-            setClassName("com.termux", "com.termux.app.RunCommandService")
-            action = "com.termux.RUN_COMMAND"
-            putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
-            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", checkCmds))
-            putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-            putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-            putExtra("com.termux.RUN_COMMAND_PENDING_INTENT", pendingIntent)
-        }
-
+    private fun launchTermuxInstall(cmd: String) {
+        val clipboard = requireContext().getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("install_cmd", cmd))
         try {
+            val intent = Intent().apply {
+                setClassName("com.termux", "com.termux.app.RunCommandService")
+                action = "com.termux.RUN_COMMAND"
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
+            }
             requireContext().startForegroundService(intent)
         } catch (_: Exception) {
-            try { requireContext().startService(intent) } catch (_: Exception) {}
-        }
-
-        handler.postDelayed({
-            if (termuxResultReceiver != null) {
-                showTermuxConnectError()
-                unregisterSafely(requireContext())
-            }
-        }, TIMEOUT_MS)
-    }
-
-    private fun unregisterSafely(context: Context) {
-        termuxResultReceiver?.let {
-            try { context.unregisterReceiver(it) } catch (_: Exception) {}
-            termuxResultReceiver = null
-        }
-    }
-
-    private fun parseAndShowToolResults(stdout: String) {
-        if (_binding == null) return
-        val results = mutableMapOf<String, Boolean>()
-        stdout.trim().lines().forEach { line ->
-            val parts = line.trim().split(":")
-            if (parts.size >= 2) {
-                results[parts[0].trim()] = parts[1].trim() == "found"
-            }
-        }
-        termuxTools.forEach { (displayName, binName) ->
-            val found = results[binName]
-            if (found != null) updateToolRow(displayName, binName, found)
-        }
-    }
-
-    private fun updateToolRow(displayName: String, binName: String, installed: Boolean) {
-        val dot = toolDots[displayName] ?: return
-        val label = toolRows[displayName] ?: return
-        val ctx = context ?: return
-        dot.setTextColor(
-            if (installed) ContextCompat.getColor(ctx, R.color.success)
-            else ContextCompat.getColor(ctx, R.color.error)
-        )
-        label.text = if (installed) "READY" else "pkg install $binName"
-        label.setTextColor(
-            if (installed) ContextCompat.getColor(ctx, R.color.success)
-            else ContextCompat.getColor(ctx, R.color.text_secondary)
-        )
-    }
-
-    private fun showTermuxConnectError() {
-        if (_binding == null) return
-        val ctx = context ?: return
-        termuxTools.forEach { (displayName, _) ->
-            val label = toolRows[displayName] ?: return@forEach
-            label.text = "No response — check termux.properties"
-            label.setTextColor(ContextCompat.getColor(ctx, R.color.warning))
-        }
-    }
-
-    private fun showPermissionDeniedError() {
-        if (_binding == null) return
-        val ctx = context ?: return
-        termuxTools.forEach { (displayName, _) ->
-            val label = toolRows[displayName] ?: return@forEach
-            label.text = "Permission denied"
-            label.setTextColor(ContextCompat.getColor(ctx, R.color.error))
+            try {
+                requireContext().startActivity(Intent().apply {
+                    setClassName("com.termux", "com.termux.app.TermuxActivity")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            } catch (_: Exception) {}
+            Toast.makeText(requireContext(), "Command copied! Paste in Termux to install.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -240,17 +142,6 @@ class WizardFragment : Fragment() {
         }
         container.setOnClickListener {
             findNavController().navigate(R.id.action_wizard_to_api_settings)
-        }
-    }
-
-    private fun populateTermuxTools() {
-        val container = binding.termuxToolsContainer
-        for ((displayName, binName) in termuxTools) {
-            val (row, dot, statusLabel) = buildStatusRowDetailed(displayName, "Checking…", pending = true)
-            toolDots[displayName] = dot
-            toolRows[displayName] = statusLabel
-            container.addView(row)
-            if (termuxTools.last().first != displayName) container.addView(buildDivider())
         }
     }
 
@@ -332,11 +223,6 @@ class WizardFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        handler.removeCallbacksAndMessages(null)
-        termuxResultReceiver?.let {
-            try { requireContext().unregisterReceiver(it) } catch (_: Exception) {}
-            termuxResultReceiver = null
-        }
         _binding = null
     }
 }

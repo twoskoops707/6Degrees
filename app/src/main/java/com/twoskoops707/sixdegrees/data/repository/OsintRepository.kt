@@ -2808,6 +2808,24 @@ class OsintRepository(context: Context) {
         }
     }
 
+    private suspend fun runDorkViaSearch(dork: String): List<String> {
+        return try {
+            val encoded = URLEncoder.encode(dork, "UTF-8")
+            val req = Request.Builder()
+                .url("https://html.duckduckgo.com/html/?q=$encoded")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (resp.code != 200 || body.isBlank()) return emptyList()
+            Regex("""class="result__snippet"[^>]*>([\s\S]{10,400}?)</a>""").findAll(body)
+                .map { it.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").trim() }
+                .filter { it.isNotBlank() }.take(5).toList()
+        } catch (_: Exception) { emptyList() }
+    }
+
     private suspend fun generateAndRunDorks(
         query: String,
         meta: ConcurrentHashMap<String, String>,
@@ -2885,8 +2903,29 @@ class OsintRepository(context: Context) {
         val peopleSearchDork = URLEncoder.encode("\"$query\"$locSuffix site:truepeoplesearch.com OR site:whitepages.com OR site:spokeo.com OR site:fastpeoplesearch.com OR site:radaris.com OR site:intelius.com OR site:mylife.com", "UTF-8")
         meta["dork_people_sites"] = "${gBase}$peopleSearchDork"
 
+        val autoExecDorks = linkedMapOf(
+            "dork_criminal_results" to dorks["criminal_records"],
+            "dork_address_results" to dorks["address_records"],
+            "dork_relatives_results" to dorks["relatives_map"],
+            "dork_property_results" to dorks["property_records"],
+            "dork_court_results" to dorks["court_deep"],
+            "dork_financial_results" to dorks["financial_exposure"]
+        )
+        var execCount = 0
+        for ((metaKey, dork) in autoExecDorks) {
+            if (dork == null) continue
+            val label = metaKey.removePrefix("dork_").removeSuffix("_results").replace("_", " ")
+            emit(SearchProgressEvent.Checking("Auto-Dork: $label"))
+            val snippets = runDorkViaSearch(dork)
+            if (snippets.isNotEmpty()) {
+                meta[metaKey] = snippets.joinToString("\n---\n")
+                execCount++
+            }
+            delay(450)
+        }
+
         sources.add(DataSource("ShadowDork Engine", null, Date(), 0.5))
-        emit(SearchProgressEvent.Found("ShadowDork Engine", "${dorks.size} specialized search dorks generated"))
+        emit(SearchProgressEvent.Found("ShadowDork Engine", "${dorks.size} dorks generated · $execCount auto-executed via DDG"))
     }
 
     private suspend fun googleCsePersonSearch(
