@@ -2815,55 +2815,75 @@ class OsintRepository(context: Context) {
         emit: suspend (SearchProgressEvent) -> Unit
     ) {
         emit(SearchProgressEvent.Checking("ShadowDork Engine"))
-        val enc = URLEncoder.encode("\"$query\"", "UTF-8")
-        val nameEnc = URLEncoder.encode(query, "UTF-8")
+        val state = meta["person_state"] ?: ""
+        val city = meta["person_city"] ?: ""
+        val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
+        val locSuffix = if (loc.isNotBlank()) " $loc" else ""
+        val nameParts = query.trim().split("\\s+".toRegex())
+        val firstLast = if (nameParts.size >= 2) "${nameParts.first()}.${nameParts.last()}" else query
+        val lastFirst = if (nameParts.size >= 2) "${nameParts.last()} ${nameParts.first()}" else query
+
         val dorks = linkedMapOf(
-            "identity_confirm" to "\"$query\" (\"date of birth\" OR \"born in\" OR age) -obituary",
-            "address_records" to "\"$query\" (\"lives at\" OR \"address\" OR \"moved to\" OR \"resides\") -jobs -hire",
-            "relatives_map" to "\"$query\" (\"related to\" OR \"son of\" OR \"daughter of\" OR \"married to\" OR relatives)",
-            "criminal_records" to "\"$query\" (arrest OR convicted OR \"sentenced to\" OR mugshot OR \"guilty\") -fiction",
-            "property_records" to "\"$query\" (\"property owner\" OR deed OR mortgage OR \"square feet\") site:zillow.com OR site:redfin.com OR site:realtor.com",
-            "financial_exposure" to "\"$query\" (bankruptcy OR lien OR garnishment OR foreclosure OR judgment)",
-            "leaked_data" to "\"$query\" site:pastebin.com OR site:ghostbin.co OR site:hastebin.com OR site:rentry.co",
-            "social_discovery" to "\"$query\" (instagram OR twitter OR facebook OR tiktok) -buy -sell -news",
-            "email_patterns" to "\"${query.split(" ").joinToString(".")}\" OR \"${query.split(" ").take(1).firstOrNull() ?: ""}${query.split(" ").drop(1).firstOrNull() ?: ""}\" email OR contact",
-            "vehicle_trace" to "\"$query\" (vehicle OR \"license plate\" OR registration OR VIN OR \"car owned\") -dealer",
-            "business_ties" to "\"$query\" (CEO OR founder OR director OR owner OR LLC OR \"Inc.\") site:bloomberg.com OR site:linkedin.com",
-            "court_deep" to "\"$query\" site:courtlistener.com OR site:judyrecords.com OR site:unicourt.com",
-            "voter_records" to "\"$query\" (\"registered voter\" OR \"voter registration\" OR precinct OR \"party affiliation\")",
-            "obituary_cross" to "\"$query\" obituary (survived by OR relatives OR children OR spouse)",
-            "dark_mentions" to "\"$query\" (\"ssn\" OR \"social security\" OR \"date of birth\" OR dob) -form -request",
-            "files_dump" to "\"$query\" (filetype:pdf OR filetype:doc OR filetype:docx OR filetype:xls OR filetype:xlsx OR filetype:csv OR filetype:txt OR filetype:ppt OR filetype:pptx) (name OR address OR phone OR email OR \"date of birth\" OR resume OR cv OR application OR record)"
+            "identity_confirm"   to "\"$query\" (\"date of birth\" OR \"born in\" OR age)$locSuffix -obituary",
+            "address_records"    to "\"$query\" (\"lives at\" OR address OR \"moved to\" OR resides)$locSuffix -jobs -hire",
+            "relatives_map"      to "\"$query\" (\"related to\" OR \"son of\" OR \"daughter of\" OR \"married to\" OR relatives OR spouse OR children)",
+            "criminal_records"   to "\"$query\" (arrest OR convicted OR \"sentenced to\" OR mugshot OR \"guilty\")$locSuffix -fiction",
+            "property_records"   to "\"$query\"$locSuffix (\"property owner\" OR deed OR mortgage OR \"square feet\") site:zillow.com OR site:redfin.com OR site:realtor.com OR site:county.gov",
+            "financial_exposure" to "\"$query\" (bankruptcy OR lien OR garnishment OR foreclosure OR judgment OR \"tax lien\")$locSuffix",
+            "leaked_data"        to "\"$query\" site:pastebin.com OR site:ghostbin.co OR site:hastebin.com OR site:rentry.co",
+            "social_discovery"   to "\"$query\" (instagram OR twitter OR facebook OR tiktok OR linkedin OR snapchat) -buy -sell -news",
+            "email_patterns"     to "\"$firstLast\" OR \"$lastFirst\" (email OR contact OR gmail OR yahoo OR hotmail)",
+            "vehicle_trace"      to "\"$query\" (vehicle OR \"license plate\" OR registration OR VIN OR \"car owned\")$locSuffix -dealer",
+            "business_ties"      to "\"$query\" (CEO OR founder OR director OR owner OR LLC OR \"Inc.\") site:bloomberg.com OR site:linkedin.com OR site:opencorporates.com",
+            "court_deep"         to "\"$query\"$locSuffix site:courtlistener.com OR site:judyrecords.com OR site:unicourt.com OR site:pacer.gov",
+            "voter_records"      to "\"$query\"$locSuffix (\"registered voter\" OR \"voter registration\" OR precinct OR \"party affiliation\")",
+            "obituary_cross"     to "\"$query\" obituary (survived by OR relatives OR children OR spouse OR sibling OR brother OR sister)",
+            "dark_mentions"      to "\"$query\" (\"date of birth\" OR dob OR \"social security\" OR ssn) -form -request -apply",
+            "files_dump"         to "\"$query\" (filetype:pdf OR filetype:doc OR filetype:xls OR filetype:csv OR filetype:txt) (address OR phone OR email OR \"date of birth\" OR resume OR application OR record)",
+            "people_search_tps"  to "\"$query\"$locSuffix site:truepeoplesearch.com",
+            "people_search_wp"   to "\"$query\"$locSuffix site:whitepages.com",
+            "people_search_spk"  to "\"$query\"$locSuffix site:spokeo.com",
+            "people_search_fps"  to "\"$query\"$locSuffix site:fastpeoplesearch.com",
+            "people_search_rad"  to "\"$query\"$locSuffix site:radaris.com",
+            "people_search_411"  to "\"$query\"$locSuffix site:411.com",
+            "people_search_zaba" to "\"$query\" site:zabasearch.com",
+            "people_search_int"  to "\"$query\"$locSuffix site:intelius.com",
+            "people_search_pf"   to "\"$query\"$locSuffix site:peoplefinder.com",
+            "people_search_ml"   to "\"$query\"$locSuffix site:mylife.com",
+            "people_search_bv"   to "\"$query\"$locSuffix site:beenverified.com",
+            "people_search_aw"   to "\"$query\"$locSuffix site:anywho.com"
         )
 
         val gBase = "https://www.google.com/search?q="
         val bBase = "https://www.bing.com/search?q="
 
-        val dorkLinks = dorks.entries.mapIndexed { i, (key, dork) ->
+        val dorkLinks = dorks.entries.map { (key, dork) ->
             val dorkEnc = URLEncoder.encode(dork, "UTF-8")
             "$key::G:${gBase}$dorkEnc::B:${bBase}$dorkEnc"
         }
         meta["shadowdork_count"] = dorks.size.toString()
         meta["shadowdork_links"] = dorkLinks.joinToString("\n")
 
-        val identityDork = URLEncoder.encode("\"$query\" (\"date of birth\" OR age OR city OR state) -obituary", "UTF-8")
+        val identityDork = URLEncoder.encode("\"$query\" (\"date of birth\" OR age OR city OR state)$locSuffix -obituary", "UTF-8")
         meta["dork_identity"] = "${gBase}$identityDork"
         val relativesDork = URLEncoder.encode("\"$query\" (relatives OR \"related to\" OR \"married to\" OR children OR spouse)", "UTF-8")
         meta["dork_relatives"] = "${gBase}$relativesDork"
-        val addressDork = URLEncoder.encode("\"$query\" (address OR \"lives in\" OR \"moved to\") site:whitepages.com OR site:411.com OR site:addresses.com", "UTF-8")
+        val addressDork = URLEncoder.encode("\"$query\"$locSuffix (address OR \"lives in\" OR \"moved to\") site:whitepages.com OR site:411.com OR site:addresses.com OR site:spokeo.com", "UTF-8")
         meta["dork_address"] = "${gBase}$addressDork"
-        val criminalDork = URLEncoder.encode("\"$query\" (arrest OR mugshot OR convicted OR sentenced OR guilty) -news -jobs", "UTF-8")
+        val criminalDork = URLEncoder.encode("\"$query\"$locSuffix (arrest OR mugshot OR convicted OR sentenced OR guilty) -news -jobs", "UTF-8")
         meta["dork_criminal"] = "${gBase}$criminalDork"
         val leakDork = URLEncoder.encode("\"$query\" site:pastebin.com OR site:ghostbin.co OR site:hastebin.com", "UTF-8")
         meta["dork_leaks"] = "${gBase}$leakDork"
-        val propertyDork = URLEncoder.encode("\"$query\" property owner OR deed OR title -for sale", "UTF-8")
+        val propertyDork = URLEncoder.encode("\"$query\"$locSuffix (\"property owner\" OR deed OR title) -for sale", "UTF-8")
         meta["dork_property"] = "${gBase}$propertyDork"
-        val vehicleDork = URLEncoder.encode("\"$query\" vehicle OR registration OR \"license plate\" -buy -sell", "UTF-8")
+        val vehicleDork = URLEncoder.encode("\"$query\"$locSuffix (vehicle OR registration OR \"license plate\") -buy -sell", "UTF-8")
         meta["dork_vehicle"] = "${gBase}$vehicleDork"
-        val socialDork = URLEncoder.encode("\"$query\" facebook OR instagram OR twitter OR tiktok OR snapchat -news -buy", "UTF-8")
+        val socialDork = URLEncoder.encode("\"$query\" (facebook OR instagram OR twitter OR tiktok OR snapchat) -news -buy", "UTF-8")
         meta["dork_social"] = "${gBase}$socialDork"
-        val filesDork = URLEncoder.encode("\"$query\" (filetype:pdf OR filetype:doc OR filetype:docx OR filetype:xls OR filetype:xlsx OR filetype:csv OR filetype:txt OR filetype:ppt OR filetype:pptx) (name OR address OR phone OR email OR \"date of birth\" OR resume OR cv OR application OR record)", "UTF-8")
+        val filesDork = URLEncoder.encode("\"$query\" (filetype:pdf OR filetype:doc OR filetype:xls OR filetype:csv OR filetype:txt) (address OR phone OR email OR \"date of birth\" OR resume OR record)", "UTF-8")
         meta["dork_files"] = "${gBase}$filesDork"
+        val peopleSearchDork = URLEncoder.encode("\"$query\"$locSuffix site:truepeoplesearch.com OR site:whitepages.com OR site:spokeo.com OR site:fastpeoplesearch.com OR site:radaris.com OR site:intelius.com OR site:mylife.com", "UTF-8")
+        meta["dork_people_sites"] = "${gBase}$peopleSearchDork"
 
         sources.add(DataSource("ShadowDork Engine", null, Date(), 0.5))
         emit(SearchProgressEvent.Found("ShadowDork Engine", "${dorks.size} specialized search dorks generated"))
@@ -2877,38 +2897,58 @@ class OsintRepository(context: Context) {
         sources: MutableList<DataSource>,
         emit: suspend (SearchProgressEvent) -> Unit
     ) {
+        val state = meta["person_state"] ?: ""
+        val city = meta["person_city"] ?: ""
+        val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
+        val locSuffix = if (loc.isNotBlank()) " $loc" else ""
+
         val topDorks = listOf(
-            "\"$query\" (address OR city OR state OR age)",
-            "\"$query\" (relatives OR \"married to\" OR children OR spouse)",
-            "\"$query\" (arrest OR criminal OR court OR lawsuit)"
+            "\"$query\"$locSuffix (address OR city OR state OR age OR phone)",
+            "\"$query\"$locSuffix (relatives OR \"married to\" OR children OR spouse OR sibling)",
+            "\"$query\"$locSuffix (arrest OR criminal OR court OR lawsuit OR conviction)",
+            "\"$query\"$locSuffix site:truepeoplesearch.com OR site:whitepages.com OR site:spokeo.com OR site:fastpeoplesearch.com",
+            "\"$query\"$locSuffix site:radaris.com OR site:intelius.com OR site:mylife.com OR site:peoplefinder.com OR site:beenverified.com",
+            "\"$query\"$locSuffix site:411.com OR site:zabasearch.com OR site:anywho.com OR site:addresses.com"
         )
         val allSnippets = mutableListOf<String>()
         val allLinks = mutableListOf<String>()
+        val profileLinks = mutableListOf<String>()
+        val peopleSearchDomains = setOf("truepeoplesearch.com", "whitepages.com", "spokeo.com",
+            "fastpeoplesearch.com", "radaris.com", "intelius.com", "mylife.com",
+            "peoplefinder.com", "beenverified.com", "411.com", "zabasearch.com",
+            "anywho.com", "addresses.com")
         for (dork in topDorks) {
-            emit(SearchProgressEvent.Checking("Google CSE: ${dork.take(40)}…"))
+            emit(SearchProgressEvent.Checking("Google CSE: ${dork.take(50)}…"))
             try {
                 val resp = RetrofitClient.googleCseService.search(apiKey, cseId, dork)
                 if (resp.isSuccessful && resp.body()?.items != null) {
                     apiKeyManager.recordUsage("google_cse")
                     val items = resp.body()!!.items!!
-                    items.take(3).forEach { item ->
-                        item.snippet?.let { allSnippets.add(it.take(200)) }
-                        item.link?.let { allLinks.add("${item.displayLink ?: item.link}: $it") }
+                    items.take(5).forEach { item ->
+                        item.snippet?.let { allSnippets.add(it.replace("\n", " ").take(250)) }
+                        item.link?.let { link ->
+                            val display = item.displayLink ?: link
+                            allLinks.add("$display: $link")
+                            val domain = peopleSearchDomains.firstOrNull { link.contains(it) }
+                            if (domain != null) profileLinks.add("$domain → $link")
+                        }
                     }
                 } else if (!resp.isSuccessful) {
-                    meta["cse_error"] = "HTTP ${resp.code()}"
+                    meta["cse_error"] = "HTTP ${resp.code()}: check API key + CX in Settings"
                 }
             } catch (e: Exception) {
-                meta["cse_error"] = e.message?.take(100) ?: "Unknown error"
+                meta["cse_error"] = e.message?.take(150) ?: "Unknown error"
             }
-            delay(300)
+            delay(350)
         }
         if (allSnippets.isNotEmpty()) {
-            meta["cse_snippets"] = allSnippets.take(6).joinToString("\n---\n")
-            meta["cse_links"] = allLinks.take(6).joinToString("\n")
+            meta["cse_snippets"] = allSnippets.take(9).joinToString("\n---\n")
+            meta["cse_links"] = allLinks.take(9).joinToString("\n")
             meta["cse_result_count"] = allSnippets.size.toString()
-            sources.add(DataSource("Google CSE", null, Date(), 0.85))
-            emit(SearchProgressEvent.Found("Google CSE", "${allSnippets.size} results from targeted dork searches"))
+            if (profileLinks.isNotEmpty()) meta["cse_profile_links"] = profileLinks.take(10).joinToString("\n")
+            sources.add(DataSource("Google CSE", null, Date(), 0.9))
+            emit(SearchProgressEvent.Found("Google CSE",
+                "${allSnippets.size} results · ${profileLinks.size} profile links from people-search sites"))
         } else {
             emit(SearchProgressEvent.NotFound("Google CSE"))
         }
@@ -3010,10 +3050,20 @@ class OsintRepository(context: Context) {
         sources: MutableList<DataSource>,
         emit: suspend (SearchProgressEvent) -> Unit
     ) = coroutineScope {
+        val parsedFields = query.split("|").mapNotNull {
+            val p = it.split("=", limit = 2)
+            if (p.size == 2) p[0].trim() to p[1].trim() else null
+        }.toMap()
+        val companyName = query.split("|").firstOrNull { !it.contains("=") }?.trim()
+            ?: parsedFields["name"] ?: query.split("|").first().trim()
+        val companyDomain = parsedFields["domain"] ?: ""
+        meta["company_name_query"] = companyName
+        if (companyDomain.isNotBlank()) meta["company_domain_query"] = companyDomain
+
         launch {
             emit(SearchProgressEvent.Checking("OpenCorporates"))
             try {
-                val resp = RetrofitClient.openCorporatesService.searchCompanies(query)
+                val resp = RetrofitClient.openCorporatesService.searchCompanies(companyName)
                 if (resp.isSuccessful) {
                     val companies = resp.body()?.results?.companies ?: emptyList()
                     meta["company_count"] = companies.size.toString()
@@ -3038,7 +3088,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("OpenCorporates Officers"))
             try {
-                val resp = RetrofitClient.openCorporatesService.searchOfficers(query)
+                val resp = RetrofitClient.openCorporatesService.searchOfficers(companyName)
                 if (resp.isSuccessful) {
                     val officers = resp.body()?.results?.officers ?: emptyList()
                     meta["officer_count"] = officers.size.toString()
@@ -3065,7 +3115,7 @@ class OsintRepository(context: Context) {
             launch {
                 emit(SearchProgressEvent.Checking("Hunter.io"))
                 try {
-                    val domain = query.replace(" ", "").lowercase() + ".com"
+                    val domain = if (companyDomain.isNotBlank()) companyDomain else companyName.replace(" ", "").lowercase() + ".com"
                     val resp = RetrofitClient.hunterService.searchDomain(domain = domain, apiKey = hunterKey)
                     if (resp.isSuccessful) {
                         val emails = resp.body()?.data?.emails ?: emptyList()
@@ -3089,7 +3139,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("WikiData Companies"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val encoded = URLEncoder.encode(companyName, "UTF-8")
                 val req = Request.Builder()
                     .url("https://www.wikidata.org/w/api.php?action=wbsearchentities&search=$encoded&language=en&limit=3&format=json&type=item")
                     .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
@@ -3122,7 +3172,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("SEC EDGAR Companies"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val encoded = URLEncoder.encode(companyName, "UTF-8")
                 val req = Request.Builder()
                     .url("https://efts.sec.gov/LATEST/search-index?q=%22$encoded%22&dateRange=custom&startdt=2000-01-01")
                     .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
@@ -3153,7 +3203,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("Florida SunBiz"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val encoded = URLEncoder.encode(companyName, "UTF-8")
                 val req = Request.Builder()
                     .url("https://search.sunbiz.org/Inquiry/CorporationSearch/GetListCorporations?SearchType=N&SearchTerm=$encoded&ListStartIndex=0")
                     .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
@@ -3188,7 +3238,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("SAM.gov Entity Registry"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val encoded = URLEncoder.encode(companyName, "UTF-8")
                 val req = Request.Builder()
                     .url("https://api.sam.gov/entity-information/v3/entities?api_key=DEMO_KEY&legalBusinessName=$encoded&includeSections=entityRegistration&registrationStatus=A&resultCount=5")
                     .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
@@ -3207,7 +3257,8 @@ class OsintRepository(context: Context) {
                         .joinToString("\n") { (n, s) -> if (s.isNotBlank()) "$n ($s)" else n }
                     if (ueiCodes.isNotEmpty()) meta["sam_uei_codes"] = ueiCodes.joinToString(", ")
                     if (cageNums.isNotEmpty()) meta["sam_cage_codes"] = cageNums.joinToString(", ")
-                    meta["sam_link"] = "https://sam.gov/search/?keywords=$encoded&index=ei&sort=relevance"
+                    val samEncoded = URLEncoder.encode(companyName, "UTF-8")
+                    meta["sam_link"] = "https://sam.gov/search/?keywords=$samEncoded&index=ei&sort=relevance"
                     sources.add(DataSource("SAM.gov", meta["sam_link"], Date(), 0.8))
                     emit(SearchProgressEvent.Found("SAM.gov Entity Registry", "$totalRecords federal entit${if (totalRecords != 1) "ies" else "y"}: ${entityNames.firstOrNull() ?: ""}"))
                 } else {
@@ -3221,7 +3272,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("GLEIF Entity Search"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val encoded = URLEncoder.encode(companyName, "UTF-8")
                 val req = Request.Builder()
                     .url("https://api.gleif.org/api/v1/fuzzycompletions?field=entity.legalName&q=$encoded&page%5Bsize%5D=5")
                     .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
@@ -3246,7 +3297,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("Corporations Wiki"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val encoded = URLEncoder.encode(companyName, "UTF-8")
                 val req = Request.Builder()
                     .url("https://www.corporationswiki.com/l/search?q=$encoded")
                     .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
@@ -3282,7 +3333,7 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("California SOS"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val encoded = URLEncoder.encode(companyName, "UTF-8")
                 val req = Request.Builder()
                     .url("https://businesssearch.sos.ca.gov/CBS/SearchResults?filing_type=ALL&status=ACTIVE&SearchType=B&SearchValue=$encoded")
                     .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")

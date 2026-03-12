@@ -540,6 +540,20 @@ class ResultsFragment : Fragment() {
             }
         }
 
+        meta["cse_profile_links"]?.takeIf { it.isNotBlank() }?.let { profileBlock ->
+            val profileLines = profileBlock.lines().filter { it.isNotBlank() }
+            if (profileLines.isNotEmpty()) {
+                rows.add(sec("PEOPLE-SEARCH PROFILES FOUND"))
+                rows.add("Note" to "Google indexed these profiles — tap to open directly")
+                profileLines.take(10).forEach { line ->
+                    val parts = line.split(" → ", limit = 2)
+                    val site = parts.firstOrNull() ?: "Profile"
+                    val url = parts.getOrNull(1) ?: line
+                    rows.add("⟶ $site" to url)
+                }
+            }
+        }
+
         val pasteCount = meta["paste_count"]?.toIntOrNull() ?: 0
         if (pasteCount > 0) {
             rows.add(sec("⚠ PASTE DUMPS"))
@@ -594,9 +608,13 @@ class ResultsFragment : Fragment() {
             meta["dork_social"]?.let { rows.add("⟶ Social Discovery" to it) }
             meta["dork_leaks"]?.let { rows.add("⟶ Leaked Data Search" to it) }
             meta["dork_files"]?.let { rows.add("⟶ Leaked File Dump" to it) }
+            meta["dork_people_sites"]?.let { rows.add("⟶ All People-Search Sites" to it) }
             val shownDorkKeys = setOf(
                 "identity_confirm", "address_records", "relatives_map", "criminal_records",
-                "property_records", "vehicle_trace", "social_discovery", "leaked_data", "files_dump"
+                "property_records", "vehicle_trace", "social_discovery", "leaked_data", "files_dump",
+                "people_search_tps", "people_search_wp", "people_search_spk", "people_search_fps",
+                "people_search_rad", "people_search_411", "people_search_zaba", "people_search_int",
+                "people_search_pf", "people_search_ml", "people_search_bv", "people_search_aw"
             )
             val extraDorkLabels = mapOf(
                 "financial_exposure" to "Financial Exposure",
