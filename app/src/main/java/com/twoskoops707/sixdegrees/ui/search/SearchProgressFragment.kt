@@ -11,10 +11,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.repository.SearchProgressEvent
 import com.twoskoops707.sixdegrees.databinding.FragmentSearchProgressBinding
 import com.twoskoops707.sixdegrees.databinding.ItemSearchSourceBinding
+import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import kotlinx.coroutines.launch
 
 class SearchProgressFragment : Fragment() {
@@ -29,8 +33,13 @@ class SearchProgressFragment : Fragment() {
     private var hitCount = 0
     private var checkedCount = 0
     private var completedReportId: String? = null
+    private var pendingCandidates: List<CandidateProfile>? = null
+    private var pendingCandidatesRound: Int = 1
     private var searchStartMs = 0L
     private var estimatedTotal = 0
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private var currentType = "person"
+    private var currentDisplayQuery = ""
 
     data class SourceRow(
         val source: String,
@@ -50,6 +59,8 @@ class SearchProgressFragment : Fragment() {
 
         val rawQuery = arguments?.getString("query") ?: ""
         val type = arguments?.getString("type") ?: "person"
+        val round = arguments?.getInt("round") ?: 1
+        val displayQuery = arguments?.getString("searchQuery")?.takeIf { it.isNotBlank() } ?: rawQuery
         val cityIdx = rawQuery.indexOf("|city=")
         val query = if (cityIdx != -1) rawQuery.substring(0, cityIdx) else rawQuery
         val locationHint = if (cityIdx != -1) rawQuery.substring(cityIdx + 6) else ""
@@ -65,12 +76,15 @@ class SearchProgressFragment : Fragment() {
             else -> 10
         }
 
-        binding.tvSearchQuery.text = if (locationHint.isNotBlank()) "$query · $locationHint" else query
-        binding.chipSearchType.text = type.uppercase()
+        currentType = type
+        currentDisplayQuery = displayQuery
+        val queryDisplay = if (locationHint.isNotBlank()) "$query · $locationHint" else query
+        binding.tvSearchQuery.text = if (round > 1) "Round $round: $queryDisplay" else queryDisplay
+        binding.chipSearchType.text = if (round > 1) "ROUND $round" else type.uppercase()
 
         viewModel = ViewModelProvider(
             this,
-            SearchProgressViewModel.Factory(requireActivity().application, rawQuery, type)
+            SearchProgressViewModel.Factory(requireActivity().application, rawQuery, type, round, displayQuery)
         )[SearchProgressViewModel::class.java]
 
         adapter = SourceAdapter()
@@ -81,15 +95,32 @@ class SearchProgressFragment : Fragment() {
         }
 
         binding.fabViewReport.setOnClickListener {
-            val reportId = completedReportId ?: return@setOnClickListener
-            findNavController().navigate(
-                R.id.action_progress_to_results,
-                Bundle().apply {
-                    putString("searchQuery", query)
-                    putString("searchType", type)
-                    putString("reportId", reportId)
-                }
-            )
+            val candidates = pendingCandidates
+            if (candidates != null) {
+                val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
+                val json = try {
+                    moshi.adapter<List<CandidateProfile>>(listType).toJson(candidates)
+                } catch (_: Exception) { "[]" }
+                findNavController().navigate(
+                    R.id.action_progress_to_candidates,
+                    Bundle().apply {
+                        putString("candidatesJson", json)
+                        putString("reportId", completedReportId ?: "")
+                        putInt("round", pendingCandidatesRound)
+                        putString("searchQuery", displayQuery)
+                    }
+                )
+            } else {
+                val reportId = completedReportId ?: return@setOnClickListener
+                findNavController().navigate(
+                    R.id.action_progress_to_results,
+                    Bundle().apply {
+                        putString("searchQuery", currentDisplayQuery)
+                        putString("searchType", currentType)
+                        putString("reportId", reportId)
+                    }
+                )
+            }
         }
 
         lifecycleScope.launch {
@@ -164,6 +195,22 @@ class SearchProgressFragment : Fragment() {
                 checkedCount++
                 updateCounts()
             }
+            is SearchProgressEvent.CandidatesReady -> {
+                completedReportId = event.reportId
+                pendingCandidates = event.candidates
+                pendingCandidatesRound = event.round
+                binding.progressBar.visibility = View.GONE
+                val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
+                binding.tvStatus.text = "${event.candidates.size} candidate${if (event.candidates.size != 1) "s" else ""} identified · ${elapsedSec}s"
+                binding.tvEta.text = ""
+                binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
+                binding.fabViewReport.text = "Select Candidates (${event.candidates.size})"
+                binding.fabViewReport.apply {
+                    visibility = View.VISIBLE
+                    alpha = 0f
+                    animate().alpha(1f).setDuration(400).start()
+                }
+            }
             is SearchProgressEvent.Complete -> {
                 completedReportId = event.reportId
                 binding.progressBar.visibility = View.GONE
@@ -171,6 +218,7 @@ class SearchProgressFragment : Fragment() {
                 binding.tvStatus.text = "COMPLETE — ${event.hitCount} hit${if (event.hitCount != 1) "s" else ""} · ${elapsedSec}s"
                 binding.tvEta.text = ""
                 binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
+                binding.fabViewReport.text = "View Full Report"
                 binding.fabViewReport.apply {
                     visibility = View.VISIBLE
                     alpha = 0f

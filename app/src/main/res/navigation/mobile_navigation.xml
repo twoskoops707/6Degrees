@@ -33,8 +33,50 @@
             android:name="type"
             app:argType="string"
             android:defaultValue="person" />
+        <argument
+            android:name="round"
+            app:argType="integer"
+            android:defaultValue="1" />
+        <argument
+            android:name="searchQuery"
+            app:argType="string"
+            android:defaultValue="" />
         <action
             android:id="@+id/action_progress_to_results"
+            app:destination="@id/nav_results"
+            app:popUpTo="@id/nav_search"
+            app:popUpToInclusive="false" />
+        <action
+            android:id="@+id/action_progress_to_candidates"
+            app:destination="@id/nav_candidate_selection" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_candidate_selection"
+        android:name="com.twoskoops707.sixdegrees.ui.candidates.CandidateSelectionFragment"
+        android:label="Select Candidate"
+        tools:layout="@layout/fragment_candidate_selection">
+        <argument
+            android:name="candidatesJson"
+            app:argType="string"
+            android:defaultValue="[]" />
+        <argument
+            android:name="reportId"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="round"
+            app:argType="integer"
+            android:defaultValue="1" />
+        <argument
+            android:name="searchQuery"
+            app:argType="string"
+            android:defaultValue="" />
+        <action
+            android:id="@+id/action_candidates_to_progress"
+            app:destination="@id/nav_search_progress" />
+        <action
+            android:id="@+id/action_candidates_to_results"
             app:destination="@id/nav_results"
             app:popUpTo="@id/nav_search"
             app:popUpToInclusive="false" />

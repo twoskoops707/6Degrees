@@ -15,7 +15,9 @@ import kotlinx.coroutines.launch
 class SearchProgressViewModel(
     app: Application,
     val query: String,
-    val type: String
+    val type: String,
+    val round: Int = 1,
+    val displayQuery: String = ""
 ) : AndroidViewModel(app) {
 
     private val repository = OsintRepository(app)
@@ -29,7 +31,7 @@ class SearchProgressViewModel(
         if (started) return
         started = true
         viewModelScope.launch(Dispatchers.IO) {
-            repository.searchWithProgress(query, type).collect { event ->
+            repository.searchWithProgress(query, type, round).collect { event ->
                 _events.emit(event)
             }
         }
@@ -38,10 +40,12 @@ class SearchProgressViewModel(
     class Factory(
         private val app: Application,
         private val query: String,
-        private val type: String
+        private val type: String,
+        private val round: Int = 1,
+        private val displayQuery: String = ""
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            SearchProgressViewModel(app, query, type) as T
+            SearchProgressViewModel(app, query, type, round, displayQuery) as T
     }
 }

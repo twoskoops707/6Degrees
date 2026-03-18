@@ -8,6 +8,7 @@ import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
 import com.twoskoops707.sixdegrees.data.remote.RetrofitClient
 import com.twoskoops707.sixdegrees.data.remote.dto.pipl.PiplPerson
 import com.twoskoops707.sixdegrees.domain.model.Address
+import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.DataSource
 import com.twoskoops707.sixdegrees.domain.model.Employment
 import com.twoskoops707.sixdegrees.domain.model.SocialProfile
@@ -178,7 +179,7 @@ class OsintRepository(context: Context) {
         else Result.failure(Exception("Search failed"))
     }
 
-    fun searchWithProgress(query: String, type: String): Flow<SearchProgressEvent> = channelFlow {
+    fun searchWithProgress(query: String, type: String, round: Int = 1): Flow<SearchProgressEvent> = channelFlow {
         val prefs = appCtx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("pref_connections_enabled", true)) {
             send(SearchProgressEvent.Complete("", 0))
@@ -199,6 +200,8 @@ class OsintRepository(context: Context) {
         if (personLocation.isNotBlank()) metadata["person_location"] = personLocation
         if (locState.isNotBlank()) metadata["person_state"] = locState
         if (locCity.isNotBlank()) metadata["person_city"] = locCity
+        val contextHint = parsedFields["context"] ?: ""
+        if (contextHint.isNotBlank()) metadata["context_hint"] = contextHint
         val cleanQuery = if (type == "comprehensive") query else {
             query.split("|").filter { !it.startsWith("city=") && !it.startsWith("state=") }.joinToString("|")
         }
@@ -215,8 +218,111 @@ class OsintRepository(context: Context) {
         }
 
         metadata["search_type"] = type
+        metadata["search_round"] = round.toString()
         val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
+
+        if (type == "comprehensive" && round < 3) {
+            val candidates = extractCandidates(metadata)
+            if (candidates.isNotEmpty()) {
+                send(SearchProgressEvent.CandidatesReady(candidates, reportId, round))
+                return@channelFlow
+            }
+        }
         send(SearchProgressEvent.Complete(reportId, sources.size))
+    }
+
+    private fun extractCandidates(meta: Map<String, String>): List<CandidateProfile> {
+        val candidates = mutableListOf<CandidateProfile>()
+
+        val tpsCandidates = meta["tps_candidates"] ?: ""
+        if (tpsCandidates.isNotBlank()) {
+            tpsCandidates.lines().take(6).forEach { line ->
+                val parts = line.split("|")
+                val name = parts.getOrNull(0)?.trim() ?: return@forEach
+                if (name.isBlank()) return@forEach
+                val age = parts.getOrNull(1)?.trim() ?: ""
+                val location = parts.getOrNull(2)?.trim() ?: ""
+                val phone = parts.getOrNull(3)?.trim() ?: ""
+                candidates.add(CandidateProfile(
+                    name = name,
+                    age = age,
+                    location = location,
+                    phones = if (phone.isNotBlank()) listOf(phone) else emptyList(),
+                    address = "",
+                    source = "TruePeopleSearch",
+                    confidence = 0.65f + (if (age.isNotBlank()) 0.05f else 0f) + (if (location.isNotBlank()) 0.05f else 0f)
+                ))
+            }
+        }
+
+        val zabaLines = meta["zaba_results"] ?: ""
+        if (zabaLines.isNotBlank()) {
+            zabaLines.lines().take(3).forEach { line ->
+                if (line.isBlank()) return@forEach
+                val existsAlready = candidates.any { it.name.equals(line.substringBefore("|").trim(), ignoreCase = true) }
+                if (!existsAlready) {
+                    val parts = line.split("|")
+                    val name = parts.getOrNull(0)?.trim() ?: return@forEach
+                    if (name.isBlank()) return@forEach
+                    val location = parts.getOrNull(1)?.trim() ?: ""
+                    val phone = parts.getOrNull(2)?.trim() ?: ""
+                    candidates.add(CandidateProfile(
+                        name = name,
+                        age = "",
+                        location = location,
+                        phones = if (phone.isNotBlank()) listOf(phone) else emptyList(),
+                        address = "",
+                        source = "ZabaSearch",
+                        confidence = 0.55f
+                    ))
+                }
+            }
+        }
+
+        val ftnLines = meta["ftn_candidates"] ?: ""
+        if (ftnLines.isNotBlank()) {
+            ftnLines.lines().take(3).forEach { line ->
+                if (line.isBlank()) return@forEach
+                val parts = line.split("|")
+                val name = parts.getOrNull(0)?.trim() ?: return@forEach
+                if (name.isBlank()) return@forEach
+                val existsAlready = candidates.any { it.name.equals(name, ignoreCase = true) }
+                if (!existsAlready) {
+                    val location = parts.getOrNull(1)?.trim() ?: ""
+                    val relatives = parts.getOrNull(2)?.trim()?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+                    candidates.add(CandidateProfile(
+                        name = name,
+                        age = "",
+                        location = location,
+                        phones = emptyList(),
+                        address = "",
+                        source = "FamilyTreeNow",
+                        confidence = 0.50f,
+                        relatives = relatives
+                    ))
+                }
+            }
+        }
+
+        val personName = meta["comp_name"] ?: meta["person_name"] ?: ""
+        val personLocation = meta["person_location"] ?: ""
+        val personPhone = meta["comp_phone"] ?: ""
+        val personCity = meta["person_city"] ?: ""
+        val personState = meta["person_state"] ?: ""
+
+        if (candidates.isEmpty() && personName.isNotBlank()) {
+            candidates.add(CandidateProfile(
+                name = personName,
+                age = meta["person_age"] ?: "",
+                location = personLocation.ifBlank { listOf(personCity, personState).filter { it.isNotBlank() }.joinToString(", ") },
+                phones = listOfNotNull(personPhone.takeIf { it.isNotBlank() }),
+                address = meta["person_address"] ?: "",
+                source = "Multiple Sources",
+                confidence = 0.70f
+            ))
+        }
+
+        return candidates.distinctBy { it.name.lowercase() }.take(5)
     }
 
     private suspend fun emailSearch(
@@ -2551,6 +2657,8 @@ class OsintRepository(context: Context) {
         }.toMap()
         val name = fields["name"] ?: ""
         val phone = fields["phone"] ?: ""
+        val phone2 = fields["phone2"] ?: ""
+        val phone3 = fields["phone3"] ?: ""
         val email = fields["email"] ?: ""
         val ip = fields["ip"] ?: ""
         val city = fields["city"] ?: fields["location"] ?: ""
@@ -2559,6 +2667,10 @@ class OsintRepository(context: Context) {
         val username = fields["username"] ?: ""
         val dob = fields["dob"] ?: ""
         val image = fields["image"] ?: ""
+        val address = fields["address"] ?: ""
+        val relatives = fields["relatives"] ?: ""
+        val context = fields["context"] ?: ""
+
         meta["comprehensive_query"] = query
         meta["comp_name"] = name
         meta["comp_phone"] = phone
@@ -2569,17 +2681,29 @@ class OsintRepository(context: Context) {
         if (state.isNotBlank()) meta["person_state"] = state
         if (username.isNotBlank()) meta["comp_username"] = username
         if (dob.isNotBlank()) meta["comp_dob"] = dob
+        if (address.isNotBlank()) meta["person_address"] = address
+        if (relatives.isNotBlank()) meta["person_relatives"] = relatives
+        if (context.isNotBlank()) meta["context_hint"] = context
+        if (phone2.isNotBlank()) meta["comp_phone2"] = phone2
+        if (phone3.isNotBlank()) meta["comp_phone3"] = phone3
 
+        val effectiveName = if (context.isNotBlank() && name.isNotBlank()) "$name" else name
         if (name.isNotBlank()) {
             if (location.isNotBlank()) meta["person_location"] = location
             if (dob.isNotBlank()) meta["person_dob"] = dob
-            launch { personSearch(name, meta, sources, emit) }
+            launch { personSearch(effectiveName, meta, sources, emit) }
         }
         if (email.isNotBlank()) {
             launch { emailSearch(email, meta, sources, emit) }
         }
         if (phone.isNotBlank()) {
             launch { phoneSearch(phone, meta, sources, emit) }
+        }
+        if (phone2.isNotBlank()) {
+            launch { phoneSearch(phone2, meta, sources, emit) }
+        }
+        if (phone3.isNotBlank()) {
+            launch { phoneSearch(phone3, meta, sources, emit) }
         }
         if (ip.isNotBlank()) {
             launch { ipDomainSearch(ip, meta, sources, emit) }

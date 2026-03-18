@@ -143,11 +143,16 @@ class SearchFragment : Fragment() {
                 val firstName = binding.inputFirstName.text?.toString()?.trim() ?: ""
                 val lastName = binding.inputLastName.text?.toString()?.trim() ?: ""
                 val phone = binding.inputPhone.text?.toString()?.trim() ?: ""
+                val phone2 = binding.inputPhone2.text?.toString()?.trim() ?: ""
+                val phone3 = binding.inputPhone3.text?.toString()?.trim() ?: ""
                 val email = binding.inputEmail.text?.toString()?.trim() ?: ""
                 val username = binding.inputUsername.text?.toString()?.trim() ?: ""
                 val city = binding.inputCity.text?.toString()?.trim() ?: ""
                 val state = binding.inputState.text?.toString()?.trim() ?: ""
                 val dob = binding.inputDob.text?.toString()?.trim() ?: ""
+                val address = binding.inputAddress.text?.toString()?.trim() ?: ""
+                val relatives = binding.inputRelatives.text?.toString()?.trim() ?: ""
+                val context = binding.inputContext.text?.toString()?.trim() ?: ""
                 val imageUri = attachedImageUri
 
                 val hasAnyField = firstName.isNotBlank() || lastName.isNotBlank() || phone.isNotBlank() ||
@@ -167,9 +172,14 @@ class SearchFragment : Fragment() {
                 val fullName = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ")
                 if (fullName.isNotBlank()) parts.add("name=$fullName")
                 if (phone.isNotBlank()) parts.add("phone=$phone")
+                if (phone2.isNotBlank()) parts.add("phone2=$phone2")
+                if (phone3.isNotBlank()) parts.add("phone3=$phone3")
                 if (email.isNotBlank()) parts.add("email=$email")
                 if (username.isNotBlank()) parts.add("username=$username")
                 if (dob.isNotBlank()) parts.add("dob=$dob")
+                if (address.isNotBlank()) parts.add("address=$address")
+                if (relatives.isNotBlank()) parts.add("relatives=$relatives")
+                if (context.isNotBlank()) parts.add("context=$context")
                 if (imageUri != null) parts.add("image=$imageUri")
                 if (city.isNotBlank()) parts.add("city=$city")
                 if (state.isNotBlank()) parts.add("state=$state")
@@ -213,11 +223,16 @@ class SearchFragment : Fragment() {
                 binding.inputFirstName.text?.clear()
                 binding.inputLastName.text?.clear()
                 binding.inputPhone.text?.clear()
+                binding.inputPhone2.text?.clear()
+                binding.inputPhone3.text?.clear()
                 binding.inputEmail.text?.clear()
                 binding.inputUsername.text?.clear()
                 binding.inputCity.text?.clear()
                 binding.inputState.text?.clear()
                 binding.inputDob.text?.clear()
+                binding.inputAddress.text?.clear()
+                binding.inputRelatives.text?.clear()
+                binding.inputContext.text?.clear()
                 attachedImageUri = null
                 binding.tvImageAttached.visibility = View.GONE
             }

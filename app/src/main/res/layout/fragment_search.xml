@@ -298,6 +298,118 @@
                     android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/layout_address"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Street Address (if known)"
+                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
+                app:hintTextColor="?attr/colorControlNormal"
+                app:boxBackgroundColor="#0A0F1E">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_address"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:inputType="textPostalAddress"
+                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="8dp">
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_phone2"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:hint="Alt Phone 1"
+                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_phone2"
+                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:inputType="phone"
+                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_phone3"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="4dp"
+                    android:hint="Alt Phone 2"
+                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_phone3"
+                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:inputType="phone"
+                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/layout_relatives"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Relatives / Associates (comma-separated)"
+                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
+                app:hintTextColor="?attr/colorControlNormal"
+                app:boxBackgroundColor="#0A0F1E">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_relatives"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:inputType="text"
+                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="4dp"
+                app:cardBackgroundColor="#0D1A0D"
+                app:cardCornerRadius="8dp"
+                app:strokeColor="?attr/colorPrimary"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="10dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="⬡  WHERE / HOW YOU KNOW THEM"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="9sp"
+                        android:letterSpacing="0.15"
+                        android:textAllCaps="true"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/layout_context"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="e.g. Gold's Gym LA · karate class downtown · Central Park"
+                        app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
+                        app:hintTextColor="?attr/colorControlNormal"
+                        app:boxBackgroundColor="#0A0F1E">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/input_context"
+                            android:layout_width="match_parent" android:layout_height="56dp"
+                            android:inputType="text"
+                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="This biases every search toward people matching that place or activity — dramatically improves candidate matching"
+                        android:textColor="?attr/colorControlNormal"
+                        android:textSize="10sp"
+                        android:alpha="0.7"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
