@@ -163,7 +163,7 @@
                     android:id="@+id/layout_first_name"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="6dp"
+                    android:layout_weight="5" android:layout_marginEnd="4dp"
                     android:hint="First Name"
                     app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
                     app:hintTextColor="?attr/colorControlNormal"
@@ -176,10 +176,27 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_middle_initial"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="2" android:layout_marginHorizontal="4dp"
+                    android:hint="M.I."
+                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
+                    app:hintTextColor="?attr/colorControlNormal"
+                    app:boxBackgroundColor="#0A0F1E">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_middle_initial"
+                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:inputType="textCapCharacters"
+                        android:maxLength="2"
+                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_last_name"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginStart="6dp"
+                    android:layout_weight="5" android:layout_marginStart="4dp"
                     android:hint="Last Name"
                     app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
                     app:hintTextColor="?attr/colorControlNormal"

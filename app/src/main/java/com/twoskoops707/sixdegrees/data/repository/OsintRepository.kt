@@ -29,8 +29,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import android.content.Intent
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.net.Socket
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Collections
@@ -185,6 +187,7 @@ class OsintRepository(context: Context) {
             send(SearchProgressEvent.Complete("", 0))
             return@channelFlow
         }
+        startTorIfAvailable()
 
         val metadata = ConcurrentHashMap<String, String>()
         val sources = Collections.synchronizedList(mutableListOf<DataSource>())
@@ -229,6 +232,79 @@ class OsintRepository(context: Context) {
             }
         }
         send(SearchProgressEvent.Complete(reportId, sources.size))
+    }
+
+    private fun startTorIfAvailable() {
+        val torBin = java.io.File("/data/data/com.termux/files/usr/bin/tor")
+        if (!torBin.exists()) return
+        try {
+            val probe = Socket()
+            probe.connect(InetSocketAddress("127.0.0.1", 9050), 500)
+            probe.close()
+            return
+        } catch (_: Exception) {}
+        try {
+            val intent = Intent().apply {
+                setClassName("com.termux", "com.termux.app.RunCommandService")
+                action = "com.termux.RUN_COMMAND"
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c",
+                    "nohup /data/data/com.termux/files/usr/bin/tor --DataDirectory /data/data/com.termux/files/home/.tor > /data/data/com.termux/files/home/.tor/tor.log 2>&1 &"))
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            }
+            appCtx.startForegroundService(intent)
+        } catch (_: Exception) {}
+    }
+
+    private suspend fun duckDuckGoSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit,
+        metaKeyPrefix: String = "ddg"
+    ) {
+        emit(SearchProgressEvent.Checking("DuckDuckGo"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://html.duckduckgo.com/html/?q=$encoded&kl=us-en")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .addHeader("Referer", "https://duckduckgo.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code == 403 || html.isBlank()) {
+                emit(SearchProgressEvent.NotFound("DuckDuckGo")); return
+            }
+            val titles = Regex("""class="result__title"[^>]*>.*?<a[^>]*>([^<]+)</a>""")
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
+            val snippets = Regex("""class="result__snippet"[^>]*>([^<]+)<""")
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
+            val urls = Regex("""class="result__url"[^>]*>([^<]+)<""")
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
+            val phones = Regex("""(?<!\d)\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})(?!\d)""")
+                .findAll(html).map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }
+                .distinct().take(5).toList()
+            val emails = Regex("""[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}""")
+                .findAll(html).map { it.value.lowercase() }.filter { !it.contains("duckduckgo") }.distinct().take(5).toList()
+            if (titles.isNotEmpty()) {
+                meta["${metaKeyPrefix}_titles"] = titles.joinToString("\n")
+                if (snippets.isNotEmpty()) meta["${metaKeyPrefix}_snippets"] = snippets.joinToString("\n")
+                if (urls.isNotEmpty()) meta["${metaKeyPrefix}_urls"] = urls.joinToString("\n")
+                if (phones.isNotEmpty()) meta["${metaKeyPrefix}_phones"] = phones.joinToString(", ")
+                if (emails.isNotEmpty()) meta["${metaKeyPrefix}_emails"] = emails.joinToString(", ")
+                sources.add(DataSource("DuckDuckGo", "https://html.duckduckgo.com/html/?q=$encoded", Date(), 0.75))
+                emit(SearchProgressEvent.Found("DuckDuckGo",
+                    "${titles.size} result${if (titles.size != 1) "s" else ""}: ${titles.firstOrNull()?.take(60) ?: ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("DuckDuckGo"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("DuckDuckGo", e.message ?: ""))
+        }
     }
 
     private fun extractCandidates(meta: Map<String, String>): List<CandidateProfile> {
@@ -1793,6 +1869,62 @@ class OsintRepository(context: Context) {
                 }
             } catch (e: Exception) {
                 emit(SearchProgressEvent.Failed("CourtListener", e.message ?: ""))
+            }
+        }
+
+        launch {
+            val location = meta["person_location"] ?: ""
+            val context = meta["context_hint"] ?: ""
+            val ddgQuery = buildString {
+                append("\"$query\"")
+                if (location.isNotBlank()) append(" $location")
+                if (context.isNotBlank()) append(" \"$context\"")
+            }
+            duckDuckGoSearch(ddgQuery, meta, sources, emit, "ddg_person")
+        }
+
+        val contextHint = meta["context_hint"] ?: ""
+        if (contextHint.isNotBlank()) {
+            launch {
+                val location = meta["person_location"] ?: ""
+                val socialQuery = buildString {
+                    append("\"$query\"")
+                    append(" \"$contextHint\"")
+                    if (location.isNotBlank()) append(" $location")
+                    append(" site:facebook.com OR site:instagram.com OR site:linkedin.com OR site:twitter.com OR site:reddit.com")
+                }
+                duckDuckGoSearch(socialQuery, meta, sources, emit, "ddg_social")
+            }
+
+            launch {
+                val activityQuery = "\"$query\" \"$contextHint\""
+                val encoded = URLEncoder.encode(activityQuery, "UTF-8")
+                val cseKey = apiKeyManager.googleCseKey
+                val cseId = apiKeyManager.googleCseId
+                if (cseKey.isNotBlank() && cseId.isNotBlank()) {
+                    emit(SearchProgressEvent.Checking("Context Search"))
+                    try {
+                        val req = Request.Builder()
+                            .url("https://www.googleapis.com/customsearch/v1?key=$cseKey&cx=$cseId&q=$encoded&num=10")
+                            .build()
+                        val resp = fastHttpClient.newCall(req).execute()
+                        val body = resp.body?.string() ?: ""; resp.close()
+                        val items = Regex("\"title\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(8).toList()
+                        val links = Regex("\"link\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(8).toList()
+                        val snippets = Regex("\"snippet\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(8).toList()
+                        if (items.isNotEmpty()) {
+                            meta["context_search_titles"] = items.joinToString("\n")
+                            meta["context_search_links"] = links.joinToString("\n")
+                            meta["context_search_snippets"] = snippets.joinToString("\n")
+                            sources.add(DataSource("Context Search", null, Date(), 0.80))
+                            emit(SearchProgressEvent.Found("Context Search", "${items.size} results matching activity context"))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("Context Search"))
+                        }
+                    } catch (e: Exception) {
+                        emit(SearchProgressEvent.Failed("Context Search", e.message ?: ""))
+                    }
+                }
             }
         }
 

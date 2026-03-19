@@ -17,6 +17,7 @@ class SettingsFragment : Fragment() {
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
+    private var isInitializing = true
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,6 +30,7 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        isInitializing = true
 
         val prefs = requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
@@ -75,7 +77,10 @@ class SettingsFragment : Fragment() {
             else      -> binding.chipBrowserFirefox.isChecked = true
         }
 
+        isInitializing = false
+
         binding.chipGroupBrowser.setOnCheckedStateChangeListener { _, checkedIds ->
+            if (isInitializing) return@setOnCheckedStateChangeListener
             val browser = when (checkedIds.firstOrNull()) {
                 R.id.chip_browser_ddg     -> "ddg"
                 R.id.chip_browser_chrome  -> "chrome"
@@ -86,20 +91,26 @@ class SettingsFragment : Fragment() {
         }
 
         binding.switchConnections.setOnCheckedChangeListener { _, enabled ->
+            if (isInitializing) return@setOnCheckedChangeListener
             prefs.edit().putBoolean("pref_connections_enabled", enabled).apply()
         }
 
         binding.chipGroupFont.setOnCheckedStateChangeListener { _, checkedIds ->
+            if (isInitializing) return@setOnCheckedStateChangeListener
             val size = when (checkedIds.firstOrNull()) {
                 R.id.chip_font_small -> "small"
                 R.id.chip_font_large -> "large"
                 else -> "normal"
             }
-            prefs.edit().putString("pref_font_size", size).apply()
-            activity?.recreate()
+            val current = prefs.getString("pref_font_size", "normal")
+            if (size != current) {
+                prefs.edit().putString("pref_font_size", size).apply()
+                view?.post { if (_binding != null) activity?.recreate() }
+            }
         }
 
         binding.chipGroupAccent.setOnCheckedStateChangeListener { _, checkedIds ->
+            if (isInitializing) return@setOnCheckedStateChangeListener
             val accent = when (checkedIds.firstOrNull()) {
                 R.id.chip_accent_cyan   -> "cyan"
                 R.id.chip_accent_green  -> "green"
@@ -107,23 +118,31 @@ class SettingsFragment : Fragment() {
                 R.id.chip_accent_amber  -> "amber"
                 else -> "blue"
             }
-            prefs.edit().putString("pref_accent", accent).apply()
-            activity?.recreate()
+            val current = prefs.getString("pref_accent", "blue")
+            if (accent != current) {
+                prefs.edit().putString("pref_accent", accent).apply()
+                view?.post { if (_binding != null) activity?.recreate() }
+            }
         }
 
         binding.switchAnimations.setOnCheckedChangeListener { _, enabled ->
+            if (isInitializing) return@setOnCheckedChangeListener
             prefs.edit().putBoolean("pref_animations", enabled).apply()
         }
     }
 
     private fun selectThemeBase(base: String, prefs: android.content.SharedPreferences) {
+        val current = prefs.getString("pref_theme_base", "modern")
         prefs.edit().putString("pref_theme_base", base).apply()
-        updateThemeCardSelection(base)
-        activity?.recreate()
+        if (_binding != null) updateThemeCardSelection(base)
+        if (base != current) {
+            view?.post { if (_binding != null) activity?.recreate() }
+        }
     }
 
     private fun updateThemeCardSelection(selectedBase: String) {
-        val ctx = requireContext()
+        val b = _binding ?: return
+        val ctx = context ?: return
         val activeStroke = ContextCompat.getColor(ctx, R.color.accent_blue)
         val inactiveStroke = ContextCompat.getColor(ctx, R.color.border)
         val dp = resources.displayMetrics.density
@@ -135,9 +154,9 @@ class SettingsFragment : Fragment() {
             card.strokeWidth = if (active) activeWidth else inactiveWidth
         }
 
-        style(binding.cardThemeModern, selectedBase == "modern")
-        style(binding.cardThemeHacker, selectedBase == "hacker")
-        style(binding.cardThemeTactical, selectedBase == "tactical")
+        style(b.cardThemeModern, selectedBase == "modern")
+        style(b.cardThemeHacker, selectedBase == "hacker")
+        style(b.cardThemeTactical, selectedBase == "tactical")
     }
 
     override fun onDestroyView() {

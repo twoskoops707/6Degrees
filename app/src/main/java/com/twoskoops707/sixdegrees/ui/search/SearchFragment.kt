@@ -141,6 +141,7 @@ class SearchFragment : Fragment() {
         when (currentType) {
             "person" -> {
                 val firstName = binding.inputFirstName.text?.toString()?.trim() ?: ""
+                val middleInitial = binding.inputMiddleInitial.text?.toString()?.trim() ?: ""
                 val lastName = binding.inputLastName.text?.toString()?.trim() ?: ""
                 val phone = binding.inputPhone.text?.toString()?.trim() ?: ""
                 val phone2 = binding.inputPhone2.text?.toString()?.trim() ?: ""
@@ -169,7 +170,12 @@ class SearchFragment : Fragment() {
                 }
 
                 val parts = mutableListOf<String>()
-                val fullName = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ")
+                val nameParts = listOfNotNull(
+                    firstName.takeIf { it.isNotBlank() },
+                    middleInitial.takeIf { it.isNotBlank() }?.let { "$it." },
+                    lastName.takeIf { it.isNotBlank() }
+                )
+                val fullName = nameParts.joinToString(" ")
                 if (fullName.isNotBlank()) parts.add("name=$fullName")
                 if (phone.isNotBlank()) parts.add("phone=$phone")
                 if (phone2.isNotBlank()) parts.add("phone2=$phone2")
@@ -221,6 +227,7 @@ class SearchFragment : Fragment() {
         when (currentType) {
             "person" -> {
                 binding.inputFirstName.text?.clear()
+                binding.inputMiddleInitial.text?.clear()
                 binding.inputLastName.text?.clear()
                 binding.inputPhone.text?.clear()
                 binding.inputPhone2.text?.clear()
