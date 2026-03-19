@@ -17,6 +17,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -227,10 +228,9 @@ class OsintRepository(context: Context) {
 
         if (type == "comprehensive" && round < 3) {
             val candidates = extractCandidates(metadata)
-            val hasGeoFilter = (metadata["person_city"]?.isNotBlank() == true) ||
-                               (metadata["person_state"]?.isNotBlank() == true)
-            if (candidates.size > 1 && !hasGeoFilter) {
-                send(SearchProgressEvent.CandidatesReady(candidates, reportId, round))
+            if (candidates.size > 1) {
+                val enriched = enrichCandidatesWithPhotos(candidates)
+                send(SearchProgressEvent.CandidatesReady(enriched, reportId, round))
                 return@channelFlow
             }
         }
@@ -457,6 +457,36 @@ class OsintRepository(context: Context) {
         } else {
             scored
         }.take(5)
+    }
+
+    private suspend fun enrichCandidatesWithPhotos(candidates: List<CandidateProfile>): List<CandidateProfile> {
+        return coroutineScope {
+            candidates.map { candidate ->
+                async {
+                    if (candidate.photoUrl != null) return@async candidate
+                    val photoUrl = fetchCandidatePhoto(candidate.name, candidate.location)
+                    if (photoUrl != null) candidate.copy(photoUrl = photoUrl) else candidate
+                }
+            }.map { it.await() }
+        }
+    }
+
+    private suspend fun fetchCandidatePhoto(name: String, location: String): String? {
+        return try {
+            val query = if (location.isNotBlank()) "$name $location" else name
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.duckduckgo.com/?q=$encoded&format=json&no_html=1&skip_disambig=1&ia=about")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val imageUrl = Regex("\"Image\"\\s*:\\s*\"(https?://[^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
+            if (!imageUrl.isNullOrBlank()) return imageUrl
+            val relativeImg = Regex("\"Image\"\\s*:\\s*\"(/i/[^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
+            if (!relativeImg.isNullOrBlank()) return "https://duckduckgo.com$relativeImg"
+            null
+        } catch (_: Exception) { null }
     }
 
     private suspend fun emailSearch(

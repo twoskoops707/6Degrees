@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import coil.load
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentCandidateSelectionBinding
 import com.twoskoops707.sixdegrees.databinding.ItemCandidateCardBinding
@@ -134,6 +135,16 @@ class CandidateSelectionFragment : Fragment() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val c = items[position]
             val isSelected = selectedIndices.contains(position)
+
+            if (!c.photoUrl.isNullOrBlank()) {
+                holder.b.ivCandidatePhoto.load(c.photoUrl) {
+                    crossfade(true)
+                    placeholder(R.drawable.ic_person_placeholder)
+                    error(R.drawable.ic_person_placeholder)
+                }
+            } else {
+                holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_person_placeholder)
+            }
 
             holder.b.tvCandidateName.text = c.name.ifBlank { "Unknown" }
 
