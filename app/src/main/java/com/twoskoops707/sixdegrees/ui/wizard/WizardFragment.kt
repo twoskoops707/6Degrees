@@ -25,30 +25,75 @@ class WizardFragment : Fragment() {
     private var _binding: FragmentWizardBinding? = null
     private val binding get() = _binding!!
 
-    private val termuxTools = listOf(
-        "nmap" to "nmap",
-        "tor" to "tor",
-        "torsocks" to "torsocks",
-        "sherlock" to "sherlock",
-        "theHarvester" to "theharvester",
-        "hashcat" to "hashcat",
-        "wireshark" to "tshark",
-        "recon-ng" to "recon-ng",
-        "aircrack-ng" to "aircrack-ng",
-        "spiderfoot" to "sfcli.py"
+    private data class ToolDef(
+        val displayName: String,
+        val checkPath: String,
+        val installCmd: String,
+        val broken: Boolean = false,
+        val brokenNote: String = ""
     )
 
-    private val toolInstallCmds = mapOf(
-        "nmap" to "pkg install -y nmap",
-        "tor" to "pkg install -y tor",
-        "torsocks" to "pkg install -y torsocks",
-        "sherlock" to "pkg install -y python && pip install sherlock-project",
-        "theharvester" to "pkg install -y python && pip install theHarvester",
-        "hashcat" to "pkg install -y hashcat",
-        "tshark" to "pkg install -y tshark",
-        "recon-ng" to "pkg install -y python && pip install recon-ng",
-        "aircrack-ng" to "pkg install -y aircrack-ng",
-        "sfcli.py" to "pkg install -y python && pip install spiderfoot"
+    private val termuxTools = listOf(
+        ToolDef("nmap",
+            "/data/data/com.termux/files/usr/bin/nmap",
+            "pkg install -y nmap"),
+        ToolDef("tor",
+            "/data/data/com.termux/files/usr/bin/tor",
+            "pkg install -y tor"),
+        ToolDef("torsocks",
+            "/data/data/com.termux/files/usr/bin/torsocks",
+            "pkg install -y torsocks"),
+        ToolDef("whois",
+            "/data/data/com.termux/files/usr/bin/whois",
+            "pkg install -y whois"),
+        ToolDef("exiftool",
+            "/data/data/com.termux/files/usr/bin/exiftool",
+            "pkg install -y exiftool"),
+        ToolDef("dig (dnsutils)",
+            "/data/data/com.termux/files/usr/bin/dig",
+            "pkg install -y dnsutils"),
+        ToolDef("tshark",
+            "/data/data/com.termux/files/usr/bin/tshark",
+            "pkg install -y tshark"),
+        ToolDef("sherlock",
+            "/data/data/com.termux/files/usr/bin/sherlock",
+            "pip install sherlock-project"),
+        ToolDef("maigret",
+            "/data/data/com.termux/files/usr/bin/maigret",
+            "pip install maigret"),
+        ToolDef("holehe",
+            "/data/data/com.termux/files/usr/bin/holehe",
+            "pip install holehe"),
+        ToolDef("theHarvester",
+            "/data/data/com.termux/files/home/theHarvester",
+            "git clone https://github.com/laramies/theHarvester ~/theHarvester && pip install -r ~/theHarvester/requirements/base.txt"),
+        ToolDef("recon-ng",
+            "/data/data/com.termux/files/home/recon-ng",
+            "git clone https://github.com/lanmaster53/recon-ng ~/recon-ng && pip install -r ~/recon-ng/REQUIREMENTS"),
+        ToolDef("spiderfoot",
+            "/data/data/com.termux/files/home/spiderfoot",
+            "git clone https://github.com/smicallef/spiderfoot ~/spiderfoot && pip install -r ~/spiderfoot/requirements.txt"),
+        ToolDef("sqlmap",
+            "/data/data/com.termux/files/home/sqlmap",
+            "git clone https://github.com/sqlmapproject/sqlmap ~/sqlmap"),
+        ToolDef("nikto",
+            "/data/data/com.termux/files/home/nikto",
+            "pkg install -y perl && git clone https://github.com/sullo/nikto ~/nikto"),
+        ToolDef("hashcat",
+            "",
+            "",
+            broken = true,
+            brokenNote = "No GPU on Android — CPU mode only via manual build"),
+        ToolDef("aircrack-ng",
+            "",
+            "",
+            broken = true,
+            brokenNote = "Needs monitor mode — disabled on non-rooted Android"),
+        ToolDef("maltego",
+            "",
+            "",
+            broken = true,
+            brokenNote = "GUI desktop app — use on PC only")
     )
 
     private val apiDefs = listOf(
@@ -89,22 +134,31 @@ class WizardFragment : Fragment() {
 
     private fun populateTermuxTools() {
         val container = binding.termuxToolsContainer
-        for ((displayName, binName) in termuxTools) {
-            val binPath = "/data/data/com.termux/files/usr/bin/$binName"
-            val installed = File(binPath).exists()
-            val installCmd = toolInstallCmds[binName] ?: "pkg install -y $binName"
-            val (row, _, statusLabel) = buildStatusRowDetailed(
-                displayName,
-                if (installed) "READY" else "Tap to install",
-                pending = false,
-                isOk = installed
-            )
-            if (!installed) {
-                statusLabel.text = installCmd
-                row.setOnClickListener { launchTermuxInstall(installCmd) }
+        termuxTools.forEachIndexed { index, tool ->
+            if (tool.broken) {
+                val (row, _, statusLabel) = buildStatusRowDetailed(
+                    tool.displayName,
+                    tool.brokenNote,
+                    pending = false,
+                    isOk = false,
+                    isBroken = true
+                )
+                container.addView(row)
+            } else {
+                val installed = tool.checkPath.isNotBlank() && File(tool.checkPath).exists()
+                val (row, _, statusLabel) = buildStatusRowDetailed(
+                    tool.displayName,
+                    if (installed) "READY" else "tap to copy install command",
+                    pending = false,
+                    isOk = installed
+                )
+                if (!installed) {
+                    statusLabel.text = tool.installCmd.take(60) + if (tool.installCmd.length > 60) "…" else ""
+                    row.setOnClickListener { launchTermuxInstall(tool.installCmd) }
+                }
+                container.addView(row)
             }
-            container.addView(row)
-            if (termuxTools.last().first != displayName) container.addView(buildDivider())
+            if (index < termuxTools.lastIndex) container.addView(buildDivider())
         }
     }
 
@@ -128,7 +182,7 @@ class WizardFragment : Fragment() {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 })
             } catch (_: Exception) {}
-            Toast.makeText(requireContext(), "Command copied! Paste in Termux to install.", Toast.LENGTH_LONG).show()
+            Toast.makeText(requireContext(), "Command copied to clipboard — paste in Termux", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -156,7 +210,8 @@ class WizardFragment : Fragment() {
         label: String,
         statusText: String,
         pending: Boolean = false,
-        isOk: Boolean = false
+        isOk: Boolean = false,
+        isBroken: Boolean = false
     ): RowViews {
         val ctx = requireContext()
         val density = ctx.resources.displayMetrics.density
@@ -173,6 +228,7 @@ class WizardFragment : Fragment() {
             textSize = 10f
             setTextColor(
                 when {
+                    isBroken -> ContextCompat.getColor(ctx, R.color.warning)
                     pending -> ContextCompat.getColor(ctx, R.color.text_secondary)
                     isOk -> ContextCompat.getColor(ctx, R.color.success)
                     else -> ContextCompat.getColor(ctx, R.color.error)
@@ -194,6 +250,7 @@ class WizardFragment : Fragment() {
             letterSpacing = 0.08f
             setTextColor(
                 when {
+                    isBroken -> ContextCompat.getColor(ctx, R.color.warning)
                     pending -> ContextCompat.getColor(ctx, R.color.text_secondary)
                     isOk -> ContextCompat.getColor(ctx, R.color.success)
                     else -> ContextCompat.getColor(ctx, R.color.text_secondary)
