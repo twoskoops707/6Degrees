@@ -48,6 +48,7 @@ class HistoryAdapter(
 
             val displayName = when {
                 fields["name"]?.isNotBlank() == true -> fields["name"]!!
+                fields["subject"]?.isNotBlank() == true -> fields["subject"]!!
                 fields["email"]?.isNotBlank() == true -> fields["email"]!!
                 fields["phone"]?.isNotBlank() == true -> fields["phone"]!!
                 fields["username"]?.isNotBlank() == true -> "@${fields["username"]}"
