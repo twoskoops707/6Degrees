@@ -1899,7 +1899,7 @@ class OsintRepository(context: Context) {
             launch {
                 val activityQuery = "\"$query\" \"$contextHint\""
                 val encoded = URLEncoder.encode(activityQuery, "UTF-8")
-                val cseKey = apiKeyManager.googleCseKey
+                val cseKey = apiKeyManager.googleCseApiKey
                 val cseId = apiKeyManager.googleCseId
                 if (cseKey.isNotBlank() && cseId.isNotBlank()) {
                     emit(SearchProgressEvent.Checking("Context Search"))
