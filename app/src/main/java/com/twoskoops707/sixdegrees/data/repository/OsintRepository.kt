@@ -398,7 +398,26 @@ class OsintRepository(context: Context) {
             ))
         }
 
-        return candidates.distinctBy { it.name.lowercase() }.take(5)
+        val targetCity = personCity.lowercase()
+        val targetState = personState.lowercase()
+        val hasGeoFilter = targetCity.isNotBlank() || targetState.isNotBlank()
+
+        val scored = candidates.distinctBy { it.name.lowercase() }.map { c ->
+            val loc = c.location.lowercase()
+            val geoBonus = when {
+                !hasGeoFilter -> 0f
+                targetCity.isNotBlank() && loc.contains(targetCity) -> 0.20f
+                targetState.isNotBlank() && loc.contains(targetState) -> 0.12f
+                else -> -0.18f
+            }
+            c.copy(confidence = (c.confidence + geoBonus).coerceIn(0.10f, 1.0f))
+        }
+
+        return if (hasGeoFilter) {
+            scored.sortedByDescending { it.confidence }
+        } else {
+            scored
+        }.take(5)
     }
 
     private suspend fun emailSearch(
@@ -1844,7 +1863,8 @@ class OsintRepository(context: Context) {
         launch {
             emit(SearchProgressEvent.Checking("CourtListener"))
             try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
+                val courtLoc = meta["person_location"]?.takeIf { it.isNotBlank() }?.let { " $it" } ?: ""
+                val encoded = URLEncoder.encode("$query$courtLoc", "UTF-8")
                 val req = Request.Builder()
                     .url("https://www.courtlistener.com/api/rest/v3/search/?q=$encoded&type=r&format=json")
                     .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
@@ -3450,7 +3470,8 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("Bing Web Search"))
         try {
-            val dork = "\"$query\" (address OR relatives OR age OR arrest OR property)"
+            val bingLoc = meta["person_location"]?.takeIf { it.isNotBlank() }?.let { " $it" } ?: ""
+            val dork = "\"$query\"$bingLoc (address OR relatives OR age OR arrest OR property)"
             val resp = RetrofitClient.bingSearchService.search(apiKey, dork)
             if (resp.isSuccessful && resp.body()?.webPages?.value != null) {
                 apiKeyManager.recordUsage("bing_search")
