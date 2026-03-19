@@ -960,6 +960,10 @@ class ResultsFragment : Fragment() {
             meta["threatcrowd_email_domains"]?.takeIf { it.isNotBlank() }?.let { rows.add("Linked Domains" to it) }
             meta["hackertarget_email_hosts"]?.takeIf { it.isNotBlank() }?.let { rows.add("Associated Hosts" to it) }
         }
+        meta["holehe_found"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("HOLEHE — REGISTERED SERVICES"))
+            rows.add("Services" to it)
+        }
         if (rows.isEmpty()) rows.add("Status" to "No identity data linked to this email")
         return rows
     }
@@ -1192,6 +1196,20 @@ class ResultsFragment : Fragment() {
             meta["devto_summary"]?.let { s -> rows.add("Bio" to s) }
             meta["devto_joined"]?.let { j -> rows.add("Joined" to j) }
         }
+        meta["sherlock_found"]?.takeIf { it.isNotBlank() }?.let { found ->
+            rows.add(sec("SHERLOCK"))
+            found.lines().filter { it.isNotBlank() }.take(20).forEach { line ->
+                val parts = line.split(": ", limit = 2)
+                rows.add((parts.firstOrNull() ?: "Profile") to (parts.getOrNull(1) ?: line))
+            }
+        }
+        meta["maigret_found"]?.takeIf { it.isNotBlank() }?.let { found ->
+            rows.add(sec("MAIGRET"))
+            found.lines().filter { it.isNotBlank() }.take(20).forEach { line ->
+                val parts = line.split(": ", limit = 2)
+                rows.add((parts.firstOrNull() ?: "Profile") to (parts.getOrNull(1) ?: line))
+            }
+        }
         if (rows.isEmpty()) rows.add("Status" to "No profile data extracted from found accounts")
         return rows
     }
@@ -1333,14 +1351,15 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones")
+        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
+               "ddg_person_phones", "ddg_social_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
                 }?.forEach { set.add(it) }
             }
         val phonePattern = Regex("\\(\\d{3}\\)\\s*\\d{3}[-.]\\d{4}|\\d{3}[-.]\\d{3}[-.]\\d{4}")
-        listOf("ddg_web_snippets", "cse_snippets", "dork_address_results", "dork_criminal_results", "searx_snippets")
+        listOf("ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "cse_snippets", "dork_address_results", "dork_criminal_results", "searx_snippets")
             .forEach { key ->
                 meta[key]?.let { text ->
                     phonePattern.findAll(text).map { it.value.trim() }.filter { phone ->
@@ -1359,7 +1378,7 @@ class ResultsFragment : Fragment() {
             "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         val addrPattern = Regex("[A-Z][a-zA-Z ]{2,25},\\s*[A-Z]{2}(?:\\s+\\d{5})?")
-        listOf("dork_address_results", "ddg_web_snippets", "cse_snippets")
+        listOf("dork_address_results", "ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "cse_snippets")
             .forEach { key ->
                 meta[key]?.let { text ->
                     addrPattern.findAll(text).map { it.value.trim() }.filter { it.length > 5 && it.length < 60 }.forEach { set.add(it) }
@@ -1373,6 +1392,12 @@ class ResultsFragment : Fragment() {
         listOf("tps_relatives", "ftn_relatives", "411_relatives", "tt_relatives", "fps_relatives",
             "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives", "checkpeople_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
+        val namePattern = Regex("[A-Z][a-z]+ [A-Z][a-z]+")
+        listOf("dork_relatives_results", "dork_obituary_results").forEach { key ->
+            meta[key]?.let { text ->
+                namePattern.findAll(text).map { it.value.trim() }.filter { it.length in 5..40 }.take(8).forEach { set.add(it) }
+            }
+        }
         return set
     }
 

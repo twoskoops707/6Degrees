@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -226,7 +227,9 @@ class OsintRepository(context: Context) {
 
         if (type == "comprehensive" && round < 3) {
             val candidates = extractCandidates(metadata)
-            if (candidates.isNotEmpty()) {
+            val hasGeoFilter = (metadata["person_city"]?.isNotBlank() == true) ||
+                               (metadata["person_state"]?.isNotBlank() == true)
+            if (candidates.size > 1 && !hasGeoFilter) {
                 send(SearchProgressEvent.CandidatesReady(candidates, reportId, round))
                 return@channelFlow
             }
@@ -255,6 +258,42 @@ class OsintRepository(context: Context) {
             }
             appCtx.startForegroundService(intent)
         } catch (_: Exception) {}
+    }
+
+    private suspend fun runTermuxTool(
+        toolPath: String,
+        args: List<String>,
+        outFile: String,
+        timeoutMs: Long = 60000
+    ): String? {
+        if (!java.io.File(toolPath).exists()) return null
+        val outF = java.io.File(outFile)
+        if (outF.exists()) outF.delete()
+        val cmd = "$toolPath ${args.joinToString(" ")} > $outFile 2>&1 ; echo __TOOL_DONE__ >> $outFile"
+        try {
+            val intent = Intent().apply {
+                setClassName("com.termux", "com.termux.app.RunCommandService")
+                action = "com.termux.RUN_COMMAND"
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            }
+            appCtx.startForegroundService(intent)
+        } catch (_: Exception) { return null }
+        return withTimeoutOrNull(timeoutMs) {
+            while (true) {
+                delay(2000)
+                if (outF.exists()) {
+                    val content = outF.readText()
+                    if (content.contains("__TOOL_DONE__")) {
+                        return@withTimeoutOrNull content.substringBefore("__TOOL_DONE__").trim()
+                    }
+                }
+            }
+            @Suppress("UNREACHABLE_CODE")
+            null
+        }
     }
 
     private suspend fun duckDuckGoSearch(
@@ -780,6 +819,25 @@ class OsintRepository(context: Context) {
                 emit(SearchProgressEvent.Failed("FullContact", e.message ?: ""))
             }
         }
+
+        val holeheBin = "/data/data/com.termux/files/usr/bin/holehe"
+        if (java.io.File(holeheBin).exists()) {
+            emit(SearchProgressEvent.Checking("Holehe"))
+            val outFile = "/data/data/com.termux/files/home/.6d_holehe_out.txt"
+            val result = runTermuxTool(holeheBin, listOf(email, "--only-used", "--no-color"),
+                outFile, 120000)
+            if (!result.isNullOrBlank()) {
+                val found = Regex("""^\[(\+)\] (\S+)""", RegexOption.MULTILINE)
+                    .findAll(result).map { it.groupValues[2] }.toList()
+                if (found.isNotEmpty()) {
+                    meta["holehe_found"] = found.joinToString(", ")
+                    sources.add(DataSource("Holehe", null, Date(), 0.85))
+                    emit(SearchProgressEvent.Found("Holehe", "${found.size} service${if (found.size != 1) "s" else ""}: ${found.take(3).joinToString(", ")}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Holehe"))
+                }
+            }
+        }
     }
 
     private suspend fun phoneSearch(
@@ -1057,6 +1115,48 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("Dev.to", e.message ?: ""))
+        }
+
+        val sherlockBin = "/data/data/com.termux/files/usr/bin/sherlock"
+        if (java.io.File(sherlockBin).exists()) {
+            emit(SearchProgressEvent.Checking("Sherlock"))
+            val outFile = "/data/data/com.termux/files/home/.6d_sherlock_out.txt"
+            val result = runTermuxTool(sherlockBin,
+                listOf(username, "--print-found", "--no-color", "--timeout", "5"),
+                outFile, 90000)
+            if (!result.isNullOrBlank()) {
+                val sherlockFound = Regex("""^\[(\+)\] (.+?): (https?://\S+)""", RegexOption.MULTILINE)
+                    .findAll(result).map { "${it.groupValues[2]}: ${it.groupValues[3]}" }.toList()
+                if (sherlockFound.isNotEmpty()) {
+                    meta["sherlock_found"] = sherlockFound.joinToString("\n")
+                    sources.add(DataSource("Sherlock", null, Date(), 0.85))
+                    emit(SearchProgressEvent.Found("Sherlock", "${sherlockFound.size} profile${if (sherlockFound.size != 1) "s" else ""} found"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Sherlock"))
+                }
+            } else {
+                emit(SearchProgressEvent.Failed("Sherlock", "timeout or not installed"))
+            }
+        }
+
+        val maigretBin = "/data/data/com.termux/files/usr/bin/maigret"
+        if (java.io.File(maigretBin).exists()) {
+            emit(SearchProgressEvent.Checking("Maigret"))
+            val outFile = "/data/data/com.termux/files/home/.6d_maigret_out.txt"
+            val result = runTermuxTool(maigretBin,
+                listOf(username, "--top-sites", "30", "--no-color", "-a"),
+                outFile, 120000)
+            if (!result.isNullOrBlank()) {
+                val found = Regex("""^\[(\+)\] (.+?) \[(.+?)\]: (https?://\S+)""", RegexOption.MULTILINE)
+                    .findAll(result).map { "${it.groupValues[2]}: ${it.groupValues[4]}" }.toList()
+                if (found.isNotEmpty()) {
+                    meta["maigret_found"] = found.joinToString("\n")
+                    sources.add(DataSource("Maigret", null, Date(), 0.85))
+                    emit(SearchProgressEvent.Found("Maigret", "${found.size} profile${if (found.size != 1) "s" else ""} found"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Maigret"))
+                }
+            }
         }
 
         val found = sources.filter { it.url != null }
@@ -1987,12 +2087,20 @@ class OsintRepository(context: Context) {
                 val resp = httpClient.newCall(req).execute()
                 val body = resp.body?.string() ?: ""; resp.close()
                 val total = Regex("\"total_records\"\\s*:\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                val names = Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).toList()
-                val charges = Regex("\"charges\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.take(5).toList()
-                val bookDates = Regex("\"book_date\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.take(5).toList()
-                val counties = Regex("\"county_state\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.take(5).toList()
+                val allNames = Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.toList()
+                val allCharges = Regex("\"charges\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.toList()
+                val allDates = Regex("\"book_date\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.toList()
+                val allCounties = Regex("\"county_state\"\\s*:\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].trim() }.toList()
+                val targetState = meta["person_state"]?.lowercase()?.trim() ?: ""
+                val filteredIndices = allCounties.indices.filter { i ->
+                    targetState.isBlank() || allCounties.getOrNull(i)?.lowercase()?.contains(targetState) == true
+                }.take(5)
+                val names = filteredIndices.mapNotNull { allNames.getOrNull(it) }
+                val charges = filteredIndices.map { allCharges.getOrNull(it) ?: "Unknown charge" }
+                val bookDates = filteredIndices.map { allDates.getOrNull(it) ?: "" }
+                val counties = filteredIndices.map { allCounties.getOrNull(it) ?: "" }
                 if (total > 0 && names.isNotEmpty()) {
-                    meta["arrest_count"] = total.toString()
+                    meta["arrest_count"] = names.size.toString()
                     meta["arrest_records"] = names.mapIndexed { i, name ->
                         val charge = charges.getOrNull(i) ?: "Unknown charge"
                         val date = bookDates.getOrNull(i) ?: ""
@@ -2000,7 +2108,7 @@ class OsintRepository(context: Context) {
                         "$name | $charge${if (date.isNotBlank()) " | $date" else ""}${if (county.isNotBlank()) " | $county" else ""}"
                     }.joinToString("\n")
                     sources.add(DataSource("JailBase", null, Date(), 0.85))
-                    emit(SearchProgressEvent.Found("JailBase", "$total arrest record${if (total != 1) "s" else ""} found"))
+                    emit(SearchProgressEvent.Found("JailBase", "${names.size} arrest record${if (names.size != 1) "s" else ""} found"))
                 } else {
                     emit(SearchProgressEvent.NotFound("JailBase"))
                 }
