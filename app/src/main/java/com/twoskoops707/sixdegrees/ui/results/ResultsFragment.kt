@@ -320,6 +320,43 @@ class ResultsFragment : Fragment() {
             socialLinks.take(8).forEach { (label, url) -> rows.add(label to url) }
         }
 
+        val foundUrls = meta["found_urls"]?.takeIf { it.isNotBlank() }
+        val sherlockFound = meta["sherlock_found"]?.takeIf { it.isNotBlank() }
+        val sherlockNameFound = meta["sherlock_name_found"]?.takeIf { it.isNotBlank() }
+        val maigretFound = meta["maigret_found"]?.takeIf { it.isNotBlank() }
+        if (foundUrls != null || sherlockFound != null || sherlockNameFound != null || maigretFound != null) {
+            rows.add(sec("DIGITAL PRESENCE"))
+            foundUrls?.lines()?.filter { it.isNotBlank() }?.take(15)?.forEach { line ->
+                val isNsfw = line.startsWith("⚠NSFW:")
+                val cleanLine = if (isNsfw) line.removePrefix("⚠NSFW:") else line
+                val parts = cleanLine.split(": ", limit = 2)
+                val label = if (isNsfw) "⚠ ${parts.firstOrNull() ?: "NSFW"}" else "✓ ${parts.firstOrNull() ?: "Platform"}"
+                rows.add(label to (parts.getOrNull(1) ?: cleanLine))
+            }
+            sherlockFound?.lines()?.filter { it.isNotBlank() }?.take(10)?.forEach { line ->
+                val parts = line.split(": ", limit = 2)
+                rows.add("Sherlock: ${parts.firstOrNull() ?: ""}" to (parts.getOrNull(1) ?: line))
+            }
+            sherlockNameFound?.lines()?.filter { it.isNotBlank() }?.take(10)?.forEach { line ->
+                val parts = line.split(": ", limit = 2)
+                rows.add("Likely: ${parts.firstOrNull() ?: ""}" to (parts.getOrNull(1) ?: line))
+            }
+            maigretFound?.lines()?.filter { it.isNotBlank() }?.take(10)?.forEach { line ->
+                val parts = line.split(": ", limit = 2)
+                rows.add("Maigret: ${parts.firstOrNull() ?: ""}" to (parts.getOrNull(1) ?: line))
+            }
+        }
+
+        meta["dork_identity_results"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("IDENTITY INTEL (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Intel" to s.trim()) }
+        }
+
+        meta["dork_social_results"]?.takeIf { it.isNotBlank() }?.let {
+            if (socialLinks.isEmpty()) rows.add(sec("SOCIAL MEDIA TRACES (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("Social" to s.trim()) }
+        }
+
         if (rows.size <= 2) rows.add("Status" to "No identity data found for this subject")
         return rows
     }

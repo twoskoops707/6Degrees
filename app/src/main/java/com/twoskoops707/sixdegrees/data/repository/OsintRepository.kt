@@ -174,6 +174,42 @@ class OsintRepository(context: Context) {
         "CamSoda", "Ashley Madison", "Seeking"
     )
 
+    private fun nameFirstLast(fullName: String): Pair<String, String> {
+        val parts = fullName.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (parts.isEmpty()) return "" to ""
+        if (parts.size == 1) return parts[0] to ""
+        return parts.first() to parts.last()
+    }
+
+    private fun nameSlug(fullName: String): String {
+        val (first, last) = nameFirstLast(fullName)
+        val f = first.lowercase().replace(Regex("[^a-z0-9]"), "")
+        val l = last.lowercase().replace(Regex("[^a-z0-9]"), "")
+        return if (l.isBlank()) f else "$f-$l"
+    }
+
+    private suspend fun waybackFetch(originalUrl: String): String? {
+        return try {
+            val encoded = URLEncoder.encode(originalUrl, "UTF-8")
+            val avReq = Request.Builder()
+                .url("https://archive.org/wayback/available?url=$encoded")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val avResp = fastHttpClient.newCall(avReq).execute()
+            val avBody = avResp.body?.string() ?: ""; avResp.close()
+            val snapshotUrl = Regex("\"url\"\\s*:\\s*\"(https://web\\.archive\\.org/web/[^\"]+)\"")
+                .find(avBody)?.groupValues?.get(1) ?: return null
+            val req = Request.Builder()
+                .url(snapshotUrl)
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val html = resp.body?.string(); resp.close()
+            if (html.isNullOrBlank() || resp.code != 200) null else html
+        } catch (_: Exception) { null }
+    }
+
     suspend fun search(query: String, type: String): Result<String> {
         var reportId: String? = null
         searchWithProgress(query, type).collect { event ->
@@ -2580,6 +2616,59 @@ class OsintRepository(context: Context) {
         if (bKey.isNotBlank()) {
             launch { bingPersonSearch(query, bKey, meta, sources, emit) }
         }
+
+        launch {
+            val sherlockBin = "/data/data/com.termux/files/usr/bin/sherlock"
+            val maigretBin = "/data/data/com.termux/files/usr/bin/maigret"
+            val hasTools = java.io.File(sherlockBin).exists() || java.io.File(maigretBin).exists()
+            if (!hasTools) return@launch
+            val (fn, ln) = nameFirstLast(query)
+            if (fn.isBlank() || ln.isBlank()) return@launch
+            val f = fn.lowercase().replace(Regex("[^a-z]"), "")
+            val l = ln.lowercase().replace(Regex("[^a-z]"), "")
+            val guesses = listOfNotNull(
+                "$f$l",
+                "$f.$l",
+                "${f.take(1)}$l",
+                "${f.take(1)}.$l",
+                "$f${l.take(1)}"
+            ).distinct().filter { it.length >= 4 }.take(4)
+            val allFound = mutableListOf<String>()
+            for (uname in guesses) {
+                if (java.io.File(sherlockBin).exists()) {
+                    emit(SearchProgressEvent.Checking("Sherlock [$uname]"))
+                    val outFile = "/data/data/com.termux/files/home/.6d_sherlock_n_$uname.txt"
+                    val result = runTermuxTool(sherlockBin,
+                        listOf(uname, "--print-found", "--no-color", "--timeout", "5"),
+                        outFile, 90000)
+                    if (!result.isNullOrBlank()) {
+                        val found = Regex("""^\[\+\] (.+?): (https?://\S+)""", RegexOption.MULTILINE)
+                            .findAll(result).map { "${it.groupValues[1]}: ${it.groupValues[2]}" }.toList()
+                        allFound.addAll(found)
+                        if (found.isNotEmpty()) emit(SearchProgressEvent.Found("Sherlock [$uname]", "${found.size} profile(s)"))
+                        else emit(SearchProgressEvent.NotFound("Sherlock [$uname]"))
+                    }
+                }
+                if (java.io.File(maigretBin).exists()) {
+                    emit(SearchProgressEvent.Checking("Maigret [$uname]"))
+                    val outFile = "/data/data/com.termux/files/home/.6d_maigret_n_$uname.txt"
+                    val result = runTermuxTool(maigretBin,
+                        listOf(uname, "--top-sites", "20", "--no-color", "-a"),
+                        outFile, 90000)
+                    if (!result.isNullOrBlank()) {
+                        val found = Regex("""^\[\+\] (.+?) \[(.+?)\]: (https?://\S+)""", RegexOption.MULTILINE)
+                            .findAll(result).map { "${it.groupValues[1]}: ${it.groupValues[3]}" }.toList()
+                        allFound.addAll(found)
+                        if (found.isNotEmpty()) emit(SearchProgressEvent.Found("Maigret [$uname]", "${found.size} profile(s)"))
+                        else emit(SearchProgressEvent.NotFound("Maigret [$uname]"))
+                    }
+                }
+            }
+            if (allFound.isNotEmpty()) {
+                meta["sherlock_name_found"] = allFound.distinct().joinToString("\n")
+                sources.add(DataSource("Sherlock/Maigret (name)", null, Date(), 0.6))
+            }
+        }
     }
 
     private suspend fun voterRecordsScrape(
@@ -2590,10 +2679,9 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("VoterRecords.com"))
         try {
-            val parts = query.trim().split(" ")
-            val firstName = parts.firstOrNull() ?: return
-            val lastName = parts.drop(1).joinToString("-").ifBlank { return }
-            val slug = "${firstName.lowercase()}-${lastName.lowercase()}"
+            val (vrFn, vrLn) = nameFirstLast(query)
+            if (vrFn.isBlank() || vrLn.isBlank()) return
+            val slug = "${vrFn.lowercase()}-${vrLn.lowercase()}"
             val req = Request.Builder()
                 .url("https://voterrecords.com/voters/$slug/1")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
@@ -3091,14 +3179,18 @@ class OsintRepository(context: Context) {
                 .addHeader("sec-ch-ua-mobile", "?0")
                 .addHeader("sec-ch-ua-platform", "\"Windows\"")
 
-            val listReq = headers.url("https://www.truepeoplesearch.com/results?name=$encoded&citystatezip=$locationEncoded&rid=0").build()
+            val tpsBaseUrl = "https://www.truepeoplesearch.com/results?name=$encoded&citystatezip=$locationEncoded&rid=0"
+            val listReq = headers.url(tpsBaseUrl).build()
             val listResp = fastHttpClient.newCall(listReq).execute()
-            val listHtml = listResp.body?.string() ?: ""; listResp.close()
+            var listHtml = listResp.body?.string() ?: ""; listResp.close()
             if (listResp.code == 403 || listResp.code == 429 || listHtml.isBlank()
                 || listHtml.contains("Just a moment", ignoreCase = true)
                 || listHtml.contains("cf-browser-verification", ignoreCase = true)
                 || listHtml.contains("Checking if the site connection is secure", ignoreCase = true)) {
-                emit(SearchProgressEvent.Blocked("TruePeopleSearch")); return
+                val archived = waybackFetch(tpsBaseUrl)
+                if (archived.isNullOrBlank()) { emit(SearchProgressEvent.Blocked("TruePeopleSearch")); return }
+                listHtml = archived
+                emit(SearchProgressEvent.Checking("TruePeopleSearch (archived)"))
             }
 
             val allDetailPaths = Regex("href=\"(/details[^\"]+)\"").findAll(listHtml)
@@ -4288,9 +4380,9 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("FamilyTreeNow"))
         try {
-            val parts = query.trim().split(" ")
-            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
-            val last = URLEncoder.encode(parts.drop(1).joinToString("+"), "UTF-8")
+            val (ftnFn, ftnLn) = nameFirstLast(query)
+            val first = URLEncoder.encode(ftnFn, "UTF-8")
+            val last = URLEncoder.encode(ftnLn, "UTF-8")
             val location = meta["person_location"] ?: ""
             val locationParts = location.split(",").map { it.trim() }
             val cityParam = if (locationParts.isNotEmpty() && locationParts[0].isNotBlank()) "&city=${URLEncoder.encode(locationParts[0], "UTF-8")}" else ""
@@ -4334,7 +4426,7 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("ZabaSearch"))
         try {
-            val slug = query.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+            val slug = nameSlug(query)
             val stateSuffix = run {
                 val st = meta["person_state"]?.trim()?.uppercase()
                     ?: meta["person_location"]?.split(",")?.getOrNull(1)?.trim()?.uppercase()
@@ -4350,8 +4442,12 @@ class OsintRepository(context: Context) {
                 .addHeader("Referer", "https://www.zabasearch.com/")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
-            val html = resp.body?.string() ?: ""; resp.close()
-            if (resp.code == 403) { emit(SearchProgressEvent.Blocked("ZabaSearch")); return }
+            var html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code == 403 || html.contains("Just a moment", ignoreCase = true)) {
+                val archived = waybackFetch(url)
+                if (archived.isNullOrBlank()) { emit(SearchProgressEvent.Blocked("ZabaSearch")); return }
+                html = archived
+            }
             if (resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("ZabaSearch")); return
             }
@@ -4391,9 +4487,9 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("411.com"))
         try {
-            val parts = query.trim().split("\\s+".toRegex())
-            val first = (parts.firstOrNull() ?: "").lowercase().replace(Regex("[^a-z0-9]"), "-").trim('-')
-            val last = parts.drop(1).joinToString("-").lowercase().replace(Regex("[^a-z0-9-]"), "-").trim('-')
+            val (fn411, ln411) = nameFirstLast(query)
+            val first = fn411.lowercase().replace(Regex("[^a-z0-9]"), "")
+            val last = ln411.lowercase().replace(Regex("[^a-z0-9]"), "")
             val stateSuffix = run {
                 val st = meta["person_state"]?.trim()?.uppercase()
                     ?: meta["person_location"]?.split(",")?.getOrNull(1)?.trim()?.uppercase()
@@ -4604,9 +4700,9 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("Nuwber"))
         try {
-            val parts = query.trim().split(" ")
-            val first = parts.firstOrNull()?.lowercase()?.ifBlank { null } ?: return
-            val last = parts.drop(1).joinToString("-").lowercase().ifBlank { return }
+            val (nuwFn, nuwLn) = nameFirstLast(query)
+            val first = nuwFn.lowercase().replace(Regex("[^a-z0-9]"), "").ifBlank { return }
+            val last = nuwLn.lowercase().replace(Regex("[^a-z0-9]"), "").ifBlank { return }
             val req = Request.Builder()
                 .url("https://nuwber.com/people/$first-$last")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
@@ -4667,9 +4763,9 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("WhitePages"))
         try {
-            val parts = query.trim().split(" ")
-            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
-            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+            val (wpFn, wpLn) = nameFirstLast(query)
+            val first = URLEncoder.encode(wpFn, "UTF-8")
+            val last = URLEncoder.encode(wpLn, "UTF-8")
             val req = Request.Builder()
                 .url("https://www.whitepages.com/name/$first-$last")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
@@ -4726,9 +4822,9 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("CheckPeople"))
         try {
-            val parts = query.trim().split(" ")
-            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
-            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+            val (cpFn, cpLn) = nameFirstLast(query)
+            val first = URLEncoder.encode(cpFn, "UTF-8")
+            val last = URLEncoder.encode(cpLn, "UTF-8")
             val req = Request.Builder()
                 .url("https://checkpeople.com/people-search?fname=$first&lname=$last")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0")
