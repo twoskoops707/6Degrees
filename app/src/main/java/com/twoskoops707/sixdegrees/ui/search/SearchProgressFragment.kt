@@ -78,8 +78,11 @@ class SearchProgressFragment : Fragment() {
 
         currentType = type
         currentDisplayQuery = displayQuery
-        val queryDisplay = if (locationHint.isNotBlank()) "$query · $locationHint" else query
-        binding.tvSearchQuery.text = if (round > 1) "Round $round: $queryDisplay" else queryDisplay
+        val cleanDisplayQuery = displayQuery.split("|").joinToString(", ") { part ->
+            val eqIdx = part.indexOf('=')
+            if (eqIdx != -1) part.substring(eqIdx + 1).trim() else part.trim()
+        }.replace(Regex(",\\s*,"), ",").trim().trimEnd(',')
+        binding.tvSearchQuery.text = if (round > 1) "Round $round: $cleanDisplayQuery" else cleanDisplayQuery
         binding.chipSearchType.text = if (round > 1) "ROUND $round" else type.uppercase()
 
         viewModel = ViewModelProvider(

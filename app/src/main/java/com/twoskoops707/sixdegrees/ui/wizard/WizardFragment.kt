@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Typeface
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -64,11 +65,6 @@ class WizardFragment : Fragment() {
         ToolDef("holehe",
             "/data/data/com.termux/files/usr/bin/holehe",
             "pip install holehe"),
-        ToolDef("theHarvester",
-            "",
-            "",
-            broken = true,
-            brokenNote = "Requires Playwright browser engine — not available on Android"),
         ToolDef("recon-ng",
             "/data/data/com.termux/files/home/recon-ng",
             "git clone https://github.com/lanmaster53/recon-ng ~/recon-ng && pip install -r ~/recon-ng/REQUIREMENTS"),
@@ -80,22 +76,7 @@ class WizardFragment : Fragment() {
             "git clone https://github.com/sqlmapproject/sqlmap ~/sqlmap"),
         ToolDef("nikto",
             "/data/data/com.termux/files/home/nikto",
-            "pkg install -y perl && git clone https://github.com/sullo/nikto ~/nikto"),
-        ToolDef("hashcat",
-            "",
-            "",
-            broken = true,
-            brokenNote = "No GPU on Android — CPU mode only via manual build"),
-        ToolDef("aircrack-ng",
-            "",
-            "",
-            broken = true,
-            brokenNote = "Needs monitor mode — disabled on non-rooted Android"),
-        ToolDef("maltego",
-            "",
-            "",
-            broken = true,
-            brokenNote = "GUI desktop app — use on PC only")
+            "pkg install -y perl && git clone https://github.com/sullo/nikto ~/nikto")
     )
 
     private val apiDefs = listOf(
@@ -126,6 +107,7 @@ class WizardFragment : Fragment() {
         val apiKeyManager = ApiKeyManager(requireContext())
         populateApiKeys(apiKeyManager)
         populateTermuxTools()
+        populateTips()
 
         binding.btnDone.setOnClickListener {
             requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE)
@@ -136,32 +118,46 @@ class WizardFragment : Fragment() {
 
     private fun populateTermuxTools() {
         val container = binding.termuxToolsContainer
+        val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+
         termuxTools.forEachIndexed { index, tool ->
-            if (tool.broken) {
-                val (row, _, statusLabel) = buildStatusRowDetailed(
-                    tool.displayName,
-                    tool.brokenNote,
-                    pending = false,
-                    isOk = false,
-                    isBroken = true
-                )
+            val installed = tool.checkPath.isNotBlank() && File(tool.checkPath).exists()
+            if (installed) {
+                val (row, _, _) = buildStatusRowDetailed(tool.displayName, "READY", pending = false, isOk = true)
                 container.addView(row)
             } else {
-                val installed = tool.checkPath.isNotBlank() && File(tool.checkPath).exists()
-                val (row, _, statusLabel) = buildStatusRowDetailed(
-                    tool.displayName,
-                    if (installed) "READY" else "tap to copy install command",
-                    pending = false,
-                    isOk = installed
-                )
-                if (!installed) {
-                    statusLabel.text = tool.installCmd.take(60) + if (tool.installCmd.length > 60) "…" else ""
-                    row.setOnClickListener { launchTermuxInstall(tool.installCmd) }
+                val wrapper = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setOnClickListener { launchTermuxInstall(tool.installCmd) }
                 }
-                container.addView(row)
+                val (row1, _, _) = buildStatusRowDetailed(tool.displayName, "NOT INSTALLED", pending = false, isOk = false)
+                val cmdView = TextView(ctx).apply {
+                    text = tool.installCmd
+                    textSize = 11f
+                    typeface = Typeface.MONOSPACE
+                    isSingleLine = false
+                    maxLines = 4
+                    setPadding(dp(36f), dp(2f), dp(16f), dp(10f))
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                }
+                wrapper.addView(row1)
+                wrapper.addView(cmdView)
+                container.addView(wrapper)
             }
             if (index < termuxTools.lastIndex) container.addView(buildDivider())
         }
+
+        container.addView(buildDivider())
+        val noteView = TextView(ctx).apply {
+            text = "Not available on this device: theHarvester (needs Playwright browser), hashcat (no GPU), aircrack-ng (needs monitor mode), maltego (desktop GUI). Use on PC."
+            textSize = 12f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+            setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+        }
+        container.addView(noteView)
     }
 
     private fun launchTermuxInstall(cmd: String) {
@@ -198,6 +194,35 @@ class WizardFragment : Fragment() {
         }
         container.setOnClickListener {
             findNavController().navigate(R.id.action_wizard_to_api_settings)
+        }
+    }
+
+    private fun populateTips() {
+        val tips = listOf(
+            "\uD83D\uDCA1" to "Enter full name + city/state for best results and fewer blank reports",
+            "\uD83D\uDCF1" to "Enable Termux external app permission before tapping install commands (see step above)",
+            "\uD83D\uDD0D" to "Sherlock and Maigret run in Termux background — check Termux app for username results",
+            "\uD83D\uDD11" to "Add a Google Custom Search Engine API key for richer web search results",
+            "\uD83D\uDEE1\uFE0F" to "Shodan and HIBP keys unlock breach and IP data sections in reports",
+            "\uD83D\uDCC4" to "If a report seems empty: try adding employer, age, or school to the search query",
+            "\uD83D\uDC65" to "Round 1 shows candidate cards — pick the closest match for a deep-dive report",
+            "\uD83D\uDCDE" to "Tap phone numbers and email addresses in reports to dial or open mail"
+        )
+        val container = binding.tipsContainer
+        val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+
+        tips.forEachIndexed { index, (icon, text) ->
+            val row = TextView(ctx).apply {
+                this.text = "$icon  $text"
+                textSize = 13f
+                isSingleLine = false
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
+            }
+            container.addView(row)
+            if (index < tips.lastIndex) container.addView(buildDivider())
         }
     }
 
@@ -250,6 +275,9 @@ class WizardFragment : Fragment() {
             text = statusText
             textSize = 10f
             letterSpacing = 0.08f
+            isSingleLine = false
+            maxLines = 3
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setTextColor(
                 when {
                     isBroken -> ContextCompat.getColor(ctx, R.color.warning)

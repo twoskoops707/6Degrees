@@ -234,6 +234,12 @@ class OsintRepository(context: Context) {
                 return@channelFlow
             }
         }
+
+        val followUps = zoReflectionLoop(metadata, cleanQuery)
+        for (fq in followUps.take(2)) {
+            duckDuckGoWebSearch(fq, metadata, sources, emit)
+        }
+
         send(SearchProgressEvent.Complete(reportId, sources.size))
     }
 
@@ -320,9 +326,10 @@ class OsintRepository(context: Context) {
             }
             val titles = Regex("""class="result__title"[^>]*>.*?<a[^>]*>([^<]+)</a>""")
                 .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
-            val snippets = Regex("""class="result__snippet"[^>]*>([^<]+)<""")
-                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
-            val urls = Regex("""class="result__url"[^>]*>([^<]+)<""")
+            val snippets = Regex("""class="result__snippet"[^>]*>([\s\S]{5,500}?)</(?:a|div|span)>""")
+                .findAll(html).map { it.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").replace("&quot;", "\"").trim() }
+                .filter { it.length > 8 }.take(8).toList()
+            val urls = Regex("""class="result__url"[^>]*>\s*([^\s<]{5,120})\s*</""")
                 .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
             val phones = Regex("""(?<!\d)\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})(?!\d)""")
                 .findAll(html).map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }
@@ -2680,6 +2687,41 @@ class OsintRepository(context: Context) {
         }
     }
 
+    private suspend fun zoReflectionLoop(
+        metadata: ConcurrentHashMap<String, String>,
+        originalQuery: String
+    ): List<String> = withTimeoutOrNull(15_000L) {
+        try {
+            val summaryLines = metadata.entries.take(20).joinToString("\n") { (k, v) ->
+                "$k: ${v.take(120)}"
+            }
+            val promptText = "You are an OSINT analyst. Based on the following search results gathered so far for \"$originalQuery\", identify up to 3 targeted follow-up search queries that would fill the most important gaps. Return ONLY the search queries, one per line, no numbering or explanation.\n\nResults so far:\n$summaryLines"
+            val escapedPrompt = promptText.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+            val reqBody = "{\"prompt\":\"$escapedPrompt\",\"model\":\"claude-3-haiku\"}".toRequestBody("application/json".toMediaType())
+            val req = Request.Builder()
+                .url("https://api.zo.computer/zo/ask")
+                .post(reqBody)
+                .addHeader("Authorization", "Bearer zo_sk_pmDTqQAkltmtTXI0Uowg0ozph9iXe0reyHsBM53Ij7M")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = httpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) return@withTimeoutOrNull emptyList()
+            val answer = Regex("\"answer\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)
+                ?.replace("\\n", "\n")?.replace("\\\"", "\"")?.trim()
+                ?: Regex("\"response\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)
+                    ?.replace("\\n", "\n")?.replace("\\\"", "\"")?.trim()
+                ?: Regex("\"text\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)?.groupValues?.get(1)
+                    ?.replace("\\n", "\n")?.replace("\\\"", "\"")?.trim()
+            if (answer.isNullOrBlank()) return@withTimeoutOrNull emptyList()
+            android.util.Log.d("zoReflection", "Follow-up queries: $answer")
+            answer.lines().map { it.trim() }.filter { it.isNotBlank() && it.length > 5 }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    } ?: emptyList()
+
     private suspend fun chroniclingAmericaSearch(
         query: String,
         meta: ConcurrentHashMap<String, String>,
@@ -3472,44 +3514,30 @@ class OsintRepository(context: Context) {
         val peopleSearchDork = URLEncoder.encode("\"$query\"$locSuffix site:truepeoplesearch.com OR site:whitepages.com OR site:spokeo.com OR site:fastpeoplesearch.com OR site:radaris.com OR site:intelius.com OR site:mylife.com", "UTF-8")
         meta["dork_people_sites"] = "${gBase}$peopleSearchDork"
 
-        val autoExecMapping = mapOf(
+        val autoExecMapping = linkedMapOf(
             "identity_confirm" to "dork_identity_results",
             "address_records" to "dork_address_results",
             "relatives_map" to "dork_relatives_results",
             "criminal_records" to "dork_criminal_results",
-            "property_records" to "dork_property_results",
-            "financial_exposure" to "dork_financial_results",
-            "court_deep" to "dork_court_results",
-            "vehicle_trace" to "dork_vehicle_results",
-            "education_school" to "dork_education_results",
-            "awards_recognition" to "dork_awards_results",
-            "obituary_cross" to "dork_obituary_results",
-            "professional_bio" to "dork_bio_results",
-            "linkedin_profile" to "dork_linkedin_results",
-            "philanthropy_board" to "dork_philanthropy_results",
-            "news_deep" to "dork_news_results",
-            "government_docs" to "dork_gov_results",
-            "sports_activity" to "dork_sports_results",
-            "yearbook_alumni" to "dork_yearbook_results",
             "leaked_data" to "dork_leaks_results",
             "dark_mentions" to "dork_dark_results",
             "social_discovery" to "dork_social_results",
-            "business_ties" to "dork_business_results",
-            "voter_records" to "dork_voter_results",
-            "people_search_tps" to "dork_tps_results",
-            "people_search_wp" to "dork_wp_results",
-            "people_search_spk" to "dork_spk_results",
-            "people_search_fps" to "dork_fps_results",
-            "people_search_rad" to "dork_rad_results",
-            "people_search_411" to "dork_411_results",
-            "people_search_zaba" to "dork_zaba_results",
-            "people_search_int" to "dork_int_results",
-            "people_search_pf" to "dork_pf_results",
-            "people_search_ml" to "dork_ml_results",
-            "people_search_bv" to "dork_bv_results",
-            "people_search_aw" to "dork_aw_results",
+            "email_patterns" to "dork_email_results",
+            "property_records" to "dork_property_results",
+            "financial_exposure" to "dork_financial_results",
+            "court_deep" to "dork_court_results",
+            "obituary_cross" to "dork_obituary_results",
+            "linkedin_profile" to "dork_linkedin_results",
+            "news_deep" to "dork_news_results",
             "files_dump" to "dork_files_results",
-            "email_patterns" to "dork_email_results"
+            "government_docs" to "dork_gov_results",
+            "vehicle_trace" to "dork_vehicle_results",
+            "voter_records" to "dork_voter_results",
+            "business_ties" to "dork_business_results",
+            "education_school" to "dork_education_results",
+            "professional_bio" to "dork_bio_results",
+            "people_search_411" to "dork_411_results",
+            "people_search_zaba" to "dork_zaba_results"
         )
         var execCount = 0
         for ((dorkKey, metaKey) in autoExecMapping) {
@@ -3521,7 +3549,7 @@ class OsintRepository(context: Context) {
                 meta[metaKey] = snippets.joinToString("\n---\n")
                 execCount++
             }
-            delay(1500)
+            delay(300)
         }
 
         sources.add(DataSource("ShadowDork Engine", null, Date(), 0.5))
@@ -4279,12 +4307,13 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("ZabaSearch"))
         try {
-            val slug = query.trim().replace(" ", "+")
-            val location = meta["person_location"] ?: ""
-            val stateSuffix = if (location.isNotBlank()) {
-                val statePart = location.split(",").getOrNull(1)?.trim() ?: ""
-                if (statePart.isNotBlank()) "$statePart/" else ""
-            } else ""
+            val slug = query.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+            val stateSuffix = run {
+                val st = meta["person_state"]?.trim()?.uppercase()
+                    ?: meta["person_location"]?.split(",")?.getOrNull(1)?.trim()?.uppercase()
+                    ?: ""
+                if (st.isNotBlank()) "$st/" else ""
+            }
             val url = "https://www.zabasearch.com/people/$slug/$stateSuffix"
             val req = Request.Builder()
                 .url(url)
@@ -4335,14 +4364,15 @@ class OsintRepository(context: Context) {
     ) {
         emit(SearchProgressEvent.Checking("411.com"))
         try {
-            val parts = query.trim().split(" ")
-            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
-            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
-            val location = meta["person_location"] ?: ""
-            val stateSuffix = if (location.isNotBlank()) {
-                val statePart = location.split(",").getOrNull(1)?.trim() ?: ""
-                if (statePart.isNotBlank()) "$statePart/" else ""
-            } else ""
+            val parts = query.trim().split("\\s+".toRegex())
+            val first = (parts.firstOrNull() ?: "").lowercase().replace(Regex("[^a-z0-9]"), "-").trim('-')
+            val last = parts.drop(1).joinToString("-").lowercase().replace(Regex("[^a-z0-9-]"), "-").trim('-')
+            val stateSuffix = run {
+                val st = meta["person_state"]?.trim()?.uppercase()
+                    ?: meta["person_location"]?.split(",")?.getOrNull(1)?.trim()?.uppercase()
+                    ?: ""
+                if (st.isNotBlank()) "$st/" else ""
+            }
             val req = Request.Builder()
                 .url("https://www.411.com/name/$first-$last/$stateSuffix")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
