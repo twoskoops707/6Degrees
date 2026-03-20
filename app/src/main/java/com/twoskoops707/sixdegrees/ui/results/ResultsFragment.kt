@@ -1508,7 +1508,7 @@ class ResultsFragment : Fragment() {
 
         binding.tvScoreNumber.text = if (score == 0) "✓" else score.toString()
         binding.tvScoreNumber.setTextColor(color)
-        binding.tvScoreVerdict.text = verdict
+        binding.tvScoreVerdict.text = "[ $verdict ]"
         binding.tvScoreVerdict.setTextColor(color)
         binding.tvScoreDetail.text = detail
         binding.scoreAccentBar.setBackgroundColor(color)
@@ -1765,7 +1765,7 @@ class ResultsFragment : Fragment() {
             }
 
             val accentBar = View(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(3f), dp(16f)).also { it.marginEnd = dp(10f) }
+                layoutParams = LinearLayout.LayoutParams(dp(4f), dp(18f)).also { it.marginEnd = dp(12f) }
                 setBackgroundColor(colorPrimary)
             }
 
@@ -1775,9 +1775,22 @@ class ResultsFragment : Fragment() {
                 textSize = 11f
                 setTypeface(typeface, Typeface.BOLD)
                 isAllCaps = true
-                letterSpacing = 0.12f
+                letterSpacing = 0.15f
                 setTextColor(colorPrimary)
                 setTextIsSelectable(true)
+            }
+
+            val dataRowCount = rows.count { it.second.isNotBlank() }
+            val badge = TextView(requireContext()).apply {
+                text = "$dataRowCount"
+                textSize = 8f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(colorSurface)
+                setBackgroundColor(colorPrimary)
+                setPadding(dp(5f), dp(2f), dp(5f), dp(2f))
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).also { it.marginEnd = dp(8f) }
             }
 
             val chevron = TextView(requireContext()).apply {
@@ -1788,6 +1801,7 @@ class ResultsFragment : Fragment() {
 
             headerRow.addView(accentBar)
             headerRow.addView(sectionTitle)
+            if (dataRowCount > 0) headerRow.addView(badge)
             headerRow.addView(chevron)
 
             val contentLayout = LinearLayout(requireContext()).apply {
@@ -1863,16 +1877,41 @@ class ResultsFragment : Fragment() {
         return sections.map { it.first to it.second.toList() }
     }
 
+    private fun getSectionAccentColor(ctx: Context, title: String): Int {
+        val t = title.uppercase()
+        return when {
+            t.startsWith("⚠") || "CRIMINAL" in t || "LEGAL" in t || "ARREST" in t
+                || "COURT" in t || "SANCTIONS" in t || "LEAKED" in t || "BREACH" in t
+                || "DARK WEB" in t || "PASTE" in t || "HIBP" in t || "COMB" in t
+                || "LEAKCHECK" in t || "IPQS" in t ->
+                ContextCompat.getColor(ctx, R.color.score_red)
+            "PHONE" in t || "CONTACT" in t || "ADDRESS" in t || "VOTER" in t
+                || "EMAIL" in t || "HOLEHE" in t || "NUMBER VALID" in t ->
+                ContextCompat.getColor(ctx, R.color.accent_cyan)
+            "DIGITAL" in t || "SOCIAL" in t || "SHERLOCK" in t || "MAIGRET" in t
+                || "GITHUB" in t || "KEYBASE" in t || "DEV.TO" in t || "PROFILE" in t
+                || "HACKER NEWS" in t || "FOUND" in t ->
+                ContextCompat.getColor(ctx, R.color.accent_green)
+            "NEWS" in t || "INTEL" in t || "DORK" in t || "PROPERTY" in t
+                || "FINANCIAL" in t || "VEHICLE" in t || "EDUCATION" in t
+                || "ACADEMIC" in t || "HISTORICAL" in t || "LIBRARY" in t
+                || "OBITUARY" in t || "AWARDS" in t || "SEARCH ENGINE" in t
+                || "INVESTIGATIVE" in t || "PEOPLE-SEARCH" in t ->
+                ContextCompat.getColor(ctx, R.color.accent_amber)
+            else -> {
+                val tv = TypedValue()
+                ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+                tv.data
+            }
+        }
+    }
+
     private fun buildSectionCard(ctx: Context, inflater: LayoutInflater, title: String, rows: List<Pair<String, String>>): View {
         val density = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * density).toInt()
 
-        val tv = TypedValue()
-        ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
-        val colorPrimary = tv.data
-
         val isWarning = title.startsWith("⚠")
-        val accentColor = if (isWarning) ContextCompat.getColor(ctx, R.color.score_red) else colorPrimary
+        val accentColor = getSectionAccentColor(ctx, title)
         val cardBg = if (isWarning) ContextCompat.getColor(ctx, R.color.error_dim) else ContextCompat.getColor(ctx, R.color.surface)
         val borderColor = if (isWarning) ContextCompat.getColor(ctx, R.color.score_red) else ContextCompat.getColor(ctx, R.color.border)
 
@@ -1897,28 +1936,46 @@ class ResultsFragment : Fragment() {
             val header = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(14f), dp(9f), dp(16f), dp(9f))
-                setBackgroundColor(Color.argb(26, r, g, b))
+                setPadding(dp(14f), dp(10f), dp(16f), dp(10f))
+                setBackgroundColor(Color.argb(30, r, g, b))
             }
             header.addView(View(ctx).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(3f), dp(14f)).also { it.marginEnd = dp(10f) }
+                layoutParams = LinearLayout.LayoutParams(dp(3f), dp(16f)).also { it.marginEnd = dp(10f) }
                 setBackgroundColor(accentColor)
             })
+            val sectionIcon = when {
+                "PHONE" in title.uppercase() || "NUMBER VALID" in title.uppercase() -> "☎ "
+                "EMAIL" in title.uppercase() || "BREACH" in title.uppercase() || "HIBP" in title.uppercase() -> "✉ "
+                "ADDRESS" in title.uppercase() || "VOTER" in title.uppercase() -> "⌂ "
+                title.startsWith("⚠") || "CRIMINAL" in title.uppercase() || "ARREST" in title.uppercase() -> "⚠ "
+                "SOCIAL" in title.uppercase() || "DIGITAL" in title.uppercase() || "PROFILE" in title.uppercase() -> "◎ "
+                "NEWS" in title.uppercase() -> "◉ "
+                "IDENTITY" in title.uppercase() || "SUBJECT" in title.uppercase() -> "◈ "
+                else -> "▸ "
+            }
+            val cleanTitle = title.removePrefix("⚠ ").removePrefix("⚠").trim()
             header.addView(TextView(ctx).apply {
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                text = title
+                text = "$sectionIcon$cleanTitle"
                 textSize = 10f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                 isAllCaps = true
-                letterSpacing = 0.15f
+                letterSpacing = 0.12f
                 setTextColor(accentColor)
                 setTextIsSelectable(true)
             })
+            val rowCountText = TextView(ctx).apply {
+                text = "${rows.size}"
+                textSize = 8f
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                setTextColor(Color.argb(160, r, g, b))
+            }
+            header.addView(rowCountText)
             inner.addView(header)
             inner.addView(View(ctx).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1f))
-                setBackgroundColor(borderColor)
-                alpha = 0.5f
+                setBackgroundColor(accentColor)
+                alpha = 0.25f
             })
         }
 
@@ -1987,18 +2044,28 @@ class ResultsFragment : Fragment() {
                 b.tvRowValue.setTextColor(tv.data)
             }
             isWarning && !isLink -> {
-                b.tvRowValue.typeface = Typeface.DEFAULT_BOLD
-                b.tvRowValue.textSize = 14f
+                b.tvRowValue.typeface = Typeface.MONOSPACE
+                b.tvRowValue.textSize = 13f
                 b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.score_red))
             }
-            isLink || isPivot || isPhone || isEmail -> {
-                b.tvRowValue.typeface = Typeface.DEFAULT
+            isPhone -> {
+                b.tvRowValue.typeface = Typeface.MONOSPACE
+                b.tvRowValue.textSize = 14f
+                b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+            }
+            isEmail -> {
+                b.tvRowValue.typeface = Typeface.MONOSPACE
                 b.tvRowValue.textSize = 13f
                 b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
             }
+            isLink || isPivot -> {
+                b.tvRowValue.typeface = Typeface.MONOSPACE
+                b.tvRowValue.textSize = 12f
+                b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+            }
             else -> {
-                b.tvRowValue.typeface = Typeface.DEFAULT_BOLD
-                b.tvRowValue.textSize = 14f
+                b.tvRowValue.typeface = Typeface.MONOSPACE
+                b.tvRowValue.textSize = 13f
                 val tv = TypedValue()
                 ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, tv, true)
                 b.tvRowValue.setTextColor(tv.data)

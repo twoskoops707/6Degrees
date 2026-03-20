@@ -119,16 +119,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="12dp"
+            android:paddingHorizontal="0dp"
+            android:paddingVertical="0dp"
             android:gravity="center_vertical"
             android:background="?attr/colorSurface">
+
+            <View
+                android:layout_width="3dp"
+                android:layout_height="match_parent"
+                android:background="@color/accent_red"
+                android:minHeight="72dp" />
 
             <ImageView
                 android:id="@+id/profile_image"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
-                android:layout_marginEnd="14dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
                 android:scaleType="centerCrop"
                 android:src="@drawable/ic_person_placeholder"
                 android:background="@drawable/bg_score_circle" />
@@ -137,24 +144,25 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingVertical="12dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="SUBJECT"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="8sp"
-                    android:letterSpacing="0.2"
+                    android:text="CLASSIFIED SUBJECT"
+                    android:textColor="@color/accent_red"
+                    android:textSize="7sp"
+                    android:letterSpacing="0.25"
                     android:textAllCaps="true"
-                    android:layout_marginBottom="2dp" />
+                    android:layout_marginBottom="3dp" />
 
                 <TextView
                     android:id="@+id/full_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="19sp"
+                    android:textSize="21sp"
                     android:textStyle="bold"
                     android:maxLines="1"
                     android:ellipsize="end"
@@ -207,7 +215,7 @@
                     android:layout_height="wrap_content"
                     android:text="—"
                     android:textColor="?attr/colorPrimary"
-                    android:textSize="30sp"
+                    android:textSize="38sp"
                     android:textStyle="bold"
                     android:gravity="center"
                     android:textIsSelectable="true" />
@@ -263,11 +271,11 @@
                     android:id="@+id/tv_score_verdict"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="ANALYZING..."
+                    android:text="[ ANALYZING ]"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
-                    android:letterSpacing="0.05"
+                    android:letterSpacing="0.08"
                     android:maxLines="1"
                     android:ellipsize="none"
                     android:textIsSelectable="true" />
