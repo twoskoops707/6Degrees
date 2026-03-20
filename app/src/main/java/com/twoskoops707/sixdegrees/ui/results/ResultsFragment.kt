@@ -361,9 +361,18 @@ class ResultsFragment : Fragment() {
             allRel.forEach { rows.add("⟶ Pivot Search" to "pivot://person/$it") }
         }
 
-        meta["dork_address_results"]?.takeIf { it.isNotBlank() }?.let {
-            rows.add(sec("ADDRESS INTEL (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(12).forEach { s -> rows.add("Address Intel" to s.trim()) }
+        run {
+            val addrSections = listOf(
+                "dork_address_results" to "ADDRESS INTEL",
+                "dork_address_full_results" to "STREET ADDRESS INTEL",
+                "dork_phone_results" to "PHONE LOOKUP INTEL"
+            )
+            addrSections.forEach { (key, label) ->
+                meta[key]?.takeIf { it.isNotBlank() }?.let {
+                    rows.add(sec("$label (AUTO-DORK)"))
+                    it.split("\n---\n").filter { s -> s.isNotBlank() }.take(12).forEach { s -> rows.add("Intel" to s.trim()) }
+                }
+            }
         }
         meta["dork_relatives_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("RELATIVES INTEL (AUTO-DORK)"))
@@ -1226,6 +1235,7 @@ class ResultsFragment : Fragment() {
         meta["veriphone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier (Veriphone)" to it) }
         meta["veriphone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (Veriphone)" to it) }
         meta["veriphone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (Veriphone)" to it) }
+        meta["opencnam_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Caller Name (OpenCNAM)" to it) }
         if (rows.size <= 1) rows.add("Status" to "No validation data available for this number")
         return rows
     }
@@ -1352,21 +1362,33 @@ class ResultsFragment : Fragment() {
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
-               "ddg_person_phones", "ddg_social_phones")
+               "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
                 }?.forEach { set.add(it) }
             }
-        val phonePattern = Regex("\\(\\d{3}\\)\\s*\\d{3}[-.]\\d{4}|\\d{3}[-.]\\d{3}[-.]\\d{4}")
-        listOf("ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "cse_snippets", "dork_address_results", "dork_criminal_results", "searx_snippets")
-            .forEach { key ->
-                meta[key]?.let { text ->
-                    phonePattern.findAll(text).map { it.value.trim() }.filter { phone ->
-                        phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
-                    }.forEach { set.add(it) }
+        val phonePattern = Regex("\\(?\\d{3}\\)?[\\s.\\-]\\d{3}[\\s.\\-]\\d{4}")
+        val allDorkKeys = listOf(
+            "ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "ddg_snippets",
+            "cse_snippets", "searx_snippets",
+            "dork_address_results", "dork_criminal_results", "dork_phone_results",
+            "dork_address_full_results", "dork_identity_results", "dork_voter_results",
+            "dork_411_results", "dork_zaba_results", "dork_wp_results", "dork_spk_results",
+            "voter_raw", "opencnam_name"
+        )
+        allDorkKeys.forEach { key ->
+            meta[key]?.let { text ->
+                phonePattern.findAll(text).map { it.value.trim() }.forEach { raw ->
+                    val digits = raw.replace(Regex("[^0-9]"), "")
+                    if (digits.length == 10) {
+                        val formatted = "(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}"
+                        val area = digits.substring(0, 3)
+                        if (area !in tollfree) set.add(formatted)
+                    }
                 }
             }
+        }
         return set
     }
 
@@ -1377,13 +1399,19 @@ class ResultsFragment : Fragment() {
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
             "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
-        val addrPattern = Regex("[A-Z][a-zA-Z ]{2,25},\\s*[A-Z]{2}(?:\\s+\\d{5})?")
-        listOf("dork_address_results", "ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "cse_snippets")
-            .forEach { key ->
-                meta[key]?.let { text ->
-                    addrPattern.findAll(text).map { it.value.trim() }.filter { it.length > 5 && it.length < 60 }.forEach { set.add(it) }
-                }
+        val streetPattern = Regex("\\d{1,5}\\s+[A-Z][a-zA-Z0-9 .]{3,30}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Trail|Pkwy|Hwy|Highway|Street|Avenue|Road|Lane|Court|Circle|Drive)\\.?(?:[,\\s]+[A-Z][a-zA-Z ]{2,20}[,\\s]+[A-Z]{2}(?:[\\s,]+\\d{5})?)?")
+        val cityStatePattern = Regex("[A-Z][a-zA-Z ]{2,25},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)(?:\\s+\\d{5})?")
+        val allSources = listOf(
+            "dork_address_results", "dork_address_full_results", "dork_identity_results",
+            "dork_411_results", "dork_zaba_results", "dork_phone_results",
+            "ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "cse_snippets"
+        )
+        allSources.forEach { key ->
+            meta[key]?.let { text ->
+                streetPattern.findAll(text).map { it.value.trim() }.filter { it.length in 10..80 }.forEach { set.add(it) }
+                cityStatePattern.findAll(text).map { it.value.trim() }.filter { it.length in 5..50 }.forEach { set.add(it) }
             }
+        }
         return set
     }
 
@@ -1393,9 +1421,9 @@ class ResultsFragment : Fragment() {
             "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives", "checkpeople_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         val namePattern = Regex("[A-Z][a-z]+ [A-Z][a-z]+")
-        listOf("dork_relatives_results", "dork_obituary_results").forEach { key ->
+        listOf("dork_relatives_results", "dork_obituary_results", "dork_identity_results", "dork_address_results").forEach { key ->
             meta[key]?.let { text ->
-                namePattern.findAll(text).map { it.value.trim() }.filter { it.length in 5..40 }.take(8).forEach { set.add(it) }
+                namePattern.findAll(text).map { it.value.trim() }.filter { it.length in 5..40 }.take(12).forEach { set.add(it) }
             }
         }
         return set

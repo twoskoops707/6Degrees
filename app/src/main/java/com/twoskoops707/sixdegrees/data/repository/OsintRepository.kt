@@ -993,6 +993,29 @@ class OsintRepository(context: Context) {
             }
         }
 
+        emit(SearchProgressEvent.Checking("OpenCNAM"))
+        try {
+            val digits = phone.replace(Regex("[^0-9]"), "")
+            val e164 = if (digits.length == 10) "+1$digits" else if (digits.length == 11 && digits.startsWith("1")) "+$digits" else "+$digits"
+            val req = Request.Builder()
+                .url("https://api.opencnam.com/v2/phone/$e164?format=json&ref=sixdegrees")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .addHeader("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val name = Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
+            if (!name.isNullOrBlank() && name != "null" && name.length > 2) {
+                meta["opencnam_name"] = name
+                sources.add(DataSource("OpenCNAM", null, Date(), 0.65))
+                emit(SearchProgressEvent.Found("OpenCNAM", "Caller name: $name"))
+            } else {
+                emit(SearchProgressEvent.NotFound("OpenCNAM"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("OpenCNAM", e.message ?: ""))
+        }
+
     }
 
     private suspend fun usernameSearch(
@@ -3453,6 +3476,8 @@ class OsintRepository(context: Context) {
             "leaked_data"        to "\"$query\" site:pastebin.com OR site:ghostbin.co OR site:hastebin.com OR site:rentry.co",
             "social_discovery"   to "\"$query\" (instagram OR twitter OR facebook OR tiktok OR linkedin OR snapchat) -buy -sell -news",
             "email_patterns"     to "\"$firstLast\" OR \"$lastFirst\" (email OR contact OR gmail OR yahoo OR hotmail)",
+            "phone_lookup"       to "\"$query\"$locSuffix (phone OR \"phone number\" OR \"cell\" OR \"mobile\" OR \"contact\") site:411.com OR site:whitepages.com OR site:zabasearch.com OR site:spokeo.com OR site:anywho.com OR site:peoplefinder.com",
+            "address_full"       to "\"$query\"$locSuffix (\"street\" OR \"Ave\" OR \"Blvd\" OR \"Dr\" OR \"Rd\" OR \"St\" OR \"Lane\" OR \"Court\" OR \"address\" OR \"zip\" OR \"resides at\" OR \"lives at\") -obituary -job",
             "vehicle_trace"      to "\"$query\"$locSuffix (vehicle OR \"car registration\" OR VIN OR \"license plate\" OR DMV OR \"auto record\") -dealer -buy",
             "business_ties"      to "\"$query\" (CEO OR founder OR director OR owner OR LLC OR \"Inc.\") site:bloomberg.com OR site:linkedin.com OR site:opencorporates.com",
             "court_deep"         to "\"$query\"$locSuffix site:courtlistener.com OR site:judyrecords.com OR site:unicourt.com OR site:pacer.gov",
@@ -3537,7 +3562,9 @@ class OsintRepository(context: Context) {
             "education_school" to "dork_education_results",
             "professional_bio" to "dork_bio_results",
             "people_search_411" to "dork_411_results",
-            "people_search_zaba" to "dork_zaba_results"
+            "people_search_zaba" to "dork_zaba_results",
+            "phone_lookup" to "dork_phone_results",
+            "address_full" to "dork_address_full_results"
         )
         var execCount = 0
         for ((dorkKey, metaKey) in autoExecMapping) {
