@@ -264,7 +264,7 @@ class OsintRepository(context: Context) {
 
         if (type == "comprehensive" && round < 3) {
             val candidates = extractCandidates(metadata)
-            if (candidates.size > 1) {
+            if (candidates.isNotEmpty()) {
                 val enriched = enrichCandidatesWithPhotos(candidates)
                 send(SearchProgressEvent.CandidatesReady(enriched, reportId, round))
                 return@channelFlow
@@ -462,22 +462,78 @@ class OsintRepository(context: Context) {
             }
         }
 
+        val profileLinksRaw = meta["cse_profile_links"] ?: ""
+        if (profileLinksRaw.isNotBlank()) {
+            profileLinksRaw.lines().filter { it.isNotBlank() }.forEach { line ->
+                val url = line.substringAfter("→").trim()
+                val namePart = Regex("/(?:name|people)/([A-Za-z]+(?:-[A-Za-z]+){1,3})/([A-Za-z-]+)-?([A-Z]{2})?")
+                    .find(url)
+                    ?: Regex("/([A-Za-z]+(?:-[A-Za-z]+){1,3})/([A-Za-z]+)(?:/([A-Z]{2}))?(?:\\?|$)")
+                    .find(url)
+                if (namePart != null) {
+                    val rawName = namePart.groupValues[1].replace("-", " ")
+                        .split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
+                    val rawCity = namePart.groupValues[2].replace("-", " ")
+                        .split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
+                    val rawState = namePart.groupValues[3].ifBlank {
+                        Regex("/([A-Z]{2})(?:/|$)").find(url)?.groupValues?.get(1) ?: ""
+                    }
+                    val loc = listOf(rawCity, rawState).filter { it.isNotBlank() }.joinToString(", ")
+                    val existsAlready = candidates.any { it.name.equals(rawName, ignoreCase = true) && it.location.equals(loc, ignoreCase = true) }
+                    if (!existsAlready && rawName.length > 4 && rawName.contains(" ")) {
+                        candidates.add(CandidateProfile(
+                            name = rawName,
+                            age = "",
+                            location = loc,
+                            phones = emptyList(),
+                            address = "",
+                            source = line.substringBefore("→").trim(),
+                            confidence = 0.55f
+                        ))
+                    }
+                }
+            }
+        }
+
+        val cseSnippets = meta["cse_snippets"] ?: ""
+        if (cseSnippets.isNotBlank() && candidates.size < 4) {
+            val snippetPersonPattern = Regex("([A-Z][a-z]+(?:\\s[A-Z]\\.)?\\s[A-Z][a-z]+)[,·\\s]+(?:[Aa]ge\\s*)?(\\d{2,3})[,·\\s]+([A-Z][a-z]{2,20}[,\\s]+[A-Z]{2})")
+            cseSnippets.split("\n---\n").forEach { snippet ->
+                snippetPersonPattern.findAll(snippet).forEach { m ->
+                    val sName = m.groupValues[1].trim()
+                    val sAge = m.groupValues[2].trim()
+                    val sLoc = m.groupValues[3].trim()
+                    val existsAlready = candidates.any { it.name.equals(sName, ignoreCase = true) }
+                    if (!existsAlready && sName.length > 4) {
+                        candidates.add(CandidateProfile(
+                            name = sName, age = sAge, location = sLoc,
+                            phones = emptyList(), address = "", source = "Google CSE",
+                            confidence = 0.50f + (if (sAge.isNotBlank()) 0.05f else 0f)
+                        ))
+                    }
+                }
+            }
+        }
+
         val personName = meta["comp_name"] ?: meta["person_name"] ?: ""
         val personLocation = meta["person_location"] ?: ""
         val personPhone = meta["comp_phone"] ?: ""
         val personCity = meta["person_city"] ?: ""
         val personState = meta["person_state"] ?: ""
 
-        if (candidates.isEmpty() && personName.isNotBlank()) {
-            candidates.add(CandidateProfile(
-                name = personName,
-                age = meta["person_age"] ?: "",
-                location = personLocation.ifBlank { listOf(personCity, personState).filter { it.isNotBlank() }.joinToString(", ") },
-                phones = listOfNotNull(personPhone.takeIf { it.isNotBlank() }),
-                address = meta["person_address"] ?: "",
-                source = "Multiple Sources",
-                confidence = 0.70f
-            ))
+        if (personName.isNotBlank()) {
+            val existsAlready = candidates.any { it.name.equals(personName, ignoreCase = true) }
+            if (!existsAlready || candidates.isEmpty()) {
+                candidates.add(0, CandidateProfile(
+                    name = personName,
+                    age = meta["person_age"] ?: "",
+                    location = personLocation.ifBlank { listOf(personCity, personState).filter { it.isNotBlank() }.joinToString(", ") },
+                    phones = listOfNotNull(personPhone.takeIf { it.isNotBlank() }),
+                    address = meta["person_address"] ?: "",
+                    source = "Multiple Sources",
+                    confidence = 0.70f
+                ))
+            }
         }
 
         val targetCity = personCity.lowercase()

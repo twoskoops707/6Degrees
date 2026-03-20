@@ -80,6 +80,10 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("fullcontact", "") ?: ""
         set(v) { prefs.edit().putString("fullcontact", v).apply() }
 
+    var hashesOrgKey: String
+        get() = prefs.getString("hashes_org", "") ?: ""
+        set(v) { prefs.edit().putString("hashes_org", v).apply() }
+
     fun hasAnyKey(): Boolean = true
 
     fun activeKeyCount(): Int = listOf(

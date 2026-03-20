@@ -107,6 +107,7 @@ class ApiSettingsFragment : Fragment() {
                 "veriphone" -> { apiKeyManager.veriphoneKey = v; count++ }
                 "ipqs", "ipqualityscore" -> { apiKeyManager.ipqsKey = v; count++ }
                 "fullcontact" -> { apiKeyManager.fullcontactKey = v; count++ }
+                "hashes_org", "hashesorg" -> { apiKeyManager.hashesOrgKey = v; count++ }
             }
         }
         if (count > 0) {
@@ -137,7 +138,8 @@ class ApiSettingsFragment : Fragment() {
             "bing_search" to apiKeyManager.bingSearchKey,
             "veriphone" to apiKeyManager.veriphoneKey,
             "ipqs" to apiKeyManager.ipqsKey,
-            "fullcontact" to apiKeyManager.fullcontactKey
+            "fullcontact" to apiKeyManager.fullcontactKey,
+            "hashes_org" to apiKeyManager.hashesOrgKey
         ).forEach { (name, key) ->
             sb.appendLine("$name,$key")
         }
@@ -298,6 +300,7 @@ class ApiSettingsFragment : Fragment() {
         binding.veriphoneApiKeyInput.setText(apiKeyManager.veriphoneKey)
         binding.ipqsApiKeyInput.setText(apiKeyManager.ipqsKey)
         binding.fullcontactApiKeyInput.setText(apiKeyManager.fullcontactKey)
+        binding.hashesOrgApiKeyInput.setText(apiKeyManager.hashesOrgKey)
     }
 
     private fun saveApiKeys() {
@@ -313,6 +316,7 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.veriphoneKey = binding.veriphoneApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.ipqsKey = binding.ipqsApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.fullcontactKey = binding.fullcontactApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.hashesOrgKey = binding.hashesOrgApiKeyInput.text?.toString()?.trim() ?: ""
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()
     }
 

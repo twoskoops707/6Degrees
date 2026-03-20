@@ -278,10 +278,15 @@ class ResultsFragment : Fragment() {
             allPhones.take(4).forEach { rows.add("Phone" to it) }
         }
 
-        val bestLoc = extractBestLocation(meta)
+        val enteredLoc = meta["person_location"]?.takeIf { it.isNotBlank() }
+        val scrapedLoc = extractBestLocation(meta)
+        val bestLoc = enteredLoc ?: scrapedLoc
         if (bestLoc.isNotBlank()) {
             rows.add(sec("LOCATION"))
-            rows.add("Best Match" to bestLoc)
+            rows.add("Entered Location" to bestLoc)
+            if (enteredLoc != null && scrapedLoc.isNotBlank() && !scrapedLoc.equals(enteredLoc, ignoreCase = true)) {
+                rows.add("Best Match" to scrapedLoc)
+            }
         }
 
         val allRel = extractRelatives(meta)
@@ -330,8 +335,12 @@ class ResultsFragment : Fragment() {
                 val isNsfw = line.startsWith("⚠NSFW:")
                 val cleanLine = if (isNsfw) line.removePrefix("⚠NSFW:") else line
                 val parts = cleanLine.split(": ", limit = 2)
-                val label = if (isNsfw) "⚠ ${parts.firstOrNull() ?: "NSFW"}" else "✓ ${parts.firstOrNull() ?: "Platform"}"
-                rows.add(label to (parts.getOrNull(1) ?: cleanLine))
+                val siteName = parts.firstOrNull()?.trim() ?: ""
+                val url = parts.getOrNull(1) ?: cleanLine
+                val desc = PLATFORM_DESCRIPTIONS[siteName]
+                val label = if (isNsfw) "⚠ $siteName" else "✓ $siteName"
+                rows.add(label to url)
+                if (desc != null) rows.add("About" to desc)
             }
             sherlockFound?.lines()?.filter { it.isNotBlank() }?.take(10)?.forEach { line ->
                 val parts = line.split(": ", limit = 2)
@@ -1407,9 +1416,7 @@ class ResultsFragment : Fragment() {
             }
         val phonePattern = Regex("\\(?\\d{3}\\)?[\\s.\\-]\\d{3}[\\s.\\-]\\d{4}")
         val allDorkKeys = listOf(
-            "ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "ddg_snippets",
-            "cse_snippets", "searx_snippets",
-            "dork_address_results", "dork_criminal_results", "dork_phone_results",
+            "dork_phone_results", "dork_address_results", "dork_criminal_results",
             "dork_address_full_results", "dork_identity_results", "dork_voter_results",
             "dork_411_results", "dork_zaba_results", "dork_wp_results", "dork_spk_results",
             "voter_raw", "opencnam_name"
@@ -1436,8 +1443,8 @@ class ResultsFragment : Fragment() {
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
             "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
-        val streetPattern = Regex("\\d{1,5}\\s+[A-Z][a-zA-Z0-9 .]{3,30}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Trail|Pkwy|Hwy|Highway|Street|Avenue|Road|Lane|Court|Circle|Drive)\\.?(?:[,\\s]+[A-Z][a-zA-Z ]{2,20}[,\\s]+[A-Z]{2}(?:[\\s,]+\\d{5})?)?")
-        val cityStatePattern = Regex("[A-Z][a-zA-Z ]{2,25},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)(?:\\s+\\d{5})?")
+        val streetPattern = Regex("\\d{1,5}\\s+[A-Za-z][a-zA-Z0-9 .]{3,30}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Trail|Pkwy|Hwy|Highway|Street|Avenue|Road|Lane|Court|Circle|Drive)\\.?(?:[,\\s]+[A-Za-z][a-zA-Z ]{2,20}[,\\s]+[A-Z]{2}(?:[\\s,]+\\d{5})?)?", RegexOption.IGNORE_CASE)
+        val cityStatePattern = Regex("[A-Za-z][a-zA-Z ]{2,25},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)(?:\\s+\\d{5})?", RegexOption.IGNORE_CASE)
         val allSources = listOf(
             "dork_address_results", "dork_address_full_results", "dork_identity_results",
             "dork_411_results", "dork_zaba_results", "dork_phone_results",
@@ -2118,6 +2125,94 @@ class ResultsFragment : Fragment() {
 
         b.tvRowValue.setTextIsSelectable(true)
         b.tvRowLabel.setTextIsSelectable(true)
+    }
+
+    companion object {
+        val PLATFORM_DESCRIPTIONS = mapOf(
+            "GitHub" to "Code hosting & developer collaboration",
+            "Reddit" to "Social news aggregation & discussion",
+            "Twitter/X" to "Microblogging & social network",
+            "Instagram" to "Photo & video sharing",
+            "TikTok" to "Short-form video sharing",
+            "YouTube" to "Video sharing & streaming",
+            "LinkedIn" to "Professional networking",
+            "Pinterest" to "Visual discovery & idea sharing",
+            "Twitch" to "Live game streaming platform",
+            "Flickr" to "Photo sharing & community",
+            "Tumblr" to "Blogging & creative content",
+            "Medium" to "Online publishing & blogging",
+            "DeviantArt" to "Digital art & creative community",
+            "SoundCloud" to "Music sharing & audio streaming",
+            "Spotify" to "Music & podcast streaming",
+            "GitLab" to "DevOps code repository",
+            "Keybase" to "Encrypted identity verification",
+            "Replit" to "Browser-based coding environment",
+            "HackerNews" to "Tech news & discussion (Y Combinator)",
+            "ProductHunt" to "Product launch & discovery",
+            "Gravatar" to "Globally recognized avatar service",
+            "About.me" to "Personal profile page",
+            "Wattpad" to "Story sharing & reading community",
+            "Patreon" to "Creator subscription monetization",
+            "Venmo" to "Peer-to-peer payment app",
+            "Etsy" to "Handmade & vintage marketplace",
+            "Behance" to "Creative portfolio (Adobe)",
+            "Dribbble" to "Designer portfolio & community",
+            "Last.fm" to "Music tracking & social recommendation",
+            "Lichess" to "Free open-source chess platform",
+            "Chess.com" to "Online chess platform",
+            "Codecademy" to "Interactive coding education",
+            "Duolingo" to "Language learning platform",
+            "NameMC" to "Minecraft username tracker",
+            "VSCO" to "Photography & creative community",
+            "Snapchat" to "Disappearing photo/video messaging",
+            "Xbox Gamertag" to "Xbox gaming profile",
+            "PSN Profiles" to "PlayStation Network gaming profile",
+            "Cashapp" to "Cash App payment profile",
+            "VK" to "Russian social network (VKontakte)",
+            "Telegram" to "Encrypted messaging & channels",
+            "Mastodon" to "Federated open-source social network",
+            "Bluesky" to "Decentralized social network (AT Protocol)",
+            "Threads" to "Instagram's text-based social network",
+            "Substack" to "Newsletter & subscription publishing",
+            "Ko-fi" to "Creator tip jar & supporter platform",
+            "Linktree" to "Link aggregator profile page",
+            "Letterboxd" to "Film diary & social movie tracking",
+            "ArtStation" to "Professional game & film art portfolio",
+            "Unsplash" to "Free stock photography platform",
+            "Mixcloud" to "DJ mix & podcast streaming",
+            "Audiomack" to "Free music streaming & discovery",
+            "Bandcamp" to "Music publishing & direct fan support",
+            "ReverbNation" to "Musician marketing & promotion",
+            "Steemit" to "Blockchain-based social blogging",
+            "Odysee" to "Decentralized video platform (LBRY)",
+            "Rumble" to "Alternative video hosting platform",
+            "Minds" to "Open-source decentralized social network",
+            "Kaggle" to "Data science & ML competition platform",
+            "Codeforces" to "Competitive programming platform",
+            "LeetCode" to "Coding interview prep platform",
+            "CodePen" to "Front-end code playground",
+            "Angel.co" to "Startup jobs & investor network",
+            "GoodReads" to "Book tracking & reading community",
+            "OkCupid" to "Dating app & matchmaking service",
+            "Xing" to "European professional networking",
+            "Exercism" to "Programming practice & mentorship",
+            "OnlyFans" to "⚠ Adult content subscription platform",
+            "Pornhub" to "⚠ Adult video streaming site",
+            "Chaturbate" to "⚠ Adult live cam broadcasting",
+            "ManyVids" to "⚠ Adult content creator marketplace",
+            "Fansly" to "⚠ Adult content subscription platform",
+            "RedGIFs" to "⚠ Adult GIF & video sharing",
+            "XVIDEOS" to "⚠ Adult video streaming site",
+            "BDSMLR" to "⚠ Adult BDSM-focused social blogging",
+            "Stripchat" to "⚠ Adult live cam platform",
+            "MyFreeCams" to "⚠ Adult webcam model platform",
+            "CamSoda" to "⚠ Adult cam broadcasting platform",
+            "Tinder" to "Dating app",
+            "Bumble" to "Dating & networking app",
+            "Ashley Madison" to "⚠ Extramarital affairs dating platform",
+            "Seeking" to "⚠ Sugar dating platform",
+            "FurAffinity" to "Furry art & community platform"
+        )
     }
 
 }
