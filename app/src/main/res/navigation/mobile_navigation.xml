@@ -49,6 +49,11 @@
         <action
             android:id="@+id/action_progress_to_candidates"
             app:destination="@id/nav_candidate_selection" />
+        <action
+            android:id="@+id/action_progress_to_progress"
+            app:destination="@id/nav_search_progress"
+            app:popUpTo="@id/nav_search_progress"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment

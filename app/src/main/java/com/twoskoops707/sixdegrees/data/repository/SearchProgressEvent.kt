@@ -11,7 +11,9 @@ sealed class SearchProgressEvent {
     data class CandidatesReady(
         val candidates: List<CandidateProfile>,
         val reportId: String,
-        val round: Int
+        val round: Int,
+        val autoSelect: Boolean = false,
+        val refinedQuery: String = ""
     ) : SearchProgressEvent()
     data class Complete(val reportId: String, val hitCount: Int) : SearchProgressEvent()
 }

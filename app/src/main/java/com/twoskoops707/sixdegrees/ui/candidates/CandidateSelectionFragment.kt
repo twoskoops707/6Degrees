@@ -57,7 +57,13 @@ class CandidateSelectionFragment : Fragment() {
         val roundTotal = 3
 
         binding.tvRoundLabel.text = "ROUND $round OF $roundTotal"
-        binding.tvCandidateQuery.text = arguments?.getString("searchQuery") ?: ""
+        val rawSq = arguments?.getString("searchQuery") ?: ""
+        binding.tvCandidateQuery.text = if (rawSq.contains("=")) {
+            rawSq.split("|").joinToString(", ") { part ->
+                val eq = part.indexOf('=')
+                if (eq != -1) part.substring(eq + 1).trim() else part.trim()
+            }.replace(Regex(",\\s*,"), ",").trim().trimEnd(',')
+        } else rawSq
         binding.tvSelectInstructions.text = if (round == 1)
             "Select the 1-2 best matches to investigate further"
         else

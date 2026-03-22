@@ -74,7 +74,9 @@ class ResultsFragment : Fragment() {
 
         computeAndShowShadyScore(meta, searchType)
 
-        val profileImageUrl = person?.profileImageUrl ?: meta["tt_image_url"]
+        val profileImageUrl = person?.profileImageUrl
+            ?: meta["profile_photo_url"]
+            ?: meta["tt_image_url"]
         if (!profileImageUrl.isNullOrBlank()) {
             binding.profileImage.load(profileImageUrl) {
                 crossfade(true)
@@ -337,10 +339,12 @@ class ResultsFragment : Fragment() {
                 val parts = cleanLine.split(": ", limit = 2)
                 val siteName = parts.firstOrNull()?.trim() ?: ""
                 val url = parts.getOrNull(1) ?: cleanLine
-                val desc = PLATFORM_DESCRIPTIONS[siteName]
-                val label = if (isNsfw) "⚠ $siteName" else "✓ $siteName"
+                val desc = PLATFORM_DESCRIPTIONS[siteName]?.removePrefix("⚠ ")
+                val label = buildString {
+                    append(if (isNsfw) "⚠ $siteName" else "✓ $siteName")
+                    if (!desc.isNullOrBlank()) append(" · $desc")
+                }
                 rows.add(label to url)
-                if (desc != null) rows.add("About" to desc)
             }
             sherlockFound?.lines()?.filter { it.isNotBlank() }?.take(10)?.forEach { line ->
                 val parts = line.split(": ", limit = 2)
@@ -795,6 +799,20 @@ class ResultsFragment : Fragment() {
             rows.add("⚠ Note" to "Ahmia indexes publicly-accessible Tor hidden services. Subject to index freshness.")
         }
 
+        val torchCount = meta["torch_count"]?.toIntOrNull() ?: 0
+        if (torchCount > 0) {
+            rows.add(sec("⚠ TORCH DARK WEB (via Tor)"))
+            rows.add("⚠ Torch Hits" to "$torchCount result${if (torchCount != 1) "s" else ""} on Torch .onion search engine")
+            val torchTitles = meta["torch_titles"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+            val torchUrls = meta["torch_urls"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+            val torchDescs = meta["torch_descs"]?.split("\n---\n")?.filter { it.isNotBlank() } ?: emptyList()
+            torchTitles.forEachIndexed { i, t ->
+                rows.add("⚠ Result" to t)
+                torchDescs.getOrNull(i)?.takeIf { it.isNotBlank() }?.let { d -> rows.add("  Excerpt" to d.take(200)) }
+                torchUrls.getOrNull(i)?.let { u -> rows.add("  .onion URL" to u) }
+            }
+        }
+
         meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("AI INTELLIGENCE SYNTHESIS"))
             it.lines().filter { l -> l.isNotBlank() }.forEach { line -> rows.add("AI Analysis" to line) }
@@ -1208,10 +1226,12 @@ class ResultsFragment : Fragment() {
                 val parts = cleanLine.split(": ", limit = 2)
                 val siteName = parts.firstOrNull() ?: "Platform"
                 val url = parts.getOrNull(1) ?: cleanLine
-                val desc = siteDesc[siteName]
-                val label = if (isNsfw) "⚠ NSFW / $siteName" else "✓ $siteName"
+                val desc = siteDesc[siteName]?.removePrefix("⚠ ")
+                val label = buildString {
+                    append(if (isNsfw) "⚠ NSFW / $siteName" else "✓ $siteName")
+                    if (!desc.isNullOrBlank()) append(" · $desc")
+                }
                 rows.add(label to url)
-                if (desc != null) rows.add((if (isNsfw) "  ⚠ Genre" else "  Genre") to desc.removePrefix("⚠ "))
             }
         }
         if (rows.isEmpty()) rows.add("Status" to "No profiles found on tracked platforms")
@@ -1282,6 +1302,13 @@ class ResultsFragment : Fragment() {
         meta["veriphone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (Veriphone)" to it) }
         meta["veriphone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (Veriphone)" to it) }
         meta["opencnam_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Caller Name (OpenCNAM)" to it) }
+        meta["phone_owner_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Owner Found" to it) }
+        meta["phone_owner_address"]?.takeIf { it.isNotBlank() }?.let { addr ->
+            addr.split(" | ").filter { it.isNotBlank() }.forEach { rows.add("Owner Address" to it) }
+        }
+        meta["phone_web_snippets"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(6)?.forEach {
+            rows.add("Web Result" to it.trim())
+        }
         if (rows.size <= 1) rows.add("Status" to "No validation data available for this number")
         return rows
     }
@@ -1414,25 +1441,6 @@ class ResultsFragment : Fragment() {
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
                 }?.forEach { set.add(it) }
             }
-        val phonePattern = Regex("\\(?\\d{3}\\)?[\\s.\\-]\\d{3}[\\s.\\-]\\d{4}")
-        val allDorkKeys = listOf(
-            "dork_phone_results", "dork_address_results", "dork_criminal_results",
-            "dork_address_full_results", "dork_identity_results", "dork_voter_results",
-            "dork_411_results", "dork_zaba_results", "dork_wp_results", "dork_spk_results",
-            "voter_raw", "opencnam_name"
-        )
-        allDorkKeys.forEach { key ->
-            meta[key]?.let { text ->
-                phonePattern.findAll(text).map { it.value.trim() }.forEach { raw ->
-                    val digits = raw.replace(Regex("[^0-9]"), "")
-                    if (digits.length == 10) {
-                        val formatted = "(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}"
-                        val area = digits.substring(0, 3)
-                        if (area !in tollfree) set.add(formatted)
-                    }
-                }
-            }
-        }
         return set
     }
 
@@ -1443,19 +1451,6 @@ class ResultsFragment : Fragment() {
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
             "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
-        val streetPattern = Regex("\\d{1,5}\\s+[A-Za-z][a-zA-Z0-9 .]{3,30}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Trail|Pkwy|Hwy|Highway|Street|Avenue|Road|Lane|Court|Circle|Drive)\\.?(?:[,\\s]+[A-Za-z][a-zA-Z ]{2,20}[,\\s]+[A-Z]{2}(?:[\\s,]+\\d{5})?)?", RegexOption.IGNORE_CASE)
-        val cityStatePattern = Regex("[A-Za-z][a-zA-Z ]{2,25},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)(?:\\s+\\d{5})?", RegexOption.IGNORE_CASE)
-        val allSources = listOf(
-            "dork_address_results", "dork_address_full_results", "dork_identity_results",
-            "dork_411_results", "dork_zaba_results", "dork_phone_results",
-            "ddg_web_snippets", "ddg_person_snippets", "ddg_social_snippets", "cse_snippets"
-        )
-        allSources.forEach { key ->
-            meta[key]?.let { text ->
-                streetPattern.findAll(text).map { it.value.trim() }.filter { it.length in 10..80 }.forEach { set.add(it) }
-                cityStatePattern.findAll(text).map { it.value.trim() }.filter { it.length in 5..50 }.forEach { set.add(it) }
-            }
-        }
         return set
     }
 

@@ -189,7 +189,12 @@ class SearchFragment : Fragment() {
                 if (imageUri != null) parts.add("image=$imageUri")
                 if (city.isNotBlank()) parts.add("city=$city")
                 if (state.isNotBlank()) parts.add("state=$state")
-                navigateToProgress(parts.joinToString("|"), "comprehensive")
+                val locationLabel = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
+                val cleanLabel = buildString {
+                    append(fullName.ifBlank { email.ifBlank { phone.ifBlank { username } } })
+                    if (locationLabel.isNotBlank()) append(" — $locationLabel")
+                }
+                navigateToProgress(parts.joinToString("|"), "comprehensive", cleanLabel)
             }
 
             "company" -> {
@@ -257,12 +262,18 @@ class SearchFragment : Fragment() {
     private fun hasNameOrContact(first: String, last: String, phone: String, email: String, username: String) =
         first.isNotBlank() || last.isNotBlank() || phone.isNotBlank() || email.isNotBlank() || username.isNotBlank()
 
-    private fun navigateToProgress(query: String, type: String) {
+    private fun navigateToProgress(query: String, type: String, displayName: String = "") {
         findNavController().navigate(
             R.id.action_search_to_progress,
             Bundle().apply {
                 putString("query", query)
                 putString("type", type)
+                putString("searchQuery", displayName.ifBlank {
+                    query.split("|").joinToString(", ") { part ->
+                        val eq = part.indexOf('=')
+                        if (eq != -1) part.substring(eq + 1).trim() else part.trim()
+                    }.replace(Regex(",\\s*,"), ",").trim().trimEnd(',')
+                })
             }
         )
     }

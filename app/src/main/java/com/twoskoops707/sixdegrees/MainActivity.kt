@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
@@ -14,6 +15,10 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupWithNavController
 import androidx.appcompat.app.AppCompatActivity
 import com.twoskoops707.sixdegrees.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         initTorConnection()
+        checkTermuxTools()
 
         val navHostFragment =
             (supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment?)!!
@@ -99,6 +105,74 @@ class MainActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
+    }
+
+    private fun checkTermuxTools() {
+        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
+        val lastCheck = prefs.getLong("termux_tools_last_check", 0L)
+        if (System.currentTimeMillis() - lastCheck < 24 * 60 * 60 * 1000L) return
+
+        val statusPath = "/storage/emulated/0/.6degrees/.6d_tools_status.txt"
+        val outFile = java.io.File(statusPath)
+        val tools = listOf("sherlock", "maigret", "holehe", "tor", "theharvester")
+        val checks = tools.joinToString(" ; ") { t ->
+            val bin = "/data/data/com.termux/files/usr/bin/$t"
+            "[ -f $bin ] && echo $t:ok || echo $t:missing"
+        }
+        val cmd = "mkdir -p /storage/emulated/0/.6degrees && { $checks ; } > $statusPath 2>&1 ; echo __DONE__ >> $statusPath"
+        try {
+            val intent = Intent().apply {
+                setClassName("com.termux", "com.termux.app.RunCommandService")
+                action = "com.termux.RUN_COMMAND"
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            }
+            startForegroundService(intent)
+        } catch (_: Exception) { return }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            var waited = 0
+            while (waited < 15000) {
+                delay(2000); waited += 2000
+                if (outFile.exists()) {
+                    val content = try { outFile.readText() } catch (_: Exception) { break }
+                    if (content.contains("__DONE__")) {
+                        val lines = content.lines().filter { it.contains(":ok") || it.contains(":missing") }
+                        val missing = lines.filter { it.contains(":missing") }.map { it.split(":").first() }
+                        val ok = lines.filter { it.contains(":ok") }.map { it.split(":").first() }
+                        prefs.edit().putLong("termux_tools_last_check", System.currentTimeMillis()).apply()
+                        if (missing.isNotEmpty()) {
+                            withContext(Dispatchers.Main) {
+                                if (!isFinishing && !isDestroyed) {
+                                    val installCmds = missing.joinToString("\n") { tool ->
+                                        when (tool) {
+                                            "sherlock" -> "pip install sherlock-project"
+                                            "maigret" -> "pip install maigret"
+                                            "holehe" -> "pip install holehe"
+                                            "tor" -> "pkg install tor"
+                                            "theharvester" -> "pip install theHarvester"
+                                            else -> "pkg install $tool"
+                                        }
+                                    }
+                                    AlertDialog.Builder(this@MainActivity)
+                                        .setTitle("Termux Tools Status")
+                                        .setMessage(buildString {
+                                            if (ok.isNotEmpty()) append("Installed: ${ok.joinToString(", ")}\n\n")
+                                            append("Missing: ${missing.joinToString(", ")}\n\n")
+                                            append("Run in Termux to install:\n$installCmds")
+                                        })
+                                        .setPositiveButton("OK", null)
+                                        .show()
+                                }
+                            }
+                        }
+                        break
+                    }
+                }
+            }
+        }
     }
 
     private fun initTorConnection() {

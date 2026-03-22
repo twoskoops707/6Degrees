@@ -254,18 +254,54 @@ class OsintRepository(context: Context) {
             "ip", "domain" -> ipDomainSearch(cleanQuery, metadata, sources, emit)
             "company" -> companySearch(cleanQuery, metadata, sources, emit)
             "image" -> imageSearch(cleanQuery, metadata, sources, emit)
-            "comprehensive" -> comprehensiveSearch(cleanQuery, metadata, sources, emit)
+            "comprehensive" -> {
+                comprehensiveSearch(cleanQuery, metadata, sources, emit)
+                val fields = cleanQuery.split("|").mapNotNull {
+                    val p = it.split("=", limit = 2)
+                    if (p.size == 2) p[0].trim() to p[1].trim() else null
+                }.toMap()
+                cascadeDiscoveredContacts(fields, metadata, sources, emit)
+            }
             else -> personSearch(cleanQuery, metadata, sources, emit)
         }
 
         metadata["search_type"] = type
         metadata["search_round"] = round.toString()
-        val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
+        zoAiSynthesis(cleanQuery, metadata, sources, emit)
 
         if (type == "comprehensive" && round < 3) {
             val candidates = extractCandidates(metadata)
             if (candidates.isNotEmpty()) {
                 val enriched = enrichCandidatesWithPhotos(candidates)
+                enriched.firstOrNull()?.photoUrl?.let { metadata["profile_photo_url"] = it }
+                if (enriched.size == 1) {
+                    val followUps = zoReflectionLoop(metadata, cleanQuery)
+                    for (fq in followUps.take(2)) {
+                        duckDuckGoWebSearch(fq, metadata, sources, emit)
+                    }
+                    val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
+                    val single = enriched.first()
+                    val refinedParts = mutableListOf<String>()
+                    if (single.name.isNotBlank()) refinedParts.add("name=${single.name}")
+                    single.phones.firstOrNull()?.let { refinedParts.add("phone=$it") }
+                    if (single.location.isNotBlank()) {
+                        val locParts = single.location.split(",").map { it.trim() }
+                        if (locParts.size >= 2) {
+                            refinedParts.add("city=${locParts[0]}")
+                            refinedParts.add("state=${locParts[1]}")
+                        } else {
+                            refinedParts.add("city=${single.location}")
+                        }
+                    }
+                    if (single.address.isNotBlank()) refinedParts.add("address=${single.address}")
+                    send(SearchProgressEvent.CandidatesReady(
+                        enriched, reportId, round,
+                        autoSelect = true,
+                        refinedQuery = refinedParts.joinToString("|")
+                    ))
+                    return@channelFlow
+                }
+                val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
                 send(SearchProgressEvent.CandidatesReady(enriched, reportId, round))
                 return@channelFlow
             }
@@ -276,6 +312,7 @@ class OsintRepository(context: Context) {
             duckDuckGoWebSearch(fq, metadata, sources, emit)
         }
 
+        val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
         send(SearchProgressEvent.Complete(reportId, sources.size))
     }
 
@@ -308,10 +345,11 @@ class OsintRepository(context: Context) {
         outFile: String,
         timeoutMs: Long = 60000
     ): String? {
-        if (!java.io.File(toolPath).exists()) return null
         val outF = java.io.File(outFile)
+        try { outF.parentFile?.mkdirs() } catch (_: Exception) {}
         if (outF.exists()) outF.delete()
-        val cmd = "$toolPath ${args.joinToString(" ")} > $outFile 2>&1 ; echo __TOOL_DONE__ >> $outFile"
+        val outDir = outF.parent ?: "/storage/emulated/0/.6degrees"
+        val cmd = "mkdir -p $outDir && $toolPath ${args.joinToString(" ")} > $outFile 2>&1 ; echo __TOOL_DONE__ >> $outFile"
         try {
             val intent = Intent().apply {
                 setClassName("com.termux", "com.termux.app.RunCommandService")
@@ -540,22 +578,37 @@ class OsintRepository(context: Context) {
         val targetState = personState.lowercase()
         val hasGeoFilter = targetCity.isNotBlank() || targetState.isNotBlank()
 
-        val scored = candidates.distinctBy { it.name.lowercase() }.map { c ->
+        val searchedMi = Regex("""(?<=\s)([A-Z])\.""").find(personName)?.groupValues?.get(1)?.uppercase()
+        val deduped = candidates.distinctBy { it.name.lowercase() }.filter { c ->
+            if (searchedMi == null) return@filter true
+            val candidateMi = Regex("""(?<=\s)([A-Z])\.""").find(c.name)?.groupValues?.get(1)?.uppercase()
+            candidateMi == null || candidateMi == searchedMi
+        }
+
+        val scored = deduped.map { c ->
             val loc = c.location.lowercase()
             val geoBonus = when {
                 !hasGeoFilter -> 0f
                 targetCity.isNotBlank() && loc.contains(targetCity) -> 0.20f
                 targetState.isNotBlank() && loc.contains(targetState) -> 0.12f
+                loc.isBlank() -> 0f
                 else -> -0.18f
             }
             c.copy(confidence = (c.confidence + geoBonus).coerceIn(0.10f, 1.0f))
         }
 
         return if (hasGeoFilter) {
-            scored.sortedByDescending { it.confidence }
+            val geoFiltered = scored.filter { c ->
+                val loc = c.location.lowercase()
+                loc.isBlank() ||
+                (targetCity.isNotBlank() && loc.contains(targetCity)) ||
+                (targetState.isNotBlank() && loc.contains(targetState))
+            }
+            val result = if (geoFiltered.isEmpty()) scored else geoFiltered
+            result.sortedByDescending { it.confidence }.take(5)
         } else {
-            scored
-        }.take(5)
+            scored.take(5)
+        }
     }
 
     private suspend fun enrichCandidatesWithPhotos(candidates: List<CandidateProfile>): List<CandidateProfile> {
@@ -724,10 +777,12 @@ class OsintRepository(context: Context) {
             val found = Regex("\"found\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
             if (success && found > 0) {
                 meta["leakcheck_found"] = found.toString()
-                val sourcesList = Regex("\"sources\":\\s*\\[([^\\]]+)\\]").find(body)
-                    ?.groupValues?.get(1)?.split(",")
-                    ?.map { it.trim().trim('"') }?.filter { it.isNotBlank() }
-                    ?: emptyList()
+                val sourcesRaw = Regex("\"sources\":\\s*\\[([^\\]]+)\\]").find(body)?.groupValues?.get(1) ?: ""
+                val sourcesList = if (sourcesRaw.contains("\"name\"")) {
+                    Regex("\"name\":\\s*\"([^\"]+)\"").findAll(sourcesRaw).map { it.groupValues[1] }.filter { it.isNotBlank() }.toList()
+                } else {
+                    sourcesRaw.split(",").map { it.trim().trim('"') }.filter { it.isNotBlank() }
+                }
                 meta["leakcheck_sources"] = sourcesList.joinToString(", ")
                 sources.add(DataSource("LeakCheck.io", null, Date(), 0.85))
                 emit(SearchProgressEvent.Found("LeakCheck.io",
@@ -950,22 +1005,22 @@ class OsintRepository(context: Context) {
         }
 
         val holeheBin = "/data/data/com.termux/files/usr/bin/holehe"
-        if (java.io.File(holeheBin).exists()) {
-            emit(SearchProgressEvent.Checking("Holehe"))
-            val outFile = "/data/data/com.termux/files/home/.6d_holehe_out.txt"
-            val result = runTermuxTool(holeheBin, listOf(email, "--only-used", "--no-color"),
-                outFile, 120000)
-            if (!result.isNullOrBlank()) {
-                val found = Regex("""^\[(\+)\] (\S+)""", RegexOption.MULTILINE)
-                    .findAll(result).map { it.groupValues[2] }.toList()
-                if (found.isNotEmpty()) {
-                    meta["holehe_found"] = found.joinToString(", ")
-                    sources.add(DataSource("Holehe", null, Date(), 0.85))
-                    emit(SearchProgressEvent.Found("Holehe", "${found.size} service${if (found.size != 1) "s" else ""}: ${found.take(3).joinToString(", ")}"))
-                } else {
-                    emit(SearchProgressEvent.NotFound("Holehe"))
-                }
+        emit(SearchProgressEvent.Checking("Holehe"))
+        val holeheOut = "/storage/emulated/0/.6degrees/.6d_holehe_out.txt"
+        val holeheResult = runTermuxTool(holeheBin, listOf(email, "--only-used", "--no-color"),
+            holeheOut, 120000)
+        if (!holeheResult.isNullOrBlank()) {
+            val found = Regex("""^\[(\+)\] (\S+)""", RegexOption.MULTILINE)
+                .findAll(holeheResult).map { it.groupValues[2] }.toList()
+            if (found.isNotEmpty()) {
+                meta["holehe_found"] = found.joinToString(", ")
+                sources.add(DataSource("Holehe", null, Date(), 0.85))
+                emit(SearchProgressEvent.Found("Holehe", "${found.size} service${if (found.size != 1) "s" else ""}: ${found.take(3).joinToString(", ")}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Holehe"))
             }
+        } else {
+            emit(SearchProgressEvent.NotFound("Holehe"))
         }
     }
 
@@ -1106,6 +1161,96 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("OpenCNAM", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("Phone Reverse Lookup"))
+        try {
+            val digits = phone.replace(Regex("[^0-9]"), "")
+            val formatted = if (digits.length >= 10) {
+                val d = digits.takeLast(10)
+                "(${d.take(3)}) ${d.substring(3, 6)}-${d.substring(6)}"
+            } else phone
+            val allSnippets = mutableListOf<String>()
+            val allNames = mutableListOf<String>()
+            val allAddresses = mutableListOf<String>()
+            for (rawQ in listOf(
+                "\"$formatted\" owner name address",
+                "\"$formatted\" (\"lives at\" OR \"lives in\" OR name OR \"registered to\")"
+            )) {
+                val enc = URLEncoder.encode(rawQ, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://html.duckduckgo.com/html/?q=$enc&kl=us-en")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                    .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .addHeader("Referer", "https://duckduckgo.com/")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val html = resp.body?.string() ?: ""; resp.close()
+                if (resp.code == 403 || html.isBlank()) continue
+                val snippets = Regex("""class="result__snippet"[^>]*>([\s\S]{5,400}?)</(?:a|div|span)>""")
+                    .findAll(html).map { it.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").replace("&quot;", "\"").trim() }
+                    .filter { it.length > 10 }.take(6).toList()
+                allSnippets.addAll(snippets)
+                val combined = snippets.joinToString(" ")
+                Regex("""(?:name|owner|belongs to|registered to|for)[:\s]+([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20}){1,2})""", RegexOption.IGNORE_CASE)
+                    .findAll(combined).map { it.groupValues[1].trim() }.filter { it.length > 4 }.forEach { allNames.add(it) }
+                Regex("""\b(\d{1,5}\s+[A-Za-z][a-zA-Z\s]{3,40}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Pkwy|Hwy|Street|Avenue|Boulevard|Drive|Road|Lane|Court)\b[^\n,]{0,20},\s*[A-Z]{2}\b)""")
+                    .findAll(combined).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.forEach { allAddresses.add(it) }
+            }
+            if (allSnippets.isNotEmpty()) {
+                meta["phone_web_snippets"] = allSnippets.distinct().take(8).joinToString("\n---\n")
+                if (allNames.isNotEmpty()) meta["phone_owner_name"] = allNames.distinct().take(3).joinToString(", ")
+                if (allAddresses.isNotEmpty()) meta["phone_owner_address"] = allAddresses.distinct().take(3).joinToString(" | ")
+                sources.add(DataSource("Phone Reverse Lookup", null, Date(), 0.6))
+                emit(SearchProgressEvent.Found("Phone Reverse Lookup",
+                    allNames.firstOrNull()?.let { "Owner: $it" } ?: "${allSnippets.size} web results"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Phone Reverse Lookup"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Phone Reverse Lookup", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("Phone Dork Search"))
+        try {
+            val digits = phone.replace(Regex("[^0-9]"), "")
+            val formatted = if (digits.length >= 10) {
+                val d = digits.takeLast(10)
+                "(${d.take(3)}) ${d.substring(3, 6)}-${d.substring(6)}"
+            } else phone
+            val rawDigits = if (digits.length >= 10) digits.takeLast(10) else digits
+            val dork = "site:whitepages.com OR site:truepeoplesearch.com OR site:spokeo.com \"$formatted\""
+            val enc = URLEncoder.encode(dork, "UTF-8")
+            val req = Request.Builder()
+                .url("https://html.duckduckgo.com/html/?q=$enc&kl=us-en")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Referer", "https://duckduckgo.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code != 403 && html.isNotBlank()) {
+                val snippets = Regex("""class="result__snippet"[^>]*>([\s\S]{5,400}?)</(?:a|div|span)>""")
+                    .findAll(html).map { it.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").trim() }
+                    .filter { it.length > 10 }.take(6).distinct().toList()
+                val existing = meta["phone_web_snippets"] ?: ""
+                val merged = (existing.split("\n---\n") + snippets).filter { it.isNotBlank() }.distinct().take(12)
+                if (snippets.isNotEmpty()) {
+                    meta["phone_dork_snippets"] = snippets.joinToString("\n---\n")
+                    if (existing.isBlank()) meta["phone_web_snippets"] = merged.joinToString("\n---\n")
+                    val combined = snippets.joinToString(" ")
+                    val names = Regex("""([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})""")
+                        .findAll(combined).map { it.value }.filter { it.length > 6 && !it.startsWith("Phone") && !it.startsWith("Search") }.distinct().take(3).toList()
+                    if (names.isNotEmpty() && meta["phone_owner_name"].isNullOrBlank()) meta["phone_owner_name"] = names.joinToString(", ")
+                    emit(SearchProgressEvent.Found("Phone Dork Search", "${snippets.size} people-site result${if (snippets.size != 1) "s" else ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Phone Dork Search"))
+                }
+            } else {
+                emit(SearchProgressEvent.NotFound("Phone Dork Search"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Phone Dork Search", e.message ?: ""))
         }
 
     }
@@ -1270,45 +1415,43 @@ class OsintRepository(context: Context) {
         }
 
         val sherlockBin = "/data/data/com.termux/files/usr/bin/sherlock"
-        if (java.io.File(sherlockBin).exists()) {
-            emit(SearchProgressEvent.Checking("Sherlock"))
-            val outFile = "/data/data/com.termux/files/home/.6d_sherlock_out.txt"
-            val result = runTermuxTool(sherlockBin,
-                listOf(username, "--print-found", "--no-color", "--timeout", "5"),
-                outFile, 90000)
-            if (!result.isNullOrBlank()) {
-                val sherlockFound = Regex("""^\[(\+)\] (.+?): (https?://\S+)""", RegexOption.MULTILINE)
-                    .findAll(result).map { "${it.groupValues[2]}: ${it.groupValues[3]}" }.toList()
-                if (sherlockFound.isNotEmpty()) {
-                    meta["sherlock_found"] = sherlockFound.joinToString("\n")
-                    sources.add(DataSource("Sherlock", null, Date(), 0.85))
-                    emit(SearchProgressEvent.Found("Sherlock", "${sherlockFound.size} profile${if (sherlockFound.size != 1) "s" else ""} found"))
-                } else {
-                    emit(SearchProgressEvent.NotFound("Sherlock"))
-                }
+        emit(SearchProgressEvent.Checking("Sherlock"))
+        val sherlockOut = "/storage/emulated/0/.6degrees/.6d_sherlock_out.txt"
+        val sherlockResult = runTermuxTool(sherlockBin,
+            listOf(username, "--print-found", "--no-color", "--timeout", "5"),
+            sherlockOut, 90000)
+        if (!sherlockResult.isNullOrBlank()) {
+            val sherlockFound = Regex("""^\[(\+)\] (.+?): (https?://\S+)""", RegexOption.MULTILINE)
+                .findAll(sherlockResult).map { "${it.groupValues[2]}: ${it.groupValues[3]}" }.toList()
+            if (sherlockFound.isNotEmpty()) {
+                meta["sherlock_found"] = sherlockFound.joinToString("\n")
+                sources.add(DataSource("Sherlock", null, Date(), 0.85))
+                emit(SearchProgressEvent.Found("Sherlock", "${sherlockFound.size} profile${if (sherlockFound.size != 1) "s" else ""} found"))
             } else {
-                emit(SearchProgressEvent.Failed("Sherlock", "timeout or not installed"))
+                emit(SearchProgressEvent.NotFound("Sherlock"))
             }
+        } else {
+            emit(SearchProgressEvent.NotFound("Sherlock"))
         }
 
         val maigretBin = "/data/data/com.termux/files/usr/bin/maigret"
-        if (java.io.File(maigretBin).exists()) {
-            emit(SearchProgressEvent.Checking("Maigret"))
-            val outFile = "/data/data/com.termux/files/home/.6d_maigret_out.txt"
-            val result = runTermuxTool(maigretBin,
-                listOf(username, "--top-sites", "30", "--no-color", "-a"),
-                outFile, 120000)
-            if (!result.isNullOrBlank()) {
-                val found = Regex("""^\[(\+)\] (.+?) \[(.+?)\]: (https?://\S+)""", RegexOption.MULTILINE)
-                    .findAll(result).map { "${it.groupValues[2]}: ${it.groupValues[4]}" }.toList()
-                if (found.isNotEmpty()) {
-                    meta["maigret_found"] = found.joinToString("\n")
-                    sources.add(DataSource("Maigret", null, Date(), 0.85))
-                    emit(SearchProgressEvent.Found("Maigret", "${found.size} profile${if (found.size != 1) "s" else ""} found"))
-                } else {
-                    emit(SearchProgressEvent.NotFound("Maigret"))
-                }
+        emit(SearchProgressEvent.Checking("Maigret"))
+        val maigretOut = "/storage/emulated/0/.6degrees/.6d_maigret_out.txt"
+        val maigretResult = runTermuxTool(maigretBin,
+            listOf(username, "--top-sites", "30", "--no-color", "-a"),
+            maigretOut, 120000)
+        if (!maigretResult.isNullOrBlank()) {
+            val maigretFound = Regex("""^\[(\+)\] (.+?) \[(.+?)\]: (https?://\S+)""", RegexOption.MULTILINE)
+                .findAll(maigretResult).map { "${it.groupValues[2]}: ${it.groupValues[4]}" }.toList()
+            if (maigretFound.isNotEmpty()) {
+                meta["maigret_found"] = maigretFound.joinToString("\n")
+                sources.add(DataSource("Maigret", null, Date(), 0.85))
+                emit(SearchProgressEvent.Found("Maigret", "${maigretFound.size} profile${if (maigretFound.size != 1) "s" else ""} found"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Maigret"))
             }
+        } else {
+            emit(SearchProgressEvent.NotFound("Maigret"))
         }
 
         val found = sources.filter { it.url != null }
@@ -2817,6 +2960,62 @@ class OsintRepository(context: Context) {
         }
     }
 
+    private suspend fun torchSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        val client = torHttpClient
+        if (client == null) {
+            emit(SearchProgressEvent.NotFound("Torch Dark Web"))
+            return
+        }
+        emit(SearchProgressEvent.Checking("Torch Dark Web"))
+        try {
+            val encoded = URLEncoder.encode("\"$query\"", "UTF-8")
+            val req = Request.Builder()
+                .url("http://xmh57jrknzkhv6y3ls3ubitzfqnkrwxhopf5aygthi7d6rplyvk3noyd.onion/4a1f6b371c/search.cgi?cmd=Search&q=$encoded&pg=0")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:102.0) Gecko/20100101 Firefox/102.0")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .build()
+            val resp = client.newCall(req).execute()
+            val html = resp.body?.string() ?: ""; resp.close()
+            if (resp.code != 200 || html.isBlank()) {
+                emit(SearchProgressEvent.NotFound("Torch Dark Web"))
+                return
+            }
+            val onionHrefPattern = Regex("href=\"(http://[a-z2-7]{10,56}\\.onion[^\"]{0,200})\"", RegexOption.IGNORE_CASE)
+            val titles = Regex("<(?:dt|h3)[^>]*>\\s*<a[^>]+href=\"http://[a-z2-7]{10,56}\\.onion[^\"]*\"[^>]*>([^<]{5,150})</a>", RegexOption.IGNORE_CASE)
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
+                .ifEmpty {
+                    Regex("<a[^>]+href=\"http://[a-z2-7]{10,56}\\.onion[^\"]*\"[^>]*>([^<]{5,150})</a>", RegexOption.IGNORE_CASE)
+                        .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(8).toList()
+                }
+            val onionUrls = onionHrefPattern.findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(8).toList()
+            val descriptions = Regex("<dd>([^<]{10,400})</dd>", RegexOption.IGNORE_CASE)
+                .findAll(html).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
+                .ifEmpty {
+                    Regex("<p[^>]*class=\"[^\"]*desc[^\"]*\"[^>]*>([^<]{20,400})</p>", RegexOption.IGNORE_CASE)
+                        .findAll(html).map { it.groupValues[1].trim() }.filter { it.length > 30 }.take(8).toList()
+                }
+            val countMatch = Regex("(\\d[\\d,]+)\\s+result", RegexOption.IGNORE_CASE).find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            if (titles.isNotEmpty() || (countMatch != null && countMatch > 0)) {
+                val count = countMatch ?: titles.size
+                meta["torch_count"] = count.toString()
+                if (titles.isNotEmpty()) meta["torch_titles"] = titles.joinToString("\n")
+                if (onionUrls.isNotEmpty()) meta["torch_urls"] = onionUrls.joinToString("\n")
+                if (descriptions.isNotEmpty()) meta["torch_descs"] = descriptions.joinToString("\n---\n")
+                sources.add(DataSource("Torch (Dark Web)", null, Date(), 0.6))
+                emit(SearchProgressEvent.Found("Torch Dark Web", "$count dark web result${if (count != 1) "s" else ""} via Tor"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Torch Dark Web"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Torch Dark Web", e.message ?: ""))
+        }
+    }
+
     private suspend fun zoAiSynthesis(
         query: String,
         meta: ConcurrentHashMap<String, String>,
@@ -2888,6 +3087,51 @@ class OsintRepository(context: Context) {
             emptyList()
         }
     } ?: emptyList()
+
+    private suspend fun cascadeDiscoveredContacts(
+        originalFields: Map<String, String>,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) = coroutineScope {
+        val originalEmail = originalFields["email"] ?: ""
+        val originalPhones = setOf(
+            originalFields["phone"] ?: "",
+            originalFields["phone2"] ?: "",
+            originalFields["phone3"] ?: ""
+        ).filter { it.isNotBlank() }
+
+        val emailPattern = Regex("[\\w.+\\-]+@[\\w\\-]+\\.[a-zA-Z]{2,}")
+        val discoveredEmails = mutableSetOf<String>()
+        listOf("ddg_person_emails", "ddg_social_emails", "ddg_web_emails", "cse_emails", "gravatar_email").forEach { key ->
+            meta[key]?.let { value ->
+                emailPattern.findAll(value).map { it.value.lowercase() }
+                    .filter { it.isNotBlank() && it != originalEmail && !it.contains("example") && !it.contains("duckduckgo") && !it.contains("google") }
+                    .forEach { discoveredEmails.add(it) }
+            }
+        }
+
+        val phoneDigitPattern = Regex("\\(\\d{3}\\) \\d{3}-\\d{4}")
+        val discoveredPhones = mutableSetOf<String>()
+        listOf("tps_phones", "zaba_phones", "411_phones").forEach { key ->
+            meta[key]?.split(",")?.map { it.trim() }
+                ?.filter { phoneDigitPattern.containsMatchIn(it) && it !in originalPhones }
+                ?.forEach { discoveredPhones.add(it) }
+        }
+
+        discoveredEmails.take(2).forEach { email ->
+            launch {
+                emit(SearchProgressEvent.Checking("Cascade → $email"))
+                emailSearch(email, meta, sources, emit)
+            }
+        }
+        discoveredPhones.take(2).forEach { phone ->
+            launch {
+                emit(SearchProgressEvent.Checking("Cascade → $phone"))
+                phoneSearch(phone, meta, sources, emit)
+            }
+        }
+    }
 
     private suspend fun chroniclingAmericaSearch(
         query: String,
@@ -3212,6 +3456,16 @@ class OsintRepository(context: Context) {
         }
         if (image.isNotBlank() && name.isBlank()) {
             launch { imageSearch(image, meta, sources, emit) }
+        }
+
+        val dwQuery = if (name.isNotBlank()) {
+            if (location.isNotBlank()) "$name $location" else name
+        } else email.ifBlank { username }
+
+        if (dwQuery.isNotBlank()) {
+            launch { ahmiaSearch(dwQuery, meta, sources, emit) }
+            launch { pasteDumpSearch(dwQuery, meta, sources, emit) }
+            launch { torchSearch(dwQuery, meta, sources, emit) }
         }
     }
 

@@ -200,18 +200,33 @@ class SearchProgressFragment : Fragment() {
             }
             is SearchProgressEvent.CandidatesReady -> {
                 completedReportId = event.reportId
-                pendingCandidates = event.candidates
                 pendingCandidatesRound = event.round
                 binding.progressBar.visibility = View.GONE
                 val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
-                binding.tvStatus.text = "${event.candidates.size} candidate${if (event.candidates.size != 1) "s" else ""} identified · ${elapsedSec}s"
-                binding.tvEta.text = ""
-                binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
-                binding.fabViewReport.text = "Select Candidates (${event.candidates.size})"
-                binding.fabViewReport.apply {
-                    visibility = View.VISIBLE
-                    alpha = 0f
-                    animate().alpha(1f).setDuration(400).start()
+                if (event.autoSelect && event.refinedQuery.isNotBlank()) {
+                    binding.tvStatus.text = "1 match found — deepening investigation…"
+                    binding.tvEta.text = ""
+                    binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
+                    findNavController().navigate(
+                        R.id.action_progress_to_progress,
+                        Bundle().apply {
+                            putString("query", event.refinedQuery)
+                            putString("type", "comprehensive")
+                            putInt("round", event.round + 1)
+                            putString("searchQuery", currentDisplayQuery)
+                        }
+                    )
+                } else {
+                    pendingCandidates = event.candidates
+                    binding.tvStatus.text = "${event.candidates.size} candidate${if (event.candidates.size != 1) "s" else ""} identified · ${elapsedSec}s"
+                    binding.tvEta.text = ""
+                    binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
+                    binding.fabViewReport.text = "Select Candidates (${event.candidates.size})"
+                    binding.fabViewReport.apply {
+                        visibility = View.VISIBLE
+                        alpha = 0f
+                        animate().alpha(1f).setDuration(400).start()
+                    }
                 }
             }
             is SearchProgressEvent.Complete -> {
