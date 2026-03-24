@@ -23,7 +23,7 @@ class SearchProgressViewModel(
 
     private val repository = OsintRepository(app)
 
-    private val _events = MutableSharedFlow<SearchProgressEvent>(replay = 200)
+    private val _events = MutableSharedFlow<SearchProgressEvent>(replay = 0, extraBufferCapacity = 512)
     val events: SharedFlow<SearchProgressEvent> = _events
 
     private var started = false
@@ -37,7 +37,9 @@ class SearchProgressViewModel(
                 repository.searchWithProgress(query, type, round).collect { event ->
                     _events.emit(event)
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+                _events.emit(SearchProgressEvent.Complete("", 0))
+            }
         }
     }
 

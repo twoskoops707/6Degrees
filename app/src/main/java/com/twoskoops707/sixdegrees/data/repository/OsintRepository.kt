@@ -2651,8 +2651,6 @@ class OsintRepository(context: Context) {
             }
         }
 
-        launch { openCorporatesOfficerSearch(query, meta, sources, emit) }
-
         launch {
             emit(SearchProgressEvent.Checking("California SOS Officers"))
             try {
@@ -2778,7 +2776,6 @@ class OsintRepository(context: Context) {
         launch { familyTreeNowScrape(query, meta, sources, emit) }
         launch { generateAndRunDorks(query, meta, sources, emit) }
         launch { voterRecordsScrape(query, meta, sources, emit) }
-        launch { ahmiaSearch(query, meta, sources, emit) }
         launch { truePeopleSearchScrape(query, meta, sources, emit) }
         launch { openSanctionsScrape(query, meta, sources, emit) }
         launch { duckDuckGoWebSearch(query, meta, sources, emit) }
@@ -2787,7 +2784,6 @@ class OsintRepository(context: Context) {
         launch { fourOneOneScrape(query, meta, sources, emit) }
         launch { gNewsFetch(query, meta, sources, emit) }
         launch { openCorporatesOfficerSearch(query, meta, sources, emit) }
-        launch { pasteDumpSearch(query, meta, sources, emit) }
         launch { grepAppSearch(query, meta, sources, emit) }
         launch { radarisSearch(query, meta, sources, emit) }
         launch { peekYouSearch(query, meta, sources, emit) }

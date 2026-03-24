@@ -167,8 +167,8 @@ class ResultsFragment : Fragment() {
         }
 
         val sections = buildTabs(enrichedMeta, searchType)
-        buildCandidateDisambiguation(enrichedMeta)
         buildAccordion(sections)
+        buildCandidateDisambiguation(enrichedMeta)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
     }
@@ -369,11 +369,6 @@ class ResultsFragment : Fragment() {
         meta["dork_identity_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("IDENTITY INTEL (AUTO-DORK)"))
             it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Intel" to s.trim()) }
-        }
-
-        meta["dork_social_results"]?.takeIf { it.isNotBlank() }?.let {
-            if (socialLinks.isEmpty()) rows.add(sec("SOCIAL MEDIA TRACES (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("Social" to s.trim()) }
         }
 
         if (rows.size <= 2) rows.add("Status" to "No identity data found for this subject")
@@ -847,7 +842,7 @@ class ResultsFragment : Fragment() {
 
         val pivotPhones = extractPhones(meta).take(5)
         val pivotEmails = linkedSetOf<String>()
-        meta["email"]?.takeIf { it.isNotBlank() }?.let { pivotEmails.add(it) }
+        (meta["comp_email"] ?: meta["email"])?.takeIf { it.isNotBlank() }?.let { pivotEmails.add(it) }
         meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
         meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
         meta["nuwber_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { pivotEmails.add(it) }
