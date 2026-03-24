@@ -301,7 +301,7 @@ class ApiSettingsFragment : Fragment() {
         binding.ipqsApiKeyInput.setText(apiKeyManager.ipqsKey)
         binding.fullcontactApiKeyInput.setText(apiKeyManager.fullcontactKey)
         binding.hashesOrgApiKeyInput.setText(apiKeyManager.hashesOrgKey)
-        binding.virusTotalApiKeyInput.setText(apiKeyManager.getRawForDisplay("virustotal"))
+        binding.virustotalApiKeyInput.setText(apiKeyManager.getRawForDisplay("virustotal"))
         binding.abuseipdbApiKeyInput.setText(apiKeyManager.getRawForDisplay("abuseipdb"))
         binding.urlscanApiKeyInput.setText(apiKeyManager.getRawForDisplay("urlscan"))
         binding.clearbitApiKeyInput.setText(apiKeyManager.clearbitKey)
@@ -322,7 +322,7 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.ipqsKey = binding.ipqsApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.fullcontactKey = binding.fullcontactApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.hashesOrgKey = binding.hashesOrgApiKeyInput.text?.toString()?.trim() ?: ""
-        apiKeyManager.virusTotalKey = binding.virusTotalApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.virusTotalKey = binding.virustotalApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.abuseIpDbKey = binding.abuseipdbApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.urlScanKey = binding.urlscanApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.clearbitKey = binding.clearbitApiKeyInput.text?.toString()?.trim() ?: ""
