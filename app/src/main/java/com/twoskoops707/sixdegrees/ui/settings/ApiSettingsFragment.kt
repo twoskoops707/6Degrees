@@ -294,13 +294,18 @@ class ApiSettingsFragment : Fragment() {
         binding.numverifyApiKeyInput.setText(apiKeyManager.numverifyKey)
         binding.shodanApiKeyInput.setText(apiKeyManager.shodanKey)
         binding.piplApiKeyInput.setText(apiKeyManager.piplKey)
-        binding.googleCseApiKeyInput.setText(apiKeyManager.googleCseApiKey)
-        binding.googleCseIdInput.setText(apiKeyManager.googleCseId)
+        binding.googleCseApiKeyInput.setText(apiKeyManager.getRawForDisplay("google_cse_key"))
+        binding.googleCseIdInput.setText(apiKeyManager.getRawForDisplay("google_cse_id"))
         binding.bingSearchApiKeyInput.setText(apiKeyManager.bingSearchKey)
         binding.veriphoneApiKeyInput.setText(apiKeyManager.veriphoneKey)
         binding.ipqsApiKeyInput.setText(apiKeyManager.ipqsKey)
         binding.fullcontactApiKeyInput.setText(apiKeyManager.fullcontactKey)
         binding.hashesOrgApiKeyInput.setText(apiKeyManager.hashesOrgKey)
+        binding.virusTotalApiKeyInput.setText(apiKeyManager.getRawForDisplay("virustotal"))
+        binding.abuseipdbApiKeyInput.setText(apiKeyManager.getRawForDisplay("abuseipdb"))
+        binding.urlscanApiKeyInput.setText(apiKeyManager.getRawForDisplay("urlscan"))
+        binding.clearbitApiKeyInput.setText(apiKeyManager.clearbitKey)
+        binding.builtwithApiKeyInput.setText(apiKeyManager.builtWithKey)
     }
 
     private fun saveApiKeys() {
@@ -317,6 +322,11 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.ipqsKey = binding.ipqsApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.fullcontactKey = binding.fullcontactApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.hashesOrgKey = binding.hashesOrgApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.virusTotalKey = binding.virusTotalApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.abuseIpDbKey = binding.abuseipdbApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.urlScanKey = binding.urlscanApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.clearbitKey = binding.clearbitApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.builtWithKey = binding.builtwithApiKeyInput.text?.toString()?.trim() ?: ""
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()
     }
 

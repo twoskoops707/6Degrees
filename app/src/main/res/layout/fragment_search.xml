@@ -271,7 +271,7 @@
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_first_name"
                         android:layout_width="match_parent" android:layout_height="48dp"
-                        android:inputType="textPersonName"
+                        android:inputType="textCapWords|textPersonName"
                         android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -304,7 +304,7 @@
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_last_name"
                         android:layout_width="match_parent" android:layout_height="48dp"
-                        android:inputType="textPersonName"
+                        android:inputType="textCapWords|textPersonName"
                         android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
@@ -566,7 +566,7 @@
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_relatives"
                     android:layout_width="match_parent" android:layout_height="48dp"
-                    android:inputType="text"
+                    android:inputType="textCapWords"
                     android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -633,7 +633,7 @@
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/input_context"
                             android:layout_width="match_parent" android:layout_height="56dp"
-                            android:inputType="text"
+                            android:inputType="textCapSentences"
                             android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
                     </com.google.android.material.textfield.TextInputLayout>
                     <TextView

@@ -84,6 +84,8 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("hashes_org", "") ?: ""
         set(v) { prefs.edit().putString("hashes_org", v).apply() }
 
+    fun getRawForDisplay(prefKey: String): String = prefs.getString(prefKey, "") ?: ""
+
     fun hasAnyKey(): Boolean = true
 
     fun activeKeyCount(): Int = listOf(

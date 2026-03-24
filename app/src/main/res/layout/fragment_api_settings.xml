@@ -562,6 +562,146 @@
                             android:inputType="textPassword" android:textColor="?attr/colorOnSurface" />
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical"
+                        android:layout_marginTop="12dp" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="VirusTotal"
+                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="File, URL, IP threat scanning — override the built-in key with your own"
+                        android:textColor="?attr/colorControlNormal" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/virustotal_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="VirusTotal API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/virustotal_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="?attr/colorOnSurface" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical"
+                        android:layout_marginTop="12dp" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="AbuseIPDB"
+                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="IP abuse &amp; reputation database — override the built-in key with your own"
+                        android:textColor="?attr/colorControlNormal" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/abuseipdb_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="AbuseIPDB API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/abuseipdb_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="?attr/colorOnSurface" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical"
+                        android:layout_marginTop="12dp" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="URLScan.io"
+                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="URL &amp; domain scanner — override the built-in key with your own"
+                        android:textColor="?attr/colorControlNormal" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/urlscan_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="URLScan.io API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/urlscan_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="?attr/colorOnSurface" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical"
+                        android:layout_marginTop="12dp" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Clearbit"
+                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Freemium" android:textColor="@color/warning" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Company &amp; person enrichment API"
+                        android:textColor="?attr/colorControlNormal" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/clearbit_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Clearbit API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/clearbit_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="?attr/colorOnSurface" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical"
+                        android:layout_marginTop="12dp" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="BuiltWith"
+                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Paid" android:textColor="@color/error" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Website technology profiling"
+                        android:textColor="?attr/colorControlNormal" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/builtwith_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="BuiltWith API Key"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/builtwith_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="?attr/colorOnSurface" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/save_api_keys_button"
                         android:layout_width="match_parent"
