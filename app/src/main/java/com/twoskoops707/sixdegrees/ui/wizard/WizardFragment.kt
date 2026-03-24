@@ -14,12 +14,17 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import android.os.Bundle
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
 import com.twoskoops707.sixdegrees.databinding.FragmentWizardBinding
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class WizardFragment : Fragment() {
 
@@ -122,31 +127,34 @@ class WizardFragment : Fragment() {
         val density = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * density).toInt()
 
+        val statusFile = File("/storage/emulated/0/.6degrees/.6d_wizard_tools.txt")
+        val statusTtl = 5 * 60 * 1000L
+
+        data class ToolRow(val statusTv: TextView, val wrapper: LinearLayout, val cmdView: TextView)
+        val rowMap = mutableMapOf<String, ToolRow>()
+
         termuxTools.forEachIndexed { index, tool ->
-            val installed = tool.checkPath.isNotBlank() && File(tool.checkPath).exists()
-            if (installed) {
-                val (row, _, _) = buildStatusRowDetailed(tool.displayName, "READY", pending = false, isOk = true)
-                container.addView(row)
-            } else {
-                val wrapper = LinearLayout(ctx).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setOnClickListener { launchTermuxInstall(tool.installCmd) }
-                }
-                val (row1, _, _) = buildStatusRowDetailed(tool.displayName, "NOT INSTALLED", pending = false, isOk = false)
-                val cmdView = TextView(ctx).apply {
-                    text = tool.installCmd
-                    textSize = 11f
-                    typeface = Typeface.MONOSPACE
-                    isSingleLine = false
-                    maxLines = 4
-                    setPadding(dp(36f), dp(2f), dp(16f), dp(10f))
-                    setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
-                }
-                wrapper.addView(row1)
-                wrapper.addView(cmdView)
-                container.addView(wrapper)
+            val key = tool.checkPath.substringAfterLast("/")
+            val wrapper = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setOnClickListener { launchTermuxInstall(tool.installCmd) }
             }
+            val (row, _, statusTv) = buildStatusRowDetailed(tool.displayName, "SCANNING…", pending = true, isOk = false)
+            val cmdView = TextView(ctx).apply {
+                text = tool.installCmd
+                textSize = 11f
+                typeface = Typeface.MONOSPACE
+                isSingleLine = false
+                maxLines = 4
+                setPadding(dp(36f), dp(2f), dp(16f), dp(10f))
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                visibility = View.GONE
+            }
+            wrapper.addView(row)
+            wrapper.addView(cmdView)
+            container.addView(wrapper)
             if (index < termuxTools.lastIndex) container.addView(buildDivider())
+            rowMap[key] = ToolRow(statusTv, wrapper, cmdView)
         }
 
         container.addView(buildDivider())
@@ -158,6 +166,67 @@ class WizardFragment : Fragment() {
             setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
         }
         container.addView(noteView)
+
+        fun applyResults(content: String) {
+            val results = content.lines()
+                .filter { it.contains(":ok") || it.contains(":missing") }
+                .associate { it.substringBefore(":") to it.contains(":ok") }
+            rowMap.forEach { (key, toolRow) ->
+                val isOk = results[key]
+                if (isOk == null) return@forEach
+                val label = if (isOk) "READY" else "NOT INSTALLED"
+                toolRow.statusTv.text = label
+                toolRow.statusTv.setTextColor(ContextCompat.getColor(ctx,
+                    if (isOk) R.color.score_green else R.color.score_red))
+                toolRow.cmdView.visibility = if (isOk) View.GONE else View.VISIBLE
+            }
+        }
+
+        val cached = if (statusFile.exists() && System.currentTimeMillis() - statusFile.lastModified() < statusTtl) {
+            try { statusFile.readText() } catch (_: Exception) { null }
+        } else null
+
+        if (cached != null && cached.contains("__DONE__")) {
+            applyResults(cached)
+            return
+        }
+
+        val checks = termuxTools.joinToString(" ; ") { tool ->
+            val key = tool.checkPath.substringAfterLast("/")
+            "[ -e '${tool.checkPath}' ] && echo $key:ok || echo $key:missing"
+        }
+        val cmd = "mkdir -p /storage/emulated/0/.6degrees && { $checks ; } > ${statusFile.absolutePath} 2>&1 ; echo __DONE__ >> ${statusFile.absolutePath}"
+        try {
+            val intent = Intent().apply {
+                setClassName("com.termux", "com.termux.app.RunCommandService")
+                action = "com.termux.RUN_COMMAND"
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            }
+            ctx.startForegroundService(intent)
+        } catch (_: Exception) {
+            rowMap.forEach { (_, toolRow) ->
+                toolRow.statusTv.text = "UNKNOWN"
+                toolRow.statusTv.setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+            }
+            return
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            var waited = 0
+            while (waited < 20000) {
+                delay(1500); waited += 1500
+                if (statusFile.exists()) {
+                    val content = try { statusFile.readText() } catch (_: Exception) { continue }
+                    if (content.contains("__DONE__")) {
+                        withContext(Dispatchers.Main) { if (_binding != null) applyResults(content) }
+                        break
+                    }
+                }
+            }
+        }
     }
 
     private fun launchTermuxInstall(cmd: String) {
