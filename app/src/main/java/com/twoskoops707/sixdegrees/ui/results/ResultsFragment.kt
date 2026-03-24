@@ -74,15 +74,21 @@ class ResultsFragment : Fragment() {
 
         computeAndShowShadyScore(meta, searchType)
 
+        val subjectName = person?.fullName?.ifBlank { "${person.firstName} ${person.lastName}".trim() }
+            ?: run {
+                report.searchQuery.split("|").mapNotNull {
+                    val p = it.split("=", limit = 2); if (p.size == 2) p[0].trim() to p[1].trim() else null
+                }.toMap()["name"] ?: ""
+            }
+        val avatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(subjectName.ifBlank { "?" })}&size=200&format=png&bold=true&color=fff&background=1a2744"
         val profileImageUrl = person?.profileImageUrl
             ?: meta["profile_photo_url"]
             ?: meta["tt_image_url"]
-        if (!profileImageUrl.isNullOrBlank()) {
-            binding.profileImage.load(profileImageUrl) {
-                crossfade(true)
-                placeholder(R.drawable.ic_person_placeholder)
-                error(R.drawable.ic_person_placeholder)
-            }
+            ?: avatarUrl
+        binding.profileImage.load(profileImageUrl) {
+            crossfade(true)
+            placeholder(R.drawable.ic_person_placeholder)
+            error(R.drawable.ic_person_placeholder)
         }
 
         binding.personCard.visibility = View.VISIBLE
@@ -819,60 +825,6 @@ class ResultsFragment : Fragment() {
             rows.add("⚠ Disclaimer" to "AI-generated summary — may not reflect actual individual. Verify all claims independently.")
         }
 
-        val dorkCount = meta["shadowdork_count"]?.toIntOrNull() ?: 0
-        val hasDorkLinks = !meta["dork_identity"].isNullOrBlank()
-        if (dorkCount > 0 || hasDorkLinks) {
-            rows.add(sec("INVESTIGATIVE SEARCH DORKS"))
-            rows.add("Note" to "Tap a dork to run it in your browser — targeted searches pre-built for this subject")
-            meta["dork_identity"]?.let { rows.add("⟶ Identity & Age" to it) }
-            meta["dork_relatives"]?.let { rows.add("⟶ Relatives & Family" to it) }
-            meta["dork_address"]?.let { rows.add("⟶ Address Records" to it) }
-            meta["dork_criminal"]?.let { rows.add("⟶ Criminal Records" to it) }
-            meta["dork_property"]?.let { rows.add("⟶ Property Records" to it) }
-            meta["dork_vehicle"]?.let { rows.add("⟶ Vehicle Trace" to it) }
-            meta["dork_social"]?.let { rows.add("⟶ Social Discovery" to it) }
-            meta["dork_leaks"]?.let { rows.add("⟶ Leaked Data Search" to it) }
-            meta["dork_files"]?.let { rows.add("⟶ Leaked File Dump" to it) }
-            meta["dork_people_sites"]?.let { rows.add("⟶ All People-Search Sites" to it) }
-            val shownDorkKeys = setOf(
-                "identity_confirm", "address_records", "relatives_map", "criminal_records",
-                "property_records", "vehicle_trace", "vehicle_records", "social_discovery", "leaked_data", "files_dump",
-                "people_search_tps", "people_search_wp", "people_search_spk", "people_search_fps",
-                "people_search_rad", "people_search_411", "people_search_zaba", "people_search_int",
-                "people_search_pf", "people_search_ml", "people_search_bv", "people_search_aw"
-            )
-            val extraDorkLabels = mapOf(
-                "financial_exposure" to "Financial Exposure",
-                "email_patterns" to "Email Patterns",
-                "business_ties" to "Business Ties",
-                "court_deep" to "Court Deep Search",
-                "voter_records" to "Voter Records",
-                "obituary_cross" to "Obituary / Genealogy",
-                "dark_mentions" to "Dark Data Mentions",
-                "education_school" to "Education & School",
-                "awards_recognition" to "Awards & Recognition",
-                "professional_bio" to "Professional Bio",
-                "linkedin_profile" to "LinkedIn Profile",
-                "philanthropy_board" to "Philanthropy & Boards",
-                "news_deep" to "Deep News Coverage",
-                "government_docs" to "Government Documents",
-                "sports_activity" to "Sports & Athletics",
-                "yearbook_alumni" to "Yearbook & Alumni"
-            )
-            meta["shadowdork_links"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
-                val keyEnd = line.indexOf("::")
-                if (keyEnd > 0) {
-                    val key = line.substring(0, keyEnd)
-                    if (key !in shownDorkKeys && key in extraDorkLabels) {
-                        val gStart = line.indexOf("::G:") + 4
-                        val gEnd = line.indexOf("::B:")
-                        if (gStart > 4 && gEnd > gStart) {
-                            rows.add("⟶ ${extraDorkLabels[key]}" to line.substring(gStart, gEnd))
-                        }
-                    }
-                }
-            }
-        }
 
         val socialLinks = buildSocialLinks(meta)
         val piplSocials = meta["pipl_socials"]?.takeIf { it.isNotBlank() }

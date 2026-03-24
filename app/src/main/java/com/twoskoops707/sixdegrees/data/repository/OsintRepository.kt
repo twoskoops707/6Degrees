@@ -579,7 +579,9 @@ class OsintRepository(context: Context) {
         val hasGeoFilter = targetCity.isNotBlank() || targetState.isNotBlank()
 
         val searchedMi = Regex("""(?<=\s)([A-Z])\.""").find(personName)?.groupValues?.get(1)?.uppercase()
-        val deduped = candidates.distinctBy { it.name.lowercase() }.filter { c ->
+        val deduped = candidates.distinctBy { c ->
+            "${c.name.lowercase()}__${c.location.lowercase().take(20)}"
+        }.filter { c ->
             if (searchedMi == null) return@filter true
             val candidateMi = Regex("""(?<=\s)([A-Z])\.""").find(c.name)?.groupValues?.get(1)?.uppercase()
             candidateMi == null || candidateMi == searchedMi
@@ -597,18 +599,7 @@ class OsintRepository(context: Context) {
             c.copy(confidence = (c.confidence + geoBonus).coerceIn(0.10f, 1.0f))
         }
 
-        return if (hasGeoFilter) {
-            val geoFiltered = scored.filter { c ->
-                val loc = c.location.lowercase()
-                loc.isBlank() ||
-                (targetCity.isNotBlank() && loc.contains(targetCity)) ||
-                (targetState.isNotBlank() && loc.contains(targetState))
-            }
-            val result = if (geoFiltered.isEmpty()) scored else geoFiltered
-            result.sortedByDescending { it.confidence }.take(5)
-        } else {
-            scored.take(5)
-        }
+        return scored.sortedByDescending { it.confidence }.take(5)
     }
 
     private suspend fun enrichCandidatesWithPhotos(candidates: List<CandidateProfile>): List<CandidateProfile> {
@@ -637,8 +628,12 @@ class OsintRepository(context: Context) {
             if (!imageUrl.isNullOrBlank()) return imageUrl
             val relativeImg = Regex("\"Image\"\\s*:\\s*\"(/i/[^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
             if (!relativeImg.isNullOrBlank()) return "https://duckduckgo.com$relativeImg"
-            null
-        } catch (_: Exception) { null }
+            val nameOnly = URLEncoder.encode(name, "UTF-8")
+            "https://ui-avatars.com/api/?name=$nameOnly&size=200&format=png&bold=true&color=fff&background=1a2744"
+        } catch (_: Exception) {
+            val nameOnly = URLEncoder.encode(name, "UTF-8")
+            "https://ui-avatars.com/api/?name=$nameOnly&size=200&format=png&bold=true&color=fff&background=1a2744"
+        }
     }
 
     private suspend fun emailSearch(
@@ -3451,8 +3446,24 @@ class OsintRepository(context: Context) {
         if (ip.isNotBlank()) {
             launch { ipDomainSearch(ip, meta, sources, emit) }
         }
-        if (username.isNotBlank()) {
-            launch { usernameSearch(username, meta, sources, emit) }
+        val nameParts = name.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+        val derivedUsernames = mutableListOf<String>()
+        if (nameParts.size >= 2) {
+            val fn = nameParts.first().lowercase()
+            val ln = nameParts.last().lowercase()
+            derivedUsernames.add("$fn$ln")
+            derivedUsernames.add("${fn[0]}$ln")
+            derivedUsernames.add("$fn.$ln")
+        }
+        if (email.isNotBlank() && email.contains("@")) {
+            val lp = email.substringBefore("@").lowercase().trim()
+            if (lp.isNotBlank() && !derivedUsernames.contains(lp)) derivedUsernames.add(lp)
+        }
+        val primaryUsername = username.ifBlank { derivedUsernames.firstOrNull() ?: "" }
+        if (primaryUsername.isNotBlank()) {
+            val allU = (if (username.isNotBlank()) listOf(username) else emptyList()) + derivedUsernames
+            meta["comp_derived_usernames"] = allU.distinct().take(6).joinToString(", ")
+            launch { usernameSearch(primaryUsername, meta, sources, emit) }
         }
         if (image.isNotBlank() && name.isBlank()) {
             launch { imageSearch(image, meta, sources, emit) }
@@ -3758,15 +3769,18 @@ class OsintRepository(context: Context) {
             if (html.isBlank() || resp.code == 429) {
                 emit(SearchProgressEvent.NotFound("ThatsThem")); return
             }
-            val ages = Regex("Age\\s+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
-            val cities = Regex("<span[^>]*class=\"[^\"]*city[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
+            val ttFirstName = query.trim().split("\\s+".toRegex()).firstOrNull()?.lowercase() ?: ""
+            val ttNameIdx = if (ttFirstName.isNotBlank()) html.lowercase().indexOf(ttFirstName) else -1
+            val cardHtml = if (ttNameIdx > 50) html.substring(ttNameIdx, minOf(ttNameIdx + 5000, html.length)) else html
+            val ages = Regex("Age\\s+(\\d{2,3})").findAll(cardHtml).map { it.groupValues[1] }.take(5).distinct().toList()
+            val cities = Regex("<span[^>]*class=\"[^\"]*city[^\"]*\"[^>]*>([^<]+)</span>").findAll(cardHtml)
                 .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
-            val states = Regex("<span[^>]*class=\"[^\"]*state[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
+            val states = Regex("<span[^>]*class=\"[^\"]*state[^\"]*\"[^>]*>([^<]+)</span>").findAll(cardHtml)
                 .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(10).distinct().toList()
-            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(html).map { it.value.trim() }.take(10).distinct().toList()
-            val relatives = Regex("(?:Relative|Associated|Related)[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
+            val phones = Regex("\\(\\d{3}\\)\\s*\\d{3}-\\d{4}").findAll(cardHtml).map { it.value.trim() }.take(10).distinct().toList()
+            val relatives = Regex("(?:Relative|Associated|Related)[^<]*<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(cardHtml)
                 .map { it.groupValues[1] }.take(15).distinct().toList()
-            val imgUrls = Regex("src=\"(https://[^\"]+(?:photo|profile|avatar|thumb)[^\"]+)\"").findAll(html)
+            val imgUrls = Regex("src=\"(https://[^\"]+(?:photo|profile|avatar|thumb)[^\"]+)\"").findAll(cardHtml)
                 .map { it.groupValues[1] }.take(3).distinct().toList()
 
             val hasData = ages.isNotEmpty() || cities.isNotEmpty() || phones.isNotEmpty() || relatives.isNotEmpty()
@@ -3821,11 +3835,15 @@ class OsintRepository(context: Context) {
             if (html.isBlank() || resp.code == 429) {
                 emit(SearchProgressEvent.NotFound("USPhoneBook")); return
             }
-            val addresses = Regex("(?:address|street)[^<]{0,50}<[^>]+>([^<]+[A-Z]{2}\\s+\\d{5}[^<]*)").findAll(html)
-                .map { it.groupValues[1].trim() }.filter { it.length > 5 }.take(10).distinct().toList()
-            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(html)
+            val uspbFirstName = query.trim().split("\\s+".toRegex()).firstOrNull()?.lowercase() ?: ""
+            val uspbNameIdx = if (uspbFirstName.isNotBlank()) html.lowercase().indexOf(uspbFirstName) else -1
+            val cardHtml = if (uspbNameIdx > 50) html.substring(uspbNameIdx, minOf(uspbNameIdx + 5000, html.length)) else html
+            val addresses = Regex("""\d{1,5}\s+[A-Za-z][A-Za-z0-9\s]{2,30}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Pkwy|Ter|Hwy|Loop|Pt)\b[^<\n]{0,40}""")
+                .findAll(cardHtml).map { it.value.replace(Regex("<[^>]+>"), "").replace(Regex("\\s+"), " ").trim() }
+                .filter { it.length in 10..90 }.take(10).distinct().toList()
+            val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(cardHtml)
                 .map { m -> "(${m.groupValues[1]}) ${m.groupValues[2]}-${m.groupValues[3]}" }.distinct().take(10).toList()
-            val ages = Regex("Age[:\\s]+(\\d{2,3})").findAll(html).map { it.groupValues[1] }.take(5).distinct().toList()
+            val ages = Regex("Age[:\\s]+(\\d{2,3})").findAll(cardHtml).map { it.groupValues[1] }.take(5).distinct().toList()
 
             val hasData = addresses.isNotEmpty() || phones.isNotEmpty()
             if (hasData) {
