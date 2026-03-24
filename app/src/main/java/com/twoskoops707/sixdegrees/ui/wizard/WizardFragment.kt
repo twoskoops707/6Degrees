@@ -114,10 +114,119 @@ class WizardFragment : Fragment() {
         populateTermuxTools()
         populateTips()
 
+        populateSetupSteps()
+
         binding.btnDone.setOnClickListener {
             requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE)
                 .edit().putBoolean("setup_complete", true).apply()
             findNavController().navigate(R.id.action_wizard_to_search)
+        }
+    }
+
+    private fun populateSetupSteps() {
+        val container = binding.termuxSetupContainer
+        val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+
+        data class StepDef(val number: String, val label: String, val actionLabel: String, val action: () -> Unit)
+
+        val steps = listOf(
+            StepDef(
+                "1", "Enable external apps in Termux", "RUN COMMAND"
+            ) {
+                val cmd = "echo 'allow-external-apps = true' >> ~/.termux/termux.properties"
+                val clipboard = ctx.getSystemService(ClipboardManager::class.java)
+                clipboard.setPrimaryClip(ClipData.newPlainText("setup", cmd))
+                try {
+                    ctx.startActivity(Intent().apply {
+                        setClassName("com.termux", "com.termux.app.TermuxActivity")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                } catch (_: Exception) { }
+                Toast.makeText(ctx, "Command copied — paste in Termux (long-press → Paste)", Toast.LENGTH_LONG).show()
+            },
+            StepDef(
+                "2", "Restart Termux app", "OPEN TERMUX"
+            ) {
+                try {
+                    ctx.startActivity(Intent().apply {
+                        setClassName("com.termux", "com.termux.app.TermuxActivity")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                } catch (_: Exception) {
+                    Toast.makeText(ctx, "Termux not installed", Toast.LENGTH_SHORT).show()
+                }
+            },
+            StepDef(
+                "3", "Grant RunCommand permission (tap Allow)", "REQUEST PERMISSION"
+            ) {
+                try {
+                    val intent = Intent().apply {
+                        setClassName("com.termux", "com.termux.app.RunCommandService")
+                        action = "com.termux.RUN_COMMAND"
+                        putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                        putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "echo ready"))
+                        putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                        putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                    }
+                    ctx.startForegroundService(intent)
+                    Toast.makeText(ctx, "If prompted, tap Allow — then reopen Setup to scan tools", Toast.LENGTH_LONG).show()
+                } catch (_: Exception) {
+                    Toast.makeText(ctx, "Complete steps 1 & 2 first", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+
+        steps.forEachIndexed { index, step ->
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(16f), dp(14f), dp(16f), dp(14f))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { step.action() }
+                background = android.util.TypedValue().also { v ->
+                    ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, v, true)
+                }.resourceId.let { ContextCompat.getDrawable(ctx, it) }
+            }
+
+            val numBadge = TextView(ctx).apply {
+                text = step.number
+                textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(ContextCompat.getColor(ctx, R.color.background_primary))
+                gravity = android.view.Gravity.CENTER
+                val badgeSize = dp(22f)
+                layoutParams = LinearLayout.LayoutParams(badgeSize, badgeSize).also { it.marginEnd = dp(12f) }
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                }
+            }
+
+            val labelTv = TextView(ctx).apply {
+                text = step.label
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                layoutParams = LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val actionTv = TextView(ctx).apply {
+                text = step.actionLabel
+                textSize = 10f
+                letterSpacing = 0.06f
+                typeface = Typeface.DEFAULT_BOLD
+                val tv = android.util.TypedValue()
+                ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+                setTextColor(tv.data)
+            }
+
+            row.addView(numBadge)
+            row.addView(labelTv)
+            row.addView(actionTv)
+            container.addView(row)
+            if (index < steps.lastIndex) container.addView(buildDivider())
         }
     }
 
@@ -216,13 +325,26 @@ class WizardFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             var waited = 0
+            var done = false
             while (waited < 20000) {
                 delay(1500); waited += 1500
                 if (statusFile.exists()) {
                     val content = try { statusFile.readText() } catch (_: Exception) { continue }
                     if (content.contains("__DONE__")) {
                         withContext(Dispatchers.Main) { if (_binding != null) applyResults(content) }
+                        done = true
                         break
+                    }
+                }
+            }
+            if (!done) {
+                withContext(Dispatchers.Main) {
+                    if (_binding == null) return@withContext
+                    rowMap.forEach { (_, toolRow) ->
+                        if (toolRow.statusTv.text == "SCANNING…") {
+                            toolRow.statusTv.text = "NEEDS SETUP"
+                            toolRow.statusTv.setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                        }
                     }
                 }
             }

@@ -81,44 +81,11 @@
                 app:cardElevation="0dp">
 
                 <LinearLayout
+                    android:id="@+id/termux_setup_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Step 1 — In Termux, run:"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:layout_marginBottom="4dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="echo &#39;allow-external-apps = true&#39; >> ~/.termux/termux.properties"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="11sp"
-                        android:fontFamily="monospace"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Step 2 — Restart Termux, then return here and reopen Setup."
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Step 3 — Tap &#34;Allow&#34; when the permission dialog appears."
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                </LinearLayout>
+                    android:padding="4dp" />
             </com.google.android.material.card.MaterialCardView>
 
             <!-- ── TERMUX TOOLS SECTION ── -->
