@@ -1447,10 +1447,16 @@ class ResultsFragment : Fragment() {
     private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
-        listOf("tps_full_addresses", "tps_locations", "zaba_addresses", "zaba_locations", "411_locations",
+        listOf("tps_full_addresses", "tps_locations", "zaba_locations", "411_locations",
             "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
             "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
             .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
+        val streetPattern = Regex("""\d{1,5}\s+[A-Z][A-Za-z0-9\s]{3,35}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter|Trl|Loop|Pass|Pt)\b[.,\s]*[A-Za-z]{2,20},?\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?""")
+        listOf("dork_address_full_results", "dork_address_results", "dork_phone_results", "dork_identity_results").forEach { key ->
+            meta[key]?.let { text ->
+                streetPattern.findAll(text).map { it.value.replace(Regex("\\s+"), " ").trim() }.filter { it.length in 15..80 }.take(6).forEach { set.add(it) }
+            }
+        }
         return set
     }
 

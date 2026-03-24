@@ -3533,7 +3533,20 @@ class OsintRepository(context: Context) {
                 meta["tps_candidates"] = candidateLines.joinToString("\n")
             }
 
-            val detailPath = allDetailPaths.firstOrNull()
+            val queryTokens = query.lowercase().split("\\s+".toRegex()).filter { it.length > 1 }
+            val personLocation = (meta["person_location"] ?: "").lowercase()
+            val personState = (meta["person_state"] ?: "").lowercase()
+            val bestDetailIndex = if (listCardTitles.size > 1 && allDetailPaths.size > 1) {
+                listCardTitles.indices.maxByOrNull { i ->
+                    val cardName = listCardTitles[i].lowercase()
+                    val cardLoc = listCardLocations.getOrElse(i) { "" }.lowercase()
+                    var score = queryTokens.count { tok -> cardName.contains(tok) }.toDouble()
+                    if (personLocation.isNotBlank() && cardLoc.contains(personLocation)) score += 0.5
+                    else if (personState.isNotBlank() && cardLoc.contains(personState)) score += 0.3
+                    score
+                } ?: 0
+            } else 0
+            val detailPath = allDetailPaths.getOrNull(bestDetailIndex) ?: allDetailPaths.firstOrNull()
             val profileHtml = if (detailPath != null) {
                 val detailReq = headers.url("https://www.truepeoplesearch.com$detailPath").build()
                 val detailResp = fastHttpClient.newCall(detailReq).execute()
@@ -3843,13 +3856,27 @@ class OsintRepository(context: Context) {
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
                 .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .addHeader("Cookie", "kl=us-en; p=-2")
                 .build()
             val resp = httpClient.newCall(req).execute()
             val body = resp.body?.string() ?: ""; resp.close()
-            if (resp.code != 200 || body.isBlank()) return emptyList()
-            Regex("""class="result__snippet"[^>]*>([\s\S]{10,400}?)</a>""").findAll(body)
-                .map { it.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").trim() }
-                .filter { it.isNotBlank() }.take(15).toList()
+            if (body.isBlank()) return emptyList()
+            if (body.contains("enable javascript", ignoreCase = true) || body.contains("cf-browser-verification", ignoreCase = true) || body.contains("Just a moment", ignoreCase = true)) return emptyList()
+            val snippetPatterns = listOf(
+                Regex("""<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+                Regex("""<div[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</div>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+                Regex("""<span[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</span>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+                Regex("""class="result-snippet"[^>]*>(.*?)</(?:a|span|div)>""", setOf(RegexOption.DOT_MATCHES_ALL))
+            )
+            val results = mutableListOf<String>()
+            for (pattern in snippetPatterns) {
+                pattern.findAll(body).forEach { m ->
+                    val text = m.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ").replace(Regex("\\s+"), " ").trim()
+                    if (text.length >= 20) results.add(text)
+                }
+                if (results.isNotEmpty()) break
+            }
+            results.distinct().take(12)
         } catch (_: Exception) { emptyList() }
     }
 
@@ -3942,33 +3969,34 @@ class OsintRepository(context: Context) {
         meta["dork_people_sites"] = "${gBase}$peopleSearchDork"
 
         val autoExecMapping = linkedMapOf(
-            "identity_confirm" to "dork_identity_results",
+            "address_full" to "dork_address_full_results",
             "address_records" to "dork_address_results",
+            "phone_lookup" to "dork_phone_results",
             "relatives_map" to "dork_relatives_results",
             "criminal_records" to "dork_criminal_results",
-            "leaked_data" to "dork_leaks_results",
-            "dark_mentions" to "dork_dark_results",
+            "identity_confirm" to "dork_identity_results",
+            "court_deep" to "dork_court_results",
             "social_discovery" to "dork_social_results",
-            "email_patterns" to "dork_email_results",
+            "obituary_cross" to "dork_obituary_results",
+            "news_deep" to "dork_news_results",
             "property_records" to "dork_property_results",
             "financial_exposure" to "dork_financial_results",
-            "court_deep" to "dork_court_results",
-            "obituary_cross" to "dork_obituary_results",
-            "linkedin_profile" to "dork_linkedin_results",
-            "news_deep" to "dork_news_results",
-            "files_dump" to "dork_files_results",
-            "government_docs" to "dork_gov_results",
-            "vehicle_trace" to "dork_vehicle_results",
-            "voter_records" to "dork_voter_results",
-            "business_ties" to "dork_business_results",
             "education_school" to "dork_education_results",
+            "vehicle_trace" to "dork_vehicle_results",
+            "dark_mentions" to "dork_dark_results",
+            "leaked_data" to "dork_leaks_results",
+            "business_ties" to "dork_business_results",
+            "government_docs" to "dork_gov_results",
+            "linkedin_profile" to "dork_linkedin_results",
             "professional_bio" to "dork_bio_results",
+            "email_patterns" to "dork_email_results",
+            "voter_records" to "dork_voter_results",
+            "files_dump" to "dork_files_results",
             "people_search_411" to "dork_411_results",
-            "people_search_zaba" to "dork_zaba_results",
-            "phone_lookup" to "dork_phone_results",
-            "address_full" to "dork_address_full_results"
+            "people_search_zaba" to "dork_zaba_results"
         )
         var execCount = 0
+        var consecutiveFails = 0
         for ((dorkKey, metaKey) in autoExecMapping) {
             val dork = dorks[dorkKey] ?: continue
             val label = dorkKey.replace("_", " ")
@@ -3977,12 +4005,19 @@ class OsintRepository(context: Context) {
             if (snippets.isNotEmpty()) {
                 meta[metaKey] = snippets.joinToString("\n---\n")
                 execCount++
+                consecutiveFails = 0
+            } else {
+                consecutiveFails++
+                if (consecutiveFails >= 5) {
+                    delay(4000)
+                    consecutiveFails = 0
+                }
             }
-            delay(300)
+            delay(900)
         }
 
         sources.add(DataSource("ShadowDork Engine", null, Date(), 0.5))
-        emit(SearchProgressEvent.Found("ShadowDork Engine", "${dorks.size} dorks generated · $execCount auto-executed via DDG"))
+        emit(SearchProgressEvent.Found("ShadowDork Engine", "${dorks.size} dorks generated · $execCount returned results"))
     }
 
     private suspend fun googleCsePersonSearch(
@@ -4761,13 +4796,20 @@ class OsintRepository(context: Context) {
             if (resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("ZabaSearch")); return
             }
-            val firstCard = Regex("(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result)[^>]*>(.+?)(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result[1-9])", RegexOption.DOT_MATCHES_ALL)
-                .find(html)?.groupValues?.get(1) ?: html.take(8000)
+            val zabaCardRegex = Regex("(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result)[^>]*>(.+?)(?:class=\"[^\"]*(?:result|record|person)[^\"]*\"|id=\"result[1-9])", RegexOption.DOT_MATCHES_ALL)
+            val (fn2, ln2) = nameFirstLast(query)
+            val zabaCardFallback = run {
+                val idx = html.indexOf(ln2, ignoreCase = true).takeIf { it >= 0 }
+                    ?: html.indexOf(fn2, ignoreCase = true).takeIf { it >= 0 }
+                if (idx != null) html.substring(maxOf(0, idx - 200), minOf(html.length, idx + 4000)) else null
+            }
+            val firstCard = zabaCardRegex.find(html)?.groupValues?.get(1) ?: zabaCardFallback ?: return
             val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833", "822", "880", "881", "882", "883", "884", "885", "886", "887", "889")
+            val invalidAreaCodes = setOf("000", "001", "111", "123", "555", "900", "976")
             val ages = Regex("(?:Age|age)\\s*:?\\s*(\\d{2,3})").findAll(firstCard).map { it.groupValues[1] }.take(3).distinct().toList()
             val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(firstCard)
                 .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
-                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .filter { (area, mid, _) -> area !in tollfreeAreaCodes && area !in invalidAreaCodes && mid != "000" }
                 .map { (area, mid, last) -> "($area) $mid-$last" }
                 .distinct().take(5).toList()
             val cityState = Regex("([A-Z][a-zA-Z ]{2,}+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(firstCard)
@@ -4819,12 +4861,18 @@ class OsintRepository(context: Context) {
             if (resp.code == 429 || html.isBlank()) {
                 emit(SearchProgressEvent.NotFound("411.com")); return
             }
-            val firstCard = Regex("(?:class=\"[^\"]*(?:result|record|person|card)[^\"]*\")[^>]*>(.+?)(?=class=\"[^\"]*(?:result|record|person|card)[^\"]*\"|</(?:div|ul|section)>\\s*<(?:div|ul|section))", RegexOption.DOT_MATCHES_ALL)
-                .find(html)?.groupValues?.get(1) ?: html.take(8000)
+            val cardRegex411 = Regex("(?:class=\"[^\"]*(?:result|record|person|card)[^\"]*\")[^>]*>(.+?)(?=class=\"[^\"]*(?:result|record|person|card)[^\"]*\"|</(?:div|ul|section)>\\s*<(?:div|ul|section))", RegexOption.DOT_MATCHES_ALL)
+            val fallback411 = run {
+                val idx = html.indexOf(ln411, ignoreCase = true).takeIf { it >= 0 }
+                    ?: html.indexOf(fn411, ignoreCase = true).takeIf { it >= 0 }
+                if (idx != null) html.substring(maxOf(0, idx - 200), minOf(html.length, idx + 4000)) else null
+            }
+            val firstCard = cardRegex411.find(html)?.groupValues?.get(1) ?: fallback411 ?: return
             val tollfreeAreaCodes = setOf("800", "888", "877", "866", "855", "844", "833")
+            val invalidAreaCodes411 = setOf("000", "001", "111", "123", "555", "900", "976")
             val phones = Regex("(?<![\\d])\\((\\d{3})\\)[-.\\s](\\d{3})[-.\\s](\\d{4})(?![\\d])").findAll(firstCard)
                 .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
-                .filter { (area, _, _) -> area !in tollfreeAreaCodes }
+                .filter { (area, mid, _) -> area !in tollfreeAreaCodes && area !in invalidAreaCodes411 && mid != "000" }
                 .map { (area, mid, last) -> "($area) $mid-$last" }
                 .distinct().take(5).toList()
             val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(firstCard).map { it.groupValues[1] }.take(3).distinct().toList()
