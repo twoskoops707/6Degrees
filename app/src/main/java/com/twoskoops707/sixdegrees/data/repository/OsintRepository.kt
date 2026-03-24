@@ -365,7 +365,7 @@ class OsintRepository(context: Context) {
             while (true) {
                 delay(2000)
                 if (outF.exists()) {
-                    val content = outF.readText()
+                    val content = try { outF.readText() } catch (_: Exception) { "" }
                     if (content.contains("__TOOL_DONE__")) {
                         return@withTimeoutOrNull content.substringBefore("__TOOL_DONE__").trim()
                     }

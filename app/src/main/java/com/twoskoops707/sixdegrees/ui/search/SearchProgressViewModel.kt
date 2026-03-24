@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.twoskoops707.sixdegrees.data.repository.OsintRepository
 import com.twoskoops707.sixdegrees.data.repository.SearchProgressEvent
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,10 +31,13 @@ class SearchProgressViewModel(
     fun startSearch() {
         if (started) return
         started = true
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.searchWithProgress(query, type, round).collect { event ->
-                _events.emit(event)
-            }
+        val handler = CoroutineExceptionHandler { _, _ -> }
+        viewModelScope.launch(Dispatchers.IO + handler) {
+            try {
+                repository.searchWithProgress(query, type, round).collect { event ->
+                    _events.emit(event)
+                }
+            } catch (_: Exception) {}
         }
     }
 

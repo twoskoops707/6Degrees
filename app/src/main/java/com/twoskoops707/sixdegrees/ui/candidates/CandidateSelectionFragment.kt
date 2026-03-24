@@ -80,6 +80,7 @@ class CandidateSelectionFragment : Fragment() {
 
         lifecycleScope.launch {
             viewModel.selected.collect { selected ->
+                if (_binding == null) return@collect
                 adapter.updateSelection(selected)
                 binding.btnInvestigate.isEnabled = selected.isNotEmpty()
                 binding.btnInvestigate.alpha = if (selected.isNotEmpty()) 1f else 0.4f
@@ -87,6 +88,7 @@ class CandidateSelectionFragment : Fragment() {
         }
 
         binding.btnInvestigate.setOnClickListener {
+            if (!isAdded || !isResumed) return@setOnClickListener
             val refinedQuery = viewModel.buildRefinedQuery(candidates)
             if (refinedQuery.isBlank()) return@setOnClickListener
             val nextRound = round + 1
@@ -102,6 +104,7 @@ class CandidateSelectionFragment : Fragment() {
         }
 
         binding.btnSkipToResults.setOnClickListener {
+            if (!isAdded || !isResumed) return@setOnClickListener
             findNavController().navigate(
                 R.id.action_candidates_to_results,
                 Bundle().apply {

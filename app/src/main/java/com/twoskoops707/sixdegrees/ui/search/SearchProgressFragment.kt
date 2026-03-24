@@ -136,6 +136,7 @@ class SearchProgressFragment : Fragment() {
     }
 
     private fun handleEvent(event: SearchProgressEvent) {
+        if (_binding == null) return
         when (event) {
             is SearchProgressEvent.Checking -> {
                 val existing = sourceRows.indexOfFirst { it.source == event.source }
@@ -207,6 +208,7 @@ class SearchProgressFragment : Fragment() {
                     binding.tvStatus.text = "1 match found — deepening investigation…"
                     binding.tvEta.text = ""
                     binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
+                    if (!isAdded || !isResumed) return
                     findNavController().navigate(
                         R.id.action_progress_to_progress,
                         Bundle().apply {
