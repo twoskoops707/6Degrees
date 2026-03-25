@@ -658,13 +658,13 @@ class OsintRepository(context: Context) {
         val targetCity = personCity.lowercase()
         val targetState = personState.lowercase()
         val hasGeoFilter = targetCity.isNotBlank() || targetState.isNotBlank()
-        val searchedMi = Regex("(?<=\s)([A-Z])\.").find(personName)?.groupValues?.get(1)?.uppercase()
+        val searchedMi = Regex("(?<=\\s)([A-Z])\.").find(personName)?.groupValues?.get(1)?.uppercase()
 
         val deduped = candidates.distinctBy { c ->
             "${c.name.lowercase()}__${c.location.lowercase().take(20)}"
         }.filter { c ->
             if (searchedMi == null) return@filter true
-            val candidateMi = Regex("(?<=\s)([A-Z])\.").find(c.name)?.groupValues?.get(1)?.uppercase()
+            val candidateMi = Regex("(?<=\\s)([A-Z])\.").find(c.name)?.groupValues?.get(1)?.uppercase()
             candidateMi == null || candidateMi == searchedMi
         }
 

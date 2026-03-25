@@ -243,10 +243,10 @@ class CandidateSelectionFragment : Fragment() {
 
             // --- AKAs ---
             if (c.akasNicknames.isNotEmpty() && !isCompany) {
-                holder.b.tvCandidateAka.text = "🔖 AKA: " + c.akasNicknames.joinToString(", ")
-                holder.b.tvCandidateAka.visibility = View.VISIBLE
+                holder.b.tvCandidateAkas.text = "🔖 AKA: " + c.akasNicknames.joinToString(", ")
+                holder.b.tvCandidateAkas.visibility = View.VISIBLE
             } else {
-                holder.b.tvCandidateAka.visibility = View.GONE
+                holder.b.tvCandidateAkas.visibility = View.GONE
             }
 
             // --- Employment ---
