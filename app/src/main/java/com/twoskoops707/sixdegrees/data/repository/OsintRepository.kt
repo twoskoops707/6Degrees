@@ -720,6 +720,9 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { null }
     }
 
+    private suspend fun emailSearch(
+        email: String,
+        meta: ConcurrentHashMap<String, String>,
         sources: MutableList<DataSource>,
         emit: suspend (SearchProgressEvent) -> Unit
     ) {
