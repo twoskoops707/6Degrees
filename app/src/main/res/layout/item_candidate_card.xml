@@ -40,6 +40,15 @@
                     android:src="@drawable/ic_person_placeholder" />
 
                 <ImageView
+                    android:id="@+id/iv_company_logo"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:scaleType="centerInside"
+                    android:background="@color/surface_elevated"
+                    android:padding="8dp"
+                    android:visibility="gone" />
+
+                <ImageView
                     android:id="@+id/iv_selected_overlay"
                     android:layout_width="64dp"
                     android:layout_height="64dp"
@@ -90,6 +99,44 @@
                 app:chipBackgroundColor="@color/surface_elevated"
                 android:textColor="?attr/colorControlNormal"
                 app:chipMinHeight="24dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/company_info_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:layout_marginTop="6dp">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_company_domain"
+                style="@style/Widget.Material3.Chip.Assist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                app:chipBackgroundColor="@color/surface_elevated"
+                android:textColor="?attr/colorPrimary"
+                app:chipMinHeight="24dp"
+                app:chipIcon="@drawable/ic_link"
+                app:chipIconSize="14dp"
+                app:chipIconTint="?attr/colorPrimary"
+                app:closeIconVisible="false" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_company_industry"
+                style="@style/Widget.Material3.Chip.Assist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:textSize="10sp"
+                app:chipBackgroundColor="@color/surface_elevated"
+                android:textColor="?attr/colorControlNormal"
+                app:chipMinHeight="24dp"
+                app:chipIcon="@drawable/ic_business"
+                app:chipIconSize="14dp"
+                app:chipIconTint="?attr/colorControlNormal"
+                app:closeIconVisible="false" />
         </LinearLayout>
 
         <TextView

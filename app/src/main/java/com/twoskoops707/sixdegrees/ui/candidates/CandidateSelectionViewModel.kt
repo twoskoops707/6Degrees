@@ -30,22 +30,29 @@ class CandidateSelectionViewModel : ViewModel() {
         val chosen = _selected.value.sorted().mapNotNull { candidates.getOrNull(it) }
         if (chosen.isEmpty()) return ""
         val primary = chosen.first()
-        if (primary.name.isNotBlank()) parts.add("name=${primary.name}")
-        primary.phones.firstOrNull()?.let { parts.add("phone=$it") }
-        if (primary.location.isNotBlank()) {
-            val locParts = primary.location.split(",").map { it.trim() }
-            if (locParts.size >= 2) {
-                parts.add("city=${locParts[0]}")
-                parts.add("state=${locParts[1]}")
-            } else {
-                parts.add("city=${primary.location}")
+
+        if (primary.isCompany) {
+            if (primary.name.isNotBlank()) parts.add("name=${primary.name}")
+            if (!primary.domain.isNullOrBlank()) parts.add("domain=${primary.domain}")
+            if (primary.location.isNotBlank()) parts.add("location=${primary.location}")
+        } else {
+            if (primary.name.isNotBlank()) parts.add("name=${primary.name}")
+            primary.phones.firstOrNull()?.let { parts.add("phone=$it") }
+            if (primary.location.isNotBlank()) {
+                val locParts = primary.location.split(",").map { it.trim() }
+                if (locParts.size >= 2) {
+                    parts.add("city=${locParts[0]}")
+                    parts.add("state=${locParts[1]}")
+                } else {
+                    parts.add("city=${primary.location}")
+                }
             }
-        }
-        if (primary.address.isNotBlank()) parts.add("address=${primary.address}")
-        if (chosen.size > 1) {
-            val secondary = chosen[1]
-            if (secondary.name.isNotBlank() && secondary.name != primary.name) {
-                parts.add("relatives=${secondary.name}")
+            if (primary.address.isNotBlank()) parts.add("address=${primary.address}")
+            if (chosen.size > 1) {
+                val secondary = chosen[1]
+                if (secondary.name.isNotBlank() && secondary.name != primary.name) {
+                    parts.add("relatives=${secondary.name}")
+                }
             }
         }
         return parts.joinToString("|")

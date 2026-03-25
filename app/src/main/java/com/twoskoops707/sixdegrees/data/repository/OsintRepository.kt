@@ -579,6 +579,58 @@ class OsintRepository(context: Context) {
         val hasGeoFilter = targetCity.isNotBlank() || targetState.isNotBlank()
 
         val searchedMi = Regex("""(?<=\s)([A-Z])\.""").find(personName)?.groupValues?.get(1)?.uppercase()
+
+        // --- Company Candidates ---
+        val openCorporatesCompanies = meta["companies"] ?: ""
+        if (openCorporatesCompanies.isNotBlank()) {
+            openCorporatesCompanies.lines().take(5).forEach { line ->
+                if (line.isBlank()) return@forEach
+                val parts = line.split("|")
+                val name = parts.getOrNull(0)?.trim() ?: return@forEach
+                if (name.isBlank() || name.length < 2) return@forEach
+                val status = parts.getOrNull(2)?.trim() ?: ""
+                val jurisdiction = parts.getOrNull(1)?.trim() ?: ""
+                val domain = meta["company_domain_query"] ?: ""
+                val industry = meta["wikidata_company_labels"]?.split("|")?.firstOrNull()?.let { "" } ?: ""
+                candidates.add(CandidateProfile(
+                    name = name,
+                    age = "",
+                    location = jurisdiction,
+                    phones = emptyList(),
+                    address = status,
+                    source = "OpenCorporates",
+                    confidence = 0.70f,
+                    isCompany = true,
+                    domain = domain,
+                    industry = industry
+                ))
+            }
+        }
+
+        val wikidataCompanies = meta["wikidata_company_labels"] ?: ""
+        if (wikidataCompanies.isNotBlank()) {
+            wikidataCompanies.split("|").take(5).forEach { label ->
+                if (label.isBlank()) return@forEach
+                val existsAlready = candidates.any { it.name.equals(label, ignoreCase = true) }
+                if (!existsAlready) {
+                    val domain = meta["company_domain_query"] ?: ""
+                    val industry = meta["wikidata_company_descriptions"]?.split("\n")?.find { it.startsWith(label) }?.substringAfter(": ") ?: ""
+                    candidates.add(CandidateProfile(
+                        name = label,
+                        age = "",
+                        location = "",
+                        phones = emptyList(),
+                        address = industry,
+                        source = "WikiData",
+                        confidence = 0.60f,
+                        isCompany = true,
+                        domain = domain,
+                        industry = industry
+                    ))
+                }
+            }
+        }
+
         val deduped = candidates.distinctBy { c ->
             "${c.name.lowercase()}__${c.location.lowercase().take(20)}"
         }.filter { c ->
@@ -606,9 +658,15 @@ class OsintRepository(context: Context) {
         return coroutineScope {
             candidates.map { candidate ->
                 async {
-                    if (candidate.photoUrl != null) return@async candidate
-                    val photoUrl = fetchCandidatePhoto(candidate.name, candidate.location)
-                    if (photoUrl != null) candidate.copy(photoUrl = photoUrl) else candidate
+                    if (candidate.isCompany) {
+                        if (candidate.logoUrl != null) return@async candidate
+                        val logoUrl = fetchCompanyLogo(candidate.name, candidate.domain)
+                        if (logoUrl != null) candidate.copy(logoUrl = logoUrl) else candidate
+                    } else {
+                        if (candidate.photoUrl != null) return@async candidate
+                        val photoUrl = fetchCandidatePhoto(candidate.name, candidate.location)
+                        if (photoUrl != null) candidate.copy(photoUrl = photoUrl) else candidate
+                    }
                 }
             }.map { it.await() }
         }
@@ -624,9 +682,9 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val body = resp.body?.string() ?: ""; resp.close()
-            val imageUrl = Regex("\"Image\"\\s*:\\s*\"(https?://[^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
+            val imageUrl = Regex(""""Image"\s*:\s*"(https?://[^"]+)"""").find(body)?.groupValues?.get(1)?.trim()
             if (!imageUrl.isNullOrBlank()) return imageUrl
-            val relativeImg = Regex("\"Image\"\\s*:\\s*\"(/i/[^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
+            val relativeImg = Regex(""""Image"\s*:\s*"(/i/[^"]+)"""").find(body)?.groupValues?.get(1)?.trim()
             if (!relativeImg.isNullOrBlank()) return "https://duckduckgo.com$relativeImg"
             val nameOnly = URLEncoder.encode(name, "UTF-8")
             "https://ui-avatars.com/api/?name=$nameOnly&size=200&format=png&bold=true&color=fff&background=1a2744"
@@ -636,9 +694,32 @@ class OsintRepository(context: Context) {
         }
     }
 
-    private suspend fun emailSearch(
-        email: String,
-        meta: ConcurrentHashMap<String, String>,
+    private suspend fun fetchCompanyLogo(name: String, domain: String?): String? {
+        return try {
+            if (!domain.isNullOrBlank()) {
+                val cleanDomain = domain.removePrefix("https://").removePrefix("http://").removePrefix("www.").split("/").first()
+                val logoUrl = "https://logo.clearbit.com/$cleanDomain"
+                val req = Request.Builder()
+                    .url(logoUrl)
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val exists = resp.code == 200
+                resp.close()
+                if (exists) return logoUrl
+            }
+            val query = URLEncoder.encode("$name company logo", "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.duckduckgo.com/?q=$query&format=json&no_html=1&skip_disambig=1&ia=about")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            val imageUrl = Regex(""""Image"\s*:\s*"(https?://[^"]+)"""").find(body)?.groupValues?.get(1)?.trim()
+            imageUrl
+        } catch (_: Exception) { null }
+    }
+
         sources: MutableList<DataSource>,
         emit: suspend (SearchProgressEvent) -> Unit
     ) {

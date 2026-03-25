@@ -145,27 +145,63 @@ class CandidateSelectionFragment : Fragment() {
             val c = items[position]
             val isSelected = selectedIndices.contains(position)
 
-            if (!c.photoUrl.isNullOrBlank()) {
-                holder.b.ivCandidatePhoto.load(c.photoUrl) {
-                    crossfade(true)
-                    placeholder(R.drawable.ic_person_placeholder)
-                    error(R.drawable.ic_person_placeholder)
+            val isCompany = c.isCompany
+
+            if (isCompany) {
+                holder.b.ivCandidatePhoto.visibility = View.GONE
+                holder.b.ivCompanyLogo.visibility = View.VISIBLE
+                if (!c.logoUrl.isNullOrBlank()) {
+                    holder.b.ivCompanyLogo.load(c.logoUrl) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_business)
+                        error(R.drawable.ic_business)
+                    }
+                } else {
+                    holder.b.ivCompanyLogo.setImageResource(R.drawable.ic_business)
                 }
             } else {
-                holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_person_placeholder)
+                holder.b.ivCandidatePhoto.visibility = View.VISIBLE
+                holder.b.ivCompanyLogo.visibility = View.GONE
+                if (!c.photoUrl.isNullOrBlank()) {
+                    holder.b.ivCandidatePhoto.load(c.photoUrl) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_person_placeholder)
+                        error(R.drawable.ic_person_placeholder)
+                    }
+                } else {
+                    holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_person_placeholder)
+                }
             }
 
-            holder.b.tvCandidateName.text = c.name.ifBlank { "Unknown" }
+            holder.b.tvCandidateName.text = if (isCompany) c.name.ifBlank { "Unknown Company" } else c.name.ifBlank { "Unknown" }
 
-            val ageLocParts = listOfNotNull(
-                c.age.takeIf { it.isNotBlank() }?.let { "Age $it" },
-                c.location.takeIf { it.isNotBlank() }
-            )
-            holder.b.tvCandidateAgeLocation.text = ageLocParts.joinToString(" · ")
-            holder.b.tvCandidateAgeLocation.visibility = if (ageLocParts.isNotEmpty()) View.VISIBLE else View.GONE
+            if (isCompany) {
+                holder.b.companyInfoRow.visibility = View.VISIBLE
+                holder.b.tvCandidateAgeLocation.visibility = View.GONE
+                if (!c.domain.isNullOrBlank()) {
+                    holder.b.chipCompanyDomain.text = c.domain
+                    holder.b.chipCompanyDomain.visibility = View.VISIBLE
+                } else {
+                    holder.b.chipCompanyDomain.visibility = View.GONE
+                }
+                if (!c.industry.isNullOrBlank()) {
+                    holder.b.chipCompanyIndustry.text = c.industry
+                    holder.b.chipCompanyIndustry.visibility = View.VISIBLE
+                } else {
+                    holder.b.chipCompanyIndustry.visibility = View.GONE
+                }
+            } else {
+                holder.b.companyInfoRow.visibility = View.GONE
+                val ageLocParts = listOfNotNull(
+                    c.age.takeIf { it.isNotBlank() }?.let { "Age $it" },
+                    c.location.takeIf { it.isNotBlank() }
+                )
+                holder.b.tvCandidateAgeLocation.text = ageLocParts.joinToString(" · ")
+                holder.b.tvCandidateAgeLocation.visibility = if (ageLocParts.isNotEmpty()) View.VISIBLE else View.GONE
+            }
 
             val phones = c.phones.take(2)
-            if (phones.isNotEmpty()) {
+            if (phones.isNotEmpty() && !isCompany) {
                 holder.b.tvCandidatePhone.text = phones.joinToString(" · ")
                 holder.b.tvCandidatePhone.visibility = View.VISIBLE
             } else {
@@ -173,13 +209,14 @@ class CandidateSelectionFragment : Fragment() {
             }
 
             if (c.address.isNotBlank()) {
-                holder.b.tvCandidateAddress.text = "📍 ${c.address}"
+                val addrPrefix = if (isCompany) "🏢 " else "📍 "
+                holder.b.tvCandidateAddress.text = "$addrPrefix${c.address}"
                 holder.b.tvCandidateAddress.visibility = View.VISIBLE
             } else {
                 holder.b.tvCandidateAddress.visibility = View.GONE
             }
 
-            if (c.relatives.isNotEmpty()) {
+            if (c.relatives.isNotEmpty() && !isCompany) {
                 holder.b.tvCandidateRelatives.text = "👥 ${c.relatives.take(3).joinToString(", ")}"
                 holder.b.tvCandidateRelatives.visibility = View.VISIBLE
             } else {

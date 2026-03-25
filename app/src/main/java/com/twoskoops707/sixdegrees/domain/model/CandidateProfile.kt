@@ -10,5 +10,10 @@ data class CandidateProfile(
     val confidence: Float,
     val photoUrl: String? = null,
     val relatives: List<String> = emptyList(),
-    val profileUrl: String? = null
+    val profileUrl: String? = null,
+    // Company-specific fields
+    val isCompany: Boolean = false,
+    val logoUrl: String? = null,
+    val domain: String? = null,
+    val industry: String? = null
 )
