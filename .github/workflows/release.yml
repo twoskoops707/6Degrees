@@ -2,9 +2,20 @@ name: Build SixDegrees
 
 on:
   push:
-    branches: [main]
-    tags:
-      - 'v*'
+    branches: [main, enhanced-reports]
+  pull_request:
+    branches: [main, enhanced-reports]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - debug
+          - release
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -24,23 +35,68 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Set Android SDK
+        run: echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
+
       - run: chmod +x ./gradlew
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
-      - name: Rename APK
+      - name: Prepare Release Keystore
+        if: github.event_name != 'pull_request'
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sixdegrees-${SHORT_SHA}.apk
+          echo "${{ vars.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Release APK
+        if: github.event_name != 'pull_request'
+        run: ./gradlew assembleRelease
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ vars.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ vars.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ vars.RELEASE_KEY_PASSWORD }}
+
+      - name: Set Short SHA
+        id: sha
+        run: echo "SHORT_SHA=$(echo '${{ github.sha }}' | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Rename Debug APK
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/sixdegrees-${{ steps.sha.outputs.SHORT_SHA }}-debug.apk"
+
+      - name: Rename Release APK
+        if: github.event_name != 'pull_request'
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/sixdegrees-${{ steps.sha.outputs.SHORT_SHA }}-release.apk"
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sixdegrees-apks-${{ steps.sha.outputs.SHORT_SHA }}
+          path: |
+            app/build/outputs/apk/debug/sixdegrees-*.apk
+            app/build/outputs/apk/release/sixdegrees-*.apk
+          retention-days: 14
 
       - name: Create GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/enhanced-reports')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.sha }}
-          name: "Build ${{ github.sha }}"
-          body: "Automated build from commit ${{ github.sha }}"
-          files: app/build/outputs/apk/debug/sixdegrees-*.apk
-          prerelease: true
+          tag_name: build-${{ github.ref_name }}-${{ steps.sha.outputs.SHORT_SHA }}
+          name: "SixDegrees ${{ github.ref_name }} @ ${{ steps.sha.outputs.SHORT_SHA }}"
+          body: |
+            ## Build Info
+            - **Branch**: `${{ github.ref_name }}`
+            - **Commit**: `${{ github.sha }}`
+            - **Build Type**: Debug + Release
+
+            ## What's New
+            Enhanced report UI with tabbed layout, candidate selection with company logos, and improved data visualization.
+          files: |
+            app/build/outputs/apk/debug/sixdegrees-*.apk
+            app/build/outputs/apk/release/sixdegrees-*.apk
+          prerelease: ${{ github.ref_name != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
