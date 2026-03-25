@@ -67,13 +67,13 @@ class SearchProgressFragment : Fragment() {
 
         searchStartMs = System.currentTimeMillis()
         estimatedTotal = when (type) {
-            "person" -> 29
+            "person" -> 40
             "username" -> 80
-            "ip", "domain" -> 20
-            "email" -> 12
-            "company" -> 13
-            "phone" -> 5
-            else -> 10
+            "ip", "domain" -> 22
+            "email" -> 25
+            "company" -> 18
+            "phone" -> 12
+            else -> 20
         }
 
         currentType = type
@@ -204,21 +204,8 @@ class SearchProgressFragment : Fragment() {
                 pendingCandidatesRound = event.round
                 binding.progressBar.visibility = View.GONE
                 val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
-                if (event.autoSelect && event.refinedQuery.isNotBlank()) {
-                    binding.tvStatus.text = "1 match found — deepening investigation…"
-                    binding.tvEta.text = ""
-                    binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
-                    if (!isAdded || !isResumed) return
-                    findNavController().navigate(
-                        R.id.action_progress_to_progress,
-                        Bundle().apply {
-                            putString("query", event.refinedQuery)
-                            putString("type", "comprehensive")
-                            putInt("round", event.round + 1)
-                            putString("searchQuery", currentDisplayQuery)
-                        }
-                    )
-                } else {
+                // AUTO-BYPASS REMOVED: always show candidate selection, user manually picks
+                if (true) {
                     pendingCandidates = event.candidates
                     binding.tvStatus.text = "${event.candidates.size} candidate${if (event.candidates.size != 1) "s" else ""} identified · ${elapsedSec}s"
                     binding.tvEta.text = ""

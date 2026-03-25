@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
-    android:layout_marginBottom="12dp"
+    android:layout_marginBottom="10dp"
     android:clickable="true"
     android:focusable="true"
     app:cardBackgroundColor="@color/surface"
@@ -20,6 +20,7 @@
         android:orientation="vertical"
         android:padding="14dp">
 
+        <!-- Header: Photo/Logo + Name + Chips + Selection -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -27,34 +28,34 @@
             android:gravity="center_vertical">
 
             <FrameLayout
-                android:layout_width="64dp"
-                android:layout_height="64dp"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
                 android:layout_marginEnd="14dp">
 
                 <ImageView
                     android:id="@+id/iv_candidate_photo"
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     android:scaleType="centerCrop"
                     android:background="@color/surface_elevated"
                     android:src="@drawable/ic_person_placeholder" />
 
                 <ImageView
                     android:id="@+id/iv_company_logo"
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     android:scaleType="centerInside"
                     android:background="@color/surface_elevated"
-                    android:padding="8dp"
+                    android:padding="12dp"
                     android:visibility="gone" />
 
                 <ImageView
                     android:id="@+id/iv_selected_overlay"
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     android:src="@drawable/ic_check"
                     android:background="#CC1A3A2A"
-                    android:padding="16dp"
+                    android:padding="18dp"
                     android:visibility="gone" />
             </FrameLayout>
 
@@ -69,8 +70,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/tv_candidate_age_location"
@@ -81,33 +84,50 @@
                     android:layout_marginTop="2dp" />
 
                 <TextView
-                    android:id="@+id/tv_candidate_phone"
+                    android:id="@+id/tv_candidate_dob"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorPrimary"
-                    android:textSize="12sp"
-                    android:layout_marginTop="2dp"
+                    android:textSize="11sp"
+                    android:layout_marginTop="1dp"
                     android:visibility="gone" />
             </LinearLayout>
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_candidate_source"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textSize="9sp"
-                app:chipBackgroundColor="@color/surface_elevated"
-                android:textColor="?attr/colorControlNormal"
-                app:chipMinHeight="24dp" />
+                android:orientation="vertical"
+                android:gravity="end">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_candidate_source"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="9sp"
+                    app:chipBackgroundColor="@color/surface_elevated"
+                    android:textColor="?attr/colorControlNormal"
+                    app:chipMinHeight="22dp" />
+
+                <ProgressBar
+                    android:id="@+id/progress_confidence"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="60dp"
+                    android:layout_height="3dp"
+                    android:layout_marginTop="6dp"
+                    android:max="100"
+                    android:progressTint="?attr/colorPrimary"
+                    android:progressBackgroundTint="@color/border" />
+            </LinearLayout>
         </LinearLayout>
 
+        <!-- Company info chips -->
         <LinearLayout
             android:id="@+id/company_info_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:visibility="gone"
-            android:layout_marginTop="6dp">
+            android:layout_marginTop="8dp">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_company_domain"
@@ -139,48 +159,175 @@
                 app:closeIconVisible="false" />
         </LinearLayout>
 
+        <!-- Phones row -->
+        <TextView
+            android:id="@+id/tv_candidate_phone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="12sp"
+            android:layout_marginTop="7dp"
+            android:visibility="gone"
+            android:drawablePadding="5dp" />
+
+        <!-- Emails row -->
+        <TextView
+            android:id="@+id/tv_candidate_email"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/accent_cyan"
+            android:textSize="11sp"
+            android:layout_marginTop="3dp"
+            android:visibility="gone" />
+
+        <!-- Usernames row -->
+        <TextView
+            android:id="@+id/tv_candidate_usernames"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorControlNormal"
+            android:textSize="11sp"
+            android:layout_marginTop="3dp"
+            android:visibility="gone" />
+
+        <!-- Address row -->
         <TextView
             android:id="@+id/tv_candidate_address"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="?attr/colorControlNormal"
             android:textSize="11sp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
+            android:visibility="gone"
+            android:drawablePadding="5dp" />
+
+        <!-- AKAs row -->
+        <TextView
+            android:id="@+id/tv_candidate_akas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorControlNormal"
+            android:textSize="10sp"
+            android:layout_marginTop="3dp"
             android:visibility="gone" />
 
+        <!-- Employment row -->
+        <TextView
+            android:id="@+id/tv_candidate_employment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/accent_green"
+            android:textSize="11sp"
+            android:layout_marginTop="5dp"
+            android:visibility="gone"
+            android:drawablePadding="5dp" />
+
+        <!-- Education row -->
+        <TextView
+            android:id="@+id/tv_candidate_education"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/accent_green"
+            android:textSize="11sp"
+            android:layout_marginTop="3dp"
+            android:visibility="gone" />
+
+        <!-- Property row -->
+        <TextView
+            android:id="@+id/tv_candidate_property"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/accent_amber"
+            android:textSize="11sp"
+            android:layout_marginTop="5dp"
+            android:visibility="gone"
+            android:drawablePadding="5dp" />
+
+        <!-- Vehicles row -->
+        <TextView
+            android:id="@+id/tv_candidate_vehicles"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/accent_amber"
+            android:textSize="11sp"
+            android:layout_marginTop="3dp"
+            android:visibility="gone" />
+
+        <!-- Legal/Criminal row -->
+        <TextView
+            android:id="@+id/tv_candidate_legal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/score_red"
+            android:textSize="11sp"
+            android:layout_marginTop="5dp"
+            android:visibility="gone" />
+
+        <!-- Financial flags row -->
+        <TextView
+            android:id="@+id/tv_candidate_financial"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/score_red"
+            android:textSize="11sp"
+            android:layout_marginTop="3dp"
+            android:visibility="gone" />
+
+        <!-- Relatives row -->
         <TextView
             android:id="@+id/tv_candidate_relatives"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="?attr/colorControlNormal"
             android:textSize="11sp"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="5dp"
+            android:visibility="gone"
+            android:drawablePadding="5dp" />
+
+        <!-- Social profiles row -->
+        <TextView
+            android:id="@+id/tv_candidate_social"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/accent_cyan"
+            android:textSize="10sp"
+            android:layout_marginTop="3dp"
+            android:visibility="gone"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <!-- Languages / Political -->
+        <TextView
+            android:id="@+id/tv_candidate_lang_political"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorControlNormal"
+            android:textSize="10sp"
+            android:layout_marginTop="3dp"
             android:visibility="gone" />
 
+        <!-- Confidence footer -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginTop="10dp">
-
-            <ProgressBar
-                android:id="@+id/progress_confidence"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="0dp"
-                android:layout_height="3dp"
-                android:layout_weight="1"
-                android:max="100"
-                android:progressTint="?attr/colorPrimary"
-                android:progressBackgroundTint="@color/border" />
+            android:layout_marginTop="8dp">
 
             <TextView
                 android:id="@+id/tv_confidence_pct"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
                 android:textColor="?attr/colorControlNormal"
                 android:textSize="10sp" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@color/border"
+                android:alpha="0.5" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

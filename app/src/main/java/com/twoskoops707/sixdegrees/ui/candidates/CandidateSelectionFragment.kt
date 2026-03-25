@@ -144,9 +144,9 @@ class CandidateSelectionFragment : Fragment() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val c = items[position]
             val isSelected = selectedIndices.contains(position)
-
             val isCompany = c.isCompany
 
+            // --- Photo / Logo ---
             if (isCompany) {
                 holder.b.ivCandidatePhoto.visibility = View.GONE
                 holder.b.ivCompanyLogo.visibility = View.VISIBLE
@@ -173,69 +173,177 @@ class CandidateSelectionFragment : Fragment() {
                 }
             }
 
+            // --- Name ---
             holder.b.tvCandidateName.text = if (isCompany) c.name.ifBlank { "Unknown Company" } else c.name.ifBlank { "Unknown" }
 
+            // --- Age / Location ---
             if (isCompany) {
-                holder.b.companyInfoRow.visibility = View.VISIBLE
                 holder.b.tvCandidateAgeLocation.visibility = View.GONE
-                if (!c.domain.isNullOrBlank()) {
-                    holder.b.chipCompanyDomain.text = c.domain
-                    holder.b.chipCompanyDomain.visibility = View.VISIBLE
-                } else {
-                    holder.b.chipCompanyDomain.visibility = View.GONE
-                }
-                if (!c.industry.isNullOrBlank()) {
-                    holder.b.chipCompanyIndustry.text = c.industry
-                    holder.b.chipCompanyIndustry.visibility = View.VISIBLE
-                } else {
-                    holder.b.chipCompanyIndustry.visibility = View.GONE
-                }
             } else {
-                holder.b.companyInfoRow.visibility = View.GONE
-                val ageLocParts = listOfNotNull(
+                holder.b.tvCandidateAgeLocation.visibility = View.VISIBLE
+                val ageLoc = listOfNotNull(
                     c.age.takeIf { it.isNotBlank() }?.let { "Age $it" },
                     c.location.takeIf { it.isNotBlank() }
-                )
-                holder.b.tvCandidateAgeLocation.text = ageLocParts.joinToString(" · ")
-                holder.b.tvCandidateAgeLocation.visibility = if (ageLocParts.isNotEmpty()) View.VISIBLE else View.GONE
+                ).joinToString(" · ")
+                holder.b.tvCandidateAgeLocation.text = ageLoc
             }
 
-            val phones = c.phones.take(2)
-            if (phones.isNotEmpty() && !isCompany) {
-                holder.b.tvCandidatePhone.text = phones.joinToString(" · ")
+            // --- DOB ---
+            if (!c.fullDOB.isNullOrBlank() && !isCompany) {
+                holder.b.tvCandidateDob.text = "🎂 ${c.fullDOB}"
+                holder.b.tvCandidateDob.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateDob.visibility = View.GONE
+            }
+
+            // --- Company info chips ---
+            if (isCompany) {
+                holder.b.companyInfoRow.visibility = View.VISIBLE
+                holder.b.chipCompanyDomain.text = c.domain ?: ""
+                holder.b.chipCompanyDomain.visibility = if (!c.domain.isNullOrBlank()) View.VISIBLE else View.GONE
+                holder.b.chipCompanyIndustry.text = c.industry ?: ""
+                holder.b.chipCompanyIndustry.visibility = if (!c.industry.isNullOrBlank()) View.VISIBLE else View.GONE
+            } else {
+                holder.b.companyInfoRow.visibility = View.GONE
+            }
+
+            // --- Phones ---
+            val allPhones = c.phones
+            if (allPhones.isNotEmpty() && !isCompany) {
+                holder.b.tvCandidatePhone.text = "☎ " + allPhones.joinToString("  ·  ")
                 holder.b.tvCandidatePhone.visibility = View.VISIBLE
             } else {
                 holder.b.tvCandidatePhone.visibility = View.GONE
             }
 
+            // --- Emails ---
+            if (c.allEmails.isNotEmpty() && !isCompany) {
+                holder.b.tvCandidateEmail.text = "✉ " + c.allEmails.joinToString(", ")
+                holder.b.tvCandidateEmail.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateEmail.visibility = View.GONE
+            }
+
+            // --- Usernames ---
+            if (c.usernames.isNotEmpty() && !isCompany) {
+                holder.b.tvCandidateUsernames.text = "@ " + c.usernames.joinToString("  ·  ")
+                holder.b.tvCandidateUsernames.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateUsernames.visibility = View.GONE
+            }
+
+            // --- Address ---
             if (c.address.isNotBlank()) {
-                val addrPrefix = if (isCompany) "🏢 " else "📍 "
-                holder.b.tvCandidateAddress.text = "$addrPrefix${c.address}"
+                val prefix = if (isCompany) "🏢" else "📍"
+                holder.b.tvCandidateAddress.text = "$prefix ${c.address}"
                 holder.b.tvCandidateAddress.visibility = View.VISIBLE
             } else {
                 holder.b.tvCandidateAddress.visibility = View.GONE
             }
 
+            // --- AKAs ---
+            if (c.akasNicknames.isNotEmpty() && !isCompany) {
+                holder.b.tvCandidateAka.text = "🔖 AKA: " + c.akasNicknames.joinToString(", ")
+                holder.b.tvCandidateAka.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateAka.visibility = View.GONE
+            }
+
+            // --- Employment ---
+            if (c.employmentHistory.isNotEmpty()) {
+                holder.b.tvCandidateEmployment.text = "💼 " + c.employmentHistory.take(2).joinToString("  |  ")
+                holder.b.tvCandidateEmployment.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateEmployment.visibility = View.GONE
+            }
+
+            // --- Education ---
+            if (c.educationHistory.isNotEmpty()) {
+                holder.b.tvCandidateEducation.text = "🎓 " + c.educationHistory.take(2).joinToString("  |  ")
+                holder.b.tvCandidateEducation.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateEducation.visibility = View.GONE
+            }
+
+            // --- Property ---
+            if (c.propertyRecords.isNotEmpty()) {
+                holder.b.tvCandidateProperty.text = "🏠 " + c.propertyRecords.take(2).joinToString("  |  ")
+                holder.b.tvCandidateProperty.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateProperty.visibility = View.GONE
+            }
+
+            // --- Vehicles ---
+            if (c.vehicleInfo.isNotEmpty()) {
+                holder.b.tvCandidateVehicles.text = "🚗 " + c.vehicleInfo.take(2).joinToString("  |  ")
+                holder.b.tvCandidateVehicles.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateVehicles.visibility = View.GONE
+            }
+
+            // --- Legal ---
+            if (c.legalRecords.isNotEmpty()) {
+                holder.b.tvCandidateLegal.text = "⚠ " + c.legalRecords.take(3).joinToString("  ·  ")
+                holder.b.tvCandidateLegal.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateLegal.visibility = View.GONE
+            }
+
+            // --- Financial ---
+            if (c.financialFlags.isNotEmpty()) {
+                holder.b.tvCandidateFinancial.text = "💳 " + c.financialFlags.take(3).joinToString("  ·  ")
+                holder.b.tvCandidateFinancial.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateFinancial.visibility = View.GONE
+            }
+
+            // --- Relatives ---
             if (c.relatives.isNotEmpty() && !isCompany) {
-                holder.b.tvCandidateRelatives.text = "👥 ${c.relatives.take(3).joinToString(", ")}"
+                holder.b.tvCandidateRelatives.text = "👥 " + c.relatives.take(4).joinToString(", ")
                 holder.b.tvCandidateRelatives.visibility = View.VISIBLE
             } else {
                 holder.b.tvCandidateRelatives.visibility = View.GONE
             }
 
+            // --- Social ---
+            if (c.socialProfiles.isNotEmpty() && !isCompany) {
+                holder.b.tvCandidateSocial.text = "◎ " + c.socialProfiles.take(5).joinToString("  ·  ")
+                holder.b.tvCandidateSocial.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateSocial.visibility = View.GONE
+            }
+
+            // --- Languages / Political ---
+            val langPolParts = mutableListOf<String>()
+            if (c.languages.isNotEmpty()) langPolParts.add("Lang: " + c.languages.joinToString(", "))
+            if (!c.politicalAffiliation.isNullOrBlank()) langPolParts.add("Political: ${c.politicalAffiliation}")
+            if (langPolParts.isNotEmpty() && !isCompany) {
+                holder.b.tvCandidateLangPolitical.text = langPolParts.joinToString("  ·  ")
+                holder.b.tvCandidateLangPolitical.visibility = View.VISIBLE
+            } else {
+                holder.b.tvCandidateLangPolitical.visibility = View.GONE
+            }
+
+            // --- Confidence ---
             val confidencePct = (c.confidence * 100).toInt().coerceIn(0, 100)
             holder.b.progressConfidence.progress = confidencePct
-            holder.b.tvConfidencePct.text = "$confidencePct%"
+            holder.b.tvConfidencePct.text = "$confidencePct% match"
 
-            holder.b.chipCandidateSource.text = c.source.take(12)
+            // --- Source chip ---
+            holder.b.chipCandidateSource.text = c.source.take(14)
 
+            // --- Selection state ---
             holder.b.ivSelectedOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
-
             val strokeColor = if (isSelected)
                 ContextCompat.getColor(requireContext(), R.color.success)
             else
                 ContextCompat.getColor(requireContext(), R.color.border)
             (holder.itemView as? com.google.android.material.card.MaterialCardView)?.strokeColor = strokeColor
+            if (isSelected) {
+                (holder.itemView as? com.google.android.material.card.MaterialCardView)?.strokeWidth = 2
+            } else {
+                (holder.itemView as? com.google.android.material.card.MaterialCardView)?.strokeWidth = 1
+            }
 
             holder.itemView.setOnClickListener { onToggle(position) }
         }
