@@ -25,7 +25,7 @@ class ReportPagerAdapter(
         val scroll = android.widget.ScrollView(parent.context).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
-        val container = LinearLayout(context).apply {
+        val container = LinearLayout(parent.context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setPadding(16, 16, 16, 80)
@@ -213,12 +213,12 @@ class ReportPagerAdapter(
         val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bgColor)
-            minimumHeight = dp(46)
+            minimumHeight = dp(46f).toInt()
             gravity = Gravity.CENTER_VERTICAL
         }
 
         val accentStripe = View(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(3, ViewGroup.LayoutParams.MATCH_PARENT).also { it.marginEnd = dp(14) }
+            layoutParams = LinearLayout.LayoutParams(dp(3f).toInt(), ViewGroup.LayoutParams.MATCH_PARENT).also { it.marginEnd = dp(14f).toInt() }
             visibility = if (accentColor != Color.TRANSPARENT) View.VISIBLE else View.GONE
             setBackgroundColor(accentColor)
         }
@@ -226,13 +226,13 @@ class ReportPagerAdapter(
         val content = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            setPaddingRelative(dp(14), dp(8), dp(14), dp(8))
+            setPaddingRelative(dp(14f).toInt(), dp(8f).toInt(), dp(14f).toInt(), dp(8f).toInt())
         }
 
         val labelTv = TextView(ctx).apply {
             text = label; textSize = 9f; setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
             letterSpacing = 0.18f; isAllCaps = true; setTextIsSelectable(true)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.bottomMargin = dp(2) }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.bottomMargin = dp(2f) }
         }
         val valueTv = TextView(ctx).apply {
             text = if (isPivot) value.removePrefix("pivot://").split("/", limit = 2).getOrNull(1) ?: "" else value
