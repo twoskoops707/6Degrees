@@ -430,50 +430,6 @@ class OsintRepository(context: Context) {
     private fun extractCandidates(meta: Map<String, String>): List<CandidateProfile> {
         val candidates = mutableListOf<CandidateProfile>()
 
-        // ---- Shared OSINT data from all sources ----
-        val allPhones = meta.entries.filter { it.key.endsWith("_phone") || it.key == "person_phone" || it.key == "comp_phone" }
-            .flatMap { it.value.split(",") }.map { it.trim() }.filter { it.isNotBlank() }.distinct()
-        val allEmails = meta.entries.filter { it.key.endsWith("_email") || it.key == "person_email" || it.key == "comp_email" }
-            .flatMap { it.value.split(",") }.map { it.trim() }.filter { it.contains("@") }.distinct()
-        val allAddresses = meta.entries.filter { it.key.contains("_address") || it.key.contains("_locations") || it.key == "person_address" }
-            .flatMap { it.value.split("|") }.map { it.trim() }.filter { it.isNotBlank() }.distinct()
-        val allRelatives = meta["ftn_relatives"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
-        val allAkas = meta["pipl_aliases"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }
-            ?: meta["demographics_aliases"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
-        val allEmployment = meta["pipl_employment"]?.lines()?.filter { it.isNotBlank() }
-            ?: meta["fullcontact_title"]?.let { listOf(it) } ?: emptyList()
-        val allSocials = meta.entries.filter { it.key.contains("_social") || it.key.contains("_profiles") || it.key == "peekyou_social" }
-            .flatMap { it.value.lines() }.filter { it.contains("http") }.distinct()
-        val allUsernames = meta.entries.filter { it.key.contains("username") || it.key == "instagram_username" || it.key == "twitter_username" || it.key == "github_username" }
-            .flatMap { it.value.split(",") }.map { it.trim() }.filter { it.isNotBlank() }.distinct()
-        val allLegal = mutableListOf<String>()
-        if ((meta["arrest_count"]?.toIntOrNull() ?: 0) > 0)
-            allLegal.add("Arrests: " + meta["arrest_count"])
-        if ((meta["courtlistener_count"]?.toIntOrNull() ?: 0) > 0)
-            allLegal.add("Court cases: " + meta["courtlistener_count"])
-        if ((meta["opensanctions_total"]?.toIntOrNull() ?: 0) > 0)
-            allLegal.add("PEP/Sanctions: " + meta["opensanctions_total"])
-        meta["judyrecords_cases"]?.lines()?.filter { it.isNotBlank() }?.take(3)?.forEach { allLegal.add(it) }
-        val allFinancial = mutableListOf<String>()
-        if ((meta["bankruptcies_count"]?.toIntOrNull() ?: 0) > 0)
-            allFinancial.add("Bankruptcy filed")
-        if ((meta["liens_count"]?.toIntOrNull() ?: 0) > 0)
-            allFinancial.add("Liens: " + meta["liens_count"])
-        if ((meta["judgments_count"]?.toIntOrNull() ?: 0) > 0)
-            allFinancial.add("Judgments: " + meta["judgments_count"])
-        val allProperty = meta.entries.filter { it.key.contains("_property") || it.key.contains("_properties") }
-            .flatMap { it.value.split("|") }.map { it.trim() }.filter { it.isNotBlank() }.distinct()
-        val allVehicles = meta.entries.filter { it.key.contains("_vehicle") || it.key.contains("_vin") || it.key.contains("_plate") }
-            .flatMap { it.value.lines() }.filter { it.isNotBlank() }.distinct()
-        val allEducation = meta.entries.filter { it.key.contains("_education") || it.key.contains("_school") || it.key.contains("_college") }
-            .flatMap { it.value.split("|") }.map { it.trim() }.filter { it.isNotBlank() }.distinct()
-        val allAssociated = meta.entries.filter { it.key.contains("_associate") || it.key.contains("_household") }
-            .flatMap { it.value.split(",") }.map { it.trim() }.filter { it.isNotBlank() }.distinct()
-        val bestDob = meta["pipl_dob"] ?: meta["tps_age"]?.let { "Age $it" } ?: meta["demographics_dob"] ?: ""
-        val languages = meta["demographics_languages"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
-        val political = meta["voter_party"] ?: ""
-
-        // ---- TruePeopleSearch Candidates ----
         val tpsCandidates = meta["tps_candidates"] ?: ""
         if (tpsCandidates.isNotBlank()) {
             tpsCandidates.lines().take(6).forEach { line ->
@@ -484,22 +440,27 @@ class OsintRepository(context: Context) {
                 val location = parts.getOrNull(2)?.trim() ?: ""
                 val phone = parts.getOrNull(3)?.trim() ?: ""
                 candidates.add(CandidateProfile(
-                    name = name, age = age, location = location,
-                    phones = if (phone.isNotBlank()) listOf(phone) else emptyList(),
-                    address = allAddresses.firstOrNull() ?: "",
+                    name = name,
+                    age = age,
+                    location = location,
+                    phones = if (phone.isNotBlank()
+,
+                        dob = null,
+                        akas = emptyList(),
+                        email = null,
+                        isCompany = false,
+                        domain = null,
+                        industry = null,
+                        logoUrl = null,
+                        politicalAffiliation = null
+                ) listOf(phone) else emptyList(),
+                    address = "",
                     source = "TruePeopleSearch",
-                    confidence = 0.65f + (if (age.isNotBlank()) 0.05f else 0f) + (if (location.isNotBlank()) 0.05f else 0f),
-                    fullDOB = bestDob, akasNicknames = allAkas, languages = languages,
-                    politicalAffiliation = political, allEmails = allEmails, usernames = allUsernames,
-                    socialProfiles = allSocials, employmentHistory = allEmployment,
-                    educationHistory = allEducation, propertyRecords = allProperty,
-                    financialFlags = allFinancial, vehicleInfo = allVehicles,
-                    legalRecords = allLegal, associatedPersons = allAssociated
+                    confidence = 0.65f + (if (age.isNotBlank()) 0.05f else 0f) + (if (location.isNotBlank()) 0.05f else 0f)
                 ))
             }
         }
 
-        // ---- ZabaSearch ----
         val zabaLines = meta["zaba_results"] ?: ""
         if (zabaLines.isNotBlank()) {
             zabaLines.lines().take(3).forEach { line ->
@@ -512,21 +473,28 @@ class OsintRepository(context: Context) {
                     val location = parts.getOrNull(1)?.trim() ?: ""
                     val phone = parts.getOrNull(2)?.trim() ?: ""
                     candidates.add(CandidateProfile(
-                        name = name, age = "", location = location,
-                        phones = if (phone.isNotBlank()) listOf(phone) else emptyList(),
-                        address = "", source = "ZabaSearch", confidence = 0.55f,
-                        fullDOB = bestDob, akasNicknames = allAkas, languages = languages,
-                        politicalAffiliation = political, allEmails = allEmails, usernames = allUsernames,
-                        socialProfiles = allSocials, employmentHistory = allEmployment,
-                        educationHistory = allEducation, propertyRecords = allProperty,
-                        financialFlags = allFinancial, vehicleInfo = allVehicles,
-                        legalRecords = allLegal, associatedPersons = allAssociated
+                        name = name,
+                        age = "",
+                        location = location,
+                        phones = if (phone.isNotBlank()
+,
+                        dob = null,
+                        akas = emptyList(),
+                        email = null,
+                        isCompany = false,
+                        domain = null,
+                        industry = null,
+                        logoUrl = null,
+                        politicalAffiliation = null
+                ) listOf(phone) else emptyList(),
+                        address = "",
+                        source = "ZabaSearch",
+                        confidence = 0.55f
                     ))
                 }
             }
         }
 
-        // ---- FamilyTreeNow ----
         val ftnLines = meta["ftn_candidates"] ?: ""
         if (ftnLines.isNotBlank()) {
             ftnLines.lines().take(3).forEach { line ->
@@ -537,27 +505,35 @@ class OsintRepository(context: Context) {
                 val existsAlready = candidates.any { it.name.equals(name, ignoreCase = true) }
                 if (!existsAlready) {
                     val location = parts.getOrNull(1)?.trim() ?: ""
-                    val relatives = parts.getOrNull(2)?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+                    val relatives = parts.getOrNull(2)?.trim()?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
                     candidates.add(CandidateProfile(
-                        name = name, age = "", location = location,
-                        phones = emptyList(), address = "", source = "FamilyTreeNow", confidence = 0.50f,
-                        relatives = relatives + allRelatives,
-                        fullDOB = bestDob, akasNicknames = allAkas, languages = languages,
-                        politicalAffiliation = political, allEmails = allEmails, usernames = allUsernames,
-                        socialProfiles = allSocials, employmentHistory = allEmployment,
-                        educationHistory = allEducation, propertyRecords = allProperty,
-                        financialFlags = allFinancial, vehicleInfo = allVehicles,
-                        legalRecords = allLegal, associatedPersons = allAssociated + relatives
+                        name = name,
+                        age = "",
+                        location = location,
+                        phones = emptyList(
+,
+                        dob = null,
+                        akas = emptyList(),
+                        email = null,
+                        isCompany = false,
+                        domain = null,
+                        industry = null,
+                        logoUrl = null,
+                        politicalAffiliation = null
+                ),
+                        address = "",
+                        source = "FamilyTreeNow",
+                        confidence = 0.50f,
+                        relatives = relatives
                     ))
                 }
             }
         }
 
-        // ---- Google CSE ----
         val profileLinksRaw = meta["cse_profile_links"] ?: ""
         if (profileLinksRaw.isNotBlank()) {
             profileLinksRaw.lines().filter { it.isNotBlank() }.forEach { line ->
-                val url = line.substringAfter("->").trim()
+                val url = line.substringAfter("→").trim()
                 val namePart = Regex("/(?:name|people)/([A-Za-z]+(?:-[A-Za-z]+){1,3})/([A-Za-z-]+)-?([A-Z]{2})?")
                     .find(url)
                     ?: Regex("/([A-Za-z]+(?:-[A-Za-z]+){1,3})/([A-Za-z]+)(?:/([A-Z]{2}))?(?:\\?|$)")
@@ -574,97 +550,100 @@ class OsintRepository(context: Context) {
                     val existsAlready = candidates.any { it.name.equals(rawName, ignoreCase = true) && it.location.equals(loc, ignoreCase = true) }
                     if (!existsAlready && rawName.length > 4 && rawName.contains(" ")) {
                         candidates.add(CandidateProfile(
-                            name = rawName, age = "", location = loc,
-                            phones = emptyList(), address = "", source = line.substringBefore("->").trim(), confidence = 0.55f,
-                            fullDOB = bestDob, akasNicknames = allAkas, languages = languages,
-                            politicalAffiliation = political, allEmails = allEmails, usernames = allUsernames,
-                            socialProfiles = allSocials, employmentHistory = allEmployment,
-                            educationHistory = allEducation, propertyRecords = allProperty,
-                            financialFlags = allFinancial, vehicleInfo = allVehicles,
-                            legalRecords = allLegal, associatedPersons = allAssociated
+                            name = rawName,
+                            age = "",
+                            location = loc,
+                            phones = emptyList(
+,
+                        dob = null,
+                        akas = emptyList(),
+                        email = null,
+                        isCompany = false,
+                        domain = null,
+                        industry = null,
+                        logoUrl = null,
+                        politicalAffiliation = null
+                ),
+                            address = "",
+                            source = line.substringBefore("→").trim(),
+                            confidence = 0.55f
                         ))
                     }
                 }
             }
         }
 
-        // ---- Primary Subject ----
+        val cseSnippets = meta["cse_snippets"] ?: ""
+        if (cseSnippets.isNotBlank() && candidates.size < 4) {
+            val snippetPersonPattern = Regex("([A-Z][a-z]+(?:\\s[A-Z]\\.)?\\s[A-Z][a-z]+)[,·\\s]+(?:[Aa]ge\\s*)?(\\d{2,3})[,·\\s]+([A-Z][a-z]{2,20}[,\\s]+[A-Z]{2})")
+            cseSnippets.split("\n---\n").forEach { snippet ->
+                snippetPersonPattern.findAll(snippet).forEach { m ->
+                    val sName = m.groupValues[1].trim()
+                    val sAge = m.groupValues[2].trim()
+                    val sLoc = m.groupValues[3].trim()
+                    val existsAlready = candidates.any { it.name.equals(sName, ignoreCase = true) }
+                    if (!existsAlready && sName.length > 4) {
+                        candidates.add(CandidateProfile(
+                            name = sName, age = sAge, location = sLoc,
+                            phones = emptyList(
+,
+                        dob = null,
+                        akas = emptyList(),
+                        email = null,
+                        isCompany = false,
+                        domain = null,
+                        industry = null,
+                        logoUrl = null,
+                        politicalAffiliation = null
+                ), address = "", source = "Google CSE",
+                            confidence = 0.50f + (if (sAge.isNotBlank()) 0.05f else 0f)
+                        ))
+                    }
+                }
+            }
+        }
+
         val personName = meta["comp_name"] ?: meta["person_name"] ?: ""
         val personLocation = meta["person_location"] ?: ""
-        val personPhone = meta["comp_phone"] ?: meta["person_phone"] ?: ""
+        val personPhone = meta["comp_phone"] ?: ""
         val personCity = meta["person_city"] ?: ""
         val personState = meta["person_state"] ?: ""
+
         if (personName.isNotBlank()) {
             val existsAlready = candidates.any { it.name.equals(personName, ignoreCase = true) }
             if (!existsAlready || candidates.isEmpty()) {
                 candidates.add(0, CandidateProfile(
                     name = personName,
                     age = meta["person_age"] ?: "",
-                    location = personLocation.ifBlank { listOf(personCity, personState).filter { it.isNotBlank() }.joinToString(", ") },
+                    location = personLocation.ifBlank { listOf(personCity, personState
+,
+                        dob = null,
+                        akas = emptyList(),
+                        email = null,
+                        isCompany = false,
+                        domain = null,
+                        industry = null,
+                        logoUrl = null,
+                        politicalAffiliation = null
+                ).filter { it.isNotBlank() }.joinToString(", ") },
                     phones = listOfNotNull(personPhone.takeIf { it.isNotBlank() }),
-                    address = meta["person_address"] ?: allAddresses.firstOrNull() ?: "",
-                    source = "Primary Subject",
-                    confidence = 0.75f,
-                    fullDOB = bestDob, akasNicknames = allAkas, languages = languages,
-                    politicalAffiliation = political, allEmails = allEmails, usernames = allUsernames,
-                    socialProfiles = allSocials, employmentHistory = allEmployment,
-                    educationHistory = allEducation, propertyRecords = allProperty,
-                    financialFlags = allFinancial, vehicleInfo = allVehicles,
-                    legalRecords = allLegal, associatedPersons = allAssociated
+                    address = meta["person_address"] ?: "",
+                    source = "Multiple Sources",
+                    confidence = 0.70f
                 ))
             }
         }
 
-        // ---- Company Candidates ----
-        val openCorporatesCompanies = meta["companies"] ?: ""
-        if (openCorporatesCompanies.isNotBlank()) {
-            openCorporatesCompanies.lines().take(5).forEach { line ->
-                if (line.isBlank()) return@forEach
-                val parts = line.split("|")
-                val name = parts.getOrNull(0)?.trim() ?: return@forEach
-                if (name.isBlank() || name.length < 2) return@forEach
-                val status = parts.getOrNull(2)?.trim() ?: ""
-                val jurisdiction = parts.getOrNull(1)?.trim() ?: ""
-                val domain = meta["company_domain_query"] ?: ""
-                val industry = meta["wikidata_company_labels"]?.split("|")?.firstOrNull()?.let { "" } ?: ""
-                candidates.add(CandidateProfile(
-                    name = name, age = "", location = jurisdiction,
-                    phones = emptyList(), address = status,
-                    source = "OpenCorporates", confidence = 0.70f,
-                    isCompany = true, domain = domain, industry = industry
-                ))
-            }
-        }
-
-        val wikidataCompanies = meta["wikidata_company_labels"] ?: ""
-        if (wikidataCompanies.isNotBlank()) {
-            wikidataCompanies.split("|").take(5).forEach { label ->
-                if (label.isBlank()) return@forEach
-                val existsAlready = candidates.any { it.name.equals(label, ignoreCase = true) }
-                if (!existsAlready) {
-                    val domain = meta["company_domain_query"] ?: ""
-                    val industry = meta["wikidata_company_descriptions"]?.split("\n")?.find { it.startsWith(label) }?.substringAfter(": ") ?: ""
-                    candidates.add(CandidateProfile(
-                        name = label, age = "", location = "",
-                        phones = emptyList(), address = industry,
-                        source = "WikiData", confidence = 0.60f,
-                        isCompany = true, domain = domain, industry = industry
-                    ))
-                }
-            }
-        }
-
-        // ---- Score & sort ----
         val targetCity = personCity.lowercase()
         val targetState = personState.lowercase()
         val hasGeoFilter = targetCity.isNotBlank() || targetState.isNotBlank()
-        val searchedMi = Regex("(?<=\\s)([A-Z])\.").find(personName)?.groupValues?.get(1)?.uppercase()
 
+        val searchedMi = Regex("""(?<=\s)([A-Z])\.""").find(personName)?.groupValues?.get(1)?.uppercase()
         val deduped = candidates.distinctBy { c ->
             "${c.name.lowercase()}__${c.location.lowercase().take(20)}"
         }.filter { c ->
             if (searchedMi == null) return@filter true
-            val candidateMi = Regex("(?<=\\s)([A-Z])\.").find(c.name)?.groupValues?.get(1)?.uppercase()
+            val candidateMi = Regex("""(?<=\s)([A-Z])\.""").find(c.name)?.groupValues?.get(1)?.uppercase()
             candidateMi == null || candidateMi == searchedMi
         }
 
@@ -683,20 +662,13 @@ class OsintRepository(context: Context) {
         return scored.sortedByDescending { it.confidence }.take(5)
     }
 
-
     private suspend fun enrichCandidatesWithPhotos(candidates: List<CandidateProfile>): List<CandidateProfile> {
         return coroutineScope {
             candidates.map { candidate ->
                 async {
-                    if (candidate.isCompany) {
-                        if (candidate.logoUrl != null) return@async candidate
-                        val logoUrl = fetchCompanyLogo(candidate.name, candidate.domain)
-                        if (logoUrl != null) candidate.copy(logoUrl = logoUrl) else candidate
-                    } else {
-                        if (candidate.photoUrl != null) return@async candidate
-                        val photoUrl = fetchCandidatePhoto(candidate.name, candidate.location)
-                        if (photoUrl != null) candidate.copy(photoUrl = photoUrl) else candidate
-                    }
+                    if (candidate.photoUrl != null) return@async candidate
+                    val photoUrl = fetchCandidatePhoto(candidate.name, candidate.location)
+                    if (photoUrl != null) candidate.copy(photoUrl = photoUrl) else candidate
                 }
             }.map { it.await() }
         }
@@ -712,9 +684,9 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
             val body = resp.body?.string() ?: ""; resp.close()
-            val imageUrl = Regex(""""Image"\s*:\s*"(https?://[^"]+)"""").find(body)?.groupValues?.get(1)?.trim()
+            val imageUrl = Regex("\"Image\"\\s*:\\s*\"(https?://[^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
             if (!imageUrl.isNullOrBlank()) return imageUrl
-            val relativeImg = Regex(""""Image"\s*:\s*"(/i/[^"]+)"""").find(body)?.groupValues?.get(1)?.trim()
+            val relativeImg = Regex("\"Image\"\\s*:\\s*\"(/i/[^\"]+)\"").find(body)?.groupValues?.get(1)?.trim()
             if (!relativeImg.isNullOrBlank()) return "https://duckduckgo.com$relativeImg"
             val nameOnly = URLEncoder.encode(name, "UTF-8")
             "https://ui-avatars.com/api/?name=$nameOnly&size=200&format=png&bold=true&color=fff&background=1a2744"
@@ -722,32 +694,6 @@ class OsintRepository(context: Context) {
             val nameOnly = URLEncoder.encode(name, "UTF-8")
             "https://ui-avatars.com/api/?name=$nameOnly&size=200&format=png&bold=true&color=fff&background=1a2744"
         }
-    }
-
-    private suspend fun fetchCompanyLogo(name: String, domain: String?): String? {
-        return try {
-            if (!domain.isNullOrBlank()) {
-                val cleanDomain = domain.removePrefix("https://").removePrefix("http://").removePrefix("www.").split("/").first()
-                val logoUrl = "https://logo.clearbit.com/$cleanDomain"
-                val req = Request.Builder()
-                    .url(logoUrl)
-                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
-                    .build()
-                val resp = fastHttpClient.newCall(req).execute()
-                val exists = resp.code == 200
-                resp.close()
-                if (exists) return logoUrl
-            }
-            val query = URLEncoder.encode("$name company logo", "UTF-8")
-            val req = Request.Builder()
-                .url("https://api.duckduckgo.com/?q=$query&format=json&no_html=1&skip_disambig=1&ia=about")
-                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val body = resp.body?.string() ?: ""; resp.close()
-            val imageUrl = Regex(""""Image"\s*:\s*"(https?://[^"]+)"""").find(body)?.groupValues?.get(1)?.trim()
-            imageUrl
-        } catch (_: Exception) { null }
     }
 
     private suspend fun emailSearch(
