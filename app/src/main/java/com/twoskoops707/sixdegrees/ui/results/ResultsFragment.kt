@@ -20,10 +20,6 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import coil.load
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.tabs.TabLayout
-import com.google.android.material.tabs.TabLayoutMediator
-import androidx.viewpager2.widget.ViewPager2
-import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
@@ -171,8 +167,8 @@ class ResultsFragment : Fragment() {
         }
 
         val sections = buildTabs(enrichedMeta, searchType)
-        buildStatsRow(sections)
-        setupTabs(enrichedMeta, searchType, sections)
+        buildAccordion(sections)
+        buildCandidateDisambiguation(enrichedMeta)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
     }
@@ -1522,7 +1518,7 @@ class ResultsFragment : Fragment() {
                         if (e.isCurrent) append(" (Current)")
                         else if (e.endDate != null) append(" (until ${e.endDate})")
                     }
-                }?.filter { it.isNotBlank() } ?: emptyList()
+                } ?: emptyList()
         } catch (_: Exception) { emptyList() }
     }
 
@@ -1552,19 +1548,242 @@ class ResultsFragment : Fragment() {
         } catch (_: Exception) { emptyList() }
     }
 
-    private fun buildStatsRow(sections: List<Pair<String, List<Pair<String, String>>>>) {
-        val totalRows = sections.sumOf { it.second.size }
-        binding.statsContainer.visibility = View.VISIBLE
-        binding.tvStatDataPoints.text = "$totalRows"
-        binding.tvStatConfidence.text = "${((sections.size.toFloat() / 4f) * 100).toInt()}%"
+    private fun buildCandidateDisambiguation(meta: Map<String, String>) {
+        val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+        val tv = TypedValue()
+        ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+        val colorPrimary = tv.data
+        val container = binding.accordionContainer
+
+        fun makeCard(): Pair<MaterialCardView, LinearLayout> {
+            val card = MaterialCardView(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = dp(12f) }
+                radius = dp(12f).toFloat()
+                strokeWidth = dp(1f)
+                strokeColor = colorPrimary
+                cardElevation = 0f
+                setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.surface))
+            }
+            val layout = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(14f), dp(12f), dp(14f), dp(4f))
+            }
+            return card to layout
+        }
+
+        fun addDivider(layout: LinearLayout) {
+            layout.addView(View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).also { it.topMargin = dp(4f) }
+                setBackgroundColor(ContextCompat.getColor(ctx, R.color.border))
+                alpha = 0.5f
+            })
+        }
+
+        val raw = meta["tps_candidates"]?.takeIf { it.isNotBlank() }
+        val candidates = raw?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+
+        if (candidates.size >= 2) {
+            val (headerCard, headerLayout) = makeCard()
+            headerLayout.addView(TextView(ctx).apply {
+                text = "MULTIPLE SUBJECTS FOUND — SELECT ONE"
+                textSize = 10f; letterSpacing = 0.1f
+                setTypeface(typeface, Typeface.BOLD); setTextColor(colorPrimary); setTextIsSelectable(true)
+            })
+            headerLayout.addView(TextView(ctx).apply {
+                text = "${candidates.size} people found matching this name. Tap one to deep-search that person."
+                textSize = 12f
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(4f); it.bottomMargin = dp(8f) }
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary)); setTextIsSelectable(true)
+            })
+            candidates.forEach { line ->
+                val parts = line.split("|")
+                val cName = parts.getOrNull(0)?.trim() ?: return@forEach
+                val cAge = parts.getOrNull(1)?.trim() ?: ""
+                val cLoc = parts.getOrNull(2)?.trim() ?: ""
+                val cPhone = parts.getOrNull(3)?.trim() ?: ""
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL; setPadding(0, dp(8f), 0, dp(8f))
+                    isClickable = true; isFocusable = true
+                    setBackgroundResource(android.R.attr.selectableItemBackground.let { a -> val o = TypedValue(); ctx.theme.resolveAttribute(a, o, true); o.resourceId })
+                    setOnClickListener {
+                        val stateCode = if (cLoc.contains(",")) cLoc.substringAfter(",").trim() else ""
+                        val ageNum = cAge.toIntOrNull()
+                        val q = buildString {
+                            append("name=$cName")
+                            if (stateCode.isNotBlank()) append("|state=$stateCode")
+                            if (cPhone.isNotBlank()) append("|phone=$cPhone")
+                            if (ageNum != null) append("|dob~age$ageNum")
+                        }
+                        findNavController().navigate(R.id.action_results_to_progress, Bundle().apply { putString("query", q); putString("type", "comprehensive") })
+                    }
+                }
+                val nameRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+                nameRow.addView(TextView(ctx).apply {
+                    text = cName; textSize = 14f; setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); setTextIsSelectable(true)
+                })
+                if (cAge.isNotBlank()) nameRow.addView(TextView(ctx).apply { text = "Age $cAge"; textSize = 12f; setTextColor(colorPrimary); setTextIsSelectable(true) })
+                row.addView(nameRow)
+                val detailParts = listOfNotNull(cLoc.takeIf { it.isNotBlank() }, cPhone.takeIf { it.isNotBlank() }?.let { "☎ $it" })
+                if (detailParts.isNotEmpty()) row.addView(TextView(ctx).apply {
+                    text = detailParts.joinToString("   "); textSize = 12f
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(2f) }; setTextIsSelectable(true)
+                })
+                headerLayout.addView(row); addDivider(headerLayout)
+            }
+            headerCard.addView(headerLayout); container.addView(headerCard, 0)
+        }
+
+        val cseProfiles = meta["cse_profile_links"]?.takeIf { it.isNotBlank() }?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+        if (cseProfiles.size >= 2) {
+            val (profCard, profLayout) = makeCard()
+            profLayout.addView(TextView(ctx).apply {
+                text = "MATCHING PROFILES FOUND — TAP TO VIEW"
+                textSize = 10f; letterSpacing = 0.1f
+                setTypeface(typeface, Typeface.BOLD); setTextColor(colorPrimary); setTextIsSelectable(true)
+            })
+            profLayout.addView(TextView(ctx).apply {
+                text = "${cseProfiles.size} profiles indexed by Google. Tap to open in browser — view full contact info directly on the site."
+                textSize = 12f
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(4f); it.bottomMargin = dp(8f) }
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary)); setTextIsSelectable(true)
+            })
+            cseProfiles.forEach { line ->
+                val parts = line.split(" → ", limit = 2)
+                val site = parts.firstOrNull()?.trim() ?: "Profile"
+                val url = parts.getOrNull(1)?.trim() ?: line.trim()
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10f), 0, dp(10f))
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    isClickable = true; isFocusable = true
+                    setBackgroundResource(android.R.attr.selectableItemBackground.let { a -> val o = TypedValue(); ctx.theme.resolveAttribute(a, o, true); o.resourceId })
+                    setOnClickListener {
+                        val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                        val pkg = when (prefs.getString("pref_browser", "firefox")) {
+                            "ddg" -> "com.duckduckgo.mobile.android"; "chrome" -> "com.android.chrome"; "default" -> null; else -> "org.mozilla.firefox"
+                        }
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        if (pkg != null) intent.setPackage(pkg)
+                        try { startActivity(intent) } catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                    }
+                }
+                row.addView(TextView(ctx).apply {
+                    text = site; textSize = 13f; setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(colorPrimary)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); setTextIsSelectable(true)
+                })
+                row.addView(TextView(ctx).apply { text = "›"; textSize = 20f; setTextColor(colorPrimary) })
+                profLayout.addView(row); addDivider(profLayout)
+            }
+            profCard.addView(profLayout)
+            if (candidates.size >= 2) container.addView(profCard, 1) else container.addView(profCard, 0)
+        }
     }
 
-    private fun setupTabs(meta: Map<String, String>, searchType: String, sections: List<Pair<String, List<Pair<String, String>>>>) {
-        val adapter = ReportPagerAdapter(this, sections, meta)
-        binding.viewPager.adapter = adapter
-        TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, pos ->
-            tab.text = sections[pos].first
-        }.attach()
+    private fun buildAccordion(sections: List<Pair<String, List<Pair<String, String>>>>) {
+        val container = binding.accordionContainer
+        container.removeAllViews()
+        val inflater = LayoutInflater.from(requireContext())
+        val density = requireContext().resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+        val tv = TypedValue()
+        requireContext().theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+        val colorPrimary = tv.data
+        val colorBorder = ContextCompat.getColor(requireContext(), R.color.border)
+        val colorSurface = ContextCompat.getColor(requireContext(), R.color.surface)
+
+        sections.forEachIndexed { index, (sectionName, rows) ->
+            val outerCard = MaterialCardView(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = dp(8f) }
+                radius = dp(12f).toFloat()
+                strokeWidth = dp(1f)
+                strokeColor = colorBorder
+                cardElevation = 0f
+                setCardBackgroundColor(colorSurface)
+            }
+
+            val outerLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
+
+            val headerRow = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16f), dp(14f), dp(16f), dp(14f))
+                setBackgroundColor(Color.argb(20, Color.red(colorPrimary), Color.green(colorPrimary), Color.blue(colorPrimary)))
+            }
+
+            val accentBar = View(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(4f), dp(18f)).also { it.marginEnd = dp(12f) }
+                setBackgroundColor(colorPrimary)
+            }
+
+            val sectionTitle = TextView(requireContext()).apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                text = sectionName
+                textSize = 11f
+                setTypeface(typeface, Typeface.BOLD)
+                isAllCaps = true
+                letterSpacing = 0.15f
+                setTextColor(colorPrimary)
+                setTextIsSelectable(true)
+            }
+
+            val dataRowCount = rows.count { it.second.isNotBlank() }
+            val badge = TextView(requireContext()).apply {
+                text = "$dataRowCount"
+                textSize = 8f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(colorSurface)
+                setBackgroundColor(colorPrimary)
+                setPadding(dp(5f), dp(2f), dp(5f), dp(2f))
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).also { it.marginEnd = dp(8f) }
+            }
+
+            val chevron = TextView(requireContext()).apply {
+                text = if (index < 2) "▲" else "▼"
+                textSize = 10f
+                setTextColor(colorPrimary)
+            }
+
+            headerRow.addView(accentBar)
+            headerRow.addView(sectionTitle)
+            if (dataRowCount > 0) headerRow.addView(badge)
+            headerRow.addView(chevron)
+
+            val contentLayout = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = if (index < 2) View.VISIBLE else View.GONE
+            }
+
+            val subSections = groupIntoSections(rows)
+            for ((subTitle, subRows) in subSections) {
+                contentLayout.addView(buildSectionCard(requireContext(), inflater, subTitle, subRows))
+            }
+            if (subSections.isEmpty()) {
+                val empty = buildSectionCard(requireContext(), inflater, "", listOf("Status" to "No data available"))
+                contentLayout.addView(empty)
+            }
+
+            headerRow.setOnClickListener {
+                val isVisible = contentLayout.visibility == View.VISIBLE
+                contentLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
+                chevron.text = if (isVisible) "▼" else "▲"
+            }
+
+            outerLayout.addView(headerRow)
+            outerLayout.addView(contentLayout)
+            outerCard.addView(outerLayout)
+            container.addView(outerCard)
+        }
     }
 
     private fun showLoading() {
