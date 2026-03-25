@@ -410,7 +410,7 @@
             app:tabTextColor="?attr/colorControlNormal"
             app:tabIndicatorFullWidth="false"
             app:tabIndicatorHeight="2dp"
-            app:tabTextAppearance="@style/TextAppearance.SixDegrees.TabText"
+            app:tabTextAppearance="@style/TextAppearance.SixDegrees.TabLabel"
             app:tabPaddingStart="4dp"
             app:tabPaddingEnd="4dp" />
 
