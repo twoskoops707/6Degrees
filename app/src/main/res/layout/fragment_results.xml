@@ -7,7 +7,7 @@
     android:orientation="vertical"
     android:background="?android:colorBackground">
 
-    <!-- DOSSIER HEADER -->
+    <!-- TOOLBAR -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -113,7 +113,7 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <!-- SUBJECT ID CARD -->
+        <!-- SUBJECT CARD -->
         <LinearLayout
             android:id="@+id/person_card"
             android:layout_width="match_parent"
@@ -128,12 +128,12 @@
                 android:layout_width="3dp"
                 android:layout_height="match_parent"
                 android:background="@color/accent_red"
-                android:minHeight="72dp" />
+                android:minHeight="80dp" />
 
             <ImageView
                 android:id="@+id/profile_image"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="12dp"
                 android:scaleType="centerCrop"
@@ -145,7 +145,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:paddingVertical="12dp">
+                android:paddingVertical="14dp">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -164,7 +164,7 @@
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="21sp"
                     android:textStyle="bold"
-                    android:maxLines="1"
+                    android:maxLines="2"
                     android:ellipsize="end"
                     android:textIsSelectable="true" />
 
@@ -174,7 +174,7 @@
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorPrimary"
                     android:textSize="11sp"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="3dp"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:textIsSelectable="true" />
@@ -197,7 +197,9 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:layout_marginStart="10dp">
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="12dp"
+                android:minWidth="56dp">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -289,6 +291,104 @@
                     android:layout_marginTop="2dp"
                     android:textIsSelectable="true" />
             </LinearLayout>
+
+            <!-- MINI STATS -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:visibility="gone"
+                android:id="@+id/stats_container">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingHorizontal="12dp">
+
+                    <TextView
+                        android:id="@+id/tv_stat_sources"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textIsSelectable="true" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="SOURCES"
+                        android:textColor="?attr/colorControlNormal"
+                        android:textSize="7sp"
+                        android:letterSpacing="0.1" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="28dp"
+                    android:background="@color/border" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingHorizontal="12dp">
+
+                    <TextView
+                        android:id="@+id/tv_stat_confidence"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textIsSelectable="true" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CONFIDENCE"
+                        android:textColor="?attr/colorControlNormal"
+                        android:textSize="7sp"
+                        android:letterSpacing="0.1" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="28dp"
+                    android:background="@color/border" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingHorizontal="12dp">
+
+                    <TextView
+                        android:id="@+id/tv_stat_data_points"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textIsSelectable="true" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="DATA PTS"
+                        android:textColor="?attr/colorControlNormal"
+                        android:textSize="7sp"
+                        android:letterSpacing="0.1" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
 
         <View
@@ -297,22 +397,34 @@
             android:background="?attr/colorPrimary"
             android:alpha="0.3" />
 
-        <!-- ACCORDION SECTIONS -->
-        <androidx.core.widget.NestedScrollView
+        <!-- TABS -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="?attr/colorSurface"
+            app:tabMode="scrollable"
+            app:tabGravity="start"
+            app:tabIndicatorColor="?attr/colorPrimary"
+            app:tabSelectedTextColor="?attr/colorPrimary"
+            app:tabTextColor="?attr/colorControlNormal"
+            app:tabIndicatorFullWidth="false"
+            app:tabIndicatorHeight="2dp"
+            app:tabTextAppearance="@style/TextAppearance.SixDegrees.TabText"
+            app:tabPaddingStart="4dp"
+            app:tabPaddingEnd="4dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/border" />
+
+        <!-- VIEW PAGER -->
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/view_pager"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:clipToPadding="false">
-
-            <LinearLayout
-                android:id="@+id/accordion_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="8dp"
-                android:paddingBottom="80dp" />
-
-        </androidx.core.widget.NestedScrollView>
+            android:layout_weight="1" />
 
     </LinearLayout>
 </LinearLayout>
