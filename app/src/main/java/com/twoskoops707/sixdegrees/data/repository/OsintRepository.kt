@@ -254,6 +254,7 @@ class OsintRepository(context: Context) {
             "ip", "domain" -> ipDomainSearch(cleanQuery, metadata, sources, emit)
             "company" -> companySearch(cleanQuery, metadata, sources, emit)
             "image" -> imageSearch(cleanQuery, metadata, sources, emit)
+            "scan" -> scanSearch(cleanQuery, metadata, sources, emit)
             "comprehensive" -> {
                 comprehensiveSearch(cleanQuery, metadata, sources, emit)
                 val fields = cleanQuery.split("|").mapNotNull {
@@ -271,14 +272,15 @@ class OsintRepository(context: Context) {
 
         metadata["search_type"] = type
         metadata["search_round"] = round.toString()
-        zoAiSynthesis(cleanQuery, metadata, sources, emit)
+        if (type != "scan") zoAiSynthesis(cleanQuery, metadata, sources, emit)
 
-        if (type == "comprehensive" && round < 3) {
-            val candidates = extractCandidates(metadata)
+        if ((type == "comprehensive" || type == "scan") && round < 3) {
+            val candidates = extractCandidates(metadata, maxResults = if (type == "scan") 10 else 5)
             if (candidates.isNotEmpty()) {
                 val enriched = enrichCandidatesWithPhotos(candidates)
                 enriched.firstOrNull()?.photoUrl?.let { metadata["profile_photo_url"] = it }
-                if (enriched.size == 1) {
+                val canAutoSelect = type != "scan" && enriched.size == 1
+                if (canAutoSelect) {
                     val followUps = zoReflectionLoop(metadata, cleanQuery)
                     for (fq in followUps.take(2)) {
                         duckDuckGoWebSearch(fq, metadata, sources, emit)
@@ -450,12 +452,12 @@ class OsintRepository(context: Context) {
         }
     }
 
-    private fun extractCandidates(meta: Map<String, String>): List<CandidateProfile> {
+    private fun extractCandidates(meta: Map<String, String>, maxResults: Int = 5): List<CandidateProfile> {
         val candidates = mutableListOf<CandidateProfile>()
 
         val tpsCandidates = meta["tps_candidates"] ?: ""
         if (tpsCandidates.isNotBlank()) {
-            tpsCandidates.lines().take(6).forEach { line ->
+            tpsCandidates.lines().take(10).forEach { line ->
                 val parts = line.split("|")
                 val name = parts.getOrNull(0)?.trim() ?: return@forEach
                 if (name.isBlank()) return@forEach
@@ -476,7 +478,7 @@ class OsintRepository(context: Context) {
 
         val zabaLines = meta["zaba_results"] ?: ""
         if (zabaLines.isNotBlank()) {
-            zabaLines.lines().take(3).forEach { line ->
+            zabaLines.lines().take(6).forEach { line ->
                 if (line.isBlank()) return@forEach
                 val existsAlready = candidates.any { it.name.equals(line.substringBefore("|").trim(), ignoreCase = true) }
                 if (!existsAlready) {
@@ -500,7 +502,7 @@ class OsintRepository(context: Context) {
 
         val ftnLines = meta["ftn_candidates"] ?: ""
         if (ftnLines.isNotBlank()) {
-            ftnLines.lines().take(3).forEach { line ->
+            ftnLines.lines().take(6).forEach { line ->
                 if (line.isBlank()) return@forEach
                 val parts = line.split("|")
                 val name = parts.getOrNull(0)?.trim() ?: return@forEach
@@ -640,7 +642,36 @@ class OsintRepository(context: Context) {
             c.copy(confidence = (c.confidence + geoBonus).coerceIn(0.10f, 1.0f))
         }
 
-        return scored.sortedByDescending { it.confidence }.take(5)
+        return scored.sortedByDescending { it.confidence }.take(maxResults)
+    }
+
+    private suspend fun scanSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) = coroutineScope {
+        val fields = query.split("|").mapNotNull {
+            val p = it.split("=", limit = 2)
+            if (p.size == 2) p[0].trim() to p[1].trim() else null
+        }.toMap()
+        val name = fields["name"] ?: query.split("|").firstOrNull { !it.contains("=") }?.trim() ?: ""
+        val city = fields["city"] ?: ""
+        val state = fields["state"] ?: ""
+        val location = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
+        if (name.isNotBlank()) meta["person_name"] = name
+        if (city.isNotBlank()) meta["person_city"] = city
+        if (state.isNotBlank()) meta["person_state"] = state
+        if (location.isNotBlank()) meta["person_location"] = location
+        meta["comp_name"] = name
+
+        val scanQuery = if (location.isNotBlank()) "$name $location" else name
+        val jobs = mutableListOf<kotlinx.coroutines.Deferred<Unit>>()
+        jobs.add(async { truePeopleSearchScrape(scanQuery, meta, sources, emit) })
+        jobs.add(async { zabaSearchScrape(scanQuery, meta, sources, emit) })
+        jobs.add(async { familyTreeNowScrape(scanQuery, meta, sources, emit) })
+        jobs.add(async { fourOneOneScrape(scanQuery, meta, sources, emit) })
+        jobs.forEach { it.await() }
     }
 
     private suspend fun enrichCandidatesWithPhotos(candidates: List<CandidateProfile>): List<CandidateProfile> {

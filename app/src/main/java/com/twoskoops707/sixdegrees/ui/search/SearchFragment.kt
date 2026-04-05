@@ -194,7 +194,7 @@ class SearchFragment : Fragment() {
                     append(fullName.ifBlank { email.ifBlank { phone.ifBlank { username } } })
                     if (locationLabel.isNotBlank()) append(" — $locationLabel")
                 }
-                navigateToProgress(parts.joinToString("|"), "comprehensive", cleanLabel)
+                navigateToProgress(parts.joinToString("|"), "scan", cleanLabel)
             }
 
             "company" -> {

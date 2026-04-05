@@ -26,10 +26,10 @@ class CandidateSelectionViewModel : ViewModel() {
     }
 
     fun buildRefinedQuery(candidates: List<CandidateProfile>): String {
-        val parts = mutableListOf<String>()
         val chosen = _selected.value.sorted().mapNotNull { candidates.getOrNull(it) }
         if (chosen.isEmpty()) return ""
         val primary = chosen.first()
+        val parts = mutableListOf<String>()
         if (primary.name.isNotBlank()) parts.add("name=${primary.name}")
         primary.phones.firstOrNull()?.let { parts.add("phone=$it") }
         if (primary.location.isNotBlank()) {
@@ -42,11 +42,10 @@ class CandidateSelectionViewModel : ViewModel() {
             }
         }
         if (primary.address.isNotBlank()) parts.add("address=${primary.address}")
+        primary.dob?.takeIf { it.isNotBlank() }?.let { parts.add("dob=$it") }
         if (chosen.size > 1) {
-            val secondary = chosen[1]
-            if (secondary.name.isNotBlank() && secondary.name != primary.name) {
-                parts.add("relatives=${secondary.name}")
-            }
+            val alts = chosen.drop(1).filter { it.name.isNotBlank() && it.name != primary.name }
+            if (alts.isNotEmpty()) parts.add("context=also check: ${alts.joinToString(", ") { it.name }}")
         }
         return parts.joinToString("|")
     }

@@ -67,6 +67,7 @@ class SearchProgressFragment : Fragment() {
 
         searchStartMs = System.currentTimeMillis()
         estimatedTotal = when (type) {
+            "scan" -> 4
             "person" -> 29
             "username" -> 80
             "ip", "domain" -> 20
@@ -83,7 +84,11 @@ class SearchProgressFragment : Fragment() {
             if (eqIdx != -1) part.substring(eqIdx + 1).trim() else part.trim()
         }.replace(Regex(",\\s*,"), ",").trim().trimEnd(',')
         binding.tvSearchQuery.text = if (round > 1) "Round $round: $cleanDisplayQuery" else cleanDisplayQuery
-        binding.chipSearchType.text = if (round > 1) "ROUND $round" else type.uppercase()
+        binding.chipSearchType.text = when {
+            round > 1 -> "ROUND $round"
+            type == "scan" -> "DISCOVERY"
+            else -> type.uppercase()
+        }
 
         viewModel = ViewModelProvider(
             this,

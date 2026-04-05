@@ -53,7 +53,7 @@ class CandidateSelectionFragment : Fragment() {
             emptyList()
         }
 
-        val maxSelect = if (round == 1) 2 else 1
+        val maxSelect = when (round) { 1 -> 4; 2 -> 2; else -> 1 }
         val roundTotal = 3
 
         binding.tvRoundLabel.text = "ROUND $round OF $roundTotal"
@@ -64,10 +64,11 @@ class CandidateSelectionFragment : Fragment() {
                 if (eq != -1) part.substring(eq + 1).trim() else part.trim()
             }.replace(Regex(",\\s*,"), ",").trim().trimEnd(',')
         } else rawSq
-        binding.tvSelectInstructions.text = if (round == 1)
-            "Select the 1-2 best matches to investigate further"
-        else
-            "Select the single best match for a deep-dive report"
+        binding.tvSelectInstructions.text = when (round) {
+            1 -> "Select up to 4 people who could be your subject"
+            2 -> "Select 1-2 best matches for a full investigation"
+            else -> "Select the single best match for a deep-dive report"
+        }
 
         adapter = CandidateAdapter(candidates) { index ->
             viewModel.toggleSelection(index, maxSelect)
