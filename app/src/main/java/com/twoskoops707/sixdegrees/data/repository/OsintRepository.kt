@@ -3028,18 +3028,20 @@ class OsintRepository(context: Context) {
             val descriptions = Regex("<p[^>]*class=\"[^\"]*desc[^\"]*\"[^>]*>([^<]{10,300})</p>", RegexOption.IGNORE_CASE).findAll(html)
                 .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(8).toList()
             val countMatch = Regex("About\\s+(\\d[\\d,]+)\\s+result").find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            val noJsPage = html.contains("not deploy", ignoreCase = true) && html.contains("JavaScript", ignoreCase = true)
             val viaToR = torHttpClient != null
-            if (titles.isNotEmpty() || (countMatch != null && countMatch > 0)) {
+            meta["ahmia_link"] = "https://ahmia.fi/search/?q=$encoded"
+            meta["ahmia_via_tor"] = viaToR.toString()
+            if (!noJsPage && (titles.isNotEmpty() || (countMatch != null && countMatch > 0))) {
                 val count = countMatch ?: titles.size
                 meta["ahmia_count"] = count.toString()
                 meta["ahmia_titles"] = titles.joinToString("\n")
                 if (onionUrls.isNotEmpty()) meta["ahmia_urls"] = onionUrls.joinToString("\n")
                 if (descriptions.isNotEmpty()) meta["ahmia_descs"] = descriptions.joinToString("\n---\n")
-                meta["ahmia_link"] = "https://ahmia.fi/search/?q=$encoded"
-                meta["ahmia_via_tor"] = viaToR.toString()
                 sources.add(DataSource("Ahmia (Dark Web Index)", meta["ahmia_link"], Date(), 0.6))
                 emit(SearchProgressEvent.Found("Ahmia Dark Web", "$count dark web mention${if (count != 1) "s" else ""} indexed${if (viaToR) " via Tor" else ""}"))
             } else {
+                meta["ahmia_count"] = "0"
                 emit(SearchProgressEvent.NotFound("Ahmia Dark Web"))
             }
         } catch (e: Exception) {

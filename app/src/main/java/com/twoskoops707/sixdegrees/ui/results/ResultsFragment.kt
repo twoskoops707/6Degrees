@@ -180,20 +180,25 @@ class ResultsFragment : Fragment() {
             ?: meta["nuwber_age"] ?: meta["wp_age"] ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
             ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
 
-    private fun extractBestLocation(meta: Map<String, String>): String =
-        meta["tps_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["zaba_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["411_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["ftn_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["voter_addresses"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["uspb_addresses"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["tt_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["fps_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["radaris_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["peekyou_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["nuwber_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: meta["wp_locations"]?.split(" | ")?.firstOrNull()?.trim()
-            ?: ""
+    private fun extractBestLocation(meta: Map<String, String>): String {
+        val enteredCity = meta["person_city"]?.trim()?.lowercase() ?: ""
+        val enteredState = meta["person_state"]?.trim()?.lowercase() ?: ""
+        val allLocs = listOfNotNull(
+            meta["tps_locations"], meta["zaba_locations"], meta["411_locations"],
+            meta["ftn_locations"], meta["voter_addresses"], meta["uspb_addresses"],
+            meta["tt_locations"], meta["fps_locations"], meta["radaris_locations"],
+            meta["peekyou_locations"], meta["nuwber_locations"], meta["wp_locations"]
+        ).flatMap { it.split(" | ") }.map { it.trim() }.filter { it.isNotBlank() }
+        if (enteredCity.isNotBlank() || enteredState.isNotBlank()) {
+            val stateMatch = allLocs.firstOrNull { loc ->
+                val l = loc.lowercase()
+                (enteredState.isNotBlank() && l.contains(enteredState)) &&
+                (enteredCity.isBlank() || l.contains(enteredCity))
+            }
+            if (stateMatch != null) return stateMatch
+        }
+        return allLocs.firstOrNull() ?: ""
+    }
 
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
         return when (type) {
@@ -295,9 +300,13 @@ class ResultsFragment : Fragment() {
         val bestLoc = enteredLoc ?: scrapedLoc
         if (bestLoc.isNotBlank()) {
             rows.add(sec("LOCATION"))
-            rows.add("Entered Location" to bestLoc)
-            if (enteredLoc != null && scrapedLoc.isNotBlank() && !scrapedLoc.equals(enteredLoc, ignoreCase = true)) {
-                rows.add("Best Match" to scrapedLoc)
+            if (enteredLoc != null) {
+                rows.add("Search Location" to enteredLoc)
+                if (scrapedLoc.isNotBlank() && !scrapedLoc.equals(enteredLoc, ignoreCase = true)) {
+                    rows.add("Scraped Location" to scrapedLoc)
+                }
+            } else {
+                rows.add("Location" to scrapedLoc)
             }
         }
 
@@ -787,19 +796,25 @@ class ResultsFragment : Fragment() {
             meta["grep_code_repos"]?.let { rows.add("Repositories" to it) }
         }
 
-        val ahmiaCount = meta["ahmia_count"]?.toIntOrNull() ?: 0
-        if (ahmiaCount > 0) {
-            rows.add(sec("⚠ DARK WEB MENTIONS"))
-            rows.add("⚠ Indexed Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found via Ahmia.fi Tor index")
+        val ahmiaCountRaw = meta["ahmia_count"]
+        if (ahmiaCountRaw != null) {
+            val ahmiaCount = ahmiaCountRaw.toIntOrNull() ?: 0
+            rows.add(sec("⚠ DARK WEB INDEX CHECK"))
             val viaToR = meta["ahmia_via_tor"]?.toBooleanStrictOrNull() == true
-            if (viaToR) rows.add("⚠ Connection" to "Fetched via Tor network")
-            val titleLines = meta["ahmia_titles"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
-            val urlLines = meta["ahmia_urls"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
-            val descLines = meta["ahmia_descs"]?.split("\n---\n")?.filter { it.isNotBlank() } ?: emptyList()
-            titleLines.forEachIndexed { i, t ->
-                rows.add("⚠ Tor Site" to t)
-                descLines.getOrNull(i)?.takeIf { it.isNotBlank() }?.let { d -> rows.add("  Description" to d) }
-                urlLines.getOrNull(i)?.let { u -> rows.add("  .onion URL" to u) }
+            if (ahmiaCount > 0) {
+                rows.add("⚠ Indexed Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found via Ahmia.fi Tor index")
+                if (viaToR) rows.add("⚠ Connection" to "Fetched via Tor network")
+                val titleLines = meta["ahmia_titles"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+                val urlLines = meta["ahmia_urls"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+                val descLines = meta["ahmia_descs"]?.split("\n---\n")?.filter { it.isNotBlank() } ?: emptyList()
+                titleLines.forEachIndexed { i, t ->
+                    rows.add("⚠ Tor Site" to t)
+                    descLines.getOrNull(i)?.takeIf { it.isNotBlank() }?.let { d -> rows.add("  Description" to d) }
+                    urlLines.getOrNull(i)?.let { u -> rows.add("  .onion URL" to u) }
+                }
+            } else {
+                rows.add("Dark Web Status" to "No mentions found in Ahmia.fi Tor index")
+                if (viaToR) rows.add("Connection" to "Searched via Tor network") else rows.add("Connection" to "Searched via clearnet proxy")
             }
             rows.add("⚠ Note" to "Ahmia indexes publicly-accessible Tor hidden services. Subject to index freshness.")
         }
