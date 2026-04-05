@@ -11,675 +11,537 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- ═══════════════ COMPACT HEADER ═══════════════ -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:background="#0A0A0A"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="16dp">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="bottom">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="6"
-                        android:textColor="@color/accent_red"
-                        android:textSize="36sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-condensed" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="°"
-                        android:textColor="@color/accent_amber"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:paddingBottom="4dp" />
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="INTELLIGENCE PLATFORM"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="7sp"
-                    android:letterSpacing="0.3"
-                    android:textAllCaps="true"
-                    android:layout_marginTop="-4dp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="end">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="DEEP OSINT"
-                    android:textColor="@color/accent_red"
-                    android:textSize="9sp"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="OPEN-SOURCE INTEL ENGINE"
-                    android:textColor="@color/text_dim"
-                    android:textSize="7sp"
-                    android:letterSpacing="0.15"
-                    android:textAllCaps="true"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:background="@color/accent_red" />
-
-        <!-- ═══════════════ ENTITY TYPE SELECTOR ═══════════════ -->
+        <!-- ── Header ── -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="10dp">
+            android:gravity="center_vertical"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="6"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-condensed" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="°"
+                    android:textColor="@color/accent_amber"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:paddingBottom="2dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" Degrees"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:paddingBottom="2dp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OSINT"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.15"
+                android:background="@drawable/bg_chip_primary"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp" />
+        </LinearLayout>
+
+        <!-- ── Search Type Selector ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="8dp">
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_person"
                 android:layout_width="0dp"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="5dp"
+                android:layout_marginEnd="4dp"
                 android:clickable="true"
                 android:focusable="true"
                 app:cardBackgroundColor="?attr/colorPrimary"
-                app:cardCornerRadius="3dp"
+                app:cardCornerRadius="22dp"
                 app:strokeWidth="0dp"
                 app:cardElevation="0dp">
-                <LinearLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:orientation="vertical"
+                    android:text="Person"
+                    android:textColor="@color/background_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
                     android:gravity="center"
-                    android:padding="4dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="01"
-                        android:textColor="@color/background_primary"
-                        android:textSize="8sp"
-                        android:textStyle="bold"
-                        android:alpha="0.7" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="PERSON"
-                        android:textColor="@color/background_primary"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.1" />
-                </LinearLayout>
+                    android:letterSpacing="0.02" />
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_company"
                 android:layout_width="0dp"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="5dp"
+                android:layout_marginHorizontal="4dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="3dp"
+                app:cardBackgroundColor="@color/surface_elevated"
+                app:cardCornerRadius="22dp"
                 app:strokeColor="@color/border"
                 app:strokeWidth="1dp"
                 app:cardElevation="0dp">
-                <LinearLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:orientation="vertical"
+                    android:text="Company"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
                     android:gravity="center"
-                    android:padding="4dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="02"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="8sp"
-                        android:textStyle="bold"
-                        android:alpha="0.7" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="COMPANY"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.1" />
-                </LinearLayout>
+                    android:letterSpacing="0.02" />
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_domain"
                 android:layout_width="0dp"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
-                android:layout_marginStart="5dp"
+                android:layout_marginStart="4dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="3dp"
+                app:cardBackgroundColor="@color/surface_elevated"
+                app:cardCornerRadius="22dp"
                 app:strokeColor="@color/border"
                 app:strokeWidth="1dp"
                 app:cardElevation="0dp">
-                <LinearLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:orientation="vertical"
+                    android:text="Domain/IP"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
                     android:gravity="center"
-                    android:padding="4dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="03"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="8sp"
-                        android:textStyle="bold"
-                        android:alpha="0.7" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="DOMAIN/IP"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.1" />
-                </LinearLayout>
+                    android:letterSpacing="0.02" />
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
-        <!-- ═══════════════ PERSON FORM ═══════════════ -->
+        <!-- ── Person Form ── -->
         <LinearLayout
             android:id="@+id/form_person"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="10dp"
+            android:paddingHorizontal="16dp"
             android:visibility="visible">
 
-            <!-- SECTION: SUBJECT IDENTITY -->
+            <!-- Name row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingBottom="8dp">
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="12dp"
-                    android:background="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="SUBJECT IDENTITY"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true" />
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="10dp"
-                    android:background="?attr/colorPrimary"
-                    android:alpha="0.2" />
-            </LinearLayout>
+                android:layout_marginBottom="8dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_first_name"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="5" android:layout_marginEnd="4dp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="5"
+                    android:layout_marginEnd="4dp"
                     android:hint="First Name"
-                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                    app:hintTextColor="?attr/colorControlNormal"
-                    app:boxBackgroundColor="?android:colorBackground">
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="@color/text_secondary"
+                    app:boxBackgroundColor="@color/surface">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_first_name"
-                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
                         android:inputType="textCapWords|textPersonName"
-                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_middle_initial"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="2" android:layout_marginHorizontal="4dp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:layout_marginHorizontal="4dp"
                     android:hint="M.I."
-                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                    app:hintTextColor="?attr/colorControlNormal"
-                    app:boxBackgroundColor="?android:colorBackground">
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="@color/text_secondary"
+                    app:boxBackgroundColor="@color/surface">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_middle_initial"
-                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
                         android:inputType="textCapCharacters"
                         android:maxLength="2"
-                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_last_name"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="5" android:layout_marginStart="4dp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="5"
+                    android:layout_marginStart="4dp"
                     android:hint="Last Name"
-                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                    app:hintTextColor="?attr/colorControlNormal"
-                    app:boxBackgroundColor="?android:colorBackground">
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="@color/text_secondary"
+                    app:boxBackgroundColor="@color/surface">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_last_name"
-                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
                         android:inputType="textCapWords|textPersonName"
-                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- SECTION: CONTACT SIGNALS -->
+            <!-- Phone fields -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/layout_phone"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:hint="Phone Number"
+                app:startIconDrawable="@drawable/ic_phone"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_phone"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:inputType="phone"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingTop="14dp"
-                android:paddingBottom="8dp">
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="12dp"
-                    android:background="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="CONTACT SIGNALS"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true" />
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="10dp"
-                    android:background="?attr/colorPrimary"
-                    android:alpha="0.2" />
-            </LinearLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/layout_phone"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:hint="Primary Phone"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/input_phone"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:inputType="phone"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal" android:layout_marginTop="6dp">
+                android:layout_marginBottom="8dp">
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_phone2"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginEnd="4dp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
                     android:hint="Alt Phone 1"
-                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                    app:hintTextColor="?attr/colorControlNormal"
-                    app:boxBackgroundColor="?android:colorBackground">
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="@color/text_secondary"
+                    app:boxBackgroundColor="@color/surface">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_phone2"
-                        android:layout_width="match_parent" android:layout_height="46dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
                         android:inputType="phone"
-                        android:textColor="?attr/colorOnSurface" android:textSize="13sp" />
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_phone3"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:layout_marginStart="4dp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
                     android:hint="Alt Phone 2"
-                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                    app:hintTextColor="?attr/colorControlNormal"
-                    app:boxBackgroundColor="?android:colorBackground">
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="@color/text_secondary"
+                    app:boxBackgroundColor="@color/surface">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_phone3"
-                        android:layout_width="match_parent" android:layout_height="46dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
                         android:inputType="phone"
-                        android:textColor="?attr/colorOnSurface" android:textSize="13sp" />
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_email"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:hint="Email Address"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                app:startIconDrawable="@drawable/ic_email"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_email"
-                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:inputType="textEmailAddress"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_username"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:hint="Username / Handle"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                app:startIconDrawable="@drawable/ic_person"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_username"
-                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- SECTION: LAST KNOWN LOCATION -->
+            <!-- Location row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingTop="14dp"
-                android:paddingBottom="8dp">
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="12dp"
-                    android:background="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="LAST KNOWN LOCATION"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true" />
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="10dp"
-                    android:background="?attr/colorPrimary"
-                    android:alpha="0.2" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_marginBottom="8dp">
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_city"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="3"
                     android:layout_marginEnd="4dp"
                     android:hint="City"
-                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                    app:hintTextColor="?attr/colorControlNormal"
-                    app:boxBackgroundColor="?android:colorBackground">
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="@color/text_secondary"
+                    app:boxBackgroundColor="@color/surface">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_city"
-                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
                         android:inputType="textCapWords"
-                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_state"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
                     android:layout_marginStart="4dp"
-                    android:hint="State (CA, TX…)"
-                    app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                    app:hintTextColor="?attr/colorControlNormal"
-                    app:boxBackgroundColor="?android:colorBackground">
+                    android:hint="State"
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:boxStrokeWidth="1dp"
+                    app:hintTextColor="@color/text_secondary"
+                    app:boxBackgroundColor="@color/surface">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_state"
-                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
                         android:inputType="textCapCharacters"
                         android:maxLength="20"
-                        android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_dob"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:hint="Date of Birth / Age"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:hint="Date of Birth or Age"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_dob"
-                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_address"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:hint="Street Address (if known)"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/input_address"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:inputType="textPostalAddress"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <!-- SECTION: KNOWN ASSOCIATES -->
-            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingTop="14dp"
-                android:paddingBottom="8dp">
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="12dp"
-                    android:background="@color/accent_amber"
-                    android:layout_marginEnd="8dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="KNOWN ASSOCIATES"
-                    android:textColor="@color/accent_amber"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true" />
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="10dp"
-                    android:background="@color/accent_amber"
-                    android:alpha="0.2" />
-            </LinearLayout>
+                android:layout_marginBottom="8dp"
+                android:hint="Street Address (if known)"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_address"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:inputType="textPostalAddress"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_relatives"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:hint="Relatives / Associates (comma-separated)"
-                app:boxStrokeColor="@color/accent_amber" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/input_relatives"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:inputType="textCapWords"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <!-- SECTION: PRIORITY INTEL -->
-            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingTop="16dp"
-                android:paddingBottom="8dp">
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="14dp"
-                    android:background="@color/accent_red"
-                    android:layout_marginEnd="8dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="PRIORITY INTEL"
-                    android:textColor="@color/accent_red"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text=" — WHERE / HOW YOU ENCOUNTERED SUBJECT"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="8sp"
-                    android:letterSpacing="0.1"
-                    android:textAllCaps="true" />
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:background="@color/accent_red"
-                    android:alpha="0.3" />
-            </LinearLayout>
+                android:layout_marginBottom="8dp"
+                android:hint="Relatives / Associates (comma-separated)"
+                app:boxStrokeColor="@color/accent_amber"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_relatives"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:inputType="textCapWords"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Context / Priority Intel -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/accent_red_dim"
-                app:cardCornerRadius="4dp"
-                app:strokeColor="@color/accent_red"
-                app:strokeWidth="2dp"
+                android:layout_marginBottom="8dp"
+                app:cardBackgroundColor="@color/surface_elevated"
+                app:cardCornerRadius="12dp"
+                app:strokeColor="?attr/colorPrimary"
+                app:strokeWidth="1dp"
                 app:cardElevation="0dp">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="10dp">
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Context hint — where did you encounter this person?"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/layout_context"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="e.g. Gold's Gym LA · karate class downtown · Central Park"
-                        app:boxStrokeColor="@color/accent_red" app:boxStrokeWidth="1dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="e.g. Gold's Gym LA · downtown karate class"
+                        app:boxStrokeColor="?attr/colorPrimary"
+                        app:boxStrokeWidth="1dp"
                         app:hintTextColor="@color/text_secondary"
-                        app:boxBackgroundColor="@color/accent_red_dim">
+                        app:boxBackgroundColor="@color/surface">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/input_context"
-                            android:layout_width="match_parent" android:layout_height="56dp"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
                             android:inputType="textCapSentences"
-                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
                     </com.google.android.material.textfield.TextInputLayout>
+
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Biases every search toward people matching this location or activity — most impactful field"
-                        android:textColor="@color/accent_red"
-                        android:textSize="9sp"
-                        android:alpha="0.8"
+                        android:text="Biases all searches toward people matching this location or activity"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Image buttons -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="12dp">
+                android:layout_marginBottom="12dp">
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_camera"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="44dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
-                    android:text="CAMERA"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.08"
+                    android:text="Camera"
+                    android:textSize="13sp"
+                    android:letterSpacing="0.02"
                     app:strokeColor="?attr/colorPrimary"
                     app:strokeWidth="1dp"
                     android:textColor="?attr/colorPrimary"
-                    app:cornerRadius="3dp" />
+                    app:cornerRadius="8dp" />
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_gallery"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="44dp"
                     android:layout_weight="1"
                     android:layout_marginStart="6dp"
-                    android:text="GALLERY"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.08"
+                    android:text="Gallery"
+                    android:textSize="13sp"
+                    android:letterSpacing="0.02"
                     app:strokeColor="?attr/colorPrimary"
                     app:strokeWidth="1dp"
                     android:textColor="?attr/colorPrimary"
-                    app:cornerRadius="3dp" />
+                    app:cornerRadius="8dp" />
             </LinearLayout>
 
             <TextView
@@ -687,255 +549,204 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="?attr/colorPrimary"
-                android:textSize="12sp"
-                android:layout_marginTop="6dp"
+                android:textSize="13sp"
+                android:layout_marginBottom="8dp"
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- ═══════════════ COMPANY FORM ═══════════════ -->
+        <!-- ── Company Form ── -->
         <LinearLayout
             android:id="@+id/form_company"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="10dp"
+            android:paddingHorizontal="16dp"
             android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingBottom="8dp">
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="12dp"
-                    android:background="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="CORPORATE ENTITY DATA"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true" />
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="10dp"
-                    android:background="?attr/colorPrimary"
-                    android:alpha="0.2" />
-            </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_company_name"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:hint="Company Name"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_name"
-                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:inputType="textCapWords"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_company_domain"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:hint="Website / Domain"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_domain"
-                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:inputType="textUri"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_company_city"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:hint="City, State"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_city"
-                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_company_industry"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:hint="Industry (optional)"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_industry"
-                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="?attr/colorOnSurface" android:textSize="14sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
-        <!-- ═══════════════ DOMAIN / IP FORM ═══════════════ -->
+        <!-- ── Domain / IP Form ── -->
         <LinearLayout
             android:id="@+id/form_domain"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="10dp"
+            android:paddingHorizontal="16dp"
             android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingBottom="8dp">
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="12dp"
-                    android:background="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="TARGET DOMAIN / IP"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true" />
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="10dp"
-                    android:background="?attr/colorPrimary"
-                    android:alpha="0.2" />
-            </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layout_domain_value"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:hint="Domain or IP Address"
                 app:startIconDrawable="@drawable/ic_search"
                 app:startIconTint="?attr/colorPrimary"
-                app:boxStrokeColor="?attr/colorPrimary" app:boxStrokeWidth="1dp"
-                app:hintTextColor="?attr/colorControlNormal"
-                app:boxBackgroundColor="?android:colorBackground">
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_domain_value"
-                    android:layout_width="match_parent" android:layout_height="56dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
                     android:inputType="text"
                     android:imeOptions="actionSearch"
-                    android:textColor="?attr/colorOnSurface" android:textSize="15sp" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
-        <!-- ═══════════════ SEARCH BUTTON ═══════════════ -->
+        <!-- ── Search Button ── -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingHorizontal="10dp"
-            android:paddingTop="18dp"
-            android:paddingBottom="6dp">
+            android:paddingHorizontal="16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="8dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/search_button"
                 android:layout_width="0dp"
-                android:layout_height="54dp"
+                android:layout_height="56dp"
                 android:layout_weight="1"
-                android:text="◈  INITIATE OPERATION"
-                android:textColor="@color/white"
-                android:textSize="13sp"
+                android:text="Search"
+                android:textColor="@color/background_primary"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.12"
+                android:letterSpacing="0.04"
                 app:backgroundTint="?attr/colorPrimary"
-                app:cornerRadius="3dp" />
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_search"
+                app:iconTint="@color/background_primary"
+                app:iconGravity="textStart" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_clear_fields"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="54dp"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
                 android:layout_marginStart="8dp"
-                android:text="CLR"
-                android:textSize="11sp"
-                android:letterSpacing="0.12"
-                app:strokeColor="?attr/colorPrimary"
+                android:text="✕"
+                android:textSize="16sp"
+                app:strokeColor="@color/border"
                 app:strokeWidth="1dp"
-                app:cornerRadius="3dp" />
+                android:textColor="@color/text_secondary"
+                app:cornerRadius="12dp" />
         </LinearLayout>
 
-        <!-- ═══════════════ PRIOR OPERATIONS ═══════════════ -->
+        <!-- ── Recent Searches ── -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="?attr/colorPrimary"
-            android:alpha="0.15"
-            android:layout_marginHorizontal="10dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="10dp" />
+            android:background="@color/border"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="14dp">
+            android:paddingHorizontal="16dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="12dp"
-                    android:background="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="PRIOR OPERATIONS"
-                    android:textColor="?attr/colorControlNormal"
-                    android:textSize="9sp"
-                    android:letterSpacing="0.2"
-                    android:textAllCaps="true"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                android:text="Recent Searches"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.04"
+                android:layout_marginBottom="8dp" />
 
             <TextView
                 android:id="@+id/no_recent_searches"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="No prior operations"
-                android:textColor="?attr/colorControlNormal"
-                android:alpha="0.4"
-                android:textSize="13sp"
+                android:text="No recent searches"
+                android:textColor="@color/text_dim"
+                android:textSize="14sp"
                 android:gravity="center"
                 android:padding="20dp"
                 android:visibility="gone" />
