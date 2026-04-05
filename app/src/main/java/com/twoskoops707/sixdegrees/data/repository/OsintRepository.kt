@@ -312,6 +312,25 @@ class OsintRepository(context: Context) {
             duckDuckGoWebSearch(fq, metadata, sources, emit)
         }
 
+        if (metadata["profile_photo_url"].isNullOrBlank()) {
+            val nameForPhoto: String? = when (type) {
+                "person" -> cleanQuery.split("|").firstOrNull()?.let {
+                    if (it.contains("=")) it.substringAfter("=") else it
+                }?.trim()
+                "comprehensive" -> cleanQuery.split("|").firstOrNull { !it.contains("=") }?.trim()
+                    ?: cleanQuery.split("|").mapNotNull {
+                        val p = it.split("=", limit = 2)
+                        if (p.size == 2 && p[0].trim() == "name") p[1].trim() else null
+                    }.firstOrNull()
+                else -> null
+            }
+            if (!nameForPhoto.isNullOrBlank()) {
+                val location = metadata["person_location"] ?: ""
+                val photoUrl = fetchCandidatePhoto(nameForPhoto, location)
+                if (photoUrl != null) metadata["profile_photo_url"] = photoUrl
+            }
+        }
+
         val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
         send(SearchProgressEvent.Complete(reportId, sources.size))
     }
@@ -642,6 +661,18 @@ class OsintRepository(context: Context) {
         sources: MutableList<DataSource>,
         emit: suspend (SearchProgressEvent) -> Unit
     ) {
+        try {
+            val emailHash = email.trim().lowercase().let { e ->
+                java.security.MessageDigest.getInstance("MD5").digest(e.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+            }
+            val gravatarUrl = "https://www.gravatar.com/avatar/$emailHash?d=404&s=200"
+            val gReq = Request.Builder().url(gravatarUrl).head().build()
+            val gResp = fastHttpClient.newCall(gReq).execute()
+            gResp.close()
+            if (gResp.code == 200) meta["profile_photo_url"] = "https://www.gravatar.com/avatar/$emailHash?s=200"
+        } catch (_: Exception) {}
+
         emit(SearchProgressEvent.Checking("EmailRep.io"))
         try {
             val resp = RetrofitClient.emailRepService.getReputation(email)
@@ -4263,6 +4294,10 @@ class OsintRepository(context: Context) {
         val companyDomain = parsedFields["domain"] ?: ""
         meta["company_name_query"] = companyName
         if (companyDomain.isNotBlank()) meta["company_domain_query"] = companyDomain
+
+        val logoDomain = if (companyDomain.isNotBlank()) companyDomain
+            else companyName.trim().lowercase().replace(Regex("[^a-z0-9]"), "") + ".com"
+        meta["profile_photo_url"] = "https://logo.clearbit.com/$logoDomain"
 
         launch {
             emit(SearchProgressEvent.Checking("OpenCorporates"))
