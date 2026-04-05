@@ -144,46 +144,125 @@ class CandidateSelectionFragment : Fragment() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val c = items[position]
             val isSelected = selectedIndices.contains(position)
+            val isCompany = c.isCompany
 
-            if (!c.photoUrl.isNullOrBlank()) {
-                holder.b.ivCandidatePhoto.load(c.photoUrl) {
-                    crossfade(true)
-                    placeholder(R.drawable.ic_person_placeholder)
-                    error(R.drawable.ic_person_placeholder)
+            // Show photo or company logo
+            if (isCompany) {
+                holder.b.ivCandidatePhoto.visibility = View.GONE
+                if (!c.logoUrl.isNullOrBlank()) {
+                    holder.b.ivCandidatePhoto.visibility = View.GONE
+                    // Use existing ImageView for company logo — will load via load()
+                    holder.b.ivCandidatePhoto.load(c.logoUrl) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_business)
+                        error(R.drawable.ic_business)
+                    }
+                } else {
+                    holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_business)
                 }
             } else {
-                holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_person_placeholder)
+                holder.b.ivCandidatePhoto.visibility = View.VISIBLE
+                if (!c.photoUrl.isNullOrBlank()) {
+                    holder.b.ivCandidatePhoto.load(c.photoUrl) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_person_placeholder)
+                        error(R.drawable.ic_person_placeholder)
+                    }
+                } else {
+                    holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_person_placeholder)
+                }
             }
 
-            holder.b.tvCandidateName.text = c.name.ifBlank { "Unknown" }
+            holder.b.tvCandidateName.text = if (isCompany) c.name.ifBlank { "Unknown Company" } else c.name.ifBlank { "Unknown" }
 
-            val ageLocParts = listOfNotNull(
-                c.age.takeIf { it.isNotBlank() }?.let { "Age $it" },
-                c.location.takeIf { it.isNotBlank() }
-            )
-            holder.b.tvCandidateAgeLocation.text = ageLocParts.joinToString(" · ")
-            holder.b.tvCandidateAgeLocation.visibility = if (ageLocParts.isNotEmpty()) View.VISIBLE else View.GONE
-
-            val phones = c.phones.take(2)
-            if (phones.isNotEmpty()) {
-                holder.b.tvCandidatePhone.text = phones.joinToString(" · ")
-                holder.b.tvCandidatePhone.visibility = View.VISIBLE
-            } else {
+            if (isCompany) {
+                // Company mode — show domain and industry
+                holder.b.tvCandidateAgeLocation.visibility = View.GONE
                 holder.b.tvCandidatePhone.visibility = View.GONE
+            } else {
+                // Person mode — show age, location, phone
+                holder.b.tvCandidateAgeLocation.visibility = View.GONE
+                holder.b.companyInfoRow.visibility = View.GONE
+                val ageLocParts = listOfNotNull(
+                    c.age.takeIf { it.isNotBlank() }?.let { "Age $it" },
+                    c.location.takeIf { it.isNotBlank() }
+                )
+                if (ageLocParts.isNotEmpty()) {
+                    holder.b.tvCandidateAgeLocation.text = ageLocParts.joinToString(" · ")
+                    holder.b.tvCandidateAgeLocation.visibility = View.VISIBLE
+                }
+                val phones = c.phones.take(2)
+                if (phones.isNotEmpty()) {
+                    holder.b.tvCandidatePhone.text = phones.joinToString(" · ")
+                    holder.b.tvCandidatePhone.visibility = View.VISIBLE
+                } else {
+                    holder.b.tvCandidatePhone.visibility = View.GONE
+                }
             }
 
             if (c.address.isNotBlank()) {
-                holder.b.tvCandidateAddress.text = "📍 ${c.address}"
+                holder.b.tvCandidateAddress.text = if (isCompany) "🏢 ${c.address}" else "📍 ${c.address}"
                 holder.b.tvCandidateAddress.visibility = View.VISIBLE
             } else {
                 holder.b.tvCandidateAddress.visibility = View.GONE
             }
 
-            if (c.relatives.isNotEmpty()) {
+            if (c.relatives.isNotEmpty() && !isCompany) {
                 holder.b.tvCandidateRelatives.text = "👥 ${c.relatives.take(3).joinToString(", ")}"
                 holder.b.tvCandidateRelatives.visibility = View.VISIBLE
             } else {
                 holder.b.tvCandidateRelatives.visibility = View.GONE
+            }
+
+            // DOB
+            if (c.dob.isNullOrBlank()) {
+                holder.b.tvCandidateDob.visibility = View.GONE
+            } else {
+                holder.b.tvCandidateDob.text = "🎂 ${c.dob}"
+                holder.b.tvCandidateDob.visibility = View.VISIBLE
+            }
+
+            // AKAs
+            if (c.akas.isEmpty()) {
+                holder.b.tvCandidateAkas.visibility = View.GONE
+            } else {
+                holder.b.tvCandidateAkas.text = "↔ ${c.akas.joinToString(", ")}"
+                holder.b.tvCandidateAkas.visibility = View.VISIBLE
+            }
+
+            // Email
+            if (c.email.isNullOrBlank()) {
+                holder.b.tvCandidateEmail.visibility = View.GONE
+            } else {
+                holder.b.tvCandidateEmail.text = "✉ ${c.email}"
+                holder.b.tvCandidateEmail.visibility = View.VISIBLE
+            }
+
+            // Political affiliation
+            if (c.politicalAffiliation.isNullOrBlank()) {
+                holder.b.tvCandidatePolitical.visibility = View.GONE
+            } else {
+                holder.b.tvCandidatePolitical.text = "🗳 ${c.politicalAffiliation}"
+                holder.b.tvCandidatePolitical.visibility = View.VISIBLE
+            }
+
+            // Company domain/industry chips
+            if (isCompany) {
+                holder.b.companyInfoRow.visibility = View.VISIBLE
+                if (!c.domain.isNullOrBlank()) {
+                    holder.b.chipCompanyDomain.text = c.domain
+                    holder.b.chipCompanyDomain.visibility = View.VISIBLE
+                } else {
+                    holder.b.chipCompanyDomain.visibility = View.GONE
+                }
+                if (!c.industry.isNullOrBlank()) {
+                    holder.b.chipCompanyIndustry.text = c.industry
+                    holder.b.chipCompanyIndustry.visibility = View.VISIBLE
+                } else {
+                    holder.b.chipCompanyIndustry.visibility = View.GONE
+                }
+            } else {
+                holder.b.companyInfoRow.visibility = View.GONE
             }
 
             val confidencePct = (c.confidence * 100).toInt().coerceIn(0, 100)

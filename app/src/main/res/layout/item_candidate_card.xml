@@ -110,6 +110,85 @@
             android:layout_marginTop="4dp"
             android:visibility="gone" />
 
+        <!-- DOB row -->
+        <TextView
+            android:id="@+id/tv_candidate_dob"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="11sp"
+            android:layout_marginTop="4dp"
+            android:visibility="gone" />
+
+        <!-- AKAs row -->
+        <TextView
+            android:id="@+id/tv_candidate_akas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorControlNormal"
+            android:textSize="11sp"
+            android:layout_marginTop="4dp"
+            android:visibility="gone" />
+
+        <!-- Email row -->
+        <TextView
+            android:id="@+id/tv_candidate_email"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="11sp"
+            android:layout_marginTop="4dp"
+            android:visibility="gone" />
+
+        <!-- Political affiliation row -->
+        <TextView
+            android:id="@+id/tv_candidate_political"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorControlNormal"
+            android:textSize="11sp"
+            android:layout_marginTop="4dp"
+            android:visibility="gone" />
+
+        <!-- Company domain chip row -->
+        <LinearLayout
+            android:id="@+id/company_info_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:layout_marginTop="6dp">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_company_domain"
+                style="@style/Widget.Material3.Chip.Assist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                app:chipBackgroundColor="@color/surface_elevated"
+                android:textColor="?attr/colorPrimary"
+                app:chipMinHeight="24dp"
+                app:chipIcon="@drawable/ic_link"
+                app:chipIconSize="14dp"
+                app:chipIconTint="?attr/colorPrimary"
+                app:closeIconVisible="false" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_company_industry"
+                style="@style/Widget.Material3.Chip.Assist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:textSize="10sp"
+                app:chipBackgroundColor="@color/surface_elevated"
+                android:textColor="?attr/colorControlNormal"
+                app:chipMinHeight="24dp"
+                app:chipIcon="@drawable/ic_business"
+                app:chipIconSize="14dp"
+                app:chipIconTint="?attr/colorControlNormal"
+                app:closeIconVisible="false" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

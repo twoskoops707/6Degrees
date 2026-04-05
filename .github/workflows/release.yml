@@ -2,9 +2,10 @@ name: Build SixDegrees
 
 on:
   push:
-    branches: [main]
-    tags:
-      - 'v*'
+    branches: [main, enhanced-reports]
+  pull_request:
+    branches: [main, enhanced-reports]
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -24,23 +25,38 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Set Android SDK
+        run: echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
+
       - run: chmod +x ./gradlew
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
+      - name: Set Short SHA
+        id: sha
+        run: echo "SHORT_SHA=$(echo '${{ github.sha }}' | cut -c1-7)" >> $GITHUB_OUTPUT
+
       - name: Rename APK
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/sixdegrees-${SHORT_SHA}.apk
+          mkdir -p app/build/outputs/apk/debug/
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/sixdegrees-${{ steps.sha.outputs.SHORT_SHA }}-debug.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sixdegrees-apk-${{ steps.sha.outputs.SHORT_SHA }}
+          path: app/build/outputs/apk/debug/sixdegrees-*.apk
+          retention-days: 30
 
       - name: Create GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/enhanced-reports')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.sha }}
-          name: "Build ${{ github.sha }}"
+          tag_name: build-${{ github.ref_name }}-${{ steps.sha.outputs.SHORT_SHA }}
+          name: "SixDegrees ${{ github.ref_name }} @ ${{ steps.sha.outputs.SHORT_SHA }}"
           body: "Automated build from commit ${{ github.sha }}"
           files: app/build/outputs/apk/debug/sixdegrees-*.apk
-          prerelease: true
+          prerelease: ${{ github.ref_name != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
