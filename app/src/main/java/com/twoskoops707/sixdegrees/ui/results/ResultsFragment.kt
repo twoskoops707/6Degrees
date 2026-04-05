@@ -283,7 +283,7 @@ class ResultsFragment : Fragment() {
         val allPhones = extractPhones(meta)
         if (allPhones.isNotEmpty()) {
             rows.add(sec("PHONE NUMBERS"))
-            allPhones.take(4).forEach { rows.add("Phone" to it) }
+            allPhones.take(6).forEach { rows.add("Phone" to it) }
         }
 
         val enteredLoc = meta["person_location"]?.takeIf { it.isNotBlank() }
@@ -300,7 +300,7 @@ class ResultsFragment : Fragment() {
         val allRel = extractRelatives(meta)
         if (allRel.isNotEmpty()) {
             rows.add(sec("KNOWN ASSOCIATES"))
-            allRel.take(6).forEach { rows.add("Name" to it) }
+            allRel.take(12).forEach { rows.add("Name" to it) }
         }
 
         val ddgAbstract = meta["ddg_abstract"]?.takeIf { it.isNotBlank() }
@@ -1394,14 +1394,17 @@ class ResultsFragment : Fragment() {
     private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
-        listOf("tps_full_addresses", "tps_locations", "zaba_locations", "411_locations",
-            "ftn_locations", "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
-            "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations")
-            .forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
-        val streetPattern = Regex("""\d{1,5}\s+[A-Z][A-Za-z0-9\s]{3,35}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter|Trl|Loop|Pass|Pt)\b[.,\s]*[A-Za-z]{2,20},?\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?""")
-        listOf("dork_address_full_results", "dork_address_results", "dork_phone_results", "dork_identity_results").forEach { key ->
+        listOf(
+            "tps_full_addresses", "zaba_full_addresses", "411_full_addresses", "ftn_full_addresses",
+            "tps_locations", "zaba_locations", "411_locations", "ftn_locations",
+            "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
+            "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations"
+        ).forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
+        val streetPattern = Regex("""\d{1,5}\s+[A-Z][A-Za-z0-9\s]{2,35}(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Cir\.?|Pkwy|Hwy|Ter\.?|Trl\.?|Loop|Pass|Pt\.?|Road|Street|Avenue|Boulevard|Drive|Lane|Court)\b[^<\n]{0,40}[A-Z]{2}[\s,]+\d{5}(?:-\d{4})?""")
+        listOf("dork_address_full_results", "dork_address_results", "dork_phone_results", "dork_identity_results",
+            "dork_voter_results", "dork_property_results").forEach { key ->
             meta[key]?.let { text ->
-                streetPattern.findAll(text).map { it.value.replace(Regex("\\s+"), " ").trim() }.filter { it.length in 15..80 }.take(6).forEach { set.add(it) }
+                streetPattern.findAll(text).map { it.value.replace(Regex("\\s+"), " ").trim() }.filter { it.length in 15..100 }.take(8).forEach { set.add(it) }
             }
         }
         return set
@@ -1409,13 +1412,14 @@ class ResultsFragment : Fragment() {
 
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
-        listOf("tps_relatives", "ftn_relatives", "411_relatives", "tt_relatives", "fps_relatives",
+        listOf("tps_relatives", "ftn_relatives", "411_relatives", "zaba_relatives", "tt_relatives", "fps_relatives",
             "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives", "checkpeople_relatives")
-            .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
-        val namePattern = Regex("[A-Z][a-z]+ [A-Z][a-z]+")
-        listOf("dork_relatives_results", "dork_obituary_results", "dork_identity_results", "dork_address_results").forEach { key ->
+            .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.length > 3 && it.isNotBlank() }?.forEach { set.add(it) } }
+        val namePattern = Regex("[A-Z][a-z]{1,20} [A-Z][a-z]{1,20}(?:\\s[A-Z][a-z]{1,20})?")
+        listOf("dork_relatives_results", "dork_obituary_results", "dork_identity_results", "dork_address_results",
+            "dork_voter_results", "dork_address_full_results").forEach { key ->
             meta[key]?.let { text ->
-                namePattern.findAll(text).map { it.value.trim() }.filter { it.length in 5..40 }.take(12).forEach { set.add(it) }
+                namePattern.findAll(text).map { it.value.trim() }.filter { it.length in 5..40 }.take(15).forEach { set.add(it) }
             }
         }
         return set

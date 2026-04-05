@@ -3862,9 +3862,58 @@ class OsintRepository(context: Context) {
         }
     }
 
+    private fun parseDdgSnippets(body: String): List<String> {
+        val snippetPatterns = listOf(
+            Regex("""<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<div[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</div>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<span[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</span>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""class="result-snippet"[^>]*>(.*?)</(?:a|span|div)>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""class="[^"]*snippet[^"]*"[^>]*>(.*?)</(?:a|span|div|p)>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<div[^>]+data-result="snippet"[^>]*>(.*?)</div>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<span[^>]+class="[^"]*kc-highlighted[^"]*"[^>]*>(.*?)</span>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<div[^>]+class="[^"]*\bsnippet\b[^"]*"[^>]*>(.*?)</div>""", setOf(RegexOption.DOT_MATCHES_ALL))
+        )
+        val results = mutableListOf<String>()
+        for (pattern in snippetPatterns) {
+            pattern.findAll(body).forEach { m ->
+                val text = m.groupValues[1]
+                    .replace(Regex("<[^>]+>"), "")
+                    .replace("&amp;", "&").replace("&#x27;", "'").replace("&lt;", "<")
+                    .replace("&gt;", ">").replace("&nbsp;", " ").replace("&quot;", "\"")
+                    .replace(Regex("\\s+"), " ").trim()
+                if (text.length >= 20) results.add(text)
+            }
+            if (results.size >= 3) break
+        }
+        return results.distinct().take(12)
+    }
+
+    private fun parseBingSnippets(body: String): List<String> {
+        val patterns = listOf(
+            Regex("""<p[^>]+class="[^"]*b_algoSlug[^"]*"[^>]*>(.*?)</p>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<p[^>]+class="[^"]*b_paractl[^"]*"[^>]*>(.*?)</p>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<div[^>]+class="[^"]*b_caption[^"]*"[^>]*>.*?<p[^>]*>(.*?)</p>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<p[^>]+class="[^"]*b_lineclamp[^"]*"[^>]*>(.*?)</p>""", setOf(RegexOption.DOT_MATCHES_ALL)),
+            Regex("""<div[^>]+class="[^"]*b_snippet[^"]*"[^>]*>(.*?)</div>""", setOf(RegexOption.DOT_MATCHES_ALL))
+        )
+        val results = mutableListOf<String>()
+        for (pattern in patterns) {
+            pattern.findAll(body).forEach { m ->
+                val text = m.groupValues[1]
+                    .replace(Regex("<[^>]+>"), "")
+                    .replace("&amp;", "&").replace("&#x27;", "'").replace("&lt;", "<")
+                    .replace("&gt;", ">").replace("&nbsp;", " ").replace("&quot;", "\"")
+                    .replace(Regex("\\s+"), " ").trim()
+                if (text.length >= 20) results.add(text)
+            }
+            if (results.size >= 3) break
+        }
+        return results.distinct().take(12)
+    }
+
     private suspend fun runDorkViaSearch(dork: String): List<String> {
-        return try {
-            val encoded = URLEncoder.encode(dork, "UTF-8")
+        val encoded = URLEncoder.encode(dork, "UTF-8")
+        val ddgResults = try {
             val req = Request.Builder()
                 .url("https://html.duckduckgo.com/html/?q=$encoded")
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -3874,23 +3923,26 @@ class OsintRepository(context: Context) {
                 .build()
             val resp = httpClient.newCall(req).execute()
             val body = resp.body?.string() ?: ""; resp.close()
-            if (body.isBlank()) return emptyList()
-            if (body.contains("enable javascript", ignoreCase = true) || body.contains("cf-browser-verification", ignoreCase = true) || body.contains("Just a moment", ignoreCase = true)) return emptyList()
-            val snippetPatterns = listOf(
-                Regex("""<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>""", setOf(RegexOption.DOT_MATCHES_ALL)),
-                Regex("""<div[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</div>""", setOf(RegexOption.DOT_MATCHES_ALL)),
-                Regex("""<span[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</span>""", setOf(RegexOption.DOT_MATCHES_ALL)),
-                Regex("""class="result-snippet"[^>]*>(.*?)</(?:a|span|div)>""", setOf(RegexOption.DOT_MATCHES_ALL))
-            )
-            val results = mutableListOf<String>()
-            for (pattern in snippetPatterns) {
-                pattern.findAll(body).forEach { m ->
-                    val text = m.groupValues[1].replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&#x27;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ").replace(Regex("\\s+"), " ").trim()
-                    if (text.length >= 20) results.add(text)
-                }
-                if (results.isNotEmpty()) break
-            }
-            results.distinct().take(12)
+            if (body.isBlank() || body.contains("enable javascript", ignoreCase = true)
+                || body.contains("cf-browser-verification", ignoreCase = true)
+                || body.contains("Just a moment", ignoreCase = true)) emptyList()
+            else parseDdgSnippets(body)
+        } catch (_: Exception) { emptyList() }
+
+        if (ddgResults.isNotEmpty()) return ddgResults
+
+        return try {
+            val bingReq = Request.Builder()
+                .url("https://www.bing.com/search?q=$encoded&cc=US&setlang=en")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .addHeader("Accept-Language", "en-US,en;q=0.9")
+                .addHeader("Referer", "https://www.bing.com/")
+                .build()
+            val bResp = httpClient.newCall(bingReq).execute()
+            val bBody = bResp.body?.string() ?: ""; bResp.close()
+            if (bBody.isBlank()) emptyList()
+            else parseBingSnippets(bBody)
         } catch (_: Exception) { emptyList() }
     }
 
@@ -4757,14 +4809,63 @@ class OsintRepository(context: Context) {
             if (html.isBlank() || resp.code == 403) { emit(SearchProgressEvent.NotFound("FamilyTreeNow")); return }
             val birthYears = Regex("(?:Born|Birth)[^0-9]{0,20}(\\d{4})").findAll(html)
                 .map { it.groupValues[1] }.filter { it.toIntOrNull()?.let { y -> y in 1900..2010 } == true }.take(3).distinct().toList()
-            val cities = Regex("<span[^>]*class=\"[^\"]*city[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
+            val ftnStreets = Regex("<span[^>]*itemprop=\"streetAddress\"[^>]*>([^<]+)</span>").findAll(html)
                 .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
-            val relatives = Regex("(?:relative|family member)[^<]{0,100}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(html)
-                .map { it.groupValues[1] }.take(8).distinct().toList()
-            val hasData = birthYears.isNotEmpty() || cities.isNotEmpty() || relatives.isNotEmpty()
+            val ftnLocalities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val ftnRegions = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val ftnZips = Regex("<span[^>]*itemprop=\"postalCode\"[^>]*>([^<]+)</span>").findAll(html)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val ftnFullAddresses = if (ftnStreets.isNotEmpty()) {
+                ftnStreets.mapIndexed { i, street ->
+                    val city = ftnLocalities.getOrNull(i) ?: ""
+                    val state = ftnRegions.getOrNull(i) ?: ""
+                    val zip = ftnZips.getOrNull(i) ?: ""
+                    buildString {
+                        append(street)
+                        if (city.isNotBlank()) append(", $city")
+                        if (state.isNotBlank()) append(", $state")
+                        if (zip.isNotBlank()) append(" $zip")
+                    }
+                }.filter { it.isNotBlank() }
+            } else emptyList()
+            val cities = ftnLocalities.ifEmpty {
+                Regex("<span[^>]*class=\"[^\"]*(?:city|locality|addressLocality)[^\"]*\"[^>]*>([^<]+)</span>").findAll(html)
+                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            }
+            val cityStatesFtn = if (ftnLocalities.isNotEmpty() && ftnRegions.isNotEmpty()) {
+                ftnLocalities.zip(ftnRegions).map { (c, s) -> "$c, $s" }.distinct().take(10)
+            } else {
+                cities.map { c ->
+                    val state = ftnRegions.firstOrNull() ?: ""
+                    if (state.isNotBlank()) "$c, $state" else c
+                }.take(10)
+            }
+            val relatives = run {
+                val namePattern = Regex("[A-Z][a-z]{1,20} [A-Z][a-z]{1,20}")
+                val relPatterns = listOf(
+                    Regex("<[^>]*(?:class|id)=\"[^\"]*(?:relative|family|associate|related)[^\"]*\"[^>]*>\\s*([^<]{3,40})"),
+                    Regex("itemprop=\"name\"[^>]*>\\s*([A-Z][a-z]+ [A-Z][a-z]+)"),
+                    Regex("<a[^>]*>\\s*([A-Z][a-z]+ [A-Z][a-z]+)\\s*</a>")
+                )
+                val found = linkedSetOf<String>()
+                for (p in relPatterns) {
+                    p.findAll(html).forEach { m ->
+                        val candidate = m.groupValues[1].replace(Regex("<[^>]+>"), "").trim()
+                        if (candidate.isNotBlank() && namePattern.matches(candidate) && !candidate.equals(query, ignoreCase = true))
+                            found.add(candidate)
+                    }
+                    if (found.size >= 15) break
+                }
+                found.take(15).toList()
+            }
+            val hasData = birthYears.isNotEmpty() || cities.isNotEmpty() || relatives.isNotEmpty() || ftnFullAddresses.isNotEmpty()
             if (hasData) {
                 if (birthYears.isNotEmpty()) meta["ftn_birth_year"] = birthYears.first()
-                if (cities.isNotEmpty()) meta["ftn_locations"] = cities.take(10).joinToString(" | ")
+                if (ftnFullAddresses.isNotEmpty()) meta["ftn_full_addresses"] = ftnFullAddresses.joinToString(" | ")
+                if (cityStatesFtn.isNotEmpty()) meta["ftn_locations"] = cityStatesFtn.joinToString(" | ")
+                else if (cities.isNotEmpty()) meta["ftn_locations"] = cities.take(10).joinToString(" | ")
                 if (relatives.isNotEmpty()) meta["ftn_relatives"] = relatives.joinToString(", ")
                 sources.add(DataSource("FamilyTreeNow", null, Date(), 0.65))
                 emit(SearchProgressEvent.Found("FamilyTreeNow",
@@ -4828,15 +4929,52 @@ class OsintRepository(context: Context) {
                 .distinct().take(5).toList()
             val cityState = Regex("([A-Z][a-zA-Z ]{2,}+,\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(firstCard)
                 .map { it.groupValues[1].trim() }.filter { it.length > 5 && it.isNotBlank() }.distinct().take(5).toList()
-            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty()
+            val zabaStreets = Regex("<span[^>]*itemprop=\"streetAddress\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val zabaLocalities = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val zabaRegions = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val zabaZips = Regex("<span[^>]*itemprop=\"postalCode\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val zabaFullAddresses = if (zabaStreets.isNotEmpty()) {
+                zabaStreets.mapIndexed { i, street ->
+                    val city = zabaLocalities.getOrNull(i) ?: ""
+                    val state = zabaRegions.getOrNull(i) ?: ""
+                    val zip = zabaZips.getOrNull(i) ?: ""
+                    buildString {
+                        append(street)
+                        if (city.isNotBlank()) append(", $city")
+                        if (state.isNotBlank()) append(", $state")
+                        if (zip.isNotBlank()) append(" $zip")
+                    }
+                }.filter { it.isNotBlank() }
+            } else {
+                val streetFallback = Regex("\\b(\\d{1,5}\\s+[A-Z][A-Za-z0-9 ]{2,30}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter|Trl|Loop|Pt|Road|Street|Avenue|Boulevard|Drive|Lane|Court)\\.?)\\b").findAll(firstCard)
+                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+                streetFallback.mapIndexed { i, street ->
+                    val cs = cityState.getOrNull(i) ?: ""
+                    if (cs.isNotBlank()) "$street, $cs" else street
+                }.filter { it.isNotBlank() }
+            }
+            val zabaRelatives = Regex("<[^>]*(?:class|id)=\"[^\"]*(?:relative|associate|family)[^\"]*\"[^>]*>\\s*([A-Z][a-z]+ [A-Z][a-z]+)").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(10).toList()
+                .ifEmpty {
+                    Regex("(?:relative|associate)[^<]{0,60}([A-Z][a-z]+ [A-Z][a-z]+)").findAll(firstCard)
+                        .map { it.groupValues[1].trim() }.distinct().take(10).toList()
+                }
+            val hasData = ages.isNotEmpty() || phones.isNotEmpty() || cityState.isNotEmpty() || zabaFullAddresses.isNotEmpty()
             if (hasData) {
                 if (ages.isNotEmpty()) meta["zaba_age"] = ages.first()
                 if (phones.isNotEmpty()) meta["zaba_phones"] = phones.joinToString(", ")
+                if (zabaFullAddresses.isNotEmpty()) meta["zaba_full_addresses"] = zabaFullAddresses.joinToString(" | ")
                 if (cityState.isNotEmpty()) meta["zaba_locations"] = cityState.joinToString(" | ")
+                if (zabaRelatives.isNotEmpty()) meta["zaba_relatives"] = zabaRelatives.joinToString(", ")
                 sources.add(DataSource("ZabaSearch", url, Date(), 0.7))
                 emit(SearchProgressEvent.Found("ZabaSearch", buildString {
                     if (ages.isNotEmpty()) append("Age: ${ages.first()}")
-                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (zabaFullAddresses.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(zabaFullAddresses.first()) }
+                    else if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
                     if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
                 }))
             } else {
@@ -4892,18 +5030,52 @@ class OsintRepository(context: Context) {
             val ages = Regex("(?:Age|age)[:\\s]+(\\d{2,3})").findAll(firstCard).map { it.groupValues[1] }.take(3).distinct().toList()
             val cityState = Regex("([A-Z][a-zA-Z ]{2,},\\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))").findAll(firstCard)
                 .map { it.groupValues[1].trim() }.filter { it.length > 5 }.distinct().take(5).toList()
-            val relatives = Regex("(?:relative|associate|related|alias)[^<]{0,80}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(firstCard)
-                .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(10).toList()
-            val hasData = phones.isNotEmpty() || ages.isNotEmpty() || cityState.isNotEmpty()
+            val streets411 = Regex("<span[^>]*itemprop=\"streetAddress\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val localities411 = Regex("<span[^>]*itemprop=\"addressLocality\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val regions411 = Regex("<span[^>]*itemprop=\"addressRegion\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val zips411 = Regex("<span[^>]*itemprop=\"postalCode\"[^>]*>([^<]+)</span>").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(5).distinct().toList()
+            val fullAddresses411 = if (streets411.isNotEmpty()) {
+                streets411.mapIndexed { i, street ->
+                    val city = localities411.getOrNull(i) ?: ""
+                    val state = regions411.getOrNull(i) ?: ""
+                    val zip = zips411.getOrNull(i) ?: ""
+                    buildString {
+                        append(street)
+                        if (city.isNotBlank()) append(", $city")
+                        if (state.isNotBlank()) append(", $state")
+                        if (zip.isNotBlank()) append(" $zip")
+                    }
+                }.filter { it.isNotBlank() }
+            } else {
+                val streetFallback411 = Regex("\\b(\\d{1,5}\\s+[A-Z][A-Za-z0-9 ]{2,30}(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Cir|Pkwy|Hwy|Ter|Trl|Loop|Pt|Road|Street|Avenue|Boulevard|Drive|Lane|Court)\\.?)\\b").findAll(firstCard)
+                    .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(5).toList()
+                streetFallback411.mapIndexed { i, street ->
+                    val cs = cityState.getOrNull(i) ?: ""
+                    if (cs.isNotBlank()) "$street, $cs" else street
+                }.filter { it.isNotBlank() }
+            }
+            val relatives411 = Regex("<[^>]*(?:class|id)=\"[^\"]*(?:relative|associate|family)[^\"]*\"[^>]*>\\s*([A-Z][a-z]+ [A-Z][a-z]+)").findAll(firstCard)
+                .map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.distinct().take(10).toList()
+                .ifEmpty {
+                    Regex("(?:relative|associate|related|alias)[^<]{0,80}<[^>]+>([A-Z][a-z]+ [A-Z][a-z]+)").findAll(firstCard)
+                        .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinct().take(10).toList()
+                }
+            val hasData = phones.isNotEmpty() || ages.isNotEmpty() || cityState.isNotEmpty() || fullAddresses411.isNotEmpty()
             if (hasData) {
                 if (phones.isNotEmpty()) meta["411_phones"] = phones.joinToString(", ")
                 if (ages.isNotEmpty()) meta["411_age"] = ages.first()
+                if (fullAddresses411.isNotEmpty()) meta["411_full_addresses"] = fullAddresses411.joinToString(" | ")
                 if (cityState.isNotEmpty()) meta["411_locations"] = cityState.joinToString(" | ")
-                if (relatives.isNotEmpty()) meta["411_relatives"] = relatives.joinToString(", ")
+                if (relatives411.isNotEmpty()) meta["411_relatives"] = relatives411.joinToString(", ")
                 sources.add(DataSource("411.com", null, Date(), 0.7))
                 emit(SearchProgressEvent.Found("411.com", buildString {
                     if (ages.isNotEmpty()) append("Age: ${ages.first()}")
-                    if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
+                    if (fullAddresses411.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(fullAddresses411.first()) }
+                    else if (cityState.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(cityState.first()) }
                     if (phones.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(phones.first()) }
                 }))
             } else {
