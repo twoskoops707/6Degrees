@@ -268,8 +268,11 @@ class ResultsFragment : Fragment() {
         rows.add(sec("IDENTITY"))
         val bestAge = extractBestAge(meta)
         bestAge?.let { rows.add("Age" to it) }
-        meta["pipl_dob"]?.takeIf { it.isNotBlank() }?.let { rows.add("Date of Birth" to it) }
-        meta["ftn_birth_year"]?.let { rows.add("Birth Year" to "~$it") }
+        val bestDob = meta["person_dob"]?.takeIf { it.isNotBlank() }
+            ?: meta["comp_dob"]?.takeIf { it.isNotBlank() }
+            ?: meta["pipl_dob"]?.takeIf { it.isNotBlank() }
+        bestDob?.let { rows.add("Date of Birth" to it) }
+        meta["ftn_birth_year"]?.takeIf { bestDob.isNullOrBlank() }?.let { rows.add("Birth Year" to "~$it") }
         meta["demographics_gender"]?.let { rows.add("Gender" to it) }
         meta["pipl_gender"]?.takeIf { meta["demographics_gender"].isNullOrBlank() }?.let { rows.add("Gender" to it) }
         meta["demographics_nationality"]?.let { rows.add("Nationality Est." to it) }
@@ -1438,6 +1441,9 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
+        listOf("comp_phone", "comp_phone2", "comp_phone3").forEach { k ->
+            meta[k]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
+        }
         listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
                "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones")
             .forEach { key ->
@@ -1469,7 +1475,7 @@ class ResultsFragment : Fragment() {
 
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
-        listOf("tps_relatives", "ftn_relatives", "411_relatives", "zaba_relatives", "tt_relatives", "fps_relatives",
+        listOf("pipl_relatives", "tps_relatives", "ftn_relatives", "411_relatives", "zaba_relatives", "tt_relatives", "fps_relatives",
             "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives", "checkpeople_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.length > 3 && it.isNotBlank() }?.forEach { set.add(it) } }
         val namePattern = Regex("[A-Z][a-z]{1,20} [A-Z][a-z]{1,20}(?:\\s[A-Z][a-z]{1,20})?")

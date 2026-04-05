@@ -262,7 +262,11 @@ class OsintRepository(context: Context) {
                 }.toMap()
                 cascadeDiscoveredContacts(fields, metadata, sources, emit)
             }
-            else -> personSearch(cleanQuery, metadata, sources, emit)
+            else -> {
+                val nameVal = cleanQuery.split("|").firstOrNull { !it.contains("=") }?.trim() ?: cleanQuery.trim()
+                if (nameVal.isNotBlank()) metadata["person_name"] = nameVal
+                personSearch(cleanQuery, metadata, sources, emit)
+            }
         }
 
         metadata["search_type"] = type
@@ -581,14 +585,32 @@ class OsintRepository(context: Context) {
         if (personName.isNotBlank()) {
             val existsAlready = candidates.any { it.name.equals(personName, ignoreCase = true) }
             if (!existsAlready || candidates.isEmpty()) {
+                val resolvedAge = meta["tps_age"]?.takeIf { it.isNotBlank() }
+                    ?: meta["voter_age"]?.takeIf { it.isNotBlank() }
+                    ?: meta["zaba_age"] ?: ""
+                val resolvedAddress = meta["person_address"]?.takeIf { it.isNotBlank() }
+                    ?: meta["tps_full_addresses"]?.split(" | ")?.firstOrNull()?.trim() ?: ""
+                val resolvedEmail = meta["comp_email"]?.takeIf { it.isNotBlank() }
+                    ?: meta["radaris_emails"]?.split(",")?.firstOrNull()?.trim()
+                    ?: meta["nuwber_emails"]?.split(",")?.firstOrNull()?.trim()
+                val resolvedDob = meta["person_dob"]?.takeIf { it.isNotBlank() }
+                    ?: meta["comp_dob"]?.takeIf { it.isNotBlank() }
+                val resolvedAkas = meta["tps_names"]?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotBlank() && !it.equals(personName, ignoreCase = true) }
+                    ?: emptyList()
                 candidates.add(0, CandidateProfile(
                     name = personName,
-                    age = meta["person_age"] ?: "",
+                    age = resolvedAge,
                     location = personLocation.ifBlank { listOf(personCity, personState).filter { it.isNotBlank() }.joinToString(", ") },
                     phones = listOfNotNull(personPhone.takeIf { it.isNotBlank() }),
-                    address = meta["person_address"] ?: "",
+                    address = resolvedAddress,
                     source = "Multiple Sources",
-                    confidence = 0.70f
+                    confidence = 0.70f,
+                    dob = resolvedDob,
+                    akas = resolvedAkas,
+                    email = resolvedEmail,
+                    politicalAffiliation = meta["voter_party"]?.takeIf { it.isNotBlank() }
                 ))
             }
         }
@@ -2269,8 +2291,20 @@ class OsintRepository(context: Context) {
                     showSources = "all"
                 )
                 if (resp.isSuccessful && resp.body()?.person != null) {
-                    val entity = mapPiplPersonToEntity(resp.body()!!.person!!)
+                    val pipl = resp.body()!!.person!!
+                    val entity = mapPiplPersonToEntity(pipl)
                     db.personDao().insertPerson(entity)
+                    pipl.dob?.takeIf { it.isNotBlank() }?.let { meta["pipl_dob"] = it }
+                    pipl.gender?.takeIf { it.isNotBlank() }?.let { meta["pipl_gender"] = it }
+                    pipl.emails?.mapNotNull { it.address }?.filter { it.isNotBlank() }?.firstOrNull()?.let { meta["pipl_email"] = it }
+                    pipl.phones?.mapNotNull { it.display }?.filter { it.isNotBlank() }?.firstOrNull()?.let { meta["pipl_phone"] = it }
+                    pipl.originCountries?.mapNotNull { it.content }?.filter { it.isNotBlank() }?.joinToString(", ")?.takeIf { it.isNotBlank() }?.let { meta["pipl_nationalities"] = it }
+                    pipl.names?.drop(1)?.mapNotNull { it.display }?.filter { it.isNotBlank() }?.joinToString(", ")?.takeIf { it.isNotBlank() }?.let { meta["pipl_aliases"] = it }
+                    pipl.jobs?.mapNotNull { it.display }?.filter { it.isNotBlank() }?.joinToString("\n")?.takeIf { it.isNotBlank() }?.let { meta["pipl_employment"] = it }
+                    pipl.addresses?.mapNotNull { it.display }?.filter { it.isNotBlank() }?.joinToString(" | ")?.takeIf { it.isNotBlank() }?.let { meta["pipl_addresses"] = it }
+                    pipl.images?.mapNotNull { it.url }?.firstOrNull()?.takeIf { meta["profile_photo_url"].isNullOrBlank() }?.let { meta["profile_photo_url"] = it }
+                    pipl.urls?.mapNotNull { url -> url.url?.let { u -> "${url.category ?: url.domain ?: "Web"}: $u" } }?.filter { it.isNotBlank() }?.joinToString("\n")?.takeIf { it.isNotBlank() }?.let { meta["pipl_socials"] = it }
+                    pipl.relationships?.mapNotNull { rel -> rel.names?.firstOrNull()?.display }?.filter { it.isNotBlank() }?.joinToString(", ")?.takeIf { it.isNotBlank() }?.let { meta["pipl_relatives"] = it }
                     sources.add(DataSource("Pipl", null, Date(), 0.9))
                     emit(SearchProgressEvent.Found("Pipl", "Full profile found"))
                 } else {
