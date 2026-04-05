@@ -84,6 +84,7 @@ class ResultsFragment : Fragment() {
         val profileImageUrl = person?.profileImageUrl
             ?: meta["profile_photo_url"]
             ?: meta["tt_image_url"]
+            ?: meta["gravatar_url"]
             ?: avatarUrl
         binding.profileImage.load(profileImageUrl) {
             crossfade(true)
@@ -840,6 +841,24 @@ class ResultsFragment : Fragment() {
             socialLinks.forEach { (label, url) -> rows.add(label to url) }
         }
 
+        meta["comp_derived_usernames"]?.takeIf { it.isNotBlank() }?.let { unames ->
+            rows.add(sec("DERIVED USERNAME CANDIDATES"))
+            unames.split(",").map { it.trim() }.filter { it.isNotBlank() }.forEach { u ->
+                rows.add("Username Candidate" to u)
+            }
+        }
+        meta["context_search_snippets"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("CONTEXT SEARCH RESULTS"))
+            meta["context_search_titles"]?.lines()?.filter { l -> l.isNotBlank() }?.take(5)
+                ?.forEach { t -> rows.add("Context Hit" to t) }
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("Context" to s.trim()) }
+        }
+        meta["ddg_social_snippets"]?.takeIf { it.isNotBlank() }?.let {
+            val existing = meta["dork_social_results"]
+            if (existing.isNullOrBlank()) rows.add(sec("SOCIAL MEDIA TRACES"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(6).forEach { s -> rows.add("Social Trace" to s.trim()) }
+        }
+
         val pivotPhones = extractPhones(meta).take(5)
         val pivotEmails = linkedSetOf<String>()
         (meta["comp_email"] ?: meta["email"])?.takeIf { it.isNotBlank() }?.let { pivotEmails.add(it) }
@@ -1049,6 +1068,37 @@ class ResultsFragment : Fragment() {
             }
         }
         meta["otx_pulse_count"]?.let { p -> if ((p.toIntOrNull() ?: 0) > 0) rows.add("⚠ OTX Pulses" to p) }
+        val vtMalicious = meta["vt_malicious"]?.toIntOrNull() ?: 0
+        val vtHarmless = meta["vt_harmless"]?.toIntOrNull() ?: 0
+        val vtSuspicious = meta["vt_suspicious"]?.toIntOrNull() ?: 0
+        if (vtMalicious > 0 || vtHarmless > 0 || vtSuspicious > 0) {
+            rows.add(sec("VIRUSTOTAL"))
+            if (vtMalicious > 0) rows.add("⚠ Malicious Detections" to "$vtMalicious engines")
+            if (vtSuspicious > 0) rows.add("⚠ Suspicious" to "$vtSuspicious engines")
+            if (vtHarmless > 0) rows.add("Clean Detections" to "$vtHarmless engines")
+            meta["vt_reputation"]?.let { rows.add("Reputation Score" to it) }
+            meta["vt_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country" to it) }
+            meta["vt_as_owner"]?.takeIf { it.isNotBlank() }?.let { rows.add("AS Owner" to it) }
+        }
+        val urlscanTotal = meta["urlscan_total_scans"]?.toIntOrNull() ?: 0
+        val urlscanMal = meta["urlscan_malicious_scans"]?.toIntOrNull() ?: 0
+        if (urlscanTotal > 0) {
+            rows.add(sec("URLSCAN"))
+            rows.add("Total Scans" to urlscanTotal.toString())
+            if (urlscanMal > 0) rows.add("⚠ Malicious Scans" to urlscanMal.toString())
+            meta["urlscan_ips"]?.takeIf { it.isNotBlank() }?.let { rows.add("IPs Observed" to it) }
+        }
+        meta["maltiverse_classification"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("MALTIVERSE"))
+            rows.add("Classification" to it)
+            meta["maltiverse_as_name"]?.takeIf { it.isNotBlank() }?.let { n -> rows.add("AS Name" to n) }
+            meta["maltiverse_blacklists"]?.takeIf { it.isNotBlank() }?.let { b -> rows.add("⚠ Blacklists" to b) }
+        }
+        meta["urlhaus_status"]?.takeIf { it.isNotBlank() }?.let { status ->
+            rows.add(sec("URLHAUS"))
+            rows.add("Status" to status)
+            meta["urlhaus_urls_count"]?.let { rows.add("URLs on Record" to it) }
+        }
         if (rows.isEmpty()) rows.add("Status" to "No threat intel found for this IP")
         return rows
     }
@@ -1071,6 +1121,13 @@ class ResultsFragment : Fragment() {
         meta["wayback_last"]?.takeIf { it.isNotBlank() }?.let { rows.add("Last Archived" to it) }
         meta["hackertarget_hostsearch"]?.takeIf { it.isNotBlank() }?.let {
             it.lines().filter { l -> l.isNotBlank() }.take(10).forEach { line -> rows.add("Host" to line) }
+        }
+        val domainsDbTotal = meta["domainsdb_total"]?.toIntOrNull() ?: 0
+        meta["domainsdb_domains"]?.takeIf { it.isNotBlank() }?.let { domains ->
+            rows.add(sec("RELATED DOMAINS (DomainsDB)"))
+            if (domainsDbTotal > 0) rows.add("Total Found" to domainsDbTotal.toString())
+            domains.split(",").map { it.trim() }.filter { it.isNotBlank() }.take(10)
+                .forEach { d -> rows.add("Domain" to d) }
         }
         if (rows.size <= 3) rows.add("Status" to "No domain registration data found")
         return rows
