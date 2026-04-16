@@ -430,3 +430,159 @@ data class BingResult(
     val snippet: String? = null,
     val displayUrl: String? = null
 )
+
+interface BGPViewService {
+    @GET("ip/{ip}")
+    suspend fun ipLookup(@Path("ip") ip: String): Response<BGPViewIpResponse>
+
+    @GET("asn/{asn}")
+    suspend fun asnLookup(@Path("asn") asn: String): Response<BGPViewAsnResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class BGPViewIpResponse(
+    val status: String? = null,
+    val data: BGPViewIpData? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BGPViewIpData(
+    val ip: String? = null,
+    val prefixes: List<BGPViewPrefix>? = null,
+    @Json(name = "rir_allocation") val rirAllocation: BGPViewRir? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BGPViewPrefix(
+    val prefix: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    val country_code: String? = null,
+    val asn: BGPViewAsn? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BGPViewAsn(
+    val asn: Int? = null,
+    val name: String? = null,
+    val description: String? = null,
+    val country_code: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BGPViewRir(
+    val rir_name: String? = null,
+    val country_code: String? = null,
+    val allocation_status: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BGPViewAsnResponse(
+    val status: String? = null,
+    val data: BGPViewAsnData? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class BGPViewAsnData(
+    val asn: Int? = null,
+    val name: String? = null,
+    val description_short: String? = null,
+    val country_code: String? = null,
+    val email_contacts: List<String>? = null,
+    val abuse_contacts: List<String>? = null,
+    val looking_glass: String? = null
+)
+
+interface IPinfoService {
+    @GET("{ip}/json")
+    suspend fun lookup(@Path("ip") ip: String): Response<IPinfoResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class IPinfoResponse(
+    val ip: String? = null,
+    val hostname: String? = null,
+    val city: String? = null,
+    val region: String? = null,
+    val country: String? = null,
+    val org: String? = null,
+    val postal: String? = null,
+    val timezone: String? = null
+)
+
+interface SecurityTrailsService {
+    @GET("v1/domain/{domain}/dns/history/a")
+    suspend fun dnsHistory(
+        @Path("domain") domain: String,
+        @Header("APIKEY") apiKey: String
+    ): Response<SecurityTrailsDnsResponse>
+
+    @GET("v1/domain/{domain}/subdomains")
+    suspend fun subdomains(
+        @Path("domain") domain: String,
+        @Header("APIKEY") apiKey: String
+    ): Response<SecurityTrailsSubdomainsResponse>
+
+    @GET("v1/domain/{domain}/whois")
+    suspend fun whois(
+        @Path("domain") domain: String,
+        @Header("APIKEY") apiKey: String
+    ): Response<SecurityTrailsWhoisResponse>
+}
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsDnsResponse(
+    val type: String? = null,
+    val records: List<SecurityTrailsDnsRecord>? = null,
+    val pages: Int? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsDnsRecord(
+    val first_seen: String? = null,
+    val last_seen: String? = null,
+    val values: List<SecurityTrailsDnsValue>? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsDnsValue(
+    val ip: String? = null,
+    val ip_count: Int? = null,
+    val ip_organization: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsSubdomainsResponse(
+    val endpoint: String? = null,
+    val meta: SecurityTrailsMeta? = null,
+    val subdomains: List<String>? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsMeta(
+    val limit_reached: Boolean? = null,
+    val total_pages: Int? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsWhoisResponse(
+    val registrar: SecurityTrailsRegistrar? = null,
+    val registrant: SecurityTrailsContact? = null,
+    val expires: String? = null,
+    val registered: String? = null,
+    val updated: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsRegistrar(
+    val name: String? = null,
+    val email: String? = null
+)
+
+@JsonClass(generateAdapter = false)
+data class SecurityTrailsContact(
+    val name: String? = null,
+    val organization: String? = null,
+    val country: String? = null,
+    val email: String? = null
+)

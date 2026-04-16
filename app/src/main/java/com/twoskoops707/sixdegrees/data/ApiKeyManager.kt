@@ -84,13 +84,63 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("hashes_org", "") ?: ""
         set(v) { prefs.edit().putString("hashes_org", v).apply() }
 
+    var securityTrailsKey: String
+        get() = prefs.getString("securitytrails", "") ?: ""
+        set(v) { prefs.edit().putString("securitytrails", v).apply() }
+
+    var censysId: String
+        get() = prefs.getString("censys_id", "") ?: ""
+        set(v) { prefs.edit().putString("censys_id", v).apply() }
+
+    var censysSecret: String
+        get() = prefs.getString("censys_secret", "") ?: ""
+        set(v) { prefs.edit().putString("censys_secret", v).apply() }
+
+    var criminalIpKey: String
+        get() = prefs.getString("criminalip", "") ?: ""
+        set(v) { prefs.edit().putString("criminalip", v).apply() }
+
+    var netlasKey: String
+        get() = prefs.getString("netlas", "") ?: ""
+        set(v) { prefs.edit().putString("netlas", v).apply() }
+
+    var abstractApiEmailKey: String
+        get() = prefs.getString("abstractapi_email", "") ?: ""
+        set(v) { prefs.edit().putString("abstractapi_email", v).apply() }
+
+    var abstractApiPhoneKey: String
+        get() = prefs.getString("abstractapi_phone", "") ?: ""
+        set(v) { prefs.edit().putString("abstractapi_phone", v).apply() }
+
+    var dehashed: String
+        get() = prefs.getString("dehashed", "") ?: ""
+        set(v) { prefs.edit().putString("dehashed", v).apply() }
+
+    var dehashedUser: String
+        get() = prefs.getString("dehashed_user", "") ?: ""
+        set(v) { prefs.edit().putString("dehashed_user", v).apply() }
+
+    var leakixKey: String
+        get() = prefs.getString("leakix", "") ?: ""
+        set(v) { prefs.edit().putString("leakix", v).apply() }
+
+    var intelxKey: String
+        get() = prefs.getString("intelx", "") ?: ""
+        set(v) { prefs.edit().putString("intelx", v).apply() }
+
+    var wigleKey: String
+        get() = prefs.getString("wigle", "") ?: ""
+        set(v) { prefs.edit().putString("wigle", v).apply() }
+
     fun getRawForDisplay(prefKey: String): String = prefs.getString(prefKey, "") ?: ""
 
     fun hasAnyKey(): Boolean = true
 
     fun activeKeyCount(): Int = listOf(
         hibpKey, hunterKey, pdlKey, numverifyKey, shodanKey,
-        virusTotalKey, abuseIpDbKey, urlScanKey, clearbitKey, builtWithKey
+        virusTotalKey, abuseIpDbKey, urlScanKey, clearbitKey, builtWithKey,
+        securityTrailsKey, censysId, criminalIpKey, netlasKey,
+        abstractApiEmailKey, abstractApiPhoneKey, leakixKey, intelxKey, wigleKey
     ).count { it.isNotBlank() }
 
     private fun monthKey(apiName: String): String {
@@ -129,9 +179,20 @@ class ApiKeyManager(context: Context) {
         ApiUsageSummary("EmailRep.io", getMonthlyUsage("emailrep"), 250, isUnlimited = false),
         ApiUsageSummary("HackerTarget", getMonthlyUsage("hackertarget"), 50, isUnlimited = false),
         ApiUsageSummary("AlienVault OTX", getMonthlyUsage("otx"), 1000, isUnlimited = false),
+        ApiUsageSummary("SecurityTrails", getMonthlyUsage("securitytrails"), 50, isUnlimited = securityTrailsKey.isBlank()),
+        ApiUsageSummary("Censys", getMonthlyUsage("censys"), 250, isUnlimited = censysId.isBlank()),
+        ApiUsageSummary("CriminalIP", getMonthlyUsage("criminalip"), 100, isUnlimited = criminalIpKey.isBlank()),
+        ApiUsageSummary("AbstractAPI Email", getMonthlyUsage("abstractapi_email"), 100, isUnlimited = abstractApiEmailKey.isBlank()),
+        ApiUsageSummary("AbstractAPI Phone", getMonthlyUsage("abstractapi_phone"), 500, isUnlimited = abstractApiPhoneKey.isBlank()),
+        ApiUsageSummary("LeakIX", getMonthlyUsage("leakix"), 1000, isUnlimited = leakixKey.isBlank()),
+        ApiUsageSummary("IntelX", getMonthlyUsage("intelx"), 500, isUnlimited = intelxKey.isBlank()),
         ApiUsageSummary("IP-API.com", getMonthlyUsage("ipapi"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("Wayback CDX", getMonthlyUsage("wayback"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("crt.sh", getMonthlyUsage("crtsh"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("BGPView", getMonthlyUsage("bgpview"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("IPinfo", getMonthlyUsage("ipinfo"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("ThreatFox", getMonthlyUsage("threatfox"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("MalwareBazaar", getMonthlyUsage("malwarebazaar"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("CourtListener", getMonthlyUsage("courtlistener"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("OpenCorporates", getMonthlyUsage("opencorporates"), Int.MAX_VALUE, isUnlimited = true)
     )

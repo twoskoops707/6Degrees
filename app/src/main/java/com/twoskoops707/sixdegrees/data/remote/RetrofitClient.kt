@@ -109,4 +109,16 @@ object RetrofitClient {
     val bingSearchService: BingWebSearchService by lazy {
         create("https://api.bing.microsoft.com/").create(BingWebSearchService::class.java)
     }
+
+    val bgpViewService: BGPViewService by lazy {
+        create("https://api.bgpview.io/").create(BGPViewService::class.java)
+    }
+
+    val ipInfoService: IPinfoService by lazy {
+        create("https://ipinfo.io/").create(IPinfoService::class.java)
+    }
+
+    val securityTrailsService: SecurityTrailsService by lazy {
+        create("https://api.securitytrails.com/").create(SecurityTrailsService::class.java)
+    }
 }

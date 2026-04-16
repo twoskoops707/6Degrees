@@ -108,6 +108,18 @@ class ApiSettingsFragment : Fragment() {
                 "ipqs", "ipqualityscore" -> { apiKeyManager.ipqsKey = v; count++ }
                 "fullcontact" -> { apiKeyManager.fullcontactKey = v; count++ }
                 "hashes_org", "hashesorg" -> { apiKeyManager.hashesOrgKey = v; count++ }
+                "securitytrails" -> { apiKeyManager.securityTrailsKey = v; count++ }
+                "censys_id" -> { apiKeyManager.censysId = v; count++ }
+                "censys_secret" -> { apiKeyManager.censysSecret = v; count++ }
+                "criminalip" -> { apiKeyManager.criminalIpKey = v; count++ }
+                "netlas" -> { apiKeyManager.netlasKey = v; count++ }
+                "abstractapi_email" -> { apiKeyManager.abstractApiEmailKey = v; count++ }
+                "abstractapi_phone" -> { apiKeyManager.abstractApiPhoneKey = v; count++ }
+                "leakix" -> { apiKeyManager.leakixKey = v; count++ }
+                "intelx" -> { apiKeyManager.intelxKey = v; count++ }
+                "dehashed" -> { apiKeyManager.dehashed = v; count++ }
+                "dehashed_user" -> { apiKeyManager.dehashedUser = v; count++ }
+                "wigle" -> { apiKeyManager.wigleKey = v; count++ }
             }
         }
         if (count > 0) {
@@ -139,7 +151,17 @@ class ApiSettingsFragment : Fragment() {
             "veriphone" to apiKeyManager.veriphoneKey,
             "ipqs" to apiKeyManager.ipqsKey,
             "fullcontact" to apiKeyManager.fullcontactKey,
-            "hashes_org" to apiKeyManager.hashesOrgKey
+            "hashes_org" to apiKeyManager.hashesOrgKey,
+            "securitytrails" to apiKeyManager.securityTrailsKey,
+            "censys_id" to apiKeyManager.censysId,
+            "censys_secret" to apiKeyManager.censysSecret,
+            "criminalip" to apiKeyManager.criminalIpKey,
+            "netlas" to apiKeyManager.netlasKey,
+            "abstractapi_email" to apiKeyManager.abstractApiEmailKey,
+            "abstractapi_phone" to apiKeyManager.abstractApiPhoneKey,
+            "leakix" to apiKeyManager.leakixKey,
+            "intelx" to apiKeyManager.intelxKey,
+            "wigle" to apiKeyManager.wigleKey
         ).forEach { (name, key) ->
             sb.appendLine("$name,$key")
         }
@@ -173,7 +195,14 @@ class ApiSettingsFragment : Fragment() {
         "Hunter.io" to "https://hunter.io/users/sign_up",
         "People Data Labs" to "https://www.peopledatalabs.com/signup",
         "Numverify" to "https://numverify.com/product",
-        "Shodan" to "https://account.shodan.io/register"
+        "Shodan" to "https://account.shodan.io/register",
+        "SecurityTrails" to "https://securitytrails.com/app/account",
+        "Censys" to "https://accounts.censys.io/register",
+        "CriminalIP" to "https://www.criminalip.io/user/signup",
+        "Netlas" to "https://app.netlas.io/registration/",
+        "AbstractAPI" to "https://app.abstractapi.com/users/signup",
+        "LeakIX" to "https://leakix.net/register",
+        "IntelX" to "https://intelx.io/?signup"
     )
 
     private fun buildQueueJson(apis: List<Pair<String, String>>): String =
@@ -306,6 +335,15 @@ class ApiSettingsFragment : Fragment() {
         binding.urlscanApiKeyInput.setText(apiKeyManager.getRawForDisplay("urlscan"))
         binding.clearbitApiKeyInput.setText(apiKeyManager.clearbitKey)
         binding.builtwithApiKeyInput.setText(apiKeyManager.builtWithKey)
+        binding.securitytrailsApiKeyInput.setText(apiKeyManager.securityTrailsKey)
+        binding.censysIdInput.setText(apiKeyManager.censysId)
+        binding.censysSecretInput.setText(apiKeyManager.censysSecret)
+        binding.criminalipApiKeyInput.setText(apiKeyManager.criminalIpKey)
+        binding.netlasApiKeyInput.setText(apiKeyManager.netlasKey)
+        binding.abstractapiEmailApiKeyInput.setText(apiKeyManager.abstractApiEmailKey)
+        binding.abstractapiPhoneApiKeyInput.setText(apiKeyManager.abstractApiPhoneKey)
+        binding.leakixApiKeyInput.setText(apiKeyManager.leakixKey)
+        binding.intelxApiKeyInput.setText(apiKeyManager.intelxKey)
     }
 
     private fun saveApiKeys() {
@@ -327,6 +365,15 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.urlScanKey = binding.urlscanApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.clearbitKey = binding.clearbitApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.builtWithKey = binding.builtwithApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.securityTrailsKey = binding.securitytrailsApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.censysId = binding.censysIdInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.censysSecret = binding.censysSecretInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.criminalIpKey = binding.criminalipApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.netlasKey = binding.netlasApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.abstractApiEmailKey = binding.abstractapiEmailApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.abstractApiPhoneKey = binding.abstractapiPhoneApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.leakixKey = binding.leakixApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.intelxKey = binding.intelxApiKeyInput.text?.toString()?.trim() ?: ""
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()
     }
 

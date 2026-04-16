@@ -165,7 +165,42 @@ class OsintRepository(context: Context) {
         "Bumble" to "https://bumble.com/en/profile/{u}",
         "Ashley Madison" to "https://www.ashleymadison.com/profile/{u}",
         "Seeking" to "https://seeking.com/dating/{u}",
-        "FurAffinity" to "https://www.furaffinity.net/user/{u}/"
+        "FurAffinity" to "https://www.furaffinity.net/user/{u}/",
+        "Truth Social" to "https://truthsocial.com/@{u}",
+        "Gab" to "https://gab.com/{u}",
+        "MeWe" to "https://mewe.com/i/{u}",
+        "Parler" to "https://parler.com/{u}",
+        "Fiverr" to "https://www.fiverr.com/{u}",
+        "Upwork" to "https://www.upwork.com/freelancers/~{u}",
+        "StackOverflow" to "https://stackoverflow.com/users/{u}",
+        "HackerRank" to "https://www.hackerrank.com/{u}",
+        "Topcoder" to "https://www.topcoder.com/members/{u}",
+        "Roblox" to "https://www.roblox.com/user.aspx?username={u}",
+        "Hashnode" to "https://hashnode.com/@{u}",
+        "Quora" to "https://www.quora.com/profile/{u}",
+        "Clubhouse" to "https://www.clubhouse.com/@{u}",
+        "Foursquare" to "https://foursquare.com/{u}",
+        "Mix" to "https://mix.com/{u}",
+        "Trello" to "https://trello.com/{u}",
+        "DockerHub" to "https://hub.docker.com/u/{u}",
+        "npm" to "https://www.npmjs.com/~{u}",
+        "PyPI" to "https://pypi.org/user/{u}/",
+        "RubyGems" to "https://rubygems.org/profiles/{u}",
+        "Disqus" to "https://disqus.com/by/{u}/",
+        "Twitch Clips" to "https://www.twitch.tv/{u}/clips",
+        "Kick" to "https://kick.com/{u}",
+        "Rumble" to "https://rumble.com/user/{u}",
+        "Newgrounds" to "https://www.newgrounds.com/passport/{u}",
+        "Kongregate" to "https://www.kongregate.com/accounts/{u}",
+        "GameJolt" to "https://gamejolt.com/@{u}",
+        "itch.io" to "https://{u}.itch.io",
+        "Speedrun.com" to "https://www.speedrun.com/users/{u}",
+        "Poshmark" to "https://poshmark.com/closet/{u}",
+        "Depop" to "https://www.depop.com/{u}",
+        "Vinted" to "https://www.vinted.com/member/{u}",
+        "StockX" to "https://stockx.com/{u}",
+        "Giant Bomb" to "https://www.giantbomb.com/{u}/",
+        "IMDb" to "https://www.imdb.com/search/name/?bio={u}"
     )
 
     private val nsfwSites = setOf(
@@ -1083,6 +1118,160 @@ class OsintRepository(context: Context) {
             }
         }
 
+        val abstractEmailKey = apiKeyManager.abstractApiEmailKey
+        if (abstractEmailKey.isNotBlank()) {
+            emit(SearchProgressEvent.Checking("AbstractAPI Email"))
+            try {
+                val encoded = URLEncoder.encode(email, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://emailvalidation.abstractapi.com/v1/?api_key=$abstractEmailKey&email=$encoded")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val deliverability = Regex("\"deliverability\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                if (deliverability.isNotBlank()) {
+                    apiKeyManager.recordUsage("abstractapi_email")
+                    val isValidFormat = Regex("\"is_valid_format\":\\s*\\{[^}]*\"value\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                    val isFree = Regex("\"is_free_email\":\\s*\\{[^}]*\"value\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                    val isDisposable = Regex("\"is_disposable_email\":\\s*\\{[^}]*\"value\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                    val isRoleEmail = Regex("\"is_role_email\":\\s*\\{[^}]*\"value\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                    val smtpCheck = Regex("\"is_smtp_valid\":\\s*\\{[^}]*\"value\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                    meta["abstractapi_deliverability"] = deliverability
+                    if (isDisposable == "true") meta["abstractapi_disposable"] = "true"
+                    if (isRoleEmail == "true") meta["abstractapi_role_email"] = "true"
+                    if (isFree != null) meta["abstractapi_free_provider"] = isFree
+                    sources.add(DataSource("AbstractAPI Email", null, Date(), 0.85))
+                    emit(SearchProgressEvent.Found("AbstractAPI Email",
+                        buildString {
+                            append("Deliverability: $deliverability")
+                            if (smtpCheck == "false") append(" · SMTP invalid")
+                            if (isDisposable == "true") append(" · Disposable")
+                            if (isRoleEmail == "true") append(" · Role email")
+                        }
+                    ))
+                } else {
+                    emit(SearchProgressEvent.NotFound("AbstractAPI Email"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("AbstractAPI Email", e.message ?: ""))
+            }
+        }
+
+        emit(SearchProgressEvent.Checking("Disify"))
+        try {
+            val domain = email.substringAfter("@").trim()
+            if (domain.isNotBlank()) {
+                val req = Request.Builder()
+                    .url("https://www.disify.com/api/email/$email")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val format = Regex("\"format\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                val isDisposable = Regex("\"disposable\":\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull()
+                val dns = Regex("\"dns\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                if (format != null) {
+                    if (isDisposable != null) meta["disify_disposable"] = isDisposable.toString()
+                    if (dns != null) meta["disify_dns"] = dns
+                    sources.add(DataSource("Disify", null, Date(), 0.75))
+                    emit(SearchProgressEvent.Found("Disify",
+                        buildString {
+                            if (isDisposable == true) append("DISPOSABLE email provider")
+                            else append("Not disposable")
+                            if (dns == "false") append(" · No MX/DNS record")
+                        }
+                    ))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Disify"))
+                }
+            } else {
+                emit(SearchProgressEvent.NotFound("Disify"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("Disify", e.message ?: ""))
+        }
+
+        emit(SearchProgressEvent.Checking("MailCheck.ai"))
+        try {
+            val domain = email.substringAfter("@").trim()
+            if (domain.isNotBlank()) {
+                val req = Request.Builder()
+                    .url("https://api.mailcheck.ai/email/$email")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = fastHttpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val disposable = Regex("\"disposable\":\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull()
+                val mx = Regex("\"mx\":\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull()
+                val alias = Regex("\"alias\":\\s*(true|false)").find(body)?.groupValues?.get(1)?.toBooleanStrictOrNull()
+                if (disposable != null) {
+                    if (disposable) meta["mailcheck_disposable"] = "true"
+                    if (alias != null) meta["mailcheck_alias"] = alias.toString()
+                    if (mx != null) meta["mailcheck_mx"] = mx.toString()
+                    sources.add(DataSource("MailCheck.ai", null, Date(), 0.75))
+                    emit(SearchProgressEvent.Found("MailCheck.ai",
+                        buildString {
+                            if (disposable) append("DISPOSABLE/throwaway")
+                            else append("Not disposable")
+                            if (alias == true) append(" · Alias/forwarding")
+                            if (mx == false) append(" · No MX record")
+                        }
+                    ))
+                } else {
+                    emit(SearchProgressEvent.NotFound("MailCheck.ai"))
+                }
+            } else {
+                emit(SearchProgressEvent.NotFound("MailCheck.ai"))
+            }
+        } catch (e: Exception) {
+            emit(SearchProgressEvent.Failed("MailCheck.ai", e.message ?: ""))
+        }
+
+        val intelxApiKey = apiKeyManager.intelxKey
+        if (intelxApiKey.isNotBlank()) {
+            emit(SearchProgressEvent.Checking("IntelX"))
+            try {
+                val searchBody = """{"term":"$email","buckets":[],"lookuplevel":0,"maxresults":10,"timeout":0,"datefrom":"","dateto":"","sort":2,"media":0,"terminate":[]}"""
+                    .toRequestBody("application/json".toMediaType())
+                val searchReq = Request.Builder()
+                    .url("https://2.intelx.io/intelligent/search")
+                    .post(searchBody)
+                    .addHeader("x-key", intelxApiKey)
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val searchResp = httpClient.newCall(searchReq).execute()
+                val searchResult = searchResp.body?.string() ?: ""; searchResp.close()
+                val searchId = Regex("\"id\":\\s*\"([^\"]+)\"").find(searchResult)?.groupValues?.get(1)
+                if (!searchId.isNullOrBlank()) {
+                    delay(2000)
+                    val resultReq = Request.Builder()
+                        .url("https://2.intelx.io/intelligent/search/result?id=$searchId&limit=10&offset=0")
+                        .addHeader("x-key", intelxApiKey)
+                        .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                        .build()
+                    val resultResp = httpClient.newCall(resultReq).execute()
+                    val resultBody = resultResp.body?.string() ?: ""; resultResp.close()
+                    val total = Regex("\"total\":\\s*(\\d+)").find(resultBody)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val buckets = Regex("\"name\":\\s*\"([^\"]+)\"").findAll(resultBody).map { it.groupValues[1] }.distinct().take(5).toList()
+                    if (total > 0 || buckets.isNotEmpty()) {
+                        apiKeyManager.recordUsage("intelx")
+                        meta["intelx_total"] = total.toString()
+                        if (buckets.isNotEmpty()) meta["intelx_sources"] = buckets.joinToString(", ")
+                        sources.add(DataSource("IntelX", null, Date(), 0.9))
+                        emit(SearchProgressEvent.Found("IntelX",
+                            "$total record${if (total != 1) "s" else ""} found${if (buckets.isNotEmpty()) ": ${buckets.take(3).joinToString(", ")}" else ""}"))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("IntelX"))
+                    }
+                } else {
+                    emit(SearchProgressEvent.NotFound("IntelX"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("IntelX", e.message ?: ""))
+            }
+        }
+
         val holeheBin = "/data/data/com.termux/files/usr/bin/holehe"
         emit(SearchProgressEvent.Checking("Holehe"))
         val holeheOut = "/storage/emulated/0/.6degrees/.6d_holehe_out.txt"
@@ -1288,6 +1477,50 @@ class OsintRepository(context: Context) {
             }
         } catch (e: Exception) {
             emit(SearchProgressEvent.Failed("Phone Reverse Lookup", e.message ?: ""))
+        }
+
+        val abstractPhoneKey = apiKeyManager.abstractApiPhoneKey
+        if (abstractPhoneKey.isNotBlank()) {
+            emit(SearchProgressEvent.Checking("AbstractAPI Phone"))
+            try {
+                val encoded = URLEncoder.encode(phone, "UTF-8")
+                val req = Request.Builder()
+                    .url("https://phonevalidation.abstractapi.com/v1/?api_key=$abstractPhoneKey&phone=$encoded")
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val valid = Regex("\"valid\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+                if (valid != null) {
+                    apiKeyManager.recordUsage("abstractapi_phone")
+                    val country = Regex("\"country\":\\s*\\{[^}]*\"name\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val carrier = Regex("\"carrier\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val lineType = Regex("\"type\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                    val intl = Regex("\"international_format\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: phone
+                    if (valid == "true") {
+                        meta["abstractapi_phone_valid"] = "true"
+                        if (country.isNotBlank()) meta["abstractapi_phone_country"] = country
+                        if (carrier.isNotBlank()) meta["abstractapi_phone_carrier"] = carrier
+                        if (lineType.isNotBlank()) meta["abstractapi_phone_type"] = lineType
+                        meta["abstractapi_phone_intl"] = intl
+                        sources.add(DataSource("AbstractAPI Phone", null, Date(), 0.85))
+                        emit(SearchProgressEvent.Found("AbstractAPI Phone",
+                            buildString {
+                                if (country.isNotBlank()) append(country)
+                                if (carrier.isNotBlank()) { if (isNotEmpty()) append(" · "); append(carrier) }
+                                if (lineType.isNotBlank()) { if (isNotEmpty()) append(" · "); append(lineType) }
+                            }.ifBlank { "Valid: $valid" }
+                        ))
+                    } else {
+                        meta["abstractapi_phone_valid"] = "false"
+                        emit(SearchProgressEvent.NotFound("AbstractAPI Phone"))
+                    }
+                } else {
+                    emit(SearchProgressEvent.NotFound("AbstractAPI Phone"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("AbstractAPI Phone", e.message ?: ""))
+            }
         }
 
         emit(SearchProgressEvent.Checking("Phone Dork Search"))
@@ -2297,6 +2530,292 @@ class OsintRepository(context: Context) {
                     }
                 } catch (e: Exception) {
                     emit(SearchProgressEvent.Failed("RDAP", e.message ?: ""))
+                }
+            }
+
+            val stKey = apiKeyManager.securityTrailsKey
+            if (stKey.isNotBlank()) {
+                launch {
+                    emit(SearchProgressEvent.Checking("SecurityTrails"))
+                    try {
+                        val resp = RetrofitClient.securityTrailsService.subdomains(query, stKey)
+                        if (resp.isSuccessful && resp.body() != null) {
+                            apiKeyManager.recordUsage("securitytrails")
+                            val subs = resp.body()!!.subdomains ?: emptyList()
+                            meta["securitytrails_subdomains"] = subs.take(30).joinToString(", ")
+                            meta["securitytrails_sub_count"] = subs.size.toString()
+                            sources.add(DataSource("SecurityTrails", "https://securitytrails.com/domain/$query/dns", Date(), 0.9))
+                            emit(SearchProgressEvent.Found("SecurityTrails",
+                                "${subs.size} subdomain${if (subs.size != 1) "s" else ""}${if (subs.isNotEmpty()) ": ${subs.take(3).joinToString(", ")}" else ""}"))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("SecurityTrails"))
+                        }
+                    } catch (e: Exception) {
+                        emit(SearchProgressEvent.Failed("SecurityTrails", e.message ?: ""))
+                    }
+                }
+            }
+
+            launch {
+                emit(SearchProgressEvent.Checking("ThreatMiner Domain"))
+                try {
+                    val req = Request.Builder()
+                        .url("https://api.threatminer.org/v2/domain.php?q=$query&rt=2")
+                        .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                        .build()
+                    val resp = fastHttpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    val status = Regex("\"status_code\":\\s*\"(\\d+)\"").find(body)?.groupValues?.get(1) ?: "0"
+                    if (status == "200") {
+                        val ips = Regex("\"ip\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(10).toList()
+                        val dates = Regex("\"last_analyzed\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].take(10) }.take(3).toList()
+                        if (ips.isNotEmpty()) {
+                            meta["threatminer_ips"] = ips.joinToString(", ")
+                            sources.add(DataSource("ThreatMiner", null, Date(), 0.75))
+                            emit(SearchProgressEvent.Found("ThreatMiner Domain",
+                                "${ips.size} historic IP${if (ips.size != 1) "s" else ""}: ${ips.take(3).joinToString(", ")}"))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("ThreatMiner Domain"))
+                        }
+                    } else {
+                        emit(SearchProgressEvent.NotFound("ThreatMiner Domain"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("ThreatMiner Domain", e.message ?: ""))
+                }
+            }
+        }
+
+        if (isIp) {
+            launch {
+                emit(SearchProgressEvent.Checking("BGPView"))
+                try {
+                    val resp = RetrofitClient.bgpViewService.ipLookup(query)
+                    if (resp.isSuccessful && resp.body()?.status == "ok") {
+                        apiKeyManager.recordUsage("bgpview")
+                        val data = resp.body()!!.data
+                        val prefix = data?.prefixes?.firstOrNull()
+                        val asn = prefix?.asn
+                        val prefixStr = prefix?.prefix ?: ""
+                        val asnNum = asn?.asn?.toString() ?: ""
+                        val asnName = asn?.name ?: asn?.description ?: ""
+                        val country = asn?.country_code ?: data?.rirAllocation?.country_code ?: ""
+                        if (asnNum.isNotBlank()) meta["bgpview_asn"] = "AS$asnNum"
+                        if (asnName.isNotBlank()) meta["bgpview_asn_name"] = asnName
+                        if (prefixStr.isNotBlank()) meta["bgpview_prefix"] = prefixStr
+                        if (country.isNotBlank()) meta["bgpview_country"] = country
+                        sources.add(DataSource("BGPView", "https://bgpview.io/ip/$query", Date(), 0.85))
+                        emit(SearchProgressEvent.Found("BGPView",
+                            buildString {
+                                if (asnNum.isNotBlank()) append("AS$asnNum")
+                                if (asnName.isNotBlank()) { if (isNotEmpty()) append(" · "); append(asnName) }
+                                if (prefixStr.isNotBlank()) { if (isNotEmpty()) append(" · "); append(prefixStr) }
+                                if (country.isNotBlank()) { if (isNotEmpty()) append(" · "); append(country) }
+                            }.ifBlank { "BGP data found" }
+                        ))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("BGPView"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("BGPView", e.message ?: ""))
+                }
+            }
+
+            launch {
+                emit(SearchProgressEvent.Checking("ThreatMiner IP"))
+                try {
+                    val req = Request.Builder()
+                        .url("https://api.threatminer.org/v2/host.php?q=$query&rt=2")
+                        .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                        .build()
+                    val resp = fastHttpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    val status = Regex("\"status_code\":\\s*\"(\\d+)\"").find(body)?.groupValues?.get(1) ?: "0"
+                    if (status == "200") {
+                        val uris = Regex("\"uri\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(8).toList()
+                        if (uris.isNotEmpty()) {
+                            meta["threatminer_uris"] = uris.joinToString(", ")
+                            sources.add(DataSource("ThreatMiner", null, Date(), 0.75))
+                            emit(SearchProgressEvent.Found("ThreatMiner IP",
+                                "${uris.size} URI${if (uris.size != 1) "s" else ""} tracked"))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("ThreatMiner IP"))
+                        }
+                    } else {
+                        emit(SearchProgressEvent.NotFound("ThreatMiner IP"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("ThreatMiner IP", e.message ?: ""))
+                }
+            }
+
+            val crimKey = apiKeyManager.criminalIpKey
+            if (crimKey.isNotBlank()) {
+                launch {
+                    emit(SearchProgressEvent.Checking("CriminalIP"))
+                    try {
+                        val req = Request.Builder()
+                            .url("https://api.criminalip.io/v1/asset/ip/report?ip=$query")
+                            .addHeader("x-api-key", crimKey)
+                            .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                            .build()
+                        val resp = httpClient.newCall(req).execute()
+                        val body = resp.body?.string() ?: ""; resp.close()
+                        if (resp.isSuccessful && body.isNotBlank()) {
+                            apiKeyManager.recordUsage("criminalip")
+                            val score = Regex("\"inbound_score\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                            val country = Regex("\"country\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                            val isMalicious = Regex("\"is_malicious\":\\s*true").containsMatchIn(body)
+                            val openPorts = Regex("\"open_port_no\":\\s*(\\d+)").findAll(body).map { it.groupValues[1].toIntOrNull() ?: 0 }.toList()
+                            val vpn = Regex("\"is_vpn\":\\s*true").containsMatchIn(body)
+                            meta["criminalip_score"] = score.toString()
+                            if (country.isNotBlank()) meta["criminalip_country"] = country
+                            if (isMalicious) meta["criminalip_malicious"] = "true"
+                            if (openPorts.isNotEmpty()) meta["criminalip_ports"] = openPorts.take(10).joinToString(", ")
+                            if (vpn) meta["criminalip_vpn"] = "true"
+                            sources.add(DataSource("CriminalIP", null, Date(), 0.9))
+                            emit(SearchProgressEvent.Found("CriminalIP",
+                                buildString {
+                                    append("Score: $score")
+                                    if (isMalicious) append(" · ⚠ MALICIOUS")
+                                    if (vpn) append(" · VPN")
+                                    if (country.isNotBlank()) { append(" · "); append(country) }
+                                    if (openPorts.isNotEmpty()) append(" · ${openPorts.size} open ports")
+                                }
+                            ))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("CriminalIP"))
+                        }
+                    } catch (e: Exception) {
+                        emit(SearchProgressEvent.Failed("CriminalIP", e.message ?: ""))
+                    }
+                }
+            }
+
+            val netlasKey = apiKeyManager.netlasKey
+            if (netlasKey.isNotBlank()) {
+                launch {
+                    emit(SearchProgressEvent.Checking("Netlas"))
+                    try {
+                        val req = Request.Builder()
+                            .url("https://app.netlas.io/api/ip/?q=ip:$query&fields=ip,port,protocol,banner")
+                            .addHeader("X-API-Key", netlasKey)
+                            .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                            .build()
+                        val resp = httpClient.newCall(req).execute()
+                        val body = resp.body?.string() ?: ""; resp.close()
+                        if (resp.isSuccessful && body.isNotBlank()) {
+                            apiKeyManager.recordUsage("netlas")
+                            val total = Regex("\"count\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                            val ports = Regex("\"port\":\\s*(\\d+)").findAll(body).map { it.groupValues[1] }.distinct().take(10).toList()
+                            val protocols = Regex("\"protocol\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(6).toList()
+                            if (total > 0 || ports.isNotEmpty()) {
+                                if (ports.isNotEmpty()) meta["netlas_ports"] = ports.joinToString(", ")
+                                if (protocols.isNotEmpty()) meta["netlas_protocols"] = protocols.joinToString(", ")
+                                sources.add(DataSource("Netlas", null, Date(), 0.85))
+                                emit(SearchProgressEvent.Found("Netlas",
+                                    buildString {
+                                        if (ports.isNotEmpty()) append("${ports.size} port${if (ports.size != 1) "s" else ""}: ${ports.joinToString(", ")}")
+                                        if (protocols.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(protocols.joinToString(", ")) }
+                                    }.ifBlank { "$total records" }
+                                ))
+                            } else {
+                                emit(SearchProgressEvent.NotFound("Netlas"))
+                            }
+                        } else {
+                            emit(SearchProgressEvent.NotFound("Netlas"))
+                        }
+                    } catch (e: Exception) {
+                        emit(SearchProgressEvent.Failed("Netlas", e.message ?: ""))
+                    }
+                }
+            }
+        }
+
+        launch {
+            emit(SearchProgressEvent.Checking("ThreatFox"))
+            try {
+                val queryType = if (isIp) "search_ioc" else "search_ioc"
+                val jsonBody = """{"query":"$queryType","search_term":"$query","exact_match":true}"""
+                    .toRequestBody("application/json".toMediaType())
+                val req = Request.Builder()
+                    .url("https://threatfox-api.abuse.ch/api/v1/")
+                    .post(jsonBody)
+                    .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val body = resp.body?.string() ?: ""; resp.close()
+                val queryStatus = Regex("\"query_status\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1) ?: ""
+                if (queryStatus == "ok") {
+                    apiKeyManager.recordUsage("threatfox")
+                    val count = Regex("\"ioc_count\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val malwareNames = Regex("\"malware_printable\":\\s*\"([^\"]+)\"").findAll(body)
+                        .map { it.groupValues[1] }.distinct().take(3).toList()
+                    val tags = Regex("\"tags\":\\s*\\[([^\\]]+)\\]").findAll(body)
+                        .flatMap { Regex("\"([^\"]+)\"").findAll(it.groupValues[1]).map { m -> m.groupValues[1] } }
+                        .distinct().take(5).toList()
+                    if (count > 0 || malwareNames.isNotEmpty()) {
+                        meta["threatfox_ioc_count"] = count.toString()
+                        if (malwareNames.isNotEmpty()) meta["threatfox_malware"] = malwareNames.joinToString(", ")
+                        if (tags.isNotEmpty()) meta["threatfox_tags"] = tags.joinToString(", ")
+                        sources.add(DataSource("ThreatFox", null, Date(), 0.9))
+                        emit(SearchProgressEvent.Found("ThreatFox",
+                            buildString {
+                                if (count > 0) append("$count IOC record${if (count != 1) "s" else ""}")
+                                if (malwareNames.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(malwareNames.joinToString(", ")) }
+                                if (tags.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(tags.joinToString(", ")) }
+                            }
+                        ))
+                    } else {
+                        emit(SearchProgressEvent.NotFound("ThreatFox"))
+                    }
+                } else {
+                    emit(SearchProgressEvent.NotFound("ThreatFox"))
+                }
+            } catch (e: Exception) {
+                emit(SearchProgressEvent.Failed("ThreatFox", e.message ?: ""))
+            }
+        }
+
+        val leakixApiKey = apiKeyManager.leakixKey
+        if (leakixApiKey.isNotBlank()) {
+            launch {
+                emit(SearchProgressEvent.Checking("LeakIX"))
+                try {
+                    val endpoint = if (isIp) "https://leakix.net/host/$query" else "https://leakix.net/domain/$query"
+                    val req = Request.Builder()
+                        .url(endpoint)
+                        .addHeader("api-key", leakixApiKey)
+                        .addHeader("Accept", "application/json")
+                        .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    if (resp.isSuccessful && body.isNotBlank() && body != "null" && !body.startsWith("{\"Error\"")) {
+                        apiKeyManager.recordUsage("leakix")
+                        val services = Regex("\"transport\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(8).toList()
+                        val leaks = Regex("\"event_source\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+                        val ports = Regex("\"port\":\\s*(\\d+)").findAll(body).map { it.groupValues[1] }.distinct().take(10).toList()
+                        if (services.isNotEmpty() || leaks.isNotEmpty()) {
+                            if (services.isNotEmpty()) meta["leakix_services"] = services.joinToString(", ")
+                            if (leaks.isNotEmpty()) meta["leakix_leaks"] = leaks.joinToString(", ")
+                            if (ports.isNotEmpty()) meta["leakix_ports"] = ports.joinToString(", ")
+                            sources.add(DataSource("LeakIX", null, Date(), 0.9))
+                            emit(SearchProgressEvent.Found("LeakIX",
+                                buildString {
+                                    if (leaks.isNotEmpty()) append("${leaks.size} leak event${if (leaks.size != 1) "s" else ""}")
+                                    if (services.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(services.take(3).joinToString(", ")) }
+                                    if (ports.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("ports: ${ports.take(5).joinToString(", ")}") }
+                                }.ifBlank { "Exposed services found" }
+                            ))
+                        } else {
+                            emit(SearchProgressEvent.NotFound("LeakIX"))
+                        }
+                    } else {
+                        emit(SearchProgressEvent.NotFound("LeakIX"))
+                    }
+                } catch (e: Exception) {
+                    emit(SearchProgressEvent.Failed("LeakIX", e.message ?: ""))
                 }
             }
         }
