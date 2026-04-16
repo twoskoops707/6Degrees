@@ -132,6 +132,23 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("wigle", "") ?: ""
         set(v) { prefs.edit().putString("wigle", v).apply() }
 
+    var pulsediveKey: String
+        get() = prefs.getString("pulsedive", "") ?: ""
+        set(v) { prefs.edit().putString("pulsedive", v).apply() }
+
+    var fullHuntKey: String
+        get() = prefs.getString("fullhunt", "") ?: ""
+        set(v) { prefs.edit().putString("fullhunt", v).apply() }
+
+    var tombaKey: String
+        get() = prefs.getString("tomba", "") ?: ""
+        set(v) { prefs.edit().putString("tomba", v).apply() }
+
+    var googleSafeBrowsingKey: String
+        get() = prefs.getString("google_safebrowsing", "")?.takeIf { it.isNotBlank() }
+            ?: "AIzaSyDVFF-Z2NsKb2j6CupZEQ2m7KN40fS7VZc"
+        set(v) { prefs.edit().putString("google_safebrowsing", v).apply() }
+
     fun getRawForDisplay(prefKey: String): String = prefs.getString(prefKey, "") ?: ""
 
     fun hasAnyKey(): Boolean = true
@@ -140,7 +157,8 @@ class ApiKeyManager(context: Context) {
         hibpKey, hunterKey, pdlKey, numverifyKey, shodanKey,
         virusTotalKey, abuseIpDbKey, urlScanKey, clearbitKey, builtWithKey,
         securityTrailsKey, censysId, criminalIpKey, netlasKey,
-        abstractApiEmailKey, abstractApiPhoneKey, leakixKey, intelxKey, wigleKey
+        abstractApiEmailKey, abstractApiPhoneKey, leakixKey, intelxKey, wigleKey,
+        pulsediveKey, fullHuntKey, tombaKey
     ).count { it.isNotBlank() }
 
     private fun monthKey(apiName: String): String {
@@ -194,6 +212,20 @@ class ApiKeyManager(context: Context) {
         ApiUsageSummary("ThreatFox", getMonthlyUsage("threatfox"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("MalwareBazaar", getMonthlyUsage("malwarebazaar"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("CourtListener", getMonthlyUsage("courtlistener"), Int.MAX_VALUE, isUnlimited = true),
-        ApiUsageSummary("OpenCorporates", getMonthlyUsage("opencorporates"), Int.MAX_VALUE, isUnlimited = true)
+        ApiUsageSummary("OpenCorporates", getMonthlyUsage("opencorporates"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("FBI Wanted", getMonthlyUsage("fbi_wanted"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("Interpol", getMonthlyUsage("interpol"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("NVD CVE", getMonthlyUsage("nvd_cve"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("PhishStats", getMonthlyUsage("phishstats"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("Dehash.lt", getMonthlyUsage("dehash"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("GeoJS", getMonthlyUsage("geojs"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("NHTSA", getMonthlyUsage("nhtsa"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("WiGLE", getMonthlyUsage("wigle"), 100, isUnlimited = wigleKey.isBlank()),
+        ApiUsageSummary("Censys", getMonthlyUsage("censys"), 250, isUnlimited = censysId.isBlank()),
+        ApiUsageSummary("Pulsedive", getMonthlyUsage("pulsedive"), 30, isUnlimited = pulsediveKey.isBlank()),
+        ApiUsageSummary("FullHunt", getMonthlyUsage("fullhunt"), 100, isUnlimited = fullHuntKey.isBlank()),
+        ApiUsageSummary("Tomba", getMonthlyUsage("tomba"), 25, isUnlimited = tombaKey.isBlank()),
+        ApiUsageSummary("MarkerAPI", getMonthlyUsage("markerapi"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("Google SafeBrowsing", getMonthlyUsage("safebrowsing"), Int.MAX_VALUE, isUnlimited = false)
     )
 }

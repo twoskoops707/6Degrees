@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.FormBody
+import android.util.Base64
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -290,6 +291,12 @@ class OsintRepository(context: Context) {
             "company" -> companySearch(cleanQuery, metadata, sources, emit)
             "image" -> imageSearch(cleanQuery, metadata, sources, emit)
             "scan" -> scanSearch(cleanQuery, metadata, sources, emit)
+            "vehicle", "vin" -> nhtsaVehicleSearch(cleanQuery, metadata, sources, emit)
+            "wifi", "ssid" -> wigleWifiSearch(cleanQuery, true, metadata, sources, emit)
+            "mac" -> wigleWifiSearch(cleanQuery, false, metadata, sources, emit)
+            "trademark" -> markerApiTrademarkSearch(cleanQuery, metadata, sources, emit)
+            "hash" -> dehashLookup(cleanQuery, metadata, sources, emit)
+            "cve" -> nvdCveSearch(cleanQuery, metadata, sources, emit)
             "comprehensive" -> {
                 comprehensiveSearch(cleanQuery, metadata, sources, emit)
                 val fields = cleanQuery.split("|").mapNotNull {
@@ -1289,6 +1296,17 @@ class OsintRepository(context: Context) {
             }
         } else {
             emit(SearchProgressEvent.NotFound("Holehe"))
+        }
+
+        val emailDomain = email.substringAfter("@").trim()
+        if (emailDomain.isNotBlank()) {
+            coroutineScope {
+                launch { tombaEmailFinder(emailDomain, meta, sources, emit) }
+                launch { phishStatsSearch(emailDomain, meta, sources, emit) }
+                launch { dehashLookup(email, meta, sources, emit) }
+                val domainUrl = "http://$emailDomain"
+                launch { googleSafeBrowsingCheck(domainUrl, meta, sources, emit) }
+            }
         }
     }
 
@@ -2820,6 +2838,20 @@ class OsintRepository(context: Context) {
             }
         }
 
+        if (isIp) {
+            launch { geoJsIpLookup(query, meta, sources, emit) }
+            launch { censysSearch(query, true, meta, sources, emit) }
+            launch { pulsediveSearch(query, meta, sources, emit) }
+            launch { phishStatsSearch(query, meta, sources, emit) }
+        } else {
+            launch { censysSearch(query, false, meta, sources, emit) }
+            launch { pulsediveSearch(query, meta, sources, emit) }
+            launch { fullHuntSearch(query, meta, sources, emit) }
+            launch { phishStatsSearch(query, meta, sources, emit) }
+            val urlToCheck = if (query.startsWith("http")) query else "http://$query"
+            launch { googleSafeBrowsingCheck(urlToCheck, meta, sources, emit) }
+        }
+
     }
 
     private suspend fun personSearch(
@@ -3411,6 +3443,8 @@ class OsintRepository(context: Context) {
         launch { openLibrarySearch(query, meta, sources, emit) }
         launch { orcidSearch(query, meta, sources, emit) }
         launch { crossrefSearch(query, meta, sources, emit) }
+        launch { fbiFugitivesSearch(query, meta, sources, emit) }
+        launch { interpolRedNoticesSearch(query, meta, sources, emit) }
 
         val gKey = apiKeyManager.googleCseApiKey
         val gCx = apiKeyManager.googleCseId
@@ -4090,6 +4124,19 @@ class OsintRepository(context: Context) {
             launch { ahmiaSearch(dwQuery, meta, sources, emit) }
             launch { pasteDumpSearch(dwQuery, meta, sources, emit) }
             launch { torchSearch(dwQuery, meta, sources, emit) }
+        }
+
+        val vin = fields["vin"] ?: ""
+        if (vin.isNotBlank()) {
+            launch { nhtsaVehicleSearch(vin, meta, sources, emit) }
+        }
+
+        if (name.isNotBlank()) {
+            launch { fbiFugitivesSearch(name, meta, sources, emit) }
+            launch { interpolRedNoticesSearch(name, meta, sources, emit) }
+            if (apiKeyManager.wigleKey.isNotBlank()) {
+                launch { wigleWifiSearch(name, true, meta, sources, emit) }
+            }
         }
     }
 
@@ -5195,6 +5242,14 @@ class OsintRepository(context: Context) {
         }
 
         meta["company_query"] = query
+
+        launch { markerApiTrademarkSearch(companyName, meta, sources, emit) }
+        launch { nvdCveSearch(companyName, meta, sources, emit) }
+        val guessedDomain = if (companyDomain.isNotBlank()) companyDomain
+            else companyName.lowercase().replace(Regex("[^a-z0-9]"), "") + ".com"
+        launch { censysSearch(guessedDomain, false, meta, sources, emit) }
+        launch { fullHuntSearch(guessedDomain, meta, sources, emit) }
+        launch { tombaEmailFinder(guessedDomain, meta, sources, emit) }
     }
 
     private suspend fun imageSearch(
@@ -6040,5 +6095,566 @@ class OsintRepository(context: Context) {
     private fun md5(input: String): String {
         val digest = MessageDigest.getInstance("MD5")
         return digest.digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
+    }
+
+    private suspend fun fbiFugitivesSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("FBI Wanted"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.fbi.gov/wanted/v1/list?title=$encoded&pageSize=10")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("FBI Wanted")); return }
+            val total = Regex("\"total\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            if (total == 0) { emit(SearchProgressEvent.NotFound("FBI Wanted")); return }
+            val titles = Regex("\"title\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+            val subjects = Regex("\"subjects\":\\s*\\[([^\\]]+)\\]").find(body)?.groupValues?.get(1)
+                ?.split(",")?.mapNotNull { Regex("\"([^\"]+)\"").find(it)?.groupValues?.get(1) } ?: emptyList()
+            val charges = Regex("\"description\":\\s*\"([^\"]{10,200})\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+            val aliases = Regex("\"aliases\":\\s*\\[([^\\]]+)\\]").find(body)?.groupValues?.get(1)
+                ?.split(",")?.mapNotNull { Regex("\"([^\"]+)\"").find(it)?.groupValues?.get(1) } ?: emptyList()
+            meta["fbi_wanted_total"] = total.toString()
+            if (titles.isNotEmpty()) meta["fbi_wanted_names"] = titles.joinToString(" | ")
+            if (subjects.isNotEmpty()) meta["fbi_wanted_categories"] = subjects.distinct().take(5).joinToString(", ")
+            if (charges.isNotEmpty()) meta["fbi_wanted_charges"] = charges.joinToString(" | ")
+            if (aliases.isNotEmpty()) meta["fbi_wanted_aliases"] = aliases.take(5).joinToString(", ")
+            meta["fbi_wanted_link"] = "https://www.fbi.gov/wanted/search?search=$encoded"
+            apiKeyManager.recordUsage("fbi_wanted")
+            sources.add(DataSource("FBI Wanted", meta["fbi_wanted_link"], Date(), 0.95))
+            emit(SearchProgressEvent.Found("FBI Wanted", "$total match${if (total != 1) "es" else ""}: ${titles.firstOrNull() ?: ""}"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("FBI Wanted", e.message ?: "")) }
+    }
+
+    private suspend fun interpolRedNoticesSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Interpol"))
+        try {
+            val parts = query.trim().split(Regex("\\s+"))
+            val forename = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
+            val name = URLEncoder.encode(if (parts.size > 1) parts.last() else "", "UTF-8")
+            val url = "https://ws-public.interpol.int/notices/v1/red?forename=$forename&name=$name&resultPerPage=10"
+            val req = Request.Builder()
+                .url(url)
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("Interpol")); return }
+            val total = Regex("\"total\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            if (total == 0) { emit(SearchProgressEvent.NotFound("Interpol")); return }
+            val nationalities = Regex("\"nationality_1\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val charges = Regex("\"charges_1\":\\s*\"([^\"]{3,200})\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val entities = Regex("\"entity_id\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+            meta["interpol_total"] = total.toString()
+            if (nationalities.isNotEmpty()) meta["interpol_nationalities"] = nationalities.joinToString(", ")
+            if (charges.isNotEmpty()) meta["interpol_charges"] = charges.joinToString(" | ")
+            if (entities.isNotEmpty()) meta["interpol_notice_ids"] = entities.joinToString(", ")
+            meta["interpol_link"] = "https://www.interpol.int/en/How-we-work/Notices/Red-Notices/View-Red-Notices"
+            apiKeyManager.recordUsage("interpol")
+            sources.add(DataSource("Interpol", meta["interpol_link"], Date(), 0.95))
+            emit(SearchProgressEvent.Found("Interpol", "$total Red Notice${if (total != 1) "s" else ""} found"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Interpol", e.message ?: "")) }
+    }
+
+    private suspend fun phishStatsSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("PhishStats"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://phishstats.info:2096/api/phishing?_where=(url,like,~$encoded~)&_size=5")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body == "[]" || body.isBlank()) { emit(SearchProgressEvent.NotFound("PhishStats")); return }
+            val urls = Regex("\"url\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+            val ips = Regex("\"ip\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(3).toList()
+            val dates = Regex("\"date\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1].take(10) }.distinct().take(3).toList()
+            meta["phishstats_hits"] = urls.size.toString()
+            if (urls.isNotEmpty()) meta["phishstats_urls"] = urls.joinToString("\n")
+            if (ips.isNotEmpty()) meta["phishstats_ips"] = ips.joinToString(", ")
+            if (dates.isNotEmpty()) meta["phishstats_dates"] = dates.joinToString(", ")
+            apiKeyManager.recordUsage("phishstats")
+            sources.add(DataSource("PhishStats", "https://phishstats.info/", Date(), 0.9))
+            emit(SearchProgressEvent.Found("PhishStats", "${urls.size} phishing record${if (urls.size != 1) "s" else ""} found"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("PhishStats", e.message ?: "")) }
+    }
+
+    private suspend fun dehashLookup(
+        input: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Dehash.lt"))
+        try {
+            val hashed = md5(input.trim().lowercase())
+            val req = Request.Builder()
+                .url("https://dehash.lt/api/$hashed")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank() || body == "null" || body == "[]") {
+                emit(SearchProgressEvent.NotFound("Dehash.lt")); return
+            }
+            val plain = Regex("\"plain\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val hash = Regex("\"hash\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val algo = Regex("\"algo\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            if (plain != null) {
+                meta["dehash_plain"] = plain
+                if (hash != null) meta["dehash_hash"] = hash
+                if (algo != null) meta["dehash_algo"] = algo
+                apiKeyManager.recordUsage("dehash")
+                sources.add(DataSource("Dehash.lt", "https://dehash.lt/", Date(), 0.85))
+                emit(SearchProgressEvent.Found("Dehash.lt", "Hash resolved: $plain (${algo ?: "MD5"})"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Dehash.lt"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Dehash.lt", e.message ?: "")) }
+    }
+
+    private suspend fun nvdCveSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("NVD CVE"))
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=$encoded&resultsPerPage=5")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("NVD CVE")); return }
+            val total = Regex("\"totalResults\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            if (total == 0) { emit(SearchProgressEvent.NotFound("NVD CVE")); return }
+            val cveIds = Regex("\"id\":\\s*\"(CVE-[^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+            val descriptions = Regex("\"value\":\\s*\"([^\"]{20,200})\"").findAll(body).map { it.groupValues[1] }.take(3).toList()
+            val severities = Regex("\"baseSeverity\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().toList()
+            meta["nvd_total"] = total.toString()
+            if (cveIds.isNotEmpty()) meta["nvd_cve_ids"] = cveIds.joinToString(", ")
+            if (descriptions.isNotEmpty()) meta["nvd_descriptions"] = descriptions.joinToString(" | ")
+            if (severities.isNotEmpty()) meta["nvd_severities"] = severities.joinToString(", ")
+            meta["nvd_link"] = "https://nvd.nist.gov/vuln/search/results?query=$encoded"
+            apiKeyManager.recordUsage("nvd_cve")
+            sources.add(DataSource("NVD CVE", meta["nvd_link"], Date(), 0.85))
+            emit(SearchProgressEvent.Found("NVD CVE", "$total CVE${if (total != 1) "s" else ""}: ${cveIds.firstOrNull() ?: ""} ${severities.firstOrNull()?.let { "[$it]" } ?: ""}".trim()))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("NVD CVE", e.message ?: "")) }
+    }
+
+    private suspend fun geoJsIpLookup(
+        ip: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("GeoJS"))
+        try {
+            val req = Request.Builder()
+                .url("https://get.geojs.io/v1/ip/geo/$ip.json")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("GeoJS")); return }
+            val country = Regex("\"country\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val region = Regex("\"region\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val city = Regex("\"city\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val org = Regex("\"organization\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val lat = Regex("\"latitude\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val lon = Regex("\"longitude\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val tz = Regex("\"timezone\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            if (country != null) {
+                meta["geojs_country"] = country
+                if (region != null) meta["geojs_region"] = region
+                if (city != null) meta["geojs_city"] = city
+                if (org != null) meta["geojs_org"] = org
+                if (lat != null && lon != null) meta["geojs_coords"] = "$lat,$lon"
+                if (tz != null) meta["geojs_timezone"] = tz
+                apiKeyManager.recordUsage("geojs")
+                sources.add(DataSource("GeoJS", "https://get.geojs.io/", Date(), 0.8))
+                val loc = listOf(city, region, country).filterNotNull().joinToString(", ")
+                emit(SearchProgressEvent.Found("GeoJS", "$loc${org?.let { " · $it" } ?: ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("GeoJS"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("GeoJS", e.message ?: "")) }
+    }
+
+    private suspend fun nhtsaVehicleSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("NHTSA"))
+        try {
+            val isVin = query.trim().length == 17 && query.trim().all { it.isLetterOrDigit() }
+            val url = if (isVin) {
+                "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${query.trim()}?format=json"
+            } else {
+                val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+                "https://api.nhtsa.gov/complaints/complaintsByVehicle?make=$encoded&model=&modelYear="
+            }
+            val req = Request.Builder()
+                .url(url)
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("NHTSA")); return }
+            if (isVin) {
+                val make = Regex("\"Make\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                val model = Regex("\"Model\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                val year = Regex("\"ModelYear\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                val plant = Regex("\"PlantCity\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                val country = Regex("\"PlantCountry\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                val engine = Regex("\"EngineModel\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                val bodyStyle = Regex("\"BodyClass\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                val errorCode = Regex("\"ErrorCode\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+                if (make != null || model != null) {
+                    if (make != null) meta["nhtsa_make"] = make
+                    if (model != null) meta["nhtsa_model"] = model
+                    if (year != null) meta["nhtsa_year"] = year
+                    if (plant != null && country != null) meta["nhtsa_plant"] = "$plant, $country"
+                    else if (plant != null) meta["nhtsa_plant"] = plant
+                    if (engine != null) meta["nhtsa_engine"] = engine
+                    if (bodyStyle != null) meta["nhtsa_body"] = bodyStyle
+                    apiKeyManager.recordUsage("nhtsa")
+                    sources.add(DataSource("NHTSA", "https://www.nhtsa.gov/vehicle-safety/vin-lookup", Date(), 0.9))
+                    emit(SearchProgressEvent.Found("NHTSA", "${year ?: ""} ${make ?: ""} ${model ?: ""}".trim()))
+                } else if (errorCode != null && errorCode != "0") {
+                    emit(SearchProgressEvent.NotFound("NHTSA"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("NHTSA"))
+                }
+            } else {
+                val count = Regex("\"count\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                if (count > 0) {
+                    meta["nhtsa_complaints"] = count.toString()
+                    apiKeyManager.recordUsage("nhtsa")
+                    sources.add(DataSource("NHTSA Complaints", "https://api.nhtsa.gov/", Date(), 0.8))
+                    emit(SearchProgressEvent.Found("NHTSA", "$count complaint${if (count != 1) "s" else ""} on record"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("NHTSA"))
+                }
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("NHTSA", e.message ?: "")) }
+    }
+
+    private suspend fun markerApiTrademarkSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("MarkerAPI"))
+        try {
+            val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+            val req = Request.Builder()
+                .url("https://markerapi.com/api/v2/trademarks/trademark/$encoded/username/public/password/public")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("MarkerAPI")); return }
+            val count = Regex("\"count\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            if (count == 0) { emit(SearchProgressEvent.NotFound("MarkerAPI")); return }
+            val names = Regex("\"trademark\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val owners = Regex("\"owner\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val statuses = Regex("\"status\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(3).toList()
+            val classes = Regex("\"class\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            meta["markerapi_count"] = count.toString()
+            if (names.isNotEmpty()) meta["markerapi_trademarks"] = names.joinToString(" | ")
+            if (owners.isNotEmpty()) meta["markerapi_owners"] = owners.joinToString(" | ")
+            if (statuses.isNotEmpty()) meta["markerapi_statuses"] = statuses.joinToString(", ")
+            if (classes.isNotEmpty()) meta["markerapi_classes"] = classes.joinToString(", ")
+            meta["markerapi_link"] = "https://markerapi.com/"
+            apiKeyManager.recordUsage("markerapi")
+            sources.add(DataSource("MarkerAPI", meta["markerapi_link"], Date(), 0.8))
+            emit(SearchProgressEvent.Found("MarkerAPI", "$count trademark${if (count != 1) "s" else ""}: ${owners.firstOrNull() ?: names.firstOrNull() ?: ""}"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("MarkerAPI", e.message ?: "")) }
+    }
+
+    private suspend fun censysSearch(
+        query: String,
+        isIp: Boolean,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        val censysId = apiKeyManager.censysId
+        val censysSecret = apiKeyManager.censysSecret
+        if (censysId.isBlank() || censysSecret.isBlank()) return
+        emit(SearchProgressEvent.Checking("Censys"))
+        try {
+            val credentials = android.util.Base64.encodeToString("$censysId:$censysSecret".toByteArray(), android.util.Base64.NO_WRAP)
+            val endpoint = if (isIp) {
+                "https://search.censys.io/api/v2/hosts/$query"
+            } else {
+                "https://search.censys.io/api/v2/certificates/search?q=$query&per_page=5"
+            }
+            val req = Request.Builder()
+                .url(endpoint)
+                .addHeader("Authorization", "Basic $credentials")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("Censys")); return }
+            if (isIp) {
+                val autonomous = Regex("\"autonomous_system\":\\s*\\{[^}]*\"name\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+                val country = Regex("\"country\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+                val ports = Regex("\"port\":\\s*(\\d+)").findAll(body).map { it.groupValues[1] }.distinct().take(10).toList()
+                val services = Regex("\"service_name\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(10).toList()
+                val tags = Regex("\"labels\":\\s*\\[([^\\]]+)\\]").find(body)?.groupValues?.get(1)
+                    ?.split(",")?.mapNotNull { Regex("\"([^\"]+)\"").find(it)?.groupValues?.get(1) } ?: emptyList()
+                if (autonomous != null || ports.isNotEmpty()) {
+                    if (autonomous != null) meta["censys_asn"] = autonomous
+                    if (country != null) meta["censys_country"] = country
+                    if (ports.isNotEmpty()) meta["censys_ports"] = ports.joinToString(", ")
+                    if (services.isNotEmpty()) meta["censys_services"] = services.joinToString(", ")
+                    if (tags.isNotEmpty()) meta["censys_tags"] = tags.joinToString(", ")
+                    apiKeyManager.recordUsage("censys")
+                    sources.add(DataSource("Censys", "https://search.censys.io/hosts/$query", Date(), 0.9))
+                    emit(SearchProgressEvent.Found("Censys", buildString {
+                        if (autonomous != null) append(autonomous)
+                        if (ports.isNotEmpty()) { if (isNotEmpty()) append(" · "); append("ports: ${ports.take(5).joinToString(", ")}") }
+                    }.ifBlank { "Host data found" }))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Censys"))
+                }
+            } else {
+                val domains = Regex("\"names\":\\s*\\[([^\\]]+)\\]").findAll(body)
+                    .flatMap { Regex("\"([^\"]+)\"").findAll(it.groupValues[1]).map { m -> m.groupValues[1] } }
+                    .distinct().take(10).toList()
+                val total = Regex("\"total\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                if (domains.isNotEmpty() || total > 0) {
+                    if (domains.isNotEmpty()) meta["censys_domains"] = domains.joinToString(", ")
+                    meta["censys_cert_total"] = total.toString()
+                    apiKeyManager.recordUsage("censys")
+                    sources.add(DataSource("Censys", "https://search.censys.io/", Date(), 0.85))
+                    emit(SearchProgressEvent.Found("Censys", "$total cert${if (total != 1) "s" else ""}${if (domains.isNotEmpty()) ": ${domains.take(3).joinToString(", ")}" else ""}"))
+                } else {
+                    emit(SearchProgressEvent.NotFound("Censys"))
+                }
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Censys", e.message ?: "")) }
+    }
+
+    private suspend fun wigleWifiSearch(
+        query: String,
+        isNetwork: Boolean,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        val wigleKey = apiKeyManager.wigleKey
+        if (wigleKey.isBlank()) return
+        emit(SearchProgressEvent.Checking("WiGLE"))
+        try {
+            val credentials = android.util.Base64.encodeToString(wigleKey.toByteArray(), android.util.Base64.NO_WRAP)
+            val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+            val url = if (isNetwork) {
+                "https://api.wigle.net/api/v2/network/search?ssid=$encoded&resultsPerPage=5"
+            } else {
+                "https://api.wigle.net/api/v2/network/search?netid=$encoded&resultsPerPage=5"
+            }
+            val req = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Basic $credentials")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("WiGLE")); return }
+            val total = Regex("\"totalResults\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+            if (total == 0L) { emit(SearchProgressEvent.NotFound("WiGLE")); return }
+            val ssids = Regex("\"ssid\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val cities = Regex("\"city\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val regions = Regex("\"region\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(3).toList()
+            val countries = Regex("\"country\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(3).toList()
+            val macs = Regex("\"netid\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.take(5).toList()
+            meta["wigle_total"] = total.toString()
+            if (ssids.isNotEmpty()) meta["wigle_ssids"] = ssids.joinToString(" | ")
+            if (cities.isNotEmpty()) meta["wigle_cities"] = cities.joinToString(", ")
+            if (regions.isNotEmpty()) meta["wigle_regions"] = regions.joinToString(", ")
+            if (countries.isNotEmpty()) meta["wigle_countries"] = countries.joinToString(", ")
+            if (macs.isNotEmpty()) meta["wigle_macs"] = macs.joinToString(", ")
+            apiKeyManager.recordUsage("wigle")
+            sources.add(DataSource("WiGLE", "https://wigle.net/", Date(), 0.85))
+            val loc = listOf(cities.firstOrNull(), regions.firstOrNull(), countries.firstOrNull()).filterNotNull().joinToString(", ")
+            emit(SearchProgressEvent.Found("WiGLE", "$total network${if (total != 1L) "s" else ""} found${if (loc.isNotBlank()) " · $loc" else ""}"))
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("WiGLE", e.message ?: "")) }
+    }
+
+    private suspend fun tombaEmailFinder(
+        domain: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        val tombaKey = apiKeyManager.tombaKey
+        if (tombaKey.isBlank()) return
+        emit(SearchProgressEvent.Checking("Tomba"))
+        try {
+            val req = Request.Builder()
+                .url("https://api.tomba.io/v1/domain-search?domain=$domain&limit=10")
+                .addHeader("X-Tomba-Key", tombaKey)
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("Tomba")); return }
+            val emails = Regex("\"email\":\\s*\"([^\"]+@[^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(10).toList()
+            val total = Regex("\"total\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: emails.size
+            val org = Regex("\"organization\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val country = Regex("\"country\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            if (emails.isNotEmpty()) {
+                meta["tomba_emails"] = emails.joinToString("\n")
+                meta["tomba_total"] = total.toString()
+                if (org != null) meta["tomba_org"] = org
+                if (country != null) meta["tomba_country"] = country
+                apiKeyManager.recordUsage("tomba")
+                sources.add(DataSource("Tomba", "https://tomba.io/domain/$domain", Date(), 0.85))
+                emit(SearchProgressEvent.Found("Tomba", "$total email${if (total != 1) "s" else ""} found: ${emails.take(3).joinToString(", ")}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Tomba"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Tomba", e.message ?: "")) }
+    }
+
+    private suspend fun pulsediveSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        val pulsediveKey = apiKeyManager.pulsediveKey
+        if (pulsediveKey.isBlank()) return
+        emit(SearchProgressEvent.Checking("Pulsedive"))
+        try {
+            val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+            val req = Request.Builder()
+                .url("https://pulsedive.com/api/info.php?indicator=$encoded&pretty=1&key=$pulsediveKey")
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("Pulsedive")); return }
+            val risk = Regex("\"risk\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val riskRecommended = Regex("\"risk_recommended\":\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val threats = Regex("\"name\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val feeds = Regex("\"feed\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().take(5).toList()
+            val retired = Regex("\"retired\":\\s*(true|false)").find(body)?.groupValues?.get(1)
+            if (risk != null) {
+                meta["pulsedive_risk"] = risk
+                if (riskRecommended != null) meta["pulsedive_risk_recommended"] = riskRecommended
+                if (threats.isNotEmpty()) meta["pulsedive_threats"] = threats.joinToString(", ")
+                if (feeds.isNotEmpty()) meta["pulsedive_feeds"] = feeds.joinToString(", ")
+                if (retired != null) meta["pulsedive_retired"] = retired
+                apiKeyManager.recordUsage("pulsedive")
+                sources.add(DataSource("Pulsedive", "https://pulsedive.com/indicator/?ioc=$encoded", Date(), 0.9))
+                emit(SearchProgressEvent.Found("Pulsedive", "Risk: $risk${riskRecommended?.let { " (recommended: $it)" } ?: ""}${if (threats.isNotEmpty()) " · Threats: ${threats.take(3).joinToString(", ")}" else ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("Pulsedive"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Pulsedive", e.message ?: "")) }
+    }
+
+    private suspend fun fullHuntSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        val fullHuntKey = apiKeyManager.fullHuntKey
+        if (fullHuntKey.isBlank()) return
+        emit(SearchProgressEvent.Checking("FullHunt"))
+        try {
+            val req = Request.Builder()
+                .url("https://fullhunt.io/api/v1/domain/$query/subdomains")
+                .addHeader("X-API-KEY", fullHuntKey)
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful || body.isBlank()) { emit(SearchProgressEvent.NotFound("FullHunt")); return }
+            val subdomains = Regex("\"hosts\":\\s*\\[([^\\]]+)\\]").find(body)?.groupValues?.get(1)
+                ?.split(",")?.mapNotNull { Regex("\"([^\"]+)\"").find(it)?.groupValues?.get(1)?.takeIf { h -> h.isNotBlank() } } ?: emptyList()
+            val total = Regex("\"total\":\\s*(\\d+)").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: subdomains.size
+            val tags = Regex("\"tags\":\\s*\\[([^\\]]+)\\]").find(body)?.groupValues?.get(1)
+                ?.split(",")?.mapNotNull { Regex("\"([^\"]+)\"").find(it)?.groupValues?.get(1) } ?: emptyList()
+            if (subdomains.isNotEmpty() || total > 0) {
+                meta["fullhunt_subdomains"] = subdomains.take(20).joinToString(", ")
+                meta["fullhunt_total"] = total.toString()
+                if (tags.isNotEmpty()) meta["fullhunt_tags"] = tags.joinToString(", ")
+                apiKeyManager.recordUsage("fullhunt")
+                sources.add(DataSource("FullHunt", "https://fullhunt.io/", Date(), 0.9))
+                emit(SearchProgressEvent.Found("FullHunt", "$total subdomain${if (total != 1) "s" else ""}${if (subdomains.isNotEmpty()) ": ${subdomains.take(3).joinToString(", ")}" else ""}"))
+            } else {
+                emit(SearchProgressEvent.NotFound("FullHunt"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("FullHunt", e.message ?: "")) }
+    }
+
+    private suspend fun googleSafeBrowsingCheck(
+        url: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) {
+        emit(SearchProgressEvent.Checking("Google SafeBrowsing"))
+        try {
+            val apiKey = apiKeyManager.googleSafeBrowsingKey
+            val jsonBody = """
+                {"client":{"clientId":"sixdegrees-osint","clientVersion":"1.0"},
+                "threatInfo":{"threatTypes":["MALWARE","SOCIAL_ENGINEERING","UNWANTED_SOFTWARE","POTENTIALLY_HARMFUL_APPLICATION"],
+                "platformTypes":["ANY_PLATFORM"],"threatEntryTypes":["URL"],
+                "threatEntries":[{"url":"${url.replace("\"", "\\\"")}" }]}}
+            """.trimIndent()
+            val req = Request.Builder()
+                .url("https://safebrowsing.googleapis.com/v4/threatMatches:find?key=$apiKey")
+                .post(jsonBody.toRequestBody("application/json".toMediaType()))
+                .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""; resp.close()
+            if (!resp.isSuccessful) { emit(SearchProgressEvent.NotFound("Google SafeBrowsing")); return }
+            val hasMatches = body.contains("\"matches\"") && !body.contains("{}") && body != "{}"
+            val threatTypes = Regex("\"threatType\":\\s*\"([^\"]+)\"").findAll(body).map { it.groupValues[1] }.distinct().toList()
+            if (hasMatches && threatTypes.isNotEmpty()) {
+                meta["safebrowsing_threats"] = threatTypes.joinToString(", ")
+                meta["safebrowsing_flagged"] = "true"
+                apiKeyManager.recordUsage("safebrowsing")
+                sources.add(DataSource("Google SafeBrowsing", null, Date(), 0.99))
+                emit(SearchProgressEvent.Found("Google SafeBrowsing", "FLAGGED: ${threatTypes.joinToString(", ")}"))
+            } else {
+                meta["safebrowsing_flagged"] = "false"
+                sources.add(DataSource("Google SafeBrowsing", null, Date(), 0.99))
+                emit(SearchProgressEvent.Found("Google SafeBrowsing", "No threats detected"))
+            }
+        } catch (e: Exception) { emit(SearchProgressEvent.Failed("Google SafeBrowsing", e.message ?: "")) }
     }
 }
