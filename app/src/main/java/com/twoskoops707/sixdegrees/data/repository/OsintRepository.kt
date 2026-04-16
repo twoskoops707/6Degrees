@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.Credentials
 import okhttp3.FormBody
 import android.util.Base64
 import okhttp3.MediaType.Companion.toMediaType

@@ -65,10 +65,14 @@ class SearchFragment : Fragment() {
         binding.searchButton.setOnClickListener { doSearch() }
         binding.btnClearFields.setOnClickListener { clearCurrentForm() }
 
-        binding.inputDomainValue.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
-                doSearch(); true
-            } else false
+        val imeSearch = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+        listOf(
+            binding.inputDomainValue, binding.inputEmailValue, binding.inputPhoneValue,
+            binding.inputUsernameValue, binding.inputVehicleValue, binding.inputWifiValue
+        ).forEach { field ->
+            field.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == imeSearch) { doSearch(); true } else false
+            }
         }
 
         recentAdapter = RecentSearchAdapter { report ->
