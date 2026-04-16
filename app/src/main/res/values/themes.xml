@@ -173,6 +173,10 @@
 
     <!-- ════════════════════ SHAPE APPEARANCES ════════════════════ -->
 
+    <style name="ShapeAppearance.Circular" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">50%</item>
+    </style>
+
     <style name="ShapeAppearance.Modern.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
         <item name="cornerSize">8dp</item>
     </style>

@@ -274,11 +274,18 @@ class CandidateSelectionFragment : Fragment() {
 
             holder.b.ivSelectedOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
 
-            val strokeColor = if (isSelected)
-                ContextCompat.getColor(requireContext(), R.color.success)
-            else
-                ContextCompat.getColor(requireContext(), R.color.border)
-            (holder.itemView as? com.google.android.material.card.MaterialCardView)?.strokeColor = strokeColor
+            val card = holder.itemView as? com.google.android.material.card.MaterialCardView
+            if (isSelected) {
+                card?.strokeColor = requireContext().getColor(android.R.color.transparent).let {
+                    val tv = android.util.TypedValue()
+                    requireContext().theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
+                    tv.data
+                }
+                card?.strokeWidth = 3
+            } else {
+                card?.strokeColor = ContextCompat.getColor(requireContext(), R.color.border)
+                card?.strokeWidth = 1
+            }
 
             holder.itemView.setOnClickListener { onToggle(position) }
         }

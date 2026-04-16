@@ -299,6 +299,9 @@ class OsintRepository(context: Context) {
             "cve" -> nvdCveSearch(cleanQuery, metadata, sources, emit)
             "comprehensive" -> {
                 comprehensiveSearch(cleanQuery, metadata, sources, emit)
+                if (round >= 3) {
+                    deepDiveSearch(cleanQuery, metadata, sources, emit)
+                }
                 val fields = cleanQuery.split("|").mapNotNull {
                     val p = it.split("=", limit = 2)
                     if (p.size == 2) p[0].trim() to p[1].trim() else null
@@ -4115,6 +4118,25 @@ class OsintRepository(context: Context) {
         if (image.isNotBlank() && name.isBlank()) {
             launch { imageSearch(image, meta, sources, emit) }
         }
+    }
+
+    private suspend fun deepDiveSearch(
+        query: String,
+        meta: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        emit: suspend (SearchProgressEvent) -> Unit
+    ) = coroutineScope {
+        val fields = query.split("|").mapNotNull {
+            val parts = it.split("=", limit = 2)
+            if (parts.size == 2) parts[0].trim() to parts[1].trim() else null
+        }.toMap()
+        val name = fields["name"] ?: ""
+        val email = fields["email"] ?: ""
+        val username = fields["username"] ?: meta["comp_derived_usernames"]?.split(", ")?.firstOrNull() ?: ""
+        val city = fields["city"] ?: fields["location"] ?: ""
+        val state = fields["state"] ?: ""
+        val location = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
+        val vin = fields["vin"] ?: ""
 
         val dwQuery = if (name.isNotBlank()) {
             if (location.isNotBlank()) "$name $location" else name
@@ -4125,17 +4147,147 @@ class OsintRepository(context: Context) {
             launch { pasteDumpSearch(dwQuery, meta, sources, emit) }
             launch { torchSearch(dwQuery, meta, sources, emit) }
         }
-
-        val vin = fields["vin"] ?: ""
         if (vin.isNotBlank()) {
             launch { nhtsaVehicleSearch(vin, meta, sources, emit) }
         }
-
         if (name.isNotBlank()) {
             launch { fbiFugitivesSearch(name, meta, sources, emit) }
             launch { interpolRedNoticesSearch(name, meta, sources, emit) }
-            if (apiKeyManager.wigleKey.isNotBlank()) {
-                launch { wigleWifiSearch(name, true, meta, sources, emit) }
+        }
+        if (apiKeyManager.wigleKey.isNotBlank() && name.isNotBlank()) {
+            launch { wigleWifiSearch(name, true, meta, sources, emit) }
+        }
+
+        val nameParts = name.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+        val derivedUsernames = mutableListOf<String>()
+        if (nameParts.size >= 2) {
+            val fn = nameParts.first().lowercase()
+            val ln = nameParts.last().lowercase()
+            derivedUsernames.addAll(listOf(
+                "$fn$ln", "${fn[0]}$ln", "$fn.$ln", "$fn-$ln",
+                "$fn${ln[0]}", "${fn[0]}.$ln", "$ln$fn", "$ln.${fn[0]}"
+            ))
+        }
+        if (email.isNotBlank() && email.contains("@")) {
+            val lp = email.substringBefore("@").lowercase().trim()
+            if (lp.isNotBlank()) derivedUsernames.add(lp)
+        }
+        if (username.isNotBlank()) derivedUsernames.add(0, username)
+        val allUsernames = (meta["comp_derived_usernames"]?.split(", ") ?: emptyList()) + derivedUsernames
+        val distinctUsernames = allUsernames.distinct().filter { it.isNotBlank() }.take(10)
+
+        distinctUsernames.drop(1).forEach { u ->
+            launch { usernameSearch(u, meta, sources, emit) }
+        }
+
+        if (apiKeyManager.dehashed.isNotBlank() && email.isNotBlank()) {
+            launch {
+                emit(SearchProgressEvent.Checking("Dehashed"))
+                try {
+                    val encoded = URLEncoder.encode(email, "UTF-8")
+                    val creds = okhttp3.Credentials.basic(apiKeyManager.dehashedUser, apiKeyManager.dehashed)
+                    val req = Request.Builder()
+                        .url("https://api.dehashed.com/search?query=email:$encoded")
+                        .addHeader("Authorization", creds)
+                        .addHeader("Accept", "application/json")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    if (resp.isSuccessful && body.contains("entries")) {
+                        val count = Regex("\"total\":(\\d+)").find(body)?.groupValues?.get(1) ?: "?"
+                        meta["dehashed_hits"] = count
+                        sources.add(DataSource("Dehashed", null, Date(), 0.95))
+                        emit(SearchProgressEvent.Found("Dehashed", "$count breach records"))
+                    } else emit(SearchProgressEvent.NotFound("Dehashed"))
+                } catch (e: Exception) { emit(SearchProgressEvent.Failed("Dehashed", e.message ?: "")) }
+            }
+        }
+
+        if (apiKeyManager.intelxKey.isNotBlank() && email.isNotBlank()) {
+            launch {
+                emit(SearchProgressEvent.Checking("IntelX"))
+                try {
+                    val encoded = URLEncoder.encode(email, "UTF-8")
+                    val req = Request.Builder()
+                        .url("https://2.intelx.io/phonebook/search?term=$encoded&target=1&maxresults=10&timeout=20&sort=2&media=0")
+                        .addHeader("x-key", apiKeyManager.intelxKey)
+                        .addHeader("Accept", "application/json")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    if (resp.isSuccessful && body.contains("\"id\"")) {
+                        meta["intelx_email_result"] = body.take(500)
+                        sources.add(DataSource("IntelX", null, Date(), 0.9))
+                        emit(SearchProgressEvent.Found("IntelX", "Phonebook hit"))
+                    } else emit(SearchProgressEvent.NotFound("IntelX"))
+                } catch (e: Exception) { emit(SearchProgressEvent.Failed("IntelX", e.message ?: "")) }
+            }
+        }
+
+        if (apiKeyManager.leakixKey.isNotBlank() && name.isNotBlank()) {
+            launch {
+                emit(SearchProgressEvent.Checking("LeakIX"))
+                try {
+                    val encoded = URLEncoder.encode(name, "UTF-8")
+                    val req = Request.Builder()
+                        .url("https://leakix.net/search?scope=leak&q=$encoded&page=0")
+                        .addHeader("api-key", apiKeyManager.leakixKey)
+                        .addHeader("Accept", "application/json")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    if (resp.isSuccessful && body.contains("\"EventType\"")) {
+                        meta["leakix_result"] = body.take(300)
+                        sources.add(DataSource("LeakIX", null, Date(), 0.85))
+                        emit(SearchProgressEvent.Found("LeakIX", "Leak data found"))
+                    } else emit(SearchProgressEvent.NotFound("LeakIX"))
+                } catch (e: Exception) { emit(SearchProgressEvent.Failed("LeakIX", e.message ?: "")) }
+            }
+        }
+
+        if (name.isNotBlank()) {
+            launch {
+                emit(SearchProgressEvent.Checking("CourtListener"))
+                try {
+                    val lastName = URLEncoder.encode(name.trim().split(" ").last(), "UTF-8")
+                    val req = Request.Builder()
+                        .url("https://www.courtlistener.com/api/rest/v3/people/?name_last=$lastName&format=json")
+                        .addHeader("User-Agent", "SixDegrees-OSINT/1.0")
+                        .build()
+                    val resp = httpClient.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""; resp.close()
+                    if (resp.isSuccessful && body.contains("\"count\"")) {
+                        val count = Regex("\"count\":(\\d+)").find(body)?.groupValues?.get(1) ?: "0"
+                        if (count != "0") {
+                            meta["courtlistener_hits"] = count
+                            sources.add(DataSource("CourtListener", null, Date(), 0.8))
+                            emit(SearchProgressEvent.Found("CourtListener", "$count court records"))
+                        } else emit(SearchProgressEvent.NotFound("CourtListener"))
+                    } else emit(SearchProgressEvent.NotFound("CourtListener"))
+                } catch (e: Exception) { emit(SearchProgressEvent.Failed("CourtListener", e.message ?: "")) }
+            }
+        }
+
+        if (apiKeyManager.pulsediveKey.isNotBlank()) {
+            val pTarget = email.ifBlank { name }
+            if (pTarget.isNotBlank()) launch { pulsediveSearch(pTarget, meta, sources, emit) }
+        }
+
+        val primaryU = distinctUsernames.firstOrNull() ?: ""
+        if (primaryU.isNotBlank()) {
+            val sherlockOut = "/storage/emulated/0/.6degrees/sherlock_${System.currentTimeMillis()}.txt"
+            val sherlockResult = runTermuxTool(
+                "/data/data/com.termux/files/usr/bin/sherlock",
+                listOf("--timeout", "10", "--print-found", "--output", sherlockOut, primaryU),
+                sherlockOut, timeoutMs = 90000
+            )
+            if (!sherlockResult.isNullOrBlank()) {
+                val foundLines = sherlockResult.lines().filter { it.contains("[+]") }
+                if (foundLines.isNotEmpty()) {
+                    meta["sherlock_found"] = foundLines.joinToString("\n")
+                    sources.add(DataSource("Sherlock", null, Date(), 0.9))
+                    emit(SearchProgressEvent.Found("Sherlock", "${foundLines.size} profiles found"))
+                } else emit(SearchProgressEvent.NotFound("Sherlock"))
             }
         }
     }

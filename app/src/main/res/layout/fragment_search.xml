@@ -15,139 +15,272 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:orientation="vertical"
             android:paddingHorizontal="20dp"
             android:paddingTop="20dp"
-            android:paddingBottom="16dp">
+            android:paddingBottom="12dp">
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="6"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-condensed" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="°"
+                        android:textColor="@color/accent_amber"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:paddingBottom="2dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" Degrees"
+                        android:textColor="@color/text_primary"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:paddingBottom="2dp" />
+                </LinearLayout>
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="6"
+                    android:text="OSINT"
                     android:textColor="?attr/colorPrimary"
-                    android:textSize="32sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="°"
-                    android:textColor="@color/accent_amber"
-                    android:textSize="24sp"
-                    android:textStyle="bold"
-                    android:paddingBottom="2dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text=" Degrees"
-                    android:textColor="@color/text_primary"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:paddingBottom="2dp" />
+                    android:letterSpacing="0.15"
+                    android:background="@drawable/bg_chip_primary"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="4dp" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="OSINT"
-                android:textColor="?attr/colorPrimary"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.15"
-                android:background="@drawable/bg_chip_primary"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="4dp" />
+                android:text="Open-source intelligence at your fingertips"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp"
+                android:letterSpacing="0.01" />
         </LinearLayout>
 
         <!-- ── Search Type Selector ── -->
-        <LinearLayout
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
             android:paddingHorizontal="16dp"
-            android:paddingBottom="8dp">
+            android:paddingBottom="8dp"
+            android:scrollbars="none">
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_type_person"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="?attr/colorPrimary"
-                app:cardCornerRadius="22dp"
-                app:strokeWidth="0dp"
-                app:cardElevation="0dp">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:text="Person"
-                    android:textColor="@color/background_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:letterSpacing="0.02" />
-            </com.google.android.material.card.MaterialCardView>
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_type_company"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginHorizontal="4dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="@color/surface_elevated"
-                app:cardCornerRadius="22dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:text="Company"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:letterSpacing="0.02" />
-            </com.google.android.material.card.MaterialCardView>
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_person"
+                    android:layout_width="88dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="?attr/colorPrimary"
+                    app:cardCornerRadius="22dp"
+                    app:strokeWidth="0dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Person"
+                        android:textColor="@color/background_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_type_domain"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="@color/surface_elevated"
-                app:cardCornerRadius="22dp"
-                app:strokeColor="@color/border"
-                app:strokeWidth="1dp"
-                app:cardElevation="0dp">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:text="Domain/IP"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:letterSpacing="0.02" />
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_company"
+                    android:layout_width="88dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/surface_elevated"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="@color/border"
+                    app:strokeWidth="1dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Company"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_domain"
+                    android:layout_width="88dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/surface_elevated"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="@color/border"
+                    app:strokeWidth="1dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Domain/IP"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_email"
+                    android:layout_width="80dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/surface_elevated"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="@color/border"
+                    app:strokeWidth="1dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Email"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_phone"
+                    android:layout_width="80dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/surface_elevated"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="@color/border"
+                    app:strokeWidth="1dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Phone"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_username"
+                    android:layout_width="96dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/surface_elevated"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="@color/border"
+                    app:strokeWidth="1dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Username"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_vehicle"
+                    android:layout_width="80dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/surface_elevated"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="@color/border"
+                    app:strokeWidth="1dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Vehicle"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_type_wifi"
+                    android:layout_width="72dp"
+                    android:layout_height="44dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/surface_elevated"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="@color/border"
+                    app:strokeWidth="1dp"
+                    app:cardElevation="0dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="WiFi"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.02" />
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+        </HorizontalScrollView>
 
         <!-- ── Person Form ── -->
         <LinearLayout
@@ -673,6 +806,156 @@
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
+        <!-- ── Email Form ── -->
+        <LinearLayout
+            android:id="@+id/form_email"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:visibility="gone">
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Email Address"
+                app:startIconDrawable="@drawable/ic_search"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_email_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="textEmailAddress"
+                    android:imeOptions="actionSearch"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <!-- ── Phone Form ── -->
+        <LinearLayout
+            android:id="@+id/form_phone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:visibility="gone">
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Phone Number"
+                app:startIconDrawable="@drawable/ic_search"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_phone_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="phone"
+                    android:imeOptions="actionSearch"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <!-- ── Username Form ── -->
+        <LinearLayout
+            android:id="@+id/form_username"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:visibility="gone">
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Username / Handle"
+                app:startIconDrawable="@drawable/ic_search"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_username_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="textNoSuggestions"
+                    android:imeOptions="actionSearch"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <!-- ── Vehicle / VIN Form ── -->
+        <LinearLayout
+            android:id="@+id/form_vehicle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:visibility="gone">
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="VIN or Vehicle Make / Model"
+                app:startIconDrawable="@drawable/ic_search"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_vehicle_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="textCapCharacters"
+                    android:imeOptions="actionSearch"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <!-- ── WiFi / SSID Form ── -->
+        <LinearLayout
+            android:id="@+id/form_wifi"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:visibility="gone">
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="WiFi SSID or MAC Address"
+                app:startIconDrawable="@drawable/ic_search"
+                app:startIconTint="?attr/colorPrimary"
+                app:boxStrokeColor="?attr/colorPrimary"
+                app:boxStrokeWidth="1dp"
+                app:hintTextColor="@color/text_secondary"
+                app:boxBackgroundColor="@color/surface">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_wifi_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:inputType="textNoSuggestions"
+                    android:imeOptions="actionSearch"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
         <!-- ── Search Button ── -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -687,16 +970,17 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
-                android:text="Search"
+                android:text="Investigate"
                 android:textColor="@color/background_primary"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.04"
+                android:letterSpacing="0.06"
                 app:backgroundTint="?attr/colorPrimary"
-                app:cornerRadius="12dp"
+                app:cornerRadius="14dp"
                 app:icon="@drawable/ic_search"
                 app:iconTint="@color/background_primary"
-                app:iconGravity="textStart" />
+                app:iconGravity="textStart"
+                app:iconSize="18dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_clear_fields"

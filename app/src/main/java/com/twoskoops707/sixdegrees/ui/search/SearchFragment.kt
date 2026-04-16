@@ -100,39 +100,59 @@ class SearchFragment : Fragment() {
 
     private fun setupEntityTypeSelector() {
         val colorPrimary = com.google.android.material.R.attr.colorPrimary
-        val bgDark = "#0A0F1E"
 
         fun selectType(type: String) {
             currentType = type
             attachedImageUri = null
             binding.tvImageAttached.visibility = View.GONE
 
-            val personActive = type == "person"
-            val companyActive = type == "company"
-            val domainActive = type == "domain"
-
-            binding.formPerson.visibility = if (personActive) View.VISIBLE else View.GONE
-            binding.formCompany.visibility = if (companyActive) View.VISIBLE else View.GONE
-            binding.formDomain.visibility = if (domainActive) View.VISIBLE else View.GONE
+            val forms = mapOf(
+                "person" to binding.formPerson,
+                "company" to binding.formCompany,
+                "domain" to binding.formDomain,
+                "email" to binding.formEmail,
+                "phone" to binding.formPhone,
+                "username" to binding.formUsername,
+                "vehicle" to binding.formVehicle,
+                "wifi" to binding.formWifi
+            )
+            forms.forEach { (t, form) -> form.visibility = if (t == type) View.VISIBLE else View.GONE }
 
             val tv = android.util.TypedValue()
             requireContext().theme.resolveAttribute(colorPrimary, tv, true)
             val accentColor = tv.data
-            val bgColor = android.graphics.Color.parseColor(bgDark)
-
-            binding.cardTypePerson.setCardBackgroundColor(if (personActive) accentColor else bgColor)
-            binding.cardTypeCompany.setCardBackgroundColor(if (companyActive) accentColor else bgColor)
-            binding.cardTypeDomain.setCardBackgroundColor(if (domainActive) accentColor else bgColor)
-
             val strokeInactive = ContextCompat.getColor(requireContext(), R.color.border)
-            binding.cardTypePerson.strokeColor = if (personActive) android.graphics.Color.TRANSPARENT else strokeInactive
-            binding.cardTypeCompany.strokeColor = if (companyActive) android.graphics.Color.TRANSPARENT else strokeInactive
-            binding.cardTypeDomain.strokeColor = if (domainActive) android.graphics.Color.TRANSPARENT else strokeInactive
+
+            val cards = mapOf(
+                "person" to binding.cardTypePerson,
+                "company" to binding.cardTypeCompany,
+                "domain" to binding.cardTypeDomain,
+                "email" to binding.cardTypeEmail,
+                "phone" to binding.cardTypePhone,
+                "username" to binding.cardTypeUsername,
+                "vehicle" to binding.cardTypeVehicle,
+                "wifi" to binding.cardTypeWifi
+            )
+            cards.forEach { (t, card) ->
+                val active = t == type
+                card.setCardBackgroundColor(if (active) accentColor else android.graphics.Color.TRANSPARENT)
+                card.strokeColor = if (active) android.graphics.Color.TRANSPARENT else strokeInactive
+                val textView = card.getChildAt(0) as? android.widget.TextView
+                textView?.setTextColor(
+                    if (active) ContextCompat.getColor(requireContext(), R.color.background_primary)
+                    else ContextCompat.getColor(requireContext(), R.color.text_secondary)
+                )
+            }
         }
 
         binding.cardTypePerson.setOnClickListener { selectType("person") }
         binding.cardTypeCompany.setOnClickListener { selectType("company") }
         binding.cardTypeDomain.setOnClickListener { selectType("domain") }
+        binding.cardTypeEmail.setOnClickListener { selectType("email") }
+        binding.cardTypePhone.setOnClickListener { selectType("phone") }
+        binding.cardTypeUsername.setOnClickListener { selectType("username") }
+        binding.cardTypeVehicle.setOnClickListener { selectType("vehicle") }
+        binding.cardTypeWifi.setOnClickListener { selectType("wifi") }
 
         selectType("person")
     }
@@ -225,6 +245,53 @@ class SearchFragment : Fragment() {
                 }
                 navigateToProgress(value, if (value.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+"))) "ip" else "domain")
             }
+
+            "email" -> {
+                val value = binding.inputEmailValue.text?.toString()?.trim() ?: ""
+                if (value.isBlank()) {
+                    Toast.makeText(requireContext(), "Enter an email address", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                navigateToProgress(value, "email")
+            }
+
+            "phone" -> {
+                val value = binding.inputPhoneValue.text?.toString()?.trim() ?: ""
+                if (value.isBlank()) {
+                    Toast.makeText(requireContext(), "Enter a phone number", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                navigateToProgress(value, "phone")
+            }
+
+            "username" -> {
+                val value = binding.inputUsernameValue.text?.toString()?.trim() ?: ""
+                if (value.isBlank()) {
+                    Toast.makeText(requireContext(), "Enter a username", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                navigateToProgress(value, "username")
+            }
+
+            "vehicle" -> {
+                val value = binding.inputVehicleValue.text?.toString()?.trim() ?: ""
+                if (value.isBlank()) {
+                    Toast.makeText(requireContext(), "Enter a VIN or vehicle info", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                val searchType = if (value.length == 17 && value.all { it.isLetterOrDigit() }) "vin" else "vehicle"
+                navigateToProgress(value, searchType)
+            }
+
+            "wifi" -> {
+                val value = binding.inputWifiValue.text?.toString()?.trim() ?: ""
+                if (value.isBlank()) {
+                    Toast.makeText(requireContext(), "Enter a WiFi SSID or MAC address", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                val searchType = if (value.matches(Regex("[0-9A-Fa-f:]{17}"))) "mac" else "wifi"
+                navigateToProgress(value, searchType)
+            }
         }
     }
 
@@ -253,9 +320,12 @@ class SearchFragment : Fragment() {
                 binding.inputCompanyDomain.text?.clear()
                 binding.inputCompanyCity.text?.clear()
             }
-            "domain" -> {
-                binding.inputDomainValue.text?.clear()
-            }
+            "domain" -> binding.inputDomainValue.text?.clear()
+            "email" -> binding.inputEmailValue.text?.clear()
+            "phone" -> binding.inputPhoneValue.text?.clear()
+            "username" -> binding.inputUsernameValue.text?.clear()
+            "vehicle" -> binding.inputVehicleValue.text?.clear()
+            "wifi" -> binding.inputWifiValue.text?.clear()
         }
     }
 
