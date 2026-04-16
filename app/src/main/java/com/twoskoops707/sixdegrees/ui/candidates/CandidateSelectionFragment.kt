@@ -79,7 +79,7 @@ class CandidateSelectionFragment : Fragment() {
             itemAnimator = null
         }
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.selected.collect { selected ->
                 if (_binding == null) return@collect
                 adapter.updateSelection(selected)
@@ -90,30 +90,38 @@ class CandidateSelectionFragment : Fragment() {
 
         binding.btnInvestigate.setOnClickListener {
             if (!isAdded || !isResumed) return@setOnClickListener
+            val nav = findNavController()
+            if (nav.currentDestination?.id != R.id.nav_candidate_selection) return@setOnClickListener
             val refinedQuery = viewModel.buildRefinedQuery(candidates)
             if (refinedQuery.isBlank()) return@setOnClickListener
             val nextRound = round + 1
-            findNavController().navigate(
-                R.id.action_candidates_to_progress,
-                Bundle().apply {
-                    putString("query", refinedQuery)
-                    putString("type", "comprehensive")
-                    putInt("round", nextRound)
-                    putString("searchQuery", arguments?.getString("searchQuery") ?: "")
-                }
-            )
+            try {
+                nav.navigate(
+                    R.id.action_candidates_to_progress,
+                    Bundle().apply {
+                        putString("query", refinedQuery)
+                        putString("type", "comprehensive")
+                        putInt("round", nextRound)
+                        putString("searchQuery", arguments?.getString("searchQuery") ?: "")
+                    }
+                )
+            } catch (_: Exception) {}
         }
 
         binding.btnSkipToResults.setOnClickListener {
             if (!isAdded || !isResumed) return@setOnClickListener
-            findNavController().navigate(
-                R.id.action_candidates_to_results,
-                Bundle().apply {
-                    putString("searchQuery", arguments?.getString("searchQuery") ?: "")
-                    putString("searchType", "comprehensive")
-                    putString("reportId", reportId)
-                }
-            )
+            val nav = findNavController()
+            if (nav.currentDestination?.id != R.id.nav_candidate_selection) return@setOnClickListener
+            try {
+                nav.navigate(
+                    R.id.action_candidates_to_results,
+                    Bundle().apply {
+                        putString("searchQuery", arguments?.getString("searchQuery") ?: "")
+                        putString("searchType", "comprehensive")
+                        putString("reportId", reportId)
+                    }
+                )
+            } catch (_: Exception) {}
         }
     }
 

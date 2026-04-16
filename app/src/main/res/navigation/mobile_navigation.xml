@@ -79,7 +79,9 @@
             android:defaultValue="" />
         <action
             android:id="@+id/action_candidates_to_progress"
-            app:destination="@id/nav_search_progress" />
+            app:destination="@id/nav_search_progress"
+            app:popUpTo="@id/nav_candidate_selection"
+            app:popUpToInclusive="true" />
         <action
             android:id="@+id/action_candidates_to_results"
             app:destination="@id/nav_results"

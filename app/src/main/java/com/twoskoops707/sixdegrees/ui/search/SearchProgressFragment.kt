@@ -111,35 +111,42 @@ class SearchProgressFragment : Fragment() {
         }
 
         binding.fabViewReport.setOnClickListener {
+            if (!isAdded || !isResumed) return@setOnClickListener
+            val nav = findNavController()
+            if (nav.currentDestination?.id != R.id.nav_search_progress) return@setOnClickListener
             val candidates = pendingCandidates
             if (candidates != null) {
                 val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
                 val json = try {
                     moshi.adapter<List<CandidateProfile>>(listType).toJson(candidates)
                 } catch (_: Exception) { "[]" }
-                findNavController().navigate(
-                    R.id.action_progress_to_candidates,
-                    Bundle().apply {
-                        putString("candidatesJson", json)
-                        putString("reportId", completedReportId ?: "")
-                        putInt("round", pendingCandidatesRound)
-                        putString("searchQuery", displayQuery)
-                    }
-                )
+                try {
+                    nav.navigate(
+                        R.id.action_progress_to_candidates,
+                        Bundle().apply {
+                            putString("candidatesJson", json)
+                            putString("reportId", completedReportId ?: "")
+                            putInt("round", pendingCandidatesRound)
+                            putString("searchQuery", displayQuery)
+                        }
+                    )
+                } catch (_: Exception) {}
             } else {
                 val reportId = completedReportId ?: return@setOnClickListener
-                findNavController().navigate(
-                    R.id.action_progress_to_results,
-                    Bundle().apply {
-                        putString("searchQuery", currentDisplayQuery)
-                        putString("searchType", currentType)
-                        putString("reportId", reportId)
-                    }
-                )
+                try {
+                    nav.navigate(
+                        R.id.action_progress_to_results,
+                        Bundle().apply {
+                            putString("searchQuery", currentDisplayQuery)
+                            putString("searchType", currentType)
+                            putString("reportId", reportId)
+                        }
+                    )
+                } catch (_: Exception) {}
             }
         }
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.events.collect { event ->
                 handleEvent(event)
             }
@@ -222,7 +229,10 @@ class SearchProgressFragment : Fragment() {
                     binding.tvEta.text = ""
                     binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
                     if (!isAdded || !isResumed) return
-                    findNavController().navigate(
+                    val nav = findNavController()
+                    if (nav.currentDestination?.id != R.id.nav_search_progress) return
+                    try {
+                    nav.navigate(
                         R.id.action_progress_to_progress,
                         Bundle().apply {
                             putString("query", event.refinedQuery)
@@ -231,6 +241,7 @@ class SearchProgressFragment : Fragment() {
                             putString("searchQuery", currentDisplayQuery)
                         }
                     )
+                    } catch (_: Exception) {}
                 } else {
                     pendingCandidates = event.candidates
                     binding.tvStatus.text = "${event.candidates.size} candidate${if (event.candidates.size != 1) "s" else ""} identified · ${elapsedSec}s"
