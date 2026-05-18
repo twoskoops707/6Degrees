@@ -121,6 +121,10 @@ class WizardFragment : Fragment() {
                 .edit().putBoolean("setup_complete", true).apply()
             findNavController().navigate(R.id.action_wizard_to_search)
         }
+
+        binding.cardWebHub.setOnClickListener {
+            findNavController().navigate(R.id.action_wizard_to_osint_resources)
+        }
     }
 
     private fun populateSetupSteps() {
@@ -133,7 +137,7 @@ class WizardFragment : Fragment() {
 
         val steps = listOf(
             StepDef(
-                "1", "Enable external apps in Termux", "RUN COMMAND"
+                "1", getString(R.string.wizard_step1_label), getString(R.string.wizard_step1_action)
             ) {
                 val cmd = "echo 'allow-external-apps = true' >> ~/.termux/termux.properties"
                 val clipboard = ctx.getSystemService(ClipboardManager::class.java)
@@ -144,10 +148,10 @@ class WizardFragment : Fragment() {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     })
                 } catch (_: Exception) { }
-                Toast.makeText(ctx, "Command copied — paste in Termux (long-press → Paste)", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, getString(R.string.wizard_step1_toast), Toast.LENGTH_LONG).show()
             },
             StepDef(
-                "2", "Restart Termux app", "OPEN TERMUX"
+                "2", getString(R.string.wizard_step2_label), getString(R.string.wizard_step2_action)
             ) {
                 try {
                     ctx.startActivity(Intent().apply {
@@ -155,11 +159,11 @@ class WizardFragment : Fragment() {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     })
                 } catch (_: Exception) {
-                    Toast.makeText(ctx, "Termux not installed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, getString(R.string.wizard_step2_error), Toast.LENGTH_SHORT).show()
                 }
             },
             StepDef(
-                "3", "Grant RunCommand permission (tap Allow)", "REQUEST PERMISSION"
+                "3", getString(R.string.wizard_step3_label), getString(R.string.wizard_step3_action)
             ) {
                 try {
                     val intent = Intent().apply {
@@ -171,9 +175,9 @@ class WizardFragment : Fragment() {
                         putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
                     }
                     ctx.startForegroundService(intent)
-                    Toast.makeText(ctx, "If prompted, tap Allow — then reopen Setup to scan tools", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, getString(R.string.wizard_step3_toast), Toast.LENGTH_LONG).show()
                 } catch (_: Exception) {
-                    Toast.makeText(ctx, "Complete steps 1 & 2 first", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, getString(R.string.wizard_step3_error), Toast.LENGTH_SHORT).show()
                 }
             }
         )
@@ -248,7 +252,7 @@ class WizardFragment : Fragment() {
                 orientation = LinearLayout.VERTICAL
                 setOnClickListener { launchTermuxInstall(tool.installCmd) }
             }
-            val (row, _, statusTv) = buildStatusRowDetailed(tool.displayName, "SCANNING…", pending = true, isOk = false)
+            val (row, _, statusTv) = buildStatusRowDetailed(tool.displayName, getString(R.string.tool_status_scanning), pending = true, isOk = false)
             val cmdView = TextView(ctx).apply {
                 text = tool.installCmd
                 textSize = 11f
@@ -268,7 +272,7 @@ class WizardFragment : Fragment() {
 
         container.addView(buildDivider())
         val noteView = TextView(ctx).apply {
-            text = "Not available on this device: theHarvester (needs Playwright browser), hashcat (no GPU), aircrack-ng (needs monitor mode), maltego (desktop GUI). Use on PC."
+            text = getString(R.string.wizard_tools_unavailable_note)
             textSize = 12f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
             setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
@@ -283,7 +287,7 @@ class WizardFragment : Fragment() {
             rowMap.forEach { (key, toolRow) ->
                 val isOk = results[key]
                 if (isOk == null) return@forEach
-                val label = if (isOk) "READY" else "NOT INSTALLED"
+                val label = if (isOk) getString(R.string.tool_status_ready) else getString(R.string.tool_status_not_installed)
                 toolRow.statusTv.text = label
                 toolRow.statusTv.setTextColor(ContextCompat.getColor(ctx,
                     if (isOk) R.color.score_green else R.color.score_red))
@@ -317,7 +321,7 @@ class WizardFragment : Fragment() {
             ctx.startForegroundService(intent)
         } catch (_: Exception) {
             rowMap.forEach { (_, toolRow) ->
-                toolRow.statusTv.text = "UNKNOWN"
+                toolRow.statusTv.text = getString(R.string.tool_status_unknown)
                 toolRow.statusTv.setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
             }
             return
@@ -341,8 +345,8 @@ class WizardFragment : Fragment() {
                 withContext(Dispatchers.Main) {
                     if (_binding == null) return@withContext
                     rowMap.forEach { (_, toolRow) ->
-                        if (toolRow.statusTv.text == "SCANNING…") {
-                            toolRow.statusTv.text = "NEEDS SETUP"
+                        if (toolRow.statusTv.text == getString(R.string.tool_status_scanning)) {
+                            toolRow.statusTv.text = getString(R.string.tool_status_unknown)
                             toolRow.statusTv.setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
                         }
                     }
@@ -371,7 +375,7 @@ class WizardFragment : Fragment() {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 })
             } catch (_: Exception) {}
-            Toast.makeText(requireContext(), "Command copied to clipboard — paste in Termux", Toast.LENGTH_LONG).show()
+            Toast.makeText(requireContext(), getString(R.string.tool_install_toast), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -380,7 +384,7 @@ class WizardFragment : Fragment() {
         for ((label, prefKey, _) in apiDefs) {
             val prefs = requireContext().getSharedPreferences("api_keys", Context.MODE_PRIVATE)
             val isSet = (prefs.getString(prefKey, "") ?: "").isNotBlank()
-            container.addView(buildStatusRow(label, isSet, "Tap Settings → API Keys to configure"))
+            container.addView(buildStatusRow(label, isSet, getString(R.string.api_status_free)))
             if (apiDefs.last().first != label) container.addView(buildDivider())
         }
         container.setOnClickListener {
@@ -390,14 +394,14 @@ class WizardFragment : Fragment() {
 
     private fun populateTips() {
         val tips = listOf(
-            "\uD83D\uDCA1" to "Enter full name + city/state for best results and fewer blank reports",
-            "\uD83D\uDCF1" to "Enable Termux external app permission before tapping install commands (see step above)",
-            "\uD83D\uDD0D" to "Sherlock and Maigret run in Termux background — check Termux app for username results",
-            "\uD83D\uDD11" to "Add a Google Custom Search Engine API key for richer web search results",
-            "\uD83D\uDEE1\uFE0F" to "Shodan and HIBP keys unlock breach and IP data sections in reports",
-            "\uD83D\uDCC4" to "If a report seems empty: try adding employer, age, or school to the search query",
-            "\uD83D\uDC65" to "Round 1 shows candidate cards — pick the closest match for a deep-dive report",
-            "\uD83D\uDCDE" to "Tap phone numbers and email addresses in reports to dial or open mail"
+            "\uD83D\uDCCD" to getString(R.string.tip_1),
+            "\uD83D\uDCF1" to getString(R.string.tip_2),
+            "\uD83D\uDD0D" to getString(R.string.tip_3),
+            "\uD83D\uDEE1\uFE0F" to getString(R.string.tip_4),
+            "\uD83D\uDC65" to getString(R.string.tip_5),
+            "\uD83D\uDCC4" to getString(R.string.tip_6),
+            "\uD83D\uDD13" to getString(R.string.tip_7),
+            "\uD83D\uDCDE" to getString(R.string.tip_8)
         )
         val container = binding.tipsContainer
         val ctx = requireContext()

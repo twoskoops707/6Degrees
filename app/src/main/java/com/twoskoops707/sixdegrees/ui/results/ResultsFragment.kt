@@ -172,6 +172,15 @@ class ResultsFragment : Fragment() {
         buildCandidateDisambiguation(enrichedMeta)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
+
+        binding.btnWebHub.setOnClickListener {
+            val q = report.searchQuery.split("|").firstOrNull()?.let {
+                val parts = it.split("=", limit = 2)
+                if (parts.size == 2) parts[1].trim() else it.trim()
+            } ?: report.searchQuery
+            val bundle = Bundle().also { it.putString("query", q) }
+            findNavController().navigate(R.id.action_results_to_osint_resources, bundle)
+        }
     }
 
     private fun extractBestAge(meta: Map<String, String>): String? =

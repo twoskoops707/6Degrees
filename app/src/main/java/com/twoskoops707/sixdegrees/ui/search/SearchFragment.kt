@@ -64,6 +64,10 @@ class SearchFragment : Fragment() {
 
         binding.searchButton.setOnClickListener { doSearch() }
         binding.btnClearFields.setOnClickListener { clearCurrentForm() }
+        binding.btnWebHub.setOnClickListener {
+            val bundle = Bundle().also { it.putString("query", buildQueryPreview()) }
+            findNavController().navigate(R.id.action_search_to_osint_resources, bundle)
+        }
 
         val imeSearch = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
         listOf(
@@ -297,6 +301,22 @@ class SearchFragment : Fragment() {
                 navigateToProgress(value, searchType)
             }
         }
+    }
+
+    private fun buildQueryPreview(): String {
+        return when (currentType) {
+            "person" -> listOf(
+                binding.inputFirstName.text, binding.inputLastName.text,
+                binding.inputCity.text, binding.inputState.text
+            ).filter { !it.isNullOrBlank() }.joinToString(" ")
+            "email" -> binding.inputEmailValue.text?.toString() ?: ""
+            "phone" -> binding.inputPhoneValue.text?.toString() ?: ""
+            "username" -> binding.inputUsernameValue.text?.toString() ?: ""
+            "domain", "ip" -> binding.inputDomainValue.text?.toString() ?: ""
+            "company" -> binding.inputCompanyName.text?.toString() ?: ""
+            "vehicle" -> binding.inputVehicleValue.text?.toString() ?: ""
+            else -> ""
+        }.trim()
     }
 
     private fun clearCurrentForm() {

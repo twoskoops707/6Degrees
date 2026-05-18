@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:paddingEnd="8dp"
-        app:title="Report"
+        app:title="@string/results_title"
         app:titleTextColor="@color/text_primary"
         app:titleTextAppearance="@style/TextAppearance.SixDegrees.DossierTitle"
         app:navigationIcon="@drawable/ic_arrow_back"
@@ -20,21 +20,40 @@
         app:elevation="0dp"
         android:background="@color/background_secondary">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_export"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
+        <LinearLayout
             android:layout_gravity="end"
-            android:layout_marginEnd="4dp"
-            android:text="Export"
-            android:textColor="@color/accent_cyan"
-            android:textSize="12sp"
-            android:letterSpacing="0.04"
-            app:strokeColor="@color/accent_cyan"
-            app:strokeWidth="1dp"
-            app:cornerRadius="8dp"
-            />
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginEnd="4dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_web_hub"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:text="Web Hub"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="12sp"
+                android:letterSpacing="0.04"
+                app:strokeColor="?attr/colorPrimary"
+                app:strokeWidth="1dp"
+                app:cornerRadius="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_export"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Export"
+                android:textColor="@color/accent_cyan"
+                android:textSize="12sp"
+                android:letterSpacing="0.04"
+                app:strokeColor="@color/accent_cyan"
+                app:strokeWidth="1dp"
+                app:cornerRadius="8dp" />
+        </LinearLayout>
     </com.google.android.material.appbar.MaterialToolbar>
 
     <View
@@ -64,7 +83,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="No Report"
+            android:text="@string/results_empty_title"
             android:textColor="@color/text_secondary"
             android:alpha="0.4"
             android:textSize="22sp"
@@ -75,7 +94,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Run a search to generate an intelligence report"
+            android:text="@string/results_empty_message"
             android:textColor="@color/text_dim"
             android:textSize="13sp"
             android:gravity="center" />
@@ -241,7 +260,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Risk Assessment"
+                        android:text="@string/results_risk_label"
                         android:textColor="@color/text_dim"
                         android:textSize="10sp"
                         android:letterSpacing="0.06"
@@ -251,7 +270,7 @@
                         android:id="@+id/tv_score_verdict"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Analyzing…"
+                        android:text="@string/results_risk_calculating"
                         android:textColor="@color/text_primary"
                         android:textSize="15sp"
                         android:textStyle="bold"

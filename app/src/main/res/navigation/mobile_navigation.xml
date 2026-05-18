@@ -19,6 +19,9 @@
         <action
             android:id="@+id/action_search_to_progress"
             app:destination="@id/nav_search_progress" />
+        <action
+            android:id="@+id/action_search_to_osint_resources"
+            app:destination="@id/nav_osint_resources" />
     </fragment>
 
     <fragment
@@ -105,6 +108,20 @@
         <action
             android:id="@+id/action_wizard_to_api_settings"
             app:destination="@id/nav_api_settings" />
+        <action
+            android:id="@+id/action_wizard_to_osint_resources"
+            app:destination="@id/nav_osint_resources" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_osint_resources"
+        android:name="com.twoskoops707.sixdegrees.ui.resources.OsintResourcesFragment"
+        android:label="OSINT Web Hub"
+        tools:layout="@layout/fragment_osint_resources">
+        <argument
+            android:name="query"
+            app:argType="string"
+            android:defaultValue="" />
     </fragment>
 
     <fragment
@@ -165,6 +182,9 @@
             app:destination="@id/nav_search_progress"
             app:popUpTo="@id/nav_search"
             app:popUpToInclusive="false" />
+        <action
+            android:id="@+id/action_results_to_osint_resources"
+            app:destination="@id/nav_osint_resources" />
     </fragment>
 
     <fragment
