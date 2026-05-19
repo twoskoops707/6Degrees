@@ -69,7 +69,7 @@ class MainActivity : AppCompatActivity() {
             (supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment?)!!
         val navController = navHostFragment.navController
 
-        val topLevelDestinations = setOf(R.id.nav_search, R.id.nav_history, R.id.nav_settings)
+        val topLevelDestinations = setOf(R.id.nav_search, R.id.nav_osint_resources, R.id.nav_history, R.id.nav_settings)
         appBarConfiguration = AppBarConfiguration(topLevelDestinations)
 
         val bottomNav = binding.appBarMain.contentMain.bottomNavView
@@ -87,9 +87,10 @@ class MainActivity : AppCompatActivity() {
         }
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val menuId = when (destination.id) {
-                R.id.nav_search, R.id.nav_search_progress, R.id.nav_results, R.id.nav_wizard, R.id.nav_dork_builder -> R.id.nav_search
+                R.id.nav_search, R.id.nav_search_progress, R.id.nav_results, R.id.nav_wizard, R.id.nav_dork_builder, R.id.nav_candidate_selection -> R.id.nav_search
+                R.id.nav_osint_resources -> R.id.nav_osint_resources
                 R.id.nav_history -> R.id.nav_history
-                R.id.nav_settings, R.id.nav_api_settings, R.id.nav_user_profile -> R.id.nav_settings
+                R.id.nav_settings, R.id.nav_api_settings, R.id.nav_user_profile, R.id.nav_api_signup_web -> R.id.nav_settings
                 else -> null
             }
             menuId?.let { id ->

@@ -14,5 +14,6 @@
       "Bash(grep java:*)",
       "Bash(find:*)"
     ]
-  }
+  },
+  "outputStyle": "default"
 }

@@ -122,6 +122,10 @@
             android:name="query"
             app:argType="string"
             android:defaultValue="" />
+        <argument
+            android:name="filterCategory"
+            app:argType="string"
+            android:defaultValue="" />
     </fragment>
 
     <fragment
