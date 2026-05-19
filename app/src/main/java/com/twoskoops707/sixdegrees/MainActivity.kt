@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        com.twoskoops707.sixdegrees.tor.TorBootstrapManager.start(this)
         initTorConnection()
         checkTermuxTools()
 

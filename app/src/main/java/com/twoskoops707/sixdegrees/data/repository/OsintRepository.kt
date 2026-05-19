@@ -71,13 +71,13 @@ class OsintRepository(context: Context) {
     private val torHttpClient: OkHttpClient? by lazy {
         try {
             val probe = java.net.Socket()
-            probe.connect(InetSocketAddress("127.0.0.1", 9050), 1500)
+            probe.connect(InetSocketAddress("127.0.0.1", 9050), 2000)
             probe.close()
             val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9050))
             OkHttpClient.Builder()
                 .proxy(proxy)
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
                 .followRedirects(true)
                 .build()
         } catch (_: Exception) { null }
@@ -388,25 +388,14 @@ class OsintRepository(context: Context) {
     }
 
     private fun startTorIfAvailable() {
-        val torBin = java.io.File("/data/data/com.termux/files/usr/bin/tor")
-        if (!torBin.exists()) return
         try {
-            val probe = Socket()
+            val probe = java.net.Socket()
             probe.connect(InetSocketAddress("127.0.0.1", 9050), 500)
             probe.close()
             return
         } catch (_: Exception) {}
         try {
-            val intent = Intent().apply {
-                setClassName("com.termux", "com.termux.app.RunCommandService")
-                action = "com.termux.RUN_COMMAND"
-                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
-                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c",
-                    "nohup /data/data/com.termux/files/usr/bin/tor --DataDirectory /data/data/com.termux/files/home/.tor > /data/data/com.termux/files/home/.tor/tor.log 2>&1 &"))
-                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-            }
-            appCtx.startForegroundService(intent)
+            com.twoskoops707.sixdegrees.tor.TorBootstrapManager.start(appCtx)
         } catch (_: Exception) {}
     }
 

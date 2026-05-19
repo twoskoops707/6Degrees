@@ -21,6 +21,8 @@ room = "2.6.1"
 securityCrypto = "1.1.0-alpha06"
 coroutines = "1.7.3"
 viewpager2 = "1.0.0"
+jsoup = "1.18.1"
+torAndroid = "0.4.9.12"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -49,6 +51,9 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-viewpager2 = { group = "androidx.viewpager2", name = "viewpager2", version.ref = "viewpager2" }
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+tor-android = { group = "info.guardianproject", name = "tor-android", version.ref = "torAndroid" }
+jtorctl = { group = "info.guardianproject", name = "jtorctl", version = "0.4.5.7" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
