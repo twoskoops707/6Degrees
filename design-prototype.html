@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SixDegrees — Field Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:        #0e0c0a;
+  --charcoal:   #1a1714;
+  --carbon:     #252018;
+  --ash:        #332e26;
+  --dust:       #4a4338;
+  --fog:        #6b5f50;
+  --parchment:  #e8dcc8;
+  --cream:      #f2ead8;
+  --paper:      #faf6ed;
+  --orange:     #e8530a;
+  --orange-dim: #2a1206;
+  --amber:      #e8a020;
+  --amber-dim:  #261800;
+  --green:      #3ec47a;
+  --green-dim:  #061a0d;
+  --red:        #d93030;
+  --red-dim:    #200808;
+  --blue:       #4a90d9;
+  --stamp-red:  #c41e1e;
+
+  --font-display: 'Bebas Neue', 'Impact', sans-serif;
+  --font-mono:    'Courier Prime', 'Courier New', monospace;
+  --font-body:    'Lora', 'Georgia', serif;
+
+  --radius-sm: 2px;
+  --radius:    4px;
+  --radius-lg: 6px;
+}
+
+html { font-size: 16px; }
+body {
+  background: var(--ink);
+  color: var(--parchment);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE OVERLAY ─────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.6;
+}
+
+/* ── SCREEN MANAGER ────────────────────────────────────── */
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: flex; flex-direction: column; }
+.app-nav { display: flex; gap: 8px; padding: 8px; }
+.app-nav button {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border: 1px solid var(--ash);
+  background: var(--charcoal);
+  color: var(--fog);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+}
+.app-nav button:hover { color: var(--parchment); border-color: var(--dust); }
+.app-nav button.active { color: var(--orange); border-color: var(--orange); }
+
+/* ── TYPOGRAPHY ────────────────────────────────────────── */
+.display { font-family: var(--font-display); letter-spacing: 0.05em; line-height: 0.95; }
+.mono    { font-family: var(--font-mono); }
+.label   {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fog);
+}
+.label-bright { color: var(--amber); }
+
+/* ── CLASSIFIED STAMP ──────────────────────────────────── */
+.stamp {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--stamp-red);
+  border: 2px solid var(--stamp-red);
+  padding: 2px 8px;
+  border-radius: 2px;
+  transform: rotate(-8deg);
+  opacity: 0.85;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.stamp-green {
+  color: var(--green);
+  border-color: var(--green);
+  transform: rotate(-4deg);
+}
+.stamp-amber {
+  color: var(--amber);
+  border-color: var(--amber);
+  transform: rotate(-6deg);
+}
+
+/* ── STATUS BADGE ──────────────────────────────────────── */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  padding: 2px 7px;
+  border-radius: 1px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.badge-orange { background: var(--orange-dim); color: var(--orange); border: 1px solid var(--orange); }
+.badge-green  { background: var(--green-dim);  color: var(--green);  border: 1px solid var(--green); }
+.badge-red    { background: var(--red-dim);    color: var(--red);    border: 1px solid var(--red); }
+.badge-amber  { background: var(--amber-dim);  color: var(--amber);  border: 1px solid var(--amber); }
+.badge-ghost  { background: transparent; color: var(--fog); border: 1px solid var(--ash); }
+
+/* ── DIVIDERS ──────────────────────────────────────────── */
+.rule { height: 1px; background: var(--ash); }
+.rule-orange { height: 1px; background: linear-gradient(90deg, var(--orange) 0%, transparent 70%); }
+.rule-amber  { height: 1px; background: linear-gradient(90deg, var(--amber) 0%, transparent 70%); }
+
+/* ── CARD ──────────────────────────────────────────────── */
+.card {
+  background: var(--charcoal);
+  border: 1px solid var(--ash);
+  border-radius: var(--radius);
+}
+.card-paper {
+  background: var(--paper);
+  border: 1px solid #c8bfae;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+}
+.card-elevated {
+  background: var(--carbon);
+  border: 1px solid var(--dust);
+  border-radius: var(--radius);
+}
+
+/* ── INPUTS ────────────────────────────────────────────── */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field-input {
+  background: var(--charcoal);
+  border: 1px solid var(--ash);
+  border-radius: var(--radius-sm);
+  color: var(--cream);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.field-input::placeholder { color: var(--dust); }
+.field-input:focus { border-color: var(--amber); background: var(--carbon); }
+
+/* ── BUTTONS ───────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  font-size: 16px;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary {
+  background: var(--orange);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(232,83,10,0.35);
+}
+.btn-primary:hover { background: #ff6520; box-shadow: 0 4px 20px rgba(232,83,10,0.5); }
+.btn-secondary {
+  background: transparent;
+  color: var(--parchment);
+  border: 1px solid var(--ash);
+}
+.btn-secondary:hover { border-color: var(--parchment); }
+.btn-ghost {
+  background: transparent;
+  color: var(--fog);
+  border: 1px solid var(--ash);
+  font-size: 12px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+}
+.btn-ghost:hover { color: var(--parchment); }
+.btn-amber {
+  background: var(--amber);
+  color: var(--ink);
+  font-size: 13px;
+  padding: 10px 16px;
+}
+.btn-outline-orange {
+  background: transparent;
+  color: var(--orange);
+  border: 1px solid var(--orange);
+  font-size: 13px;
+  padding: 9px 14px;
+}
+.btn-outline-orange:hover { background: var(--orange-dim); }
+
+/* ── BOTTOM NAV ────────────────────────────────────────── */
+.bottom-nav {
+  background: var(--charcoal);
+  border-top: 1px solid var(--ash);
+  display: flex;
+  padding: 0;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 4px 12px;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  background: none;
+  color: var(--fog);
+}
+.nav-item.active { color: var(--orange); }
+.nav-item:hover  { color: var(--parchment); }
+.nav-icon { font-size: 18px; }
+.nav-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* ── TOP BAR ───────────────────────────────────────────── */
+.top-bar {
+  background: var(--charcoal);
+  border-bottom: 2px solid var(--orange);
+  padding: 12px 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.top-bar-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.1em;
+  color: var(--cream);
+  flex: 1;
+}
+.top-bar-sub {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--fog);
+  text-transform: uppercase;
+}
+
+/* ── ANIMATIONS ────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes blink  { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes stampIn {
+  0%   { opacity: 0; transform: rotate(-8deg) scale(1.4); }
+  60%  { opacity: 1; transform: rotate(-8deg) scale(0.96); }
+  100% { opacity: 0.85; transform: rotate(-8deg) scale(1); }
+}
+
+.anim-fade-up  { animation: fadeUp 0.4s ease forwards; }
+.anim-stamp    { animation: stampIn 0.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+.cursor::after { content: '█'; animation: blink 1s step-end infinite; font-size: 0.85em; }
+
+/* ─────────────────────────────────────────────────────────────
+   SCREEN 1: INVESTIGATE
+───────────────────────────────────────────────────────────── */
+#screen-search {
+  background: var(--ink);
+}
+
+.search-header {
+  background: var(--charcoal);
+  border-bottom: 2px solid var(--orange);
+  padding: 16px 16px 12px;
+  position: relative;
+  overflow: hidden;
+}
+.search-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 32px;
+  letter-spacing: 0.12em;
+  color: var(--cream);
+  line-height: 1;
+}
+.wordmark span { color: var(--orange); }
+
+.case-counter {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--fog);
+  margin-top: 2px;
+}
+
+.type-rail {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--charcoal);
+  border-bottom: 1px solid var(--ash);
+}
+.type-rail::-webkit-scrollbar { display: none; }
+
+.type-chip {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  padding: 6px 14px;
+  border-radius: 1px;
+  border: 1px solid var(--ash);
+  background: transparent;
+  color: var(--fog);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.type-chip:hover { border-color: var(--dust); color: var(--parchment); }
+.type-chip.active {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+}
+
+.search-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.case-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.form-full { grid-column: span 2; }
+
+.field-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--fog);
+  text-transform: uppercase;
+  margin-bottom: 3px;
+  display: block;
+}
+
+.intel-note {
+  background: var(--amber-dim);
+  border: 1px solid rgba(232,160,32,0.2);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  line-height: 1.5;
+}
+
+.recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.recent-item {
+  background: var(--charcoal);
+  border: 1px solid var(--ash);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.12s;
+  margin-bottom: 6px;
+}
+.recent-item:hover { border-color: var(--dust); background: var(--carbon); }
+
+.recent-icon {
+  width: 32px; height: 32px;
+  background: var(--ash);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.recent-name {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cream);
+}
+.recent-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fog);
+  margin-top: 1px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCREEN 2: INVESTIGATION IN PROGRESS
+───────────────────────────────────────────────────────────── */
+#screen-progress {
+  background: var(--ink);
+}
+
+.progress-header {
+  background: var(--charcoal);
+  padding: 14px 16px 12px;
+  border-bottom: 2px solid var(--orange);
+  position: relative;
+}
+
+.target-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--orange);
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.target-name {
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: 0.08em;
+  color: var(--cream);
+  line-height: 1;
+}
+
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--ash);
+  border-top: 1px solid var(--ash);
+  border-bottom: 1px solid var(--ash);
+}
+.stat-cell {
+  background: var(--charcoal);
+  padding: 10px 12px;
+  text-align: center;
+}
+.stat-val {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.stat-val.hits   { color: var(--green); }
+.stat-val.checks { color: var(--amber); }
+.stat-val.eta    { color: var(--fog); font-size: 16px; }
+.stat-key {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--fog);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.progress-bar-track {
+  height: 3px;
+  background: var(--ash);
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--orange), var(--amber));
+  width: 0%;
+  transition: width 0.5s ease;
+  animation: progressAnim 8s ease forwards;
+}
+@keyframes progressAnim {
+  0%   { width: 0%; }
+  20%  { width: 18%; }
+  50%  { width: 42%; }
+  80%  { width: 71%; }
+  100% { width: 87%; }
+}
+
+.feed-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  animation: slideIn 0.25s ease forwards;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.feed-item.checking {
+  background: var(--charcoal);
+  border-color: var(--ash);
+  color: var(--fog);
+}
+.feed-item.hit {
+  background: var(--green-dim);
+  border-color: rgba(62,196,122,0.3);
+  color: var(--cream);
+}
+.feed-item.miss {
+  background: transparent;
+  border-color: transparent;
+  color: var(--dust);
+  opacity: 0.7;
+}
+.feed-item.blocked {
+  background: var(--red-dim);
+  border-color: rgba(217,48,48,0.2);
+  color: var(--fog);
+}
+
+.feed-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.checking .feed-dot { background: var(--dust); animation: pulse 1s infinite; }
+.hit      .feed-dot { background: var(--green); }
+.miss     .feed-dot { background: var(--ash); }
+.blocked  .feed-dot { background: var(--red); }
+
+.feed-source { flex: 1; }
+.feed-detail {
+  font-size: 10px;
+  color: var(--fog);
+  margin-top: 1px;
+}
+.feed-badge { margin-left: auto; flex-shrink: 0; }
+
+.fab-report {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  min-width: 220px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCREEN 3: DOSSIER / RESULTS
+───────────────────────────────────────────────────────────── */
+#screen-dossier {
+  background: var(--ink);
+}
+
+.dossier-header {
+  background: var(--charcoal);
+  padding: 0;
+  border-bottom: 2px solid var(--amber);
+  overflow: hidden;
+}
+
+.dossier-tape {
+  height: 24px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--amber) 0px, var(--amber) 18px,
+    transparent 18px, transparent 22px
+  );
+  opacity: 0.25;
+}
+
+.dossier-id-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 6px;
+}
+
+.case-number {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--fog);
+  border: 1px solid var(--ash);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.dossier-subject-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 8px 16px 14px;
+}
+
+.subject-photo {
+  width: 64px; height: 64px;
+  background: var(--ash);
+  border: 2px solid var(--dust);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+  position: relative;
+}
+.subject-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 60%);
+}
+
+.subject-name-block { flex: 1; }
+.subject-name {
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: 0.06em;
+  color: var(--cream);
+  line-height: 1;
+}
+.subject-type-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.threat-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.score-ring {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 3px solid var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--red-dim);
+}
+.score-num {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--red);
+  letter-spacing: 0;
+}
+.score-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: var(--fog);
+  letter-spacing: 0.15em;
+  margin-top: 3px;
+  text-transform: uppercase;
+}
+
+.dossier-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* DOSSIER SECTIONS */
+.dossier-section {}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fog);
+}
+.section-line { flex: 1; height: 1px; background: var(--ash); }
+
+.data-row {
+  display: flex;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(74,67,56,0.4);
+  align-items: flex-start;
+}
+.data-row:last-child { border-bottom: none; }
+.data-key {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fog);
+  letter-spacing: 0.05em;
+  width: 90px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+.data-val {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--cream);
+  flex: 1;
+  line-height: 1.5;
+}
+.data-val.highlight { color: var(--amber); font-weight: 600; }
+.data-val.danger    { color: var(--red); }
+.data-val.verified  { color: var(--green); }
+
+/* SOURCE CARD */
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.source-card {
+  background: var(--charcoal);
+  border: 1px solid var(--ash);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  position: relative;
+}
+.source-card.has-hit {
+  border-color: rgba(62,196,122,0.4);
+  background: var(--green-dim);
+}
+.source-card.blocked {
+  border-color: var(--red-dim);
+  opacity: 0.6;
+}
+.source-card-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--parchment);
+  letter-spacing: 0.05em;
+}
+.source-card-detail {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--fog);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.source-card .hit-indicator {
+  position: absolute;
+  top: 6px; right: 8px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* DARK WEB SECTION */
+.darkweb-card {
+  background: #0a0505;
+  border: 1px solid rgba(217,48,48,0.3);
+  border-left: 3px solid var(--red);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.darkweb-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--red);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.darkweb-entry {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fog);
+  line-height: 1.6;
+  border-top: 1px solid rgba(74,67,56,0.3);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+.darkweb-entry:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+
+/* PAPER INSERT */
+.paper-insert {
+  background: var(--paper);
+  border: 1px solid #c8bfae;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  color: #2a2218;
+  position: relative;
+}
+.paper-insert::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #b8a88a 0px, #b8a88a 3px, transparent 3px, transparent 6px);
+}
+.paper-insert-title {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: #6b5f50;
+  margin-bottom: 8px;
+}
+.paper-text {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.7;
+  color: #2a2218;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCREEN 4: WEB HUB / BROWSER TOOLS
+───────────────────────────────────────────────────────────── */
+#screen-hub {
+  background: var(--ink);
+}
+
+.hub-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hub-search {
+  position: relative;
+}
+.hub-search .field-input {
+  padding-left: 36px;
+}
+.hub-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fog);
+  font-size: 14px;
+}
+
+.cat-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cat-strip::-webkit-scrollbar { display: none; }
+
+.cat-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 5px 11px;
+  border-radius: 1px;
+  border: 1px solid var(--ash);
+  background: transparent;
+  color: var(--fog);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.cat-btn:hover  { border-color: var(--dust); color: var(--parchment); }
+.cat-btn.active { background: var(--ash); color: var(--parchment); border-color: var(--parchment); }
+
+.tool-section-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--fog);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(74,67,56,0.35);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.tool-item:last-child { border-bottom: none; }
+.tool-item:hover .tool-name { color: var(--amber); }
+
+.tool-check {
+  width: 18px; height: 18px;
+  border: 1px solid var(--ash);
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  transition: all 0.12s;
+}
+.tool-check.checked {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: white;
+}
+
+.tool-name {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cream);
+  transition: color 0.1s;
+}
+.tool-desc {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--dust);
+  margin-top: 1px;
+}
+.tool-launch {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--fog);
+  flex-shrink: 0;
+}
+.tool-item:hover .tool-launch { color: var(--amber); }
+
+.launch-banner {
+  background: var(--orange-dim);
+  border: 1px solid rgba(232,83,10,0.3);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.launch-banner-count {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--orange);
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.launch-banner-text {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fog);
+}
+
+/* ── SCROLLBAR ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--charcoal); }
+::-webkit-scrollbar-thumb { background: var(--dust); border-radius: 2px; }
+
+/* ── UTILITY ───────────────────────────────────────────── */
+.flex         { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-6  { gap: 6px; }
+.gap-8  { gap: 8px; }
+.gap-10 { gap: 10px; }
+.mt-4   { margin-top: 4px; }
+.mt-8   { margin-top: 8px; }
+.w-full { width: 100%; }
+.px-16  { padding-left: 16px; padding-right: 16px; }
+.mb-8   { margin-bottom: 8px; }
+.hidden { display: none; }
+
+/* ── DEMO NAV ──────────────────────────────────────────── */
+.demo-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: rgba(14,12,10,0.95);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ash);
+}
+.demo-nav span {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--fog);
+  padding: 2px 8px;
+  align-self: center;
+}
+.demo-nav button {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border: 1px solid var(--ash);
+  background: var(--charcoal);
+  color: var(--fog);
+  cursor: pointer;
+  border-radius: 1px;
+  transition: all 0.12s;
+  text-transform: uppercase;
+}
+.demo-nav button:hover { color: var(--parchment); border-color: var(--dust); }
+.demo-nav button.active { color: var(--orange); border-color: var(--orange); background: var(--orange-dim); }
+
+body { padding-top: 36px; }
+
+/* ── MOBILE CONTAINER ──────────────────────────────────── */
+@media (min-width: 480px) {
+  .phone-wrap {
+    max-width: 390px;
+    margin: 0 auto;
+    min-height: calc(100vh - 36px);
+    box-shadow: 0 0 60px rgba(0,0,0,0.8), 0 0 1px var(--ash);
+    position: relative;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- DEMO NAV -->
+<div class="demo-nav">
+  <span>PROTOTYPE</span>
+  <button class="active" onclick="showScreen('search')">Investigate</button>
+  <button onclick="showScreen('progress')">In Progress</button>
+  <button onclick="showScreen('dossier')">Dossier</button>
+  <button onclick="showScreen('hub')">Web Hub</button>
+</div>
+
+<div class="phone-wrap">
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN 1 — INVESTIGATE
+══════════════════════════════════════════════════════ -->
+<div id="screen-search" class="screen active">
+
+  <div class="search-header">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="wordmark">SIX<span>DEGREES</span></div>
+        <div class="case-counter">PRIVATE INTELLIGENCE PLATFORM · v2.0</div>
+      </div>
+      <div class="stamp" style="animation-delay:0.3s">FIELD<br>OPS</div>
+    </div>
+  </div>
+
+  <!-- Type selector -->
+  <div class="type-rail">
+    <button class="type-chip active" onclick="selectType(this,'person')">👤 PERSON</button>
+    <button class="type-chip" onclick="selectType(this,'company')">🏢 COMPANY</button>
+    <button class="type-chip" onclick="selectType(this,'phone')">📞 PHONE</button>
+    <button class="type-chip" onclick="selectType(this,'email')">📧 EMAIL</button>
+    <button class="type-chip" onclick="selectType(this,'username')">🔑 USERNAME</button>
+    <button class="type-chip" onclick="selectType(this,'domain')">🌐 DOMAIN</button>
+    <button class="type-chip" onclick="selectType(this,'vehicle')">🚗 VEHICLE</button>
+    <button class="type-chip" onclick="selectType(this,'address')">📍 ADDRESS</button>
+  </div>
+
+  <div class="search-body">
+    <!-- Person Form -->
+    <div id="form-person" class="case-form">
+      <div class="form-row">
+        <div class="field-group">
+          <label class="field-label">First Name</label>
+          <input class="field-input" type="text" placeholder="John" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Last Name</label>
+          <input class="field-input" type="text" placeholder="Smith" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field-group">
+          <label class="field-label">Phone</label>
+          <input class="field-input" type="text" placeholder="(555) 000-0000" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Email</label>
+          <input class="field-input" type="text" placeholder="j@domain.com" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field-group">
+          <label class="field-label">City</label>
+          <input class="field-input" type="text" placeholder="Chicago" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">State</label>
+          <input class="field-input" type="text" placeholder="IL" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field-group">
+          <label class="field-label">Username</label>
+          <input class="field-input" type="text" placeholder="@handle" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">DOB</label>
+          <input class="field-input" type="text" placeholder="MM/YYYY" />
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Known Associates / Context</label>
+        <input class="field-input" type="text" placeholder="Any additional intel..." />
+      </div>
+    </div>
+
+    <div class="intel-note">
+      ⚡ More fields = tighter match. All fields optional — enter what you know.
+    </div>
+
+    <button class="btn btn-primary w-full" onclick="showScreen('progress')">
+      ▶ OPEN CASE FILE
+    </button>
+    <button class="btn btn-ghost w-full" onclick="showScreen('hub')">
+      ⬡ BROWSE TOOL HUB
+    </button>
+
+    <!-- Recent -->
+    <div>
+      <div class="recent-header">
+        <span class="label">Recent Cases</span>
+        <span class="label" style="color:var(--orange);cursor:pointer">See All</span>
+      </div>
+      <div class="recent-item" onclick="showScreen('dossier')">
+        <div class="recent-icon">👤</div>
+        <div>
+          <div class="recent-name">Michael Torres</div>
+          <div class="recent-meta">PERSON · 14 hits · 2h ago</div>
+        </div>
+        <span class="badge badge-amber">OPEN</span>
+      </div>
+      <div class="recent-item">
+        <div class="recent-icon">🌐</div>
+        <div>
+          <div class="recent-name">suspicious-domain.net</div>
+          <div class="recent-meta">DOMAIN · 8 hits · yesterday</div>
+        </div>
+        <span class="badge badge-ghost">VIEW</span>
+      </div>
+      <div class="recent-item">
+        <div class="recent-icon">🚗</div>
+        <div>
+          <div class="recent-name">1HGBH41JXMN109186</div>
+          <div class="recent-meta">VIN · 3 hits · 3 days ago</div>
+        </div>
+        <span class="badge badge-ghost">VIEW</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-item active"><span class="nav-icon">🔍</span><span class="nav-label">Investigate</span></button>
+    <button class="nav-item" onclick="showScreen('hub')"><span class="nav-icon">⬡</span><span class="nav-label">Tool Hub</span></button>
+    <button class="nav-item"><span class="nav-icon">📁</span><span class="nav-label">Cases</span></button>
+    <button class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Settings</span></button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN 2 — IN PROGRESS
+══════════════════════════════════════════════════════ -->
+<div id="screen-progress" class="screen">
+
+  <div class="progress-header">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <button class="btn-ghost btn" style="padding:4px 10px;font-size:11px" onclick="showScreen('search')">← BACK</button>
+      <span class="badge badge-orange" style="animation:pulse 1.5s infinite">● ACTIVE</span>
+    </div>
+    <div class="target-label">Target Acquired</div>
+    <div class="target-name cursor">Michael Torres</div>
+    <div class="flex items-center gap-8 mt-4" style="flex-wrap:wrap;gap:6px">
+      <span class="badge badge-ghost">PERSON</span>
+      <span class="badge badge-ghost">CHICAGO, IL</span>
+      <span class="badge badge-ghost">STAGE 2 · DEEP SCAN</span>
+    </div>
+  </div>
+
+  <div class="progress-stats">
+    <div class="stat-cell">
+      <div class="stat-val hits">14</div>
+      <div class="stat-key">Hits Found</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-val checks">31<span style="font-size:14px;color:var(--fog)">/56</span></div>
+      <div class="stat-key">Checked</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-val eta">~42s</div>
+      <div class="stat-key">Remaining</div>
+    </div>
+  </div>
+
+  <div class="progress-bar-track">
+    <div class="progress-bar-fill"></div>
+  </div>
+
+  <div class="feed-container" id="feed">
+    <div class="feed-item hit" style="animation-delay:0.0s">
+      <div class="feed-dot"></div>
+      <div class="flex-1">
+        <div class="feed-source">FastPeopleSearch</div>
+        <div class="feed-detail">Chicago, IL · (312) 555-0194 · Age 34</div>
+      </div>
+      <div class="feed-badge"><span class="badge badge-green">HIT</span></div>
+    </div>
+    <div class="feed-item hit" style="animation-delay:0.1s">
+      <div class="feed-dot"></div>
+      <div class="flex-1">
+        <div class="feed-source">TruePeopleSearch</div>
+        <div class="feed-detail">2 records · Wicker Park area</div>
+      </div>
+      <div class="feed-badge"><span class="badge badge-green">HIT</span></div>
+    </div>
+    <div class="feed-item miss" style="animation-delay:0.15s">
+      <div class="feed-dot"></div>
+      <div class="feed-source">WhitePages</div>
+    </div>
+    <div class="feed-item hit" style="animation-delay:0.2s">
+      <div class="feed-dot"></div>
+      <div class="flex-1">
+        <div class="feed-source">LinkedIn</div>
+        <div class="feed-detail">Senior Dev @ Acme Corp · 312 connections</div>
+      </div>
+      <div class="feed-badge"><span class="badge badge-green">HIT</span></div>
+    </div>
+    <div class="feed-item hit" style="animation-delay:0.25s">
+      <div class="feed-dot"></div>
+      <div class="flex-1">
+        <div class="feed-source">HaveIBeenPwned</div>
+        <div class="feed-detail">3 breaches · LinkedIn, Adobe, Canva</div>
+      </div>
+      <div class="feed-badge"><span class="badge badge-red">⚠ BREACH</span></div>
+    </div>
+    <div class="feed-item miss" style="animation-delay:0.3s">
+      <div class="feed-dot"></div>
+      <div class="feed-source">Radaris</div>
+    </div>
+    <div class="feed-item hit" style="animation-delay:0.35s">
+      <div class="feed-dot"></div>
+      <div class="flex-1">
+        <div class="feed-source">Twitter / X</div>
+        <div class="feed-detail">@m_torres_dev · 1.2K followers</div>
+      </div>
+      <div class="feed-badge"><span class="badge badge-green">HIT</span></div>
+    </div>
+    <div class="feed-item hit" style="animation-delay:0.4s">
+      <div class="feed-dot"></div>
+      <div class="flex-1">
+        <div class="feed-source">GitHub</div>
+        <div class="feed-detail">mtorres · 47 repos · active 2d ago</div>
+      </div>
+      <div class="feed-badge"><span class="badge badge-green">HIT</span></div>
+    </div>
+    <div class="feed-item blocked" style="animation-delay:0.45s">
+      <div class="feed-dot"></div>
+      <div class="flex-1">
+        <div class="feed-source">BeenVerified</div>
+        <div class="feed-detail">Cloudflare challenge</div>
+      </div>
+      <div class="feed-badge"><span class="badge badge-ghost">BLOCKED</span></div>
+    </div>
+    <div class="feed-item checking" style="animation-delay:0.5s">
+      <div class="feed-dot"></div>
+      <div class="feed-source">CourtListener</div>
+    </div>
+    <div class="feed-item checking" style="animation-delay:0.55s">
+      <div class="feed-dot"></div>
+      <div class="feed-source">Instagram</div>
+    </div>
+    <div class="feed-item checking" style="animation-delay:0.6s">
+      <div class="feed-dot"></div>
+      <div class="feed-source">Social Searcher</div>
+    </div>
+  </div>
+
+  <!-- Browser Tools section (appears after complete) -->
+  <div style="background:var(--charcoal);border-top:1px solid var(--ash);padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+    <div class="flex items-center justify-between">
+      <span class="label">Browser Tool Launcher</span>
+      <span class="badge badge-amber">47 TOOLS READY</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <button class="btn btn-outline-orange" style="font-size:11px;padding:8px">👤 People (20)</button>
+      <button class="btn btn-outline-orange" style="font-size:11px;padding:8px">💬 Social (14)</button>
+      <button class="btn btn-outline-orange" style="font-size:11px;padding:8px">🔓 Breaches (8)</button>
+      <button class="btn btn-outline-orange" style="font-size:11px;padding:8px">📋 Records (4)</button>
+    </div>
+    <button class="btn btn-primary" onclick="showScreen('dossier')">▶ VIEW DOSSIER REPORT</button>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showScreen('search')"><span class="nav-icon">🔍</span><span class="nav-label">Investigate</span></button>
+    <button class="nav-item" onclick="showScreen('hub')"><span class="nav-icon">⬡</span><span class="nav-label">Tool Hub</span></button>
+    <button class="nav-item active"><span class="nav-icon">📁</span><span class="nav-label">Cases</span></button>
+    <button class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Settings</span></button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN 3 — DOSSIER
+══════════════════════════════════════════════════════ -->
+<div id="screen-dossier" class="screen">
+
+  <div class="dossier-header">
+    <div class="dossier-tape"></div>
+    <div class="dossier-id-row">
+      <span class="case-number">CASE #2025-0047</span>
+      <span class="badge badge-green">COMPLETE</span>
+      <div style="margin-left:auto"><div class="stamp stamp-green" style="font-size:10px;padding:1px 6px">INTEL<br>READY</div></div>
+    </div>
+    <div class="dossier-subject-area">
+      <div class="subject-photo">👤</div>
+      <div class="subject-name-block">
+        <div class="subject-name">MICHAEL<br>TORRES</div>
+        <div class="subject-type-row">
+          <span class="badge badge-ghost">PERSON</span>
+          <span class="badge badge-ghost">CHICAGO IL</span>
+        </div>
+      </div>
+      <div class="threat-score">
+        <div class="score-ring">
+          <div class="score-num">67</div>
+        </div>
+        <div class="score-label">Threat Score</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dossier-body">
+
+    <!-- Identity -->
+    <div class="dossier-section">
+      <div class="section-header">
+        <span class="section-title">Identity</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="data-row"><span class="data-key">Full Name</span><span class="data-val">Michael A. Torres</span></div>
+      <div class="data-row"><span class="data-key">Age</span><span class="data-val">34 · Born 1990</span></div>
+      <div class="data-row"><span class="data-key">Location</span><span class="data-val highlight">2847 W Armitage Ave, Chicago IL 60647</span></div>
+      <div class="data-row"><span class="data-key">Prior Addr.</span><span class="data-val" style="font-size:12px;color:var(--fog)">Oak Park, IL · 2017–2021<br>Evanston, IL · 2014–2017</span></div>
+    </div>
+
+    <!-- Contact -->
+    <div class="dossier-section">
+      <div class="section-header">
+        <span class="section-title">Contact</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="data-row"><span class="data-key">Phone</span><span class="data-val highlight">(312) 555-0194</span></div>
+      <div class="data-row"><span class="data-key">Alt Phone</span><span class="data-val" style="color:var(--fog)">(773) 555-8822</span></div>
+      <div class="data-row"><span class="data-key">Email</span><span class="data-val">m.torres@gmail.com</span></div>
+      <div class="data-row"><span class="data-key">Email 2</span><span class="data-val">mtorres@acmecorp.io</span></div>
+    </div>
+
+    <!-- Breach Intel -->
+    <div class="dossier-section">
+      <div class="section-header">
+        <span class="section-title">⚠ Breach Intelligence</span>
+        <div class="section-line"></div>
+        <span class="badge badge-red">3 BREACHES</span>
+      </div>
+      <div class="darkweb-card">
+        <div class="darkweb-title">⚠ Exposed Credentials Detected</div>
+        <div class="darkweb-entry">LinkedIn 2021 — email + hashed PW confirmed</div>
+        <div class="darkweb-entry">Adobe 2019 — password hint: "••••••chicago"</div>
+        <div class="darkweb-entry">Canva 2019 — name, email, country</div>
+      </div>
+    </div>
+
+    <!-- Social Footprint -->
+    <div class="dossier-section">
+      <div class="section-header">
+        <span class="section-title">Social Footprint</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="source-grid">
+        <div class="source-card has-hit">
+          <div class="hit-indicator"></div>
+          <div class="source-card-name">Twitter / X</div>
+          <div class="source-card-detail">@m_torres_dev<br>1.2K followers</div>
+        </div>
+        <div class="source-card has-hit">
+          <div class="hit-indicator"></div>
+          <div class="source-card-name">GitHub</div>
+          <div class="source-card-detail">mtorres<br>47 repos · active</div>
+        </div>
+        <div class="source-card has-hit">
+          <div class="hit-indicator"></div>
+          <div class="source-card-name">LinkedIn</div>
+          <div class="source-card-detail">Senior Dev<br>Acme Corp</div>
+        </div>
+        <div class="source-card">
+          <div class="source-card-name">Instagram</div>
+          <div class="source-card-detail">No profile found</div>
+        </div>
+        <div class="source-card has-hit">
+          <div class="hit-indicator"></div>
+          <div class="source-card-name">Reddit</div>
+          <div class="source-card-detail">u/mtorres_chi<br>3.1K karma</div>
+        </div>
+        <div class="source-card blocked">
+          <div class="source-card-name">TikTok</div>
+          <div class="source-card-detail">Rate limited</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Summary -->
+    <div class="dossier-section">
+      <div class="section-header">
+        <span class="section-title">Field Summary</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="paper-insert">
+        <div class="paper-insert-title">Analyst Note · Auto-generated</div>
+        <div class="paper-text">
+          Subject confirmed as Michael A. Torres, 34, Chicago IL. Software developer employed at Acme Corp. Active online presence across Twitter, GitHub, and Reddit under consistent handle <em>mtorres_dev</em>. Three data breach exposures detected — credentials potentially compromised. No criminal records found via CourtListener or JudyRecords. Residential address confirmed via two independent sources.
+        </div>
+      </div>
+    </div>
+
+    <!-- Sources -->
+    <div class="dossier-section">
+      <div class="section-header">
+        <span class="section-title">Sources Checked</span>
+        <div class="section-line"></div>
+        <span class="label">14 hits / 56 checked</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        <span class="badge badge-green">FastPeopleSearch</span>
+        <span class="badge badge-green">TruePeopleSearch</span>
+        <span class="badge badge-green">LinkedIn</span>
+        <span class="badge badge-green">GitHub</span>
+        <span class="badge badge-green">Twitter/X</span>
+        <span class="badge badge-red">HaveIBeenPwned ⚠</span>
+        <span class="badge badge-green">Reddit</span>
+        <span class="badge badge-ghost">WhitePages</span>
+        <span class="badge badge-ghost">Radaris</span>
+        <span class="badge badge-ghost">Instagram</span>
+        <span class="badge badge-ghost">BeenVerified</span>
+        <span class="badge badge-ghost">CourtListener</span>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      <button class="btn btn-primary w-full">⬇ SAVE DOSSIER TO FILE</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-ghost" onclick="showScreen('progress')">DEEPEN SCAN</button>
+        <button class="btn btn-ghost" onclick="showScreen('hub')">WEB TOOLS</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showScreen('search')"><span class="nav-icon">🔍</span><span class="nav-label">Investigate</span></button>
+    <button class="nav-item" onclick="showScreen('hub')"><span class="nav-icon">⬡</span><span class="nav-label">Tool Hub</span></button>
+    <button class="nav-item active"><span class="nav-icon">📁</span><span class="nav-label">Cases</span></button>
+    <button class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Settings</span></button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     SCREEN 4 — WEB HUB
+══════════════════════════════════════════════════════ -->
+<div id="screen-hub" class="screen">
+
+  <div class="top-bar">
+    <button class="btn-ghost btn" style="padding:4px 10px;font-size:11px" onclick="showScreen('search')">←</button>
+    <div>
+      <div class="top-bar-title">TOOL HUB</div>
+      <div class="top-bar-sub">184 OSINT RESOURCES</div>
+    </div>
+    <span class="badge badge-orange">7 SELECTED</span>
+  </div>
+
+  <div class="hub-body">
+
+    <!-- Search bar -->
+    <div class="hub-search">
+      <span class="hub-search-icon">🎯</span>
+      <input class="field-input" type="text" placeholder="Target query · name, email, domain..." value="Michael Torres" />
+    </div>
+
+    <!-- Category strip -->
+    <div class="cat-strip">
+      <button class="cat-btn active">All</button>
+      <button class="cat-btn">👤 Person</button>
+      <button class="cat-btn">📧 Email</button>
+      <button class="cat-btn">📞 Phone</button>
+      <button class="cat-btn">🔑 Username</button>
+      <button class="cat-btn">🌐 Domain</button>
+      <button class="cat-btn">🏢 Company</button>
+      <button class="cat-btn">🔓 Breaches</button>
+      <button class="cat-btn">🕸️ Dark Web</button>
+    </div>
+
+    <!-- Launch banner -->
+    <div class="launch-banner">
+      <div class="launch-banner-count">7</div>
+      <div class="launch-banner-text">tools selected<br>ready to launch</div>
+      <button class="btn btn-amber" style="font-size:12px;padding:9px 16px">LAUNCH ALL ↗</button>
+    </div>
+
+    <!-- Person section -->
+    <div>
+      <div class="tool-section-title">👤 PERSON SEARCH</div>
+      <div class="card" style="padding:0 12px">
+        <div class="tool-item">
+          <div class="tool-check checked">✓</div>
+          <div style="flex:1">
+            <div class="tool-name">FastPeopleSearch</div>
+            <div class="tool-desc">Free US people search — name, phone, address</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+        <div class="rule" style="opacity:0.4"></div>
+        <div class="tool-item">
+          <div class="tool-check checked">✓</div>
+          <div style="flex:1">
+            <div class="tool-name">TruePeopleSearch</div>
+            <div class="tool-desc">Full profile with address history</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+        <div class="rule" style="opacity:0.4"></div>
+        <div class="tool-item">
+          <div class="tool-check"></div>
+          <div style="flex:1">
+            <div class="tool-name">Spokeo</div>
+            <div class="tool-desc">Social + public + contact aggregator</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+        <div class="rule" style="opacity:0.4"></div>
+        <div class="tool-item">
+          <div class="tool-check checked">✓</div>
+          <div style="flex:1">
+            <div class="tool-name">ThatsThem</div>
+            <div class="tool-desc">Reverse lookup — name, phone, email, IP</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+        <div class="rule" style="opacity:0.4"></div>
+        <div class="tool-item">
+          <div class="tool-check"></div>
+          <div style="flex:1">
+            <div class="tool-name">Pipl</div>
+            <div class="tool-desc">Deep web person search engine</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breaches section -->
+    <div>
+      <div class="tool-section-title">🔓 BREACHES</div>
+      <div class="card" style="padding:0 12px">
+        <div class="tool-item">
+          <div class="tool-check checked">✓</div>
+          <div style="flex:1">
+            <div class="tool-name">HaveIBeenPwned</div>
+            <div class="tool-desc">Check 12B+ breached accounts</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+        <div class="rule" style="opacity:0.4"></div>
+        <div class="tool-item">
+          <div class="tool-check checked">✓</div>
+          <div style="flex:1">
+            <div class="tool-name">DeHashed</div>
+            <div class="tool-desc">Breach database search</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+        <div class="rule" style="opacity:0.4"></div>
+        <div class="tool-item">
+          <div class="tool-check"></div>
+          <div style="flex:1">
+            <div class="tool-name">Intelligence X</div>
+            <div class="tool-desc">Deep web email search and breach data</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+        <div class="rule" style="opacity:0.4"></div>
+        <div class="tool-item">
+          <div class="tool-check checked">✓</div>
+          <div style="flex:1">
+            <div class="tool-name">Breach Directory</div>
+            <div class="tool-desc">Username/email breach search</div>
+          </div>
+          <div class="tool-launch">↗</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:20px"></div>
+
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showScreen('search')"><span class="nav-icon">🔍</span><span class="nav-label">Investigate</span></button>
+    <button class="nav-item active"><span class="nav-icon">⬡</span><span class="nav-label">Tool Hub</span></button>
+    <button class="nav-item"><span class="nav-icon">📁</span><span class="nav-label">Cases</span></button>
+    <button class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Settings</span></button>
+  </div>
+</div>
+
+</div><!-- /phone-wrap -->
+
+<script>
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.demo-nav button').forEach(b => b.classList.remove('active'));
+  const map = { search: 0, progress: 1, dossier: 2, hub: 3 };
+  document.querySelectorAll('.demo-nav button')[map[id]]?.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function selectType(btn, type) {
+  document.querySelectorAll('.type-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Toggle tool checkboxes
+document.querySelectorAll('.tool-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const cb = item.querySelector('.tool-check');
+    const isChecked = cb.classList.toggle('checked');
+    cb.textContent = isChecked ? '✓' : '';
+    const count = document.querySelectorAll('.tool-check.checked').length;
+    document.querySelector('.launch-banner-count').textContent = count;
+    document.querySelector('#screen-hub .badge-orange').textContent = count + ' SELECTED';
+  });
+});
+
+// Category strip clicks
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

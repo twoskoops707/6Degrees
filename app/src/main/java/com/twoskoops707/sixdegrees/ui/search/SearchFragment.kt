@@ -129,7 +129,8 @@ class SearchFragment : Fragment() {
             val tv = android.util.TypedValue()
             requireContext().theme.resolveAttribute(colorPrimary, tv, true)
             val accentColor = tv.data
-            val strokeInactive = ContextCompat.getColor(requireContext(), R.color.border)
+            val strokeInactive = ContextCompat.getColor(requireContext(), R.color.fi_smoke)
+            val bgInactive = ContextCompat.getColor(requireContext(), R.color.fi_charcoal)
 
             val cards = mapOf(
                 "person" to binding.cardTypePerson,
@@ -143,12 +144,12 @@ class SearchFragment : Fragment() {
             )
             cards.forEach { (t, card) ->
                 val active = t == type
-                card.setCardBackgroundColor(if (active) accentColor else android.graphics.Color.TRANSPARENT)
+                card.setCardBackgroundColor(if (active) accentColor else bgInactive)
                 card.strokeColor = if (active) android.graphics.Color.TRANSPARENT else strokeInactive
                 val textView = card.getChildAt(0) as? android.widget.TextView
                 textView?.setTextColor(
-                    if (active) ContextCompat.getColor(requireContext(), R.color.background_primary)
-                    else ContextCompat.getColor(requireContext(), R.color.text_secondary)
+                    if (active) ContextCompat.getColor(requireContext(), R.color.white)
+                    else ContextCompat.getColor(requireContext(), R.color.fi_ash)
                 )
             }
         }

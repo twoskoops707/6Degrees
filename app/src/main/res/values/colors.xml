@@ -64,4 +64,21 @@
     <color name="scrim">#CC0C1322</color>
     <color name="stroke_color">#28395A</color>
     <color name="chip_background_color">#172035</color>
+
+    <!-- ── Field Intelligence Theme ──────────────────── -->
+    <color name="fi_ink">#0E0C0A</color>
+    <color name="fi_charcoal">#1A1714</color>
+    <color name="fi_surface">#221E1A</color>
+    <color name="fi_surface_elevated">#2C2722</color>
+    <color name="fi_orange">#E8530A</color>
+    <color name="fi_orange_dim">#2A1204</color>
+    <color name="fi_amber">#E8A020</color>
+    <color name="fi_amber_dim">#271A04</color>
+    <color name="fi_green">#4CAF76</color>
+    <color name="fi_red">#D94B3E</color>
+    <color name="fi_parchment">#E8DCC8</color>
+    <color name="fi_ash">#8A8070</color>
+    <color name="fi_smoke">#4A4238</color>
+    <color name="fi_border">#3A3228</color>
+    <color name="fi_scrim">#CC0E0C0A</color>
 </resources>

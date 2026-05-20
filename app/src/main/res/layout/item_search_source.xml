@@ -6,9 +6,9 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
     android:layout_marginBottom="6dp"
-    app:cardBackgroundColor="@color/surface"
-    app:cardCornerRadius="10dp"
-    app:strokeColor="@color/border"
+    app:cardBackgroundColor="@color/fi_charcoal"
+    app:cardCornerRadius="2dp"
+    app:strokeColor="@color/fi_border"
     app:strokeWidth="1dp"
     app:cardElevation="0dp">
 
@@ -32,7 +32,7 @@
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:layout_gravity="center"
-                android:indeterminateTint="@color/accent_blue"
+                android:indeterminateTint="@color/fi_orange"
                 android:visibility="visible" />
 
             <ImageView
@@ -53,16 +53,18 @@
                 android:id="@+id/source_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textColor="@color/fi_parchment"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-condensed"
+                android:letterSpacing="0.04" />
 
             <TextView
                 android:id="@+id/source_detail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
+                android:textColor="@color/fi_ash"
+                android:textSize="11sp"
                 android:layout_marginTop="2dp"
                 android:visibility="gone" />
         </LinearLayout>

@@ -17,22 +17,27 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Terminal header -->
+            <!-- Field Intel operation header -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:background="#0A0A0A"
-                android:paddingHorizontal="16dp"
-                android:paddingTop="14dp"
-                android:paddingBottom="12dp">
+                android:background="@color/fi_charcoal">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="3dp"
+                    android:background="@color/fi_orange" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
+                    android:paddingHorizontal="16dp"
+                    android:paddingTop="14dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginBottom="4dp">
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -43,21 +48,23 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="TARGET ACQUIRED"
-                            android:textColor="@color/accent_red"
+                            android:text="ACTIVE INVESTIGATION"
+                            android:textColor="@color/fi_orange"
                             android:textSize="8sp"
                             android:letterSpacing="0.25"
                             android:textAllCaps="true"
-                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed"
                             android:layout_marginBottom="3dp" />
 
                         <TextView
                             android:id="@+id/tv_search_query"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="?attr/colorOnSurface"
-                            android:textSize="17sp"
+                            android:textColor="@color/fi_parchment"
+                            android:textSize="18sp"
                             android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed"
+                            android:letterSpacing="0.02"
                             android:ellipsize="end"
                             android:maxLines="1" />
                     </LinearLayout>
@@ -67,10 +74,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="10dp"
-                        android:textSize="10sp"
+                        android:textSize="9sp"
                         android:letterSpacing="0.1"
-                        app:chipBackgroundColor="?attr/colorPrimaryVariant"
-                        android:textColor="?attr/colorOnPrimary" />
+                        android:fontFamily="sans-serif-condensed"
+                        app:chipBackgroundColor="@color/fi_orange_dim"
+                        android:textColor="@color/fi_orange" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -78,7 +86,8 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
+                    android:paddingHorizontal="16dp"
+                    android:paddingBottom="8dp">
 
                     <TextView
                         android:id="@+id/tv_status"
@@ -86,16 +95,18 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Initializing sweep..."
-                        android:textColor="?attr/colorControlNormal"
-                        android:textSize="12sp" />
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
+                        android:fontFamily="monospace" />
 
                     <TextView
                         android:id="@+id/tv_eta"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text=""
-                        android:textColor="@color/text_dim"
-                        android:textSize="11sp" />
+                        android:textColor="@color/fi_smoke"
+                        android:textSize="10sp"
+                        android:fontFamily="monospace" />
                 </LinearLayout>
 
                 <ProgressBar
@@ -104,39 +115,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="2dp"
                     android:indeterminate="true"
-                    android:indeterminateTint="?attr/colorPrimary"
+                    android:indeterminateTint="@color/fi_orange"
                     android:progress="0" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="8dp">
+                    android:paddingHorizontal="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="12dp">
 
                     <TextView
                         android:id="@+id/tv_found_count"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="0 hits"
-                        android:textColor="@color/success"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
+                        android:text="0 HITS"
+                        android:textColor="@color/fi_green"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.08"
+                        android:fontFamily="sans-serif-condensed" />
 
                     <TextView
                         android:id="@+id/tv_checked_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="0 / ? checked"
-                        android:textColor="@color/text_dim"
-                        android:textSize="11sp" />
+                        android:text="0 / ? CHECKED"
+                        android:textColor="@color/fi_smoke"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-condensed"
+                        android:letterSpacing="0.06" />
                 </LinearLayout>
             </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="2dp"
-                android:background="?attr/colorPrimary" />
+                android:layout_height="1dp"
+                android:background="@color/fi_border" />
 
             <!-- Source rows -->
             <androidx.recyclerview.widget.RecyclerView
@@ -164,11 +181,13 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_margin="16dp"
-        android:text="View Full Report"
-        android:textColor="?attr/colorOnPrimary"
-        app:backgroundTint="?attr/colorPrimary"
+        android:text="VIEW DOSSIER"
+        android:textColor="@color/white"
+        android:fontFamily="sans-serif-condensed"
+        android:letterSpacing="0.12"
+        app:backgroundTint="@color/fi_orange"
         app:icon="@drawable/ic_check"
-        app:iconTint="?attr/colorOnPrimary"
+        app:iconTint="@color/white"
         android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

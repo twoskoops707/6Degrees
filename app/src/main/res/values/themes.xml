@@ -2,47 +2,25 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- ══════════════════════════════════════════════════ -->
-    <!-- MODERN (default) — rounded 16dp, navy dark, clean -->
+    <!-- DEFAULT — inherits Field Intelligence aesthetic   -->
     <!-- ══════════════════════════════════════════════════ -->
-    <style name="Theme.SixDegrees" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="themeFamily">modern</item>
-        <item name="colorPrimary">@color/accent_blue</item>
-        <item name="colorPrimaryVariant">@color/accent_blue_dim</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/accent_cyan</item>
-        <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
-        <item name="colorOnSecondary">@color/white</item>
-        <item name="android:colorBackground">@color/background_primary</item>
-        <item name="colorSurface">@color/surface</item>
-        <item name="colorOnSurface">@color/text_primary</item>
-        <item name="colorError">@color/error</item>
-        <item name="colorOnError">@color/white</item>
-        <item name="android:statusBarColor">@color/background_primary</item>
-        <item name="android:navigationBarColor">@color/background_primary</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
-        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Modern.Small</item>
-        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Modern.Medium</item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Modern.Large</item>
-        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Modern</item>
-        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav</item>
-    </style>
+    <style name="Theme.SixDegrees" parent="Theme.SixDegrees.FieldIntel" />
 
-    <style name="Theme.SixDegrees.Cyan" parent="Theme.SixDegrees">
+    <style name="Theme.SixDegrees.Cyan" parent="Theme.SixDegrees.FieldIntel">
         <item name="colorPrimary">@color/accent_cyan</item>
         <item name="colorPrimaryVariant">@color/accent_cyan_dim</item>
         <item name="colorSecondary">@color/accent_blue</item>
         <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
     </style>
 
-    <style name="Theme.SixDegrees.Green" parent="Theme.SixDegrees">
+    <style name="Theme.SixDegrees.Green" parent="Theme.SixDegrees.FieldIntel">
         <item name="colorPrimary">@color/accent_green</item>
         <item name="colorPrimaryVariant">@color/accent_green_dim</item>
         <item name="colorSecondary">@color/accent_cyan</item>
         <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
     </style>
 
-    <style name="Theme.SixDegrees.Purple" parent="Theme.SixDegrees">
+    <style name="Theme.SixDegrees.Purple" parent="Theme.SixDegrees.FieldIntel">
         <item name="colorPrimary">@color/accent_violet</item>
         <item name="colorPrimaryVariant">@color/accent_violet_dim</item>
         <item name="colorSecondary">@color/accent_blue</item>
@@ -171,7 +149,41 @@
         <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
     </style>
 
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- FIELD INTEL — ink/orange/parchment, angular, analog intel  -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.FieldIntel" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">fieldintel</item>
+        <item name="colorPrimary">@color/fi_orange</item>
+        <item name="colorPrimaryVariant">@color/fi_orange_dim</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/fi_amber</item>
+        <item name="colorSecondaryVariant">@color/fi_amber_dim</item>
+        <item name="colorOnSecondary">@color/fi_ink</item>
+        <item name="android:colorBackground">@color/fi_ink</item>
+        <item name="colorSurface">@color/fi_charcoal</item>
+        <item name="colorOnSurface">@color/fi_parchment</item>
+        <item name="colorError">@color/fi_red</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/fi_ink</item>
+        <item name="android:navigationBarColor">@color/fi_ink</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FieldIntel.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.FieldIntel</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.FieldIntel</item>
+    </style>
+
     <!-- ════════════════════ SHAPE APPEARANCES ════════════════════ -->
+
+    <style name="ShapeAppearance.FieldIntel.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">2dp</item>
+    </style>
+    <style name="ShapeAppearance.FieldIntel.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">2dp</item>
+    </style>
 
     <style name="ShapeAppearance.Circular" parent="ShapeAppearance.MaterialComponents.SmallComponent">
         <item name="cornerSize">50%</item>
@@ -243,6 +255,14 @@
         <item name="strokeWidth">1dp</item>
     </style>
 
+    <style name="Widget.SixDegrees.CardView.FieldIntel" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/fi_charcoal</item>
+        <item name="cardCornerRadius">2dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/fi_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
     <!-- ════════════════════ BOTTOM NAV STYLES ════════════════════ -->
 
     <style name="Widget.SixDegrees.BottomNav" parent="Widget.MaterialComponents.BottomNavigationView">
@@ -257,6 +277,12 @@
 
     <style name="Widget.SixDegrees.BottomNav.Tactical" parent="Widget.SixDegrees.BottomNav">
         <item name="android:background">@color/tactical_bg</item>
+    </style>
+
+    <style name="Widget.SixDegrees.BottomNav.FieldIntel" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/fi_charcoal</item>
+        <item name="itemIconTint">@color/fi_bottom_nav_color</item>
+        <item name="itemTextColor">@color/fi_bottom_nav_color</item>
     </style>
 
     <!-- ════════════════════ TEXT / BUTTON STYLES ════════════════════ -->

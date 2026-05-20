@@ -16,80 +16,126 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="20dp"
-            android:paddingTop="20dp"
-            android:paddingBottom="12dp">
+            android:background="@color/fi_charcoal">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:background="@color/fi_orange" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="12dp">
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="6"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="32sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-condensed" />
+                        android:text="FIELD INTELLIGENCE"
+                        android:textColor="@color/fi_orange"
+                        android:textSize="9sp"
+                        android:letterSpacing="0.28"
+                        android:textAllCaps="true"
+                        android:fontFamily="sans-serif-condensed"
+                        android:layout_marginBottom="2dp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="6"
+                            android:textColor="@color/fi_parchment"
+                            android:textSize="30sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="°"
+                            android:textColor="@color/fi_orange"
+                            android:textSize="22sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=" DEGREES"
+                            android:textColor="@color/fi_parchment"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed"
+                            android:letterSpacing="0.06" />
+                    </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="°"
-                        android:textColor="@color/accent_amber"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:paddingBottom="2dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=" Degrees"
-                        android:textColor="@color/text_primary"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:paddingBottom="2dp" />
+                        android:text="@string/search_subtitle"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.02" />
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="OSINT"
-                    android:textColor="?attr/colorPrimary"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.15"
-                    android:background="@drawable/bg_chip_primary"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="4dp" />
+                <LinearLayout
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="@color/fi_orange_dim">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OSINT"
+                        android:textColor="@color/fi_orange"
+                        android:textSize="7sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.18"
+                        android:gravity="center" />
+                </LinearLayout>
             </LinearLayout>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/search_subtitle"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:layout_marginTop="2dp"
-                android:letterSpacing="0.01" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/fi_border" />
         </LinearLayout>
 
         <!-- ── Search Type Selector ── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="TARGET TYPE"
+            android:textColor="@color/fi_ash"
+            android:textSize="9sp"
+            android:letterSpacing="0.22"
+            android:textAllCaps="true"
+            android:fontFamily="sans-serif-condensed"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="6dp" />
+
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="16dp"
-            android:paddingBottom="8dp"
+            android:paddingHorizontal="12dp"
+            android:paddingBottom="12dp"
             android:scrollbars="none">
 
             <LinearLayout
@@ -99,184 +145,200 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_person"
-                    android:layout_width="88dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="?attr/colorPrimary"
-                    app:cardCornerRadius="22dp"
+                    app:cardBackgroundColor="@color/fi_orange"
+                    app:cardCornerRadius="2dp"
                     app:strokeWidth="0dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="Person"
-                        android:textColor="@color/background_primary"
-                        android:textSize="13sp"
+                        android:text="PERSON"
+                        android:textColor="@color/white"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_company"
-                    android:layout_width="88dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_elevated"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="@color/border"
+                    app:cardBackgroundColor="@color/fi_charcoal"
+                    app:cardCornerRadius="2dp"
+                    app:strokeColor="@color/fi_smoke"
                     app:strokeWidth="1dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="Company"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:text="COMPANY"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_domain"
-                    android:layout_width="88dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_elevated"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="@color/border"
+                    app:cardBackgroundColor="@color/fi_charcoal"
+                    app:cardCornerRadius="2dp"
+                    app:strokeColor="@color/fi_smoke"
                     app:strokeWidth="1dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="Domain/IP"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:text="DOMAIN/IP"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_email"
-                    android:layout_width="80dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_elevated"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="@color/border"
+                    app:cardBackgroundColor="@color/fi_charcoal"
+                    app:cardCornerRadius="2dp"
+                    app:strokeColor="@color/fi_smoke"
                     app:strokeWidth="1dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="Email"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:text="EMAIL"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_phone"
-                    android:layout_width="80dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_elevated"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="@color/border"
+                    app:cardBackgroundColor="@color/fi_charcoal"
+                    app:cardCornerRadius="2dp"
+                    app:strokeColor="@color/fi_smoke"
                     app:strokeWidth="1dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="Phone"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:text="PHONE"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_username"
-                    android:layout_width="96dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_elevated"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="@color/border"
+                    app:cardBackgroundColor="@color/fi_charcoal"
+                    app:cardCornerRadius="2dp"
+                    app:strokeColor="@color/fi_smoke"
                     app:strokeWidth="1dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="Username"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:text="USERNAME"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_vehicle"
-                    android:layout_width="80dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_elevated"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="@color/border"
+                    app:cardBackgroundColor="@color/fi_charcoal"
+                    app:cardCornerRadius="2dp"
+                    app:strokeColor="@color/fi_smoke"
                     app:strokeWidth="1dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="Vehicle"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:text="VEHICLE"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_type_wifi"
-                    android:layout_width="72dp"
-                    android:layout_height="44dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_elevated"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="@color/border"
+                    app:cardBackgroundColor="@color/fi_charcoal"
+                    app:cardCornerRadius="2dp"
+                    app:strokeColor="@color/fi_smoke"
                     app:strokeWidth="1dp"
                     app:cardElevation="0dp">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:text="WiFi"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:text="WIFI"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="0.02" />
+                        android:paddingHorizontal="14dp"
+                        android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-condensed" />
                 </com.google.android.material.card.MaterialCardView>
 
             </LinearLayout>
@@ -308,14 +370,14 @@
                     android:hint="First Name"
                     app:boxStrokeColor="?attr/colorPrimary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/text_secondary"
-                    app:boxBackgroundColor="@color/surface">
+                    app:hintTextColor="@color/fi_ash"
+                    app:boxBackgroundColor="@color/fi_charcoal">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_first_name"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
                         android:inputType="textCapWords|textPersonName"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/fi_parchment"
                         android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -329,15 +391,15 @@
                     android:hint="M.I."
                     app:boxStrokeColor="?attr/colorPrimary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/text_secondary"
-                    app:boxBackgroundColor="@color/surface">
+                    app:hintTextColor="@color/fi_ash"
+                    app:boxBackgroundColor="@color/fi_charcoal">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_middle_initial"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
                         android:inputType="textCapCharacters"
                         android:maxLength="2"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/fi_parchment"
                         android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -351,14 +413,14 @@
                     android:hint="Last Name"
                     app:boxStrokeColor="?attr/colorPrimary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/text_secondary"
-                    app:boxBackgroundColor="@color/surface">
+                    app:hintTextColor="@color/fi_ash"
+                    app:boxBackgroundColor="@color/fi_charcoal">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_last_name"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
                         android:inputType="textCapWords|textPersonName"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/fi_parchment"
                         android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
@@ -374,14 +436,14 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_phone"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="phone"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -400,14 +462,14 @@
                     android:hint="Alt Phone 1"
                     app:boxStrokeColor="?attr/colorPrimary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/text_secondary"
-                    app:boxBackgroundColor="@color/surface">
+                    app:hintTextColor="@color/fi_ash"
+                    app:boxBackgroundColor="@color/fi_charcoal">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_phone2"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:inputType="phone"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/fi_parchment"
                         android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
                 <com.google.android.material.textfield.TextInputLayout
@@ -420,14 +482,14 @@
                     android:hint="Alt Phone 2"
                     app:boxStrokeColor="?attr/colorPrimary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/text_secondary"
-                    app:boxBackgroundColor="@color/surface">
+                    app:hintTextColor="@color/fi_ash"
+                    app:boxBackgroundColor="@color/fi_charcoal">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_phone3"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:inputType="phone"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/fi_parchment"
                         android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
@@ -442,14 +504,14 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_email"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="textEmailAddress"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -463,14 +525,14 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_username"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -490,14 +552,14 @@
                     android:hint="City"
                     app:boxStrokeColor="?attr/colorPrimary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/text_secondary"
-                    app:boxBackgroundColor="@color/surface">
+                    app:hintTextColor="@color/fi_ash"
+                    app:boxBackgroundColor="@color/fi_charcoal">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_city"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
                         android:inputType="textCapWords"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/fi_parchment"
                         android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -511,15 +573,15 @@
                     android:hint="State"
                     app:boxStrokeColor="?attr/colorPrimary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/text_secondary"
-                    app:boxBackgroundColor="@color/surface">
+                    app:hintTextColor="@color/fi_ash"
+                    app:boxBackgroundColor="@color/fi_charcoal">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/input_state"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
                         android:inputType="textCapCharacters"
                         android:maxLength="20"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/fi_parchment"
                         android:textSize="15sp" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
@@ -533,14 +595,14 @@
                 android:hint="Date of Birth or Age"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_dob"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -553,14 +615,14 @@
                 android:hint="Street Address (if known)"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_address"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="textPostalAddress"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -571,16 +633,16 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:hint="Relatives / Associates (comma-separated)"
-                app:boxStrokeColor="@color/accent_amber"
+                app:boxStrokeColor="@color/fi_amber"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_relatives"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="textCapWords"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -589,9 +651,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                app:cardBackgroundColor="@color/surface_elevated"
-                app:cardCornerRadius="12dp"
-                app:strokeColor="?attr/colorPrimary"
+                app:cardBackgroundColor="@color/fi_surface"
+                app:cardCornerRadius="2dp"
+                app:strokeColor="@color/fi_amber"
                 app:strokeWidth="1dp"
                 app:cardElevation="0dp">
                 <LinearLayout
@@ -604,9 +666,10 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Context hint — where did you encounter this person?"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="12sp"
+                        android:textColor="@color/fi_amber"
+                        android:textSize="11sp"
                         android:textStyle="bold"
+                        android:letterSpacing="0.04"
                         android:layout_marginBottom="8dp" />
 
                     <com.google.android.material.textfield.TextInputLayout
@@ -617,14 +680,14 @@
                         android:hint="e.g. Gold's Gym LA · downtown karate class"
                         app:boxStrokeColor="?attr/colorPrimary"
                         app:boxStrokeWidth="1dp"
-                        app:hintTextColor="@color/text_secondary"
-                        app:boxBackgroundColor="@color/surface">
+                        app:hintTextColor="@color/fi_ash"
+                        app:boxBackgroundColor="@color/fi_charcoal">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/input_context"
                             android:layout_width="match_parent"
                             android:layout_height="52dp"
                             android:inputType="textCapSentences"
-                            android:textColor="@color/text_primary"
+                            android:textColor="@color/fi_parchment"
                             android:textSize="14sp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -632,7 +695,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Biases all searches toward people matching this location or activity"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/fi_ash"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -702,14 +765,14 @@
                 android:hint="Company Name"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_name"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="textCapWords"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -722,14 +785,14 @@
                 android:hint="Website / Domain"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_domain"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="textUri"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -742,14 +805,14 @@
                 android:hint="City, State"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_city"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -762,14 +825,14 @@
                 android:hint="Industry (optional)"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_company_industry"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:inputType="text"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -793,15 +856,15 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_domain_value"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:inputType="text"
                     android:imeOptions="actionSearch"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -823,15 +886,15 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_email_value"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:inputType="textEmailAddress"
                     android:imeOptions="actionSearch"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -853,15 +916,15 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_phone_value"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:inputType="phone"
                     android:imeOptions="actionSearch"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -883,15 +946,15 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_username_value"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:inputType="textNoSuggestions"
                     android:imeOptions="actionSearch"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -913,15 +976,15 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_vehicle_value"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:inputType="textCapCharacters"
                     android:imeOptions="actionSearch"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -943,15 +1006,15 @@
                 app:startIconTint="?attr/colorPrimary"
                 app:boxStrokeColor="?attr/colorPrimary"
                 app:boxStrokeWidth="1dp"
-                app:hintTextColor="@color/text_secondary"
-                app:boxBackgroundColor="@color/surface">
+                app:hintTextColor="@color/fi_ash"
+                app:boxBackgroundColor="@color/fi_charcoal">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_wifi_value"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:inputType="textNoSuggestions"
                     android:imeOptions="actionSearch"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/fi_parchment"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -970,15 +1033,16 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
-                android:text="Investigate"
-                android:textColor="@color/background_primary"
-                android:textSize="15sp"
+                android:text="OPEN INVESTIGATION"
+                android:textColor="@color/white"
+                android:textSize="14sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.06"
-                app:backgroundTint="?attr/colorPrimary"
-                app:cornerRadius="14dp"
+                android:letterSpacing="0.1"
+                android:fontFamily="sans-serif-condensed"
+                app:backgroundTint="@color/fi_orange"
+                app:cornerRadius="2dp"
                 app:icon="@drawable/ic_search"
-                app:iconTint="@color/background_primary"
+                app:iconTint="@color/white"
                 app:iconGravity="textStart"
                 app:iconSize="18dp" />
 
@@ -990,10 +1054,10 @@
                 android:layout_marginStart="8dp"
                 android:text="✕"
                 android:textSize="16sp"
-                app:strokeColor="@color/border"
+                app:strokeColor="@color/fi_smoke"
                 app:strokeWidth="1dp"
-                android:textColor="@color/text_secondary"
-                app:cornerRadius="12dp" />
+                android:textColor="@color/fi_ash"
+                app:cornerRadius="2dp" />
         </LinearLayout>
 
         <!-- ── Web Hub Button ── -->
@@ -1001,23 +1065,24 @@
             android:id="@+id/btn_web_hub"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="44dp"
             android:layout_marginHorizontal="16dp"
             android:layout_marginTop="4dp"
             android:layout_marginBottom="8dp"
-            android:text="Open OSINT Web Hub — 80+ web tools"
-            android:textSize="13sp"
-            android:letterSpacing="0.03"
-            android:textColor="?attr/colorPrimary"
-            app:strokeColor="?attr/colorPrimary"
+            android:text="OSINT WEB HUB — 184 TOOLS"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:fontFamily="sans-serif-condensed"
+            android:textColor="@color/fi_amber"
+            app:strokeColor="@color/fi_amber"
             app:strokeWidth="1dp"
-            app:cornerRadius="10dp" />
+            app:cornerRadius="2dp" />
 
         <!-- ── Recent Searches ── -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/border"
+            android:background="@color/fi_border"
             android:layout_marginHorizontal="16dp"
             android:layout_marginTop="4dp"
             android:layout_marginBottom="12dp" />
@@ -1032,10 +1097,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/recent_searches_title"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp"
+                android:textColor="@color/fi_ash"
+                android:textSize="9sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.04"
+                android:letterSpacing="0.22"
+                android:textAllCaps="true"
+                android:fontFamily="sans-serif-condensed"
                 android:layout_marginBottom="8dp" />
 
             <TextView
