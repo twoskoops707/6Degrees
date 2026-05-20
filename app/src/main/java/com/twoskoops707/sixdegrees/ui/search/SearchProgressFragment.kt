@@ -31,6 +31,7 @@ class SearchProgressFragment : Fragment() {
     private lateinit var adapter: SourceAdapter
 
     private var hitCount = 0
+    private var browserToolsShown = false
     private var checkedCount = 0
     private var completedReportId: String? = null
     private var pendingCandidates: List<CandidateProfile>? = null
@@ -107,6 +108,7 @@ class SearchProgressFragment : Fragment() {
         binding.rvSources.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@SearchProgressFragment.adapter
+            isNestedScrollingEnabled = false
             itemAnimator = null
         }
 
@@ -255,6 +257,7 @@ class SearchProgressFragment : Fragment() {
                     }
                 }
             }
+            is SearchProgressEvent.BrowserToolsReady -> showBrowserTools(event.categories)
             is SearchProgressEvent.Complete -> {
                 completedReportId = event.reportId
                 binding.progressBar.visibility = View.GONE
@@ -270,6 +273,49 @@ class SearchProgressFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun showBrowserTools(categories: LinkedHashMap<String, List<Pair<String, String>>>) {
+        if (browserToolsShown || _binding == null) return
+        browserToolsShown = true
+        val ctx = requireContext()
+        val d = ctx.resources.displayMetrics.density
+        fun dp(v: Float) = (v * d).toInt()
+        val container = binding.browserToolsContainer
+        container.visibility = View.VISIBLE
+        val totalCount = categories.values.sumOf { it.size }
+        val header = android.widget.TextView(ctx).apply {
+            text = "── BROWSER TOOLS ──────── $totalCount READY"
+            textSize = 9f
+            letterSpacing = 0.16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+            setPadding(dp(16f), dp(14f), dp(16f), dp(6f))
+        }
+        container.addView(header)
+        val launchAll = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = "LAUNCH ALL $totalCount TOOLS"
+            textSize = 12f
+            val lp = android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT).also { it.setMargins(dp(16f), dp(4f), dp(16f), dp(8f)) }
+            layoutParams = lp
+            setOnClickListener { categories.values.flatten().forEach { (_, url) -> openUrl(url) }; android.widget.Toast.makeText(ctx, "Launched $totalCount tools", android.widget.Toast.LENGTH_LONG).show() }
+        }
+        container.addView(launchAll)
+        categories.forEach { (label, tools) ->
+            val btn = com.google.android.material.button.MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "$label  (${tools.size})"
+                textSize = 13f
+                val lp = android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT).also { it.setMargins(dp(16f), dp(3f), dp(16f), dp(3f)) }
+                layoutParams = lp
+                setOnClickListener { tools.forEach { (_, url) -> openUrl(url) }; android.widget.Toast.makeText(ctx, "Opened ${tools.size} tools", android.widget.Toast.LENGTH_SHORT).show() }
+            }
+            container.addView(btn)
+        }
+        container.addView(android.widget.Space(ctx).apply { layoutParams = android.widget.LinearLayout.LayoutParams(1, dp(24f)) })
+    }
+
+    private fun openUrl(url: String) {
+        try { requireContext().startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (_: Exception) {}
     }
 
     private fun updateCounts() {

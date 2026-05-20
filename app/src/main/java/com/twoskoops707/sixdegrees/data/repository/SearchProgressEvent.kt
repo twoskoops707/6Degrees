@@ -15,5 +15,8 @@ sealed class SearchProgressEvent {
         val autoSelect: Boolean = false,
         val refinedQuery: String = ""
     ) : SearchProgressEvent()
+    data class BrowserToolsReady(
+        val categories: LinkedHashMap<String, List<Pair<String, String>>>
+    ) : SearchProgressEvent()
     data class Complete(val reportId: String, val hitCount: Int) : SearchProgressEvent()
 }

@@ -283,6 +283,7 @@ class OsintRepository(context: Context) {
         val cleanQuery = if (type == "comprehensive") query else {
             query.split("|").filter { !it.startsWith("city=") && !it.startsWith("state=") }.joinToString("|")
         }
+        val browserSearchQuery = parsedFields["name"] ?: parsedFields["email"] ?: parsedFields["phone"] ?: parsedFields["username"] ?: parsedFields["domain"] ?: query.split("|").firstOrNull()?.let { p -> val eq = p.indexOf('='); if (eq != -1) p.substring(eq + 1) else p } ?: query
 
         when (type) {
             "email" -> emailSearch(cleanQuery, metadata, sources, emit)
@@ -384,6 +385,11 @@ class OsintRepository(context: Context) {
         }
 
         val reportId = saveReport(cleanQuery, null, sources, metadata.toMap())
+        val browserCats = LinkedHashMap<String, List<Pair<String, String>>>()
+        com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry.relevantTools(type).forEach { (label, tools) ->
+            browserCats[label] = tools.map { it.name to com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry.buildUrl(it.urlTemplate, browserSearchQuery) }
+        }
+        if (browserCats.isNotEmpty()) send(SearchProgressEvent.BrowserToolsReady(browserCats))
         send(SearchProgressEvent.Complete(reportId, sources.size))
     }
 
