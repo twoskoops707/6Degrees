@@ -51,7 +51,7 @@
         </activity>
 
         <service
-            android:name="info.guardianproject.tor.TorService"
+            android:name="org.torproject.jni.TorService"
             android:exported="false"
             android:process=":tor" />
 

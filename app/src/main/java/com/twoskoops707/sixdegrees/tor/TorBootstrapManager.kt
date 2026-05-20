@@ -3,7 +3,7 @@ package com.twoskoops707.sixdegrees.tor
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import info.guardianproject.tor.TorService
+import org.torproject.jni.TorService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
