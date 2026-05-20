@@ -22,7 +22,7 @@ securityCrypto = "1.1.0-alpha06"
 coroutines = "1.7.3"
 viewpager2 = "1.0.0"
 jsoup = "1.18.1"
-torAndroid = "0.4.9.12"
+torAndroid = "0.4.8.16"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
