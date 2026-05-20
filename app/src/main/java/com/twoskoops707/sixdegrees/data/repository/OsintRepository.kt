@@ -8,6 +8,7 @@ import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.data.local.OsintDatabase
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
+import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
 import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.DataSource
@@ -278,7 +279,16 @@ class OsintRepository(context: Context) {
         return reportId
     }
 
-    fun searchWithProgress(query: String, type: String): Flow<SearchProgressEvent> = channelFlow {
+    suspend fun getReportById(reportId: String): OsintReportEntity? =
+        db.reportDao().getReportById(reportId)
+
+    suspend fun getPersonById(personId: String): PersonEntity? =
+        db.personDao().getPersonById(personId)
+
+    suspend fun getRecentReports(limit: Int): List<OsintReportEntity> =
+        db.reportDao().getRecentReports(limit)
+
+    fun searchWithProgress(query: String, type: String, round: Int = 1): Flow<SearchProgressEvent> = channelFlow {
         withContext(Dispatchers.IO) {
             val fields = parseFields(query)
             val primaryQuery = fields["name"] ?: fields["email"] ?: fields["phone"]
