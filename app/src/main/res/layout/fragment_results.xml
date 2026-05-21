@@ -5,9 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="?android:colorBackground">
+    android:background="@color/fi_ink">
 
-    <!-- Classification banner -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,18 +22,16 @@
             android:id="@+id/results_toolbar"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:paddingEnd="8dp"
+            android:background="@color/fi_charcoal"
             app:title="INTELLIGENCE DOSSIER"
             app:titleTextColor="@color/fi_parchment"
             app:navigationIcon="@drawable/ic_arrow_back"
-            app:navigationIconTint="@color/fi_ash"
-            app:elevation="0dp"
-            android:background="@color/fi_charcoal">
+            app:navigationIconTint="@color/fi_ash">
 
             <LinearLayout
-                android:layout_gravity="end"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="end"
                 android:orientation="horizontal"
                 android:layout_marginEnd="4dp">
 
@@ -42,7 +39,7 @@
                     android:id="@+id/btn_web_hub"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="34dp"
+                    android:layout_height="32dp"
                     android:layout_marginEnd="6dp"
                     android:text="WEB HUB"
                     android:textColor="@color/fi_amber"
@@ -51,13 +48,13 @@
                     android:fontFamily="sans-serif-condensed"
                     app:strokeColor="@color/fi_amber"
                     app:strokeWidth="1dp"
-                    app:cornerRadius="2dp" />
+                    app:cornerRadius="0dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_export"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="34dp"
+                    android:layout_height="32dp"
                     android:text="EXPORT"
                     android:textColor="@color/fi_orange"
                     android:textSize="10sp"
@@ -65,8 +62,10 @@
                     android:fontFamily="sans-serif-condensed"
                     app:strokeColor="@color/fi_orange"
                     app:strokeWidth="1dp"
-                    app:cornerRadius="2dp" />
+                    app:cornerRadius="0dp" />
+
             </LinearLayout>
+
         </com.google.android.material.appbar.MaterialToolbar>
 
         <View
@@ -82,7 +81,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="48dp"
-        android:indeterminateTint="@color/accent_cyan"
+        android:indeterminateTint="@color/fi_orange"
         android:visibility="gone" />
 
     <LinearLayout
@@ -96,23 +95,27 @@
         android:visibility="visible">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/results_empty_title"
-            android:textColor="@color/text_secondary"
-            android:alpha="0.4"
-            android:textSize="22sp"
-            android:letterSpacing="0.05"
+            android:textColor="@color/fi_smoke"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:layout_marginBottom="12dp" />
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="12dp"
+            android:textAllCaps="true"
+            android:fontFamily="sans-serif-condensed"
+            android:gravity="center" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/results_empty_message"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:gravity="center" />
+            android:textColor="@color/fi_smoke"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:fontFamily="monospace" />
+
     </LinearLayout>
 
     <LinearLayout
@@ -127,11 +130,12 @@
             android:id="@+id/person_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="12dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
             android:layout_marginTop="12dp"
             android:layout_marginBottom="4dp"
             app:cardBackgroundColor="@color/fi_charcoal"
-            app:cardCornerRadius="2dp"
+            app:cardCornerRadius="0dp"
             app:cardElevation="0dp"
             app:strokeColor="@color/fi_border"
             app:strokeWidth="1dp">
@@ -141,7 +145,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- Accent bar -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="3dp"
@@ -150,40 +153,82 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
+                    android:orientation="horizontal">
 
-                    <com.google.android.material.imageview.ShapeableImageView
-                        android:id="@+id/profile_image"
-                        android:layout_width="72dp"
-                        android:layout_height="72dp"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/ic_person_placeholder"
-                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Circular"
-                        app:strokeColor="?attr/colorPrimary"
-                        app:strokeWidth="2dp" />
+                    <LinearLayout
+                        android:layout_width="96dp"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="@color/fi_ink"
+                        android:paddingTop="16dp"
+                        android:paddingBottom="16dp">
+
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/profile_image"
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_person_placeholder"
+                            app:strokeColor="@color/fi_smoke"
+                            app:strokeWidth="1dp"
+                            app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small" />
+
+                        <Space
+                            android:layout_width="match_parent"
+                            android:layout_height="8dp" />
+
+                        <TextView
+                            android:id="@+id/tv_score_number"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="—"
+                            android:textColor="@color/fi_orange"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:fontFamily="sans-serif-condensed" />
+
+                        <TextView
+                            android:id="@+id/tv_sources_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/fi_ash"
+                            android:textSize="8sp"
+                            android:gravity="center"
+                            android:fontFamily="monospace" />
+
+                    </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:orientation="vertical"
-                        android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
+                        android:paddingStart="12dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="14dp"
+                        android:paddingBottom="14dp">
 
                         <TextView
                             android:id="@+id/full_name"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textColor="@color/fi_parchment"
-                            android:textSize="22sp"
+                            android:textSize="24sp"
                             android:textStyle="bold"
                             android:fontFamily="sans-serif-condensed"
-                            android:letterSpacing="0.02"
+                            android:letterSpacing="0.01"
                             android:maxLines="1"
                             android:ellipsize="end"
                             android:textIsSelectable="true" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/fi_smoke"
+                            android:layout_marginTop="8dp"
+                            android:layout_marginBottom="8dp" />
 
                         <TextView
                             android:id="@+id/job_title"
@@ -191,10 +236,10 @@
                             android:layout_height="wrap_content"
                             android:textColor="@color/fi_orange"
                             android:textSize="12sp"
-                            android:layout_marginTop="3dp"
                             android:maxLines="1"
                             android:ellipsize="end"
-                            android:textIsSelectable="true" />
+                            android:textIsSelectable="true"
+                            android:layout_marginBottom="4dp" />
 
                         <TextView
                             android:id="@+id/location"
@@ -202,52 +247,27 @@
                             android:layout_height="wrap_content"
                             android:textColor="@color/fi_ash"
                             android:textSize="12sp"
-                            android:layout_marginTop="2dp"
                             android:maxLines="1"
                             android:ellipsize="end"
-                            android:textIsSelectable="true"
-                            android:drawablePadding="4dp" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:background="@drawable/bg_score_circle">
-
-                        <TextView
-                            android:id="@+id/tv_score_number"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="—"
-                            android:textColor="@color/text_primary"
-                            android:textSize="20sp"
-                            android:textStyle="bold"
-                            android:gravity="center"
                             android:textIsSelectable="true" />
 
-                        <TextView
-                            android:id="@+id/tv_sources_count"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/text_dim"
-                            android:textSize="8sp"
-                            android:gravity="center"
-                            android:textIsSelectable="true" />
                     </LinearLayout>
+
                 </LinearLayout>
+
             </LinearLayout>
+
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/shady_score_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="12dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
             android:layout_marginBottom="8dp"
             app:cardBackgroundColor="@color/fi_charcoal"
-            app:cardCornerRadius="2dp"
+            app:cardCornerRadius="0dp"
             app:cardElevation="0dp"
             app:strokeColor="@color/fi_border"
             app:strokeWidth="1dp">
@@ -256,8 +276,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="12dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
                 android:gravity="center_vertical">
 
                 <View
@@ -290,12 +312,11 @@
                         android:layout_height="wrap_content"
                         android:text="@string/results_risk_calculating"
                         android:textColor="@color/fi_parchment"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif-condensed"
                         android:letterSpacing="0.04"
                         android:maxLines="1"
-                        android:ellipsize="none"
                         android:textIsSelectable="true" />
 
                     <TextView
@@ -306,14 +327,18 @@
                         android:textSize="12sp"
                         android:layout_marginTop="2dp"
                         android:textIsSelectable="true" />
+
                 </LinearLayout>
+
             </LinearLayout>
+
         </com.google.android.material.card.MaterialCardView>
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginHorizontal="12dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
             android:background="@color/fi_border" />
 
         <androidx.core.widget.NestedScrollView
@@ -333,4 +358,5 @@
         </androidx.core.widget.NestedScrollView>
 
     </LinearLayout>
+
 </LinearLayout>
