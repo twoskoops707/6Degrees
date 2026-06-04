@@ -43,6 +43,9 @@ class SettingsFragment : Fragment() {
         binding.wizardRow.setOnClickListener {
             findNavController().navigate(R.id.action_settings_to_wizard)
         }
+        binding.toolInstallerRow.setOnClickListener {
+            findNavController().navigate(R.id.action_settings_to_tool_installer)
+        }
 
         binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME}"
 

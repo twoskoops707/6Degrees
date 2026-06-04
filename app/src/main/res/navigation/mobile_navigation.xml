@@ -163,6 +163,9 @@
         <action
             android:id="@+id/action_settings_to_wizard"
             app:destination="@id/nav_wizard" />
+        <action
+            android:id="@+id/action_settings_to_tool_installer"
+            app:destination="@id/nav_tool_installer" />
     </fragment>
 
     <fragment
@@ -225,5 +228,11 @@
         android:name="com.twoskoops707.sixdegrees.ui.profile.UserProfileFragment"
         android:label="@string/profile_title"
         tools:layout="@layout/fragment_user_profile" />
+
+    <fragment
+        android:id="@+id/nav_tool_installer"
+        android:name="com.twoskoops707.sixdegrees.ui.settings.ToolInstallerFragment"
+        android:label="Tool Installer"
+        tools:layout="@layout/fragment_tool_installer" />
 
 </navigation>
