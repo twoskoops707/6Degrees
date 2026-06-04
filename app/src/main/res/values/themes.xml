@@ -316,7 +316,7 @@
         <item name="android:textAllCaps">true</item>
     </style>
 
-    <style name="Widget.SixDegrees.EditText.Field">
+    <style name="Widget.SixDegrees.EditText.Field" parent="Widget.AppCompat.EditText">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:background">@drawable/bg_field_line</item>
