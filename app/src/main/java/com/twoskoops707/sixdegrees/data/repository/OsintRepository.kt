@@ -51,6 +51,8 @@ class OsintRepository(context: Context) {
         .followRedirects(true)
         .build()
 
+    private val termuxRunner by lazy { TermuxToolRunner(appCtx) }
+
     private val torHttpClient: OkHttpClient? by lazy {
         try {
             val probe = java.net.Socket()
@@ -409,6 +411,11 @@ class OsintRepository(context: Context) {
                                 }
                             }
                         }
+                        launch {
+                            semaphore.withPermit {
+                                termuxRunner.runHolehe(primaryQuery).collect { send(it) }
+                            }
+                        }
                     }
                     "domain", "ip" -> {
                         targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX")
@@ -455,6 +462,16 @@ class OsintRepository(context: Context) {
                                 }
                             }
                         }
+                        launch {
+                            semaphore.withPermit {
+                                termuxRunner.runTheHarvester(primaryQuery).collect { send(it) }
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                termuxRunner.runNmap(primaryQuery).collect { send(it) }
+                            }
+                        }
                     }
                     "phone" -> {
                         targetedScraperNames += setOf("800notes", "ThatsThem")
@@ -478,6 +495,18 @@ class OsintRepository(context: Context) {
                             send(SearchProgressEvent.Checking("Ahmia Dark Web"))
                             val out = scrapeAhmia(primaryQuery)
                             handleScrapeOut("Ahmia Dark Web", "https://ahmia.fi/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                    }
+                    "username" -> {
+                        launch {
+                            semaphore.withPermit {
+                                termuxRunner.runSherlock(primaryQuery).collect { send(it) }
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                termuxRunner.runMaigret(primaryQuery).collect { send(it) }
+                            }
                         }
                     }
                 }
