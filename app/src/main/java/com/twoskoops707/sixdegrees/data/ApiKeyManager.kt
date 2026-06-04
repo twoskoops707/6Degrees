@@ -149,6 +149,9 @@ class ApiKeyManager(context: Context) {
             ?: "AIzaSyDVFF-Z2NsKb2j6CupZEQ2m7KN40fS7VZc"
         set(v) { prefs.edit().putString("google_safebrowsing", v).apply() }
 
+    fun getKey(service: String): String? =
+        prefs.getString(service, null)?.takeIf { it.isNotBlank() }
+
     fun getRawForDisplay(prefKey: String): String = prefs.getString(prefKey, "") ?: ""
 
     fun hasAnyKey(): Boolean = true
