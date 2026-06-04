@@ -38,6 +38,30 @@ private class DateAdapter {
     @FromJson fun fromJson(value: Long): Date = Date(value)
 }
 
+private val SOURCE_ABBREVS = mapOf(
+    "fastpeoplesearch" to "fps",
+    "thatsthem" to "tt",
+    "truepeoplesearch" to "tps",
+    "zabasearch" to "zaba",
+    "411.com" to "411",
+    "spokeo" to "spk",
+    "radaris" to "radaris",
+    "peekyou" to "peekyou",
+    "nuwber" to "nuwber",
+    "whitepages" to "wp",
+    "checkpeople" to "checkpeople",
+    "beenverified" to "bv",
+    "instantcheckmate" to "icm",
+    "usphonebook" to "uspb",
+    "familytreenow" to "ftn",
+    "proxynova breach" to "proxynova",
+    "hackertarget email" to "hackertarget_email",
+    "hackertarget host" to "hackertarget",
+    "800notes" to "800notes",
+    "wayback cdx" to "wayback",
+    "ahmia" to "ahmia"
+)
+
 class OsintRepository(context: Context) {
 
     private val appCtx = context.applicationContext
@@ -309,6 +333,8 @@ class OsintRepository(context: Context) {
             val (ddgSnippet, ddgUrls) = duckDuckGoSearch(primaryQuery)
             if (ddgSnippet.isNotBlank()) {
                 metadata["ddg_snippet"] = ddgSnippet
+                metadata["ddg_abstract"] = ddgSnippet
+                metadata["ddg_web_snippets"] = ddgSnippet
                 metadata["ddg_urls"] = ddgUrls
                 sources.add(DataSource("DuckDuckGo", "https://html.duckduckgo.com/html/?q=${encode(primaryQuery)}", Date(), 0.7))
                 send(SearchProgressEvent.Found("DuckDuckGo", ddgSnippet.take(120)))
@@ -555,7 +581,7 @@ class OsintRepository(context: Context) {
                 val detail = out.fields["snippet"]?.take(120) ?: out.fields["title"] ?: ""
                 channel.send(SearchProgressEvent.Found(name, detail))
                 sources.add(DataSource(name, url, Date(), 0.6))
-                val key = name.lowercase().replace(" ", "_")
+                val key = SOURCE_ABBREVS[name.lowercase()] ?: name.lowercase().replace(" ", "_")
                 out.fields.forEach { (k, v) -> metadata["${key}_$k"] = v }
             }
             else -> channel.send(SearchProgressEvent.NotFound(name))
