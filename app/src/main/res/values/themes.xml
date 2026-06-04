@@ -285,6 +285,50 @@
         <item name="itemTextColor">@color/fi_bottom_nav_color</item>
     </style>
 
+    <!-- ════════════════════ FORM FIELD STYLES ════════════════════ -->
+
+    <style name="Widget.SixDegrees.TabCard.Inactive" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/fi_charcoal</item>
+        <item name="cardCornerRadius">0dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/fi_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.SixDegrees.TabCard.Active" parent="Widget.SixDegrees.TabCard.Inactive">
+        <item name="cardBackgroundColor">@color/fi_orange</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="TextAppearance.SixDegrees.TabCard" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="TextAppearance.SixDegrees.FieldLabel" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/fi_ash</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:letterSpacing">0.18</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <style name="Widget.SixDegrees.EditText.Field">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_field_line</item>
+        <item name="android:textColor">@color/fi_parchment</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:paddingStart">0dp</item>
+        <item name="android:paddingEnd">0dp</item>
+    </style>
+
     <!-- ════════════════════ TEXT / BUTTON STYLES ════════════════════ -->
 
     <style name="TextAppearance.SixDegrees.Label" parent="TextAppearance.MaterialComponents.Caption">

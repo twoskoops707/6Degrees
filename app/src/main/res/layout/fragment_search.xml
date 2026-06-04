@@ -241,7 +241,6 @@
             android:layout_marginEnd="20dp"
             android:background="@color/fi_smoke" />
 
-        <!-- PERSON FORM -->
         <LinearLayout
             android:id="@+id/form_person"
             android:layout_width="match_parent"
@@ -786,7 +785,6 @@
 
         </LinearLayout>
 
-        <!-- COMPANY FORM -->
         <LinearLayout
             android:id="@+id/form_company"
             android:layout_width="match_parent"
@@ -895,7 +893,6 @@
 
         </LinearLayout>
 
-        <!-- DOMAIN FORM -->
         <LinearLayout
             android:id="@+id/form_domain"
             android:layout_width="match_parent"
@@ -941,7 +938,6 @@
 
         </LinearLayout>
 
-        <!-- EMAIL FORM -->
         <LinearLayout
             android:id="@+id/form_email"
             android:layout_width="match_parent"
@@ -987,7 +983,6 @@
 
         </LinearLayout>
 
-        <!-- PHONE FORM -->
         <LinearLayout
             android:id="@+id/form_phone"
             android:layout_width="match_parent"
@@ -1033,7 +1028,6 @@
 
         </LinearLayout>
 
-        <!-- USERNAME FORM -->
         <LinearLayout
             android:id="@+id/form_username"
             android:layout_width="match_parent"
@@ -1079,7 +1073,6 @@
 
         </LinearLayout>
 
-        <!-- VEHICLE FORM -->
         <LinearLayout
             android:id="@+id/form_vehicle"
             android:layout_width="match_parent"
@@ -1125,7 +1118,6 @@
 
         </LinearLayout>
 
-        <!-- WIFI FORM -->
         <LinearLayout
             android:id="@+id/form_wifi"
             android:layout_width="match_parent"
@@ -1171,7 +1163,6 @@
 
         </LinearLayout>
 
-        <!-- ACTION BUTTONS -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -1209,7 +1200,6 @@
 
         </LinearLayout>
 
-        <!-- WEB HUB BUTTON -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_web_hub"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -1236,7 +1226,6 @@
             android:layout_marginBottom="12dp"
             android:background="@color/fi_smoke" />
 
-        <!-- RECENT SEARCHES -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
