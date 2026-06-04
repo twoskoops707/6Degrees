@@ -10,6 +10,7 @@ import com.twoskoops707.sixdegrees.data.local.OsintDatabase
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
 import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
 import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
+import com.twoskoops707.sixdegrees.data.remote.RetrofitClient
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.DataSource
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,7 @@ private class DateAdapter {
 class OsintRepository(context: Context) {
 
     private val appCtx = context.applicationContext
+    private val apiKeys = com.twoskoops707.sixdegrees.data.ApiKeyManager(context)
     private val db = OsintDatabase.getDatabase(context)
     private val moshi = Moshi.Builder().add(DateAdapter()).add(KotlinJsonAdapterFactory()).build()
 
@@ -328,6 +330,43 @@ class OsintRepository(context: Context) {
                             val out = scrapeThatsThem(primaryQuery, "person")
                             handleScrapeOut("ThatsThem", "https://thatsthem.com/name/${primaryQuery.replace(" ", "-")}", out, sources, metadata, this@channelFlow)
                         }
+                        launch {
+                            semaphore.withPermit {
+                                val key = apiKeys.getKey("pipl")
+                                if (key.isNullOrBlank()) {
+                                    send(SearchProgressEvent.NotFound("Pipl (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("Pipl"))
+                                    try {
+                                        val nameParts = primaryQuery.trim().split("\\s+".toRegex())
+                                        val first = nameParts.firstOrNull()
+                                        val last = if (nameParts.size > 1) nameParts.last() else null
+                                        val result = RetrofitClient.piplService.search(
+                                            apiKey = key,
+                                            firstName = first,
+                                            lastName = last
+                                        )
+                                        val person = result.person
+                                        if (person == null) {
+                                            send(SearchProgressEvent.NotFound("Pipl"))
+                                        } else {
+                                            metadata["pipl_found"] = "true"
+                                            val displayName = person.names?.firstOrNull()?.display
+                                            if (!displayName.isNullOrBlank()) metadata["pipl_name"] = displayName
+                                            val emailAddresses = person.emails?.mapNotNull { it.address }
+                                            if (!emailAddresses.isNullOrEmpty()) metadata["pipl_emails"] = emailAddresses.take(3).joinToString(", ")
+                                            val phones = person.phones?.mapNotNull { it.display ?: it.number }
+                                            if (!phones.isNullOrEmpty()) metadata["pipl_phones"] = phones.take(3).joinToString(", ")
+                                            sources.add(DataSource("Pipl", "https://pipl.com/search/?q=${encode(primaryQuery)}", java.util.Date(), 0.9))
+                                            val detail = displayName ?: "Person profile found"
+                                            send(SearchProgressEvent.Found("Pipl", detail))
+                                        }
+                                    } catch (_: Exception) {
+                                        send(SearchProgressEvent.Blocked("Pipl"))
+                                    }
+                                }
+                            }
+                        }
                     }
                     "email", "breach" -> {
                         targetedScraperNames += setOf("ProxyNova", "HackerTarget")
@@ -347,6 +386,29 @@ class OsintRepository(context: Context) {
                             handleScrapeOut("ThatsThem", "https://thatsthem.com/email/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                             targetedScraperNames += "ThatsThem"
                         }
+                        launch {
+                            semaphore.withPermit {
+                                val key = apiKeys.getKey("hibp")
+                                if (key.isNullOrBlank()) {
+                                    send(SearchProgressEvent.NotFound("HaveIBeenPwned (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("HaveIBeenPwned"))
+                                    try {
+                                        val breaches = RetrofitClient.hibpService.getBreaches(primaryQuery, key)
+                                        if (breaches.isEmpty()) {
+                                            send(SearchProgressEvent.NotFound("HaveIBeenPwned"))
+                                        } else {
+                                            metadata["hibp_found"] = "true"
+                                            metadata["hibp_count"] = breaches.size.toString()
+                                            sources.add(DataSource("HaveIBeenPwned", "https://haveibeenpwned.com/account/${encode(primaryQuery)}", java.util.Date(), 0.9))
+                                            send(SearchProgressEvent.Found("HaveIBeenPwned", "${breaches.size} breach(es) found"))
+                                        }
+                                    } catch (_: Exception) {
+                                        send(SearchProgressEvent.Blocked("HaveIBeenPwned"))
+                                    }
+                                }
+                            }
+                        }
                     }
                     "domain", "ip" -> {
                         targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX")
@@ -359,6 +421,39 @@ class OsintRepository(context: Context) {
                             send(SearchProgressEvent.Checking("Wayback CDX"))
                             val out = scrapeWaybackCdx(primaryQuery)
                             handleScrapeOut("Wayback CDX", "http://web.archive.org/cdx/search/cdx?url=${encode(primaryQuery)}/*", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                val key = apiKeys.getKey("hunter")
+                                if (key.isNullOrBlank()) {
+                                    send(SearchProgressEvent.NotFound("Hunter.io (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("Hunter.io"))
+                                    try {
+                                        val result = RetrofitClient.hunterService.domainSearch(primaryQuery, key)
+                                        val emailList = result.data?.emails
+                                        val org = result.data?.organization
+                                        if (emailList.isNullOrEmpty() && org.isNullOrBlank()) {
+                                            send(SearchProgressEvent.NotFound("Hunter.io"))
+                                        } else {
+                                            metadata["hunter_found"] = "true"
+                                            if (!org.isNullOrBlank()) metadata["hunter_org"] = org
+                                            if (!emailList.isNullOrEmpty()) {
+                                                metadata["hunter_email_count"] = emailList.size.toString()
+                                                metadata["hunter_emails"] = emailList.mapNotNull { it.value }.take(5).joinToString(", ")
+                                            }
+                                            sources.add(DataSource("Hunter.io", "https://hunter.io/domain-search/${encode(primaryQuery)}", java.util.Date(), 0.85))
+                                            val detail = buildString {
+                                                if (!org.isNullOrBlank()) append(org)
+                                                if (!emailList.isNullOrEmpty()) append(" — ${emailList.size} email(s)")
+                                            }
+                                            send(SearchProgressEvent.Found("Hunter.io", detail))
+                                        }
+                                    } catch (_: Exception) {
+                                        send(SearchProgressEvent.Blocked("Hunter.io"))
+                                    }
+                                }
+                            }
                         }
                     }
                     "phone" -> {
