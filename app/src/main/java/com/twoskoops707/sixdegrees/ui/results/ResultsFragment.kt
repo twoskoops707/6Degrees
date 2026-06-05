@@ -211,7 +211,7 @@ class ResultsFragment : Fragment() {
 
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
         return when (type) {
-            "person" -> listOf(
+            "person", "scan" -> listOf(
                 "OVERVIEW" to buildPersonOverview(meta),
                 "CONTACTS" to buildPersonContacts(meta),
                 "LEGAL" to buildPersonLegal(meta),
@@ -325,16 +325,28 @@ class ResultsFragment : Fragment() {
             allRel.take(12).forEach { rows.add("Name" to it) }
         }
 
+        val wikiExtract = meta["wikipedia_extract"]?.takeIf { it.isNotBlank() }
+        if (wikiExtract != null) {
+            rows.add(sec("WIKIPEDIA"))
+            wikiExtract.lines().filter { it.isNotBlank() }.take(4).forEach { rows.add("Info" to it.trim()) }
+            meta["wikipedia_title"]?.let { rows.add("Page" to it) }
+        }
+
         val ddgAbstract = meta["ddg_abstract"]?.takeIf { it.isNotBlank() }
         if (ddgAbstract != null) {
-            rows.add(sec("PUBLIC PROFILE"))
+            rows.add(sec("WEB INTEL"))
             ddgAbstract.lines().filter { it.isNotBlank() }.take(4).forEach { rows.add("Info" to it.trim()) }
             meta["ddg_source"]?.let { rows.add("Source" to it) }
         }
 
-        val tpsNames = meta["tps_names"]?.takeIf { it.isNotBlank() }
+        meta["ddg_web_snippets"]?.takeIf { it.isNotBlank() && ddgAbstract.isNullOrBlank() }?.let { snippets ->
+            rows.add(sec("WEB SNIPPETS"))
+            snippets.lines().filter { it.isNotBlank() }.take(5).forEach { rows.add("Result" to it.trim()) }
+        }
+
+        val tpsNames = (meta["tps_names"] ?: meta["fps_names"] ?: meta["tt_names"])?.takeIf { it.isNotBlank() }
         if (tpsNames != null) {
-            rows.add(sec("MATCHED NAMES (TruePeopleSearch)"))
+            rows.add(sec("MATCHED NAMES"))
             tpsNames.split(",").map { it.trim() }.filter { it.isNotBlank() }.forEach { rows.add("Name" to it) }
         }
 
@@ -1465,7 +1477,7 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        listOf("comp_phone", "comp_phone2", "comp_phone3").forEach { k ->
+        listOf("comp_phone", "comp_phone2", "comp_phone3", "person_phone", "pipl_phone", "pipl_phones").forEach { k ->
             meta[k]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         }
         listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
@@ -1480,6 +1492,7 @@ class ResultsFragment : Fragment() {
 
     private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
+        meta["person_entered_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
         listOf(
             "tps_full_addresses", "zaba_full_addresses", "411_full_addresses", "ftn_full_addresses",
