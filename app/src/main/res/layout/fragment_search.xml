@@ -11,6 +11,19 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CLASSIFIED // SIGINT COLLECTION TERMINAL"
+            android:textColor="@color/fi_orange"
+            android:textSize="8sp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.3"
+            android:gravity="center"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="@color/fi_orange_dim" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
@@ -30,8 +43,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="PER"
-                    android:textSize="11sp"
+                    android:text="SUBJECT"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -54,8 +67,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="ORG"
-                    android:textSize="11sp"
+                    android:text="ENTITY"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -78,8 +91,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="NET"
-                    android:textSize="11sp"
+                    android:text="DOMAIN"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -102,8 +115,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="EML"
-                    android:textSize="11sp"
+                    android:text="EMAIL"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -126,8 +139,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="TEL"
-                    android:textSize="11sp"
+                    android:text="PHONE"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -150,8 +163,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="USR"
-                    android:textSize="11sp"
+                    android:text="HANDLE"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -174,8 +187,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="VEH"
-                    android:textSize="11sp"
+                    android:text="VIN"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -198,8 +211,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="WFI"
-                    android:textSize="11sp"
+                    android:text="SIGNAL"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.08"
@@ -221,16 +234,33 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:paddingTop="10dp"
-            android:paddingBottom="10dp">
+            android:paddingBottom="10dp"
+            android:gravity="center_vertical">
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="CASE INTAKE — SUBJECT ACQUISITION"
+                android:layout_weight="1"
+                android:text="CASE FILE"
                 android:textColor="@color/fi_ash"
                 android:textSize="9sp"
                 android:fontFamily="monospace"
                 android:letterSpacing="0.18" />
+
+            <TextView
+                android:id="@+id/tv_query_counter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▶ 18 QUERIES ARMED"
+                android:textColor="@color/fi_amber"
+                android:textSize="9sp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:background="@color/fi_amber_dim" />
 
         </LinearLayout>
 
@@ -250,6 +280,17 @@
             android:paddingEnd="20dp"
             android:paddingTop="16dp"
             android:visibility="visible">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="// IDENTITY"
+                android:textColor="@color/fi_smoke"
+                android:textSize="7sp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.3"
+                android:paddingBottom="6dp"
+                android:layout_marginBottom="4dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -357,6 +398,18 @@
                 </LinearLayout>
 
             </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="// KNOWN IDENTIFIERS"
+                android:textColor="@color/fi_smoke"
+                android:textSize="7sp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.3"
+                android:paddingBottom="6dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="4dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -526,6 +579,18 @@
                     android:inputType="text" />
 
             </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="// LAST KNOWN LOCATION"
+                android:textColor="@color/fi_smoke"
+                android:textSize="7sp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.3"
+                android:paddingBottom="6dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="4dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -1177,7 +1242,7 @@
                 android:layout_width="0dp"
                 android:layout_height="60dp"
                 android:layout_weight="1"
-                android:text="INITIATE OPERATION"
+                android:text="INITIATE INVESTIGATION ▶"
                 android:textColor="@android:color/white"
                 android:textSize="13sp"
                 android:letterSpacing="0.12"
