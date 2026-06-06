@@ -38,7 +38,7 @@ class SearchProgressViewModel(
                     _events.emit(event)
                 }
             } catch (_: Exception) {
-                _events.emit(SearchProgressEvent.Complete("", 0))
+                // search flow handles its own errors
             }
         }
     }
