@@ -172,6 +172,113 @@ Specifically:
 
 ---
 
+## Themes
+
+The app ships with 6 selectable themes. All share the same layout; only colors and accent values change. Theme is stored in `SharedPreferences` and applied via a `ThemeManager` that swaps color resource aliases at startup.
+
+---
+
+### A. Field Intelligence *(default)*
+Ink background, orange accent, parchment text. CIA dossier — the base design this spec is built on.
+
+| Role | Hex |
+|------|-----|
+| Background | `#0E0C0A` |
+| Surface | `#1A1712` |
+| Accent | `#E8530A` |
+| Text primary | `#E8DCC8` |
+| Text secondary | `#8A8070` |
+| Hit/success | `#4CAF76` |
+| Counter/armed | `#E8A020` |
+
+---
+
+### B. Night Ops
+Pure black, green phosphor terminal. Classic operator/hacker. CRT glow on active elements.
+
+| Role | Hex |
+|------|-----|
+| Background | `#000000` |
+| Surface | `#0A0F0A` |
+| Accent | `#00FF41` |
+| Text primary | `#00FF41` |
+| Text secondary | `#005C17` |
+| Hit/success | `#00FF41` |
+| Counter/armed | `#00CC33` |
+
+---
+
+### C. Redacted
+White/light gray background, black ink text. Government document. Clinical, high contrast — looks like a printed dossier with black bars.
+
+| Role | Hex |
+|------|-----|
+| Background | `#F0EDE8` |
+| Surface | `#FFFFFF` |
+| Accent | `#1A1A1A` |
+| Text primary | `#0D0D0D` |
+| Text secondary | `#6B6B6B` |
+| Hit/success | `#1B5E20` |
+| Counter/armed | `#BF360C` |
+
+---
+
+### D. Cold War
+Aged paper sepia tones, typewriter brown text, rust red accent. Worn field document — like something pulled from a dead drop.
+
+| Role | Hex |
+|------|-----|
+| Background | `#1C1508` |
+| Surface | `#2A1F0E` |
+| Accent | `#C0392B` |
+| Text primary | `#D4B896` |
+| Text secondary | `#7A6040` |
+| Hit/success | `#8B9E3A` |
+| Counter/armed | `#D4802A` |
+
+---
+
+### E. HUMINT
+Dark navy background, steel silver text, ice blue accent. Modern intelligence agency — NSA/DIA aesthetic.
+
+| Role | Hex |
+|------|-----|
+| Background | `#0A0E1A` |
+| Surface | `#111828` |
+| Accent | `#4FC3F7` |
+| Text primary | `#CFD8DC` |
+| Text secondary | `#546E7A` |
+| Hit/success | `#26C6DA` |
+| Counter/armed | `#80DEEA` |
+
+---
+
+### F. The Plug
+Near-black with green tint background, money green accents, dirty gold secondary. Street-level, transactional, minimal. Burner phone energy — no fluff, no gradients. Inspired by *The Wire* palette, Griselda Records artwork, trap house low-light.
+
+| Role | Hex |
+|------|-----|
+| Background | `#0A0F0A` |
+| Surface | `#121A12` |
+| Accent | `#39FF14` |
+| Text primary | `#E8E8DC` |
+| Text secondary | `#7A8A7A` |
+| Hit/success | `#2E7D32` |
+| Counter/armed | `#C8A84B` |
+
+Active elements get a subtle LED glow: `0 0 6px #39FF14`. Sharp corners only — no rounded cards. Monospace condensed type.
+
+---
+
+### Implementation
+
+- `res/values/colors.xml` — define all 6 × 7 color tokens with `theme_` prefix (e.g., `theme_bg`, `theme_surface`, `theme_accent`)
+- `res/values/themes.xml` — one `Style` per theme overriding the 7 color attrs
+- `ThemeManager.kt` — reads `SharedPreferences("theme")`, calls `setTheme()` before `setContentView` in `MainActivity`
+- Settings screen gets a theme picker row showing color swatches
+
+---
+
 ## Out of Scope
 
 - Dark web integration changes
