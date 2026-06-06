@@ -184,7 +184,7 @@ class ResultsFragment : Fragment() {
     }
 
     private fun extractBestAge(meta: Map<String, String>): String? =
-        meta["tps_age"] ?: meta["zaba_age"] ?: meta["411_age"]
+        meta["search_age"] ?: meta["tps_age"] ?: meta["zaba_age"] ?: meta["411_age"]
             ?: meta["voter_age"] ?: meta["radaris_age"] ?: meta["peekyou_age"]
             ?: meta["nuwber_age"] ?: meta["wp_age"] ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
             ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
@@ -193,11 +193,11 @@ class ResultsFragment : Fragment() {
         val enteredCity = meta["person_city"]?.trim()?.lowercase() ?: ""
         val enteredState = meta["person_state"]?.trim()?.lowercase() ?: ""
         val allLocs = listOfNotNull(
-            meta["tps_locations"], meta["zaba_locations"], meta["411_locations"],
+            meta["search_addresses"], meta["tps_locations"], meta["zaba_locations"], meta["411_locations"],
             meta["ftn_locations"], meta["voter_addresses"], meta["uspb_addresses"],
             meta["tt_locations"], meta["fps_locations"], meta["radaris_locations"],
             meta["peekyou_locations"], meta["nuwber_locations"], meta["wp_locations"]
-        ).flatMap { it.split(" | ") }.map { it.trim() }.filter { it.isNotBlank() }
+        ).flatMap { it.split(" | ").flatMap { s -> s.split("\n") } }.map { it.trim() }.filter { it.isNotBlank() }
         if (enteredCity.isNotBlank() || enteredState.isNotBlank()) {
             val stateMatch = allLocs.firstOrNull { loc ->
                 val l = loc.lowercase()
@@ -551,6 +551,27 @@ class ResultsFragment : Fragment() {
 
     private fun buildPersonIntel(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
+
+        meta["search_social_links"]?.takeIf { it.isNotBlank() }?.let { links ->
+            val linkList = links.lines().filter { it.isNotBlank() }
+            if (linkList.isNotEmpty()) {
+                rows.add(sec("SOCIAL & PROFILE LINKS"))
+                linkList.take(8).forEach { rows.add("Profile" to it.trim()) }
+            }
+        }
+        meta["search_snippets"]?.takeIf { it.isNotBlank() }?.let { snips ->
+            val lines = snips.lines().filter { it.isNotBlank() }
+            if (lines.isNotEmpty()) {
+                rows.add(sec("WEB INTELLIGENCE"))
+                lines.take(12).forEach { rows.add("Source" to it.trim()) }
+            }
+        }
+        meta["holehe_services"]?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("EMAIL REGISTRATIONS (Holehe)"))
+            it.split(",").map { s -> s.trim() }.filter { s -> s.isNotBlank() }.forEach { svc ->
+                rows.add("Registered" to svc)
+            }
+        }
 
         val googleNewsSnippet = meta["google_news_snippet"]?.takeIf { it.isNotBlank() }
         val googleNewsCount = meta["google_news_news_count"]?.toIntOrNull() ?: 0
@@ -1501,8 +1522,8 @@ class ResultsFragment : Fragment() {
         listOf("comp_phone", "comp_phone2", "comp_phone3", "person_phone", "pipl_phone", "pipl_phones").forEach { k ->
             meta[k]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         }
-        listOf("tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
-               "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones")
+        listOf("search_phones", "tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
+               "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones", "phone_search_snippets")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
@@ -1515,6 +1536,7 @@ class ResultsFragment : Fragment() {
         val set = linkedSetOf<String>()
         meta["person_entered_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
+        meta["search_addresses"]?.lines()?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
         listOf(
             "tps_full_addresses", "zaba_full_addresses", "411_full_addresses", "ftn_full_addresses",
             "tps_locations", "zaba_locations", "411_locations", "ftn_locations",
@@ -1533,7 +1555,7 @@ class ResultsFragment : Fragment() {
 
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
-        listOf("pipl_relatives", "tps_relatives", "ftn_relatives", "411_relatives", "zaba_relatives", "tt_relatives", "fps_relatives",
+        listOf("search_relatives", "pipl_relatives", "tps_relatives", "ftn_relatives", "411_relatives", "zaba_relatives", "tt_relatives", "fps_relatives",
             "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives", "checkpeople_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.length > 3 && it.isNotBlank() }?.forEach { set.add(it) } }
         val namePattern = Regex("[A-Z][a-z]{1,20} [A-Z][a-z]{1,20}(?:\\s[A-Z][a-z]{1,20})?")

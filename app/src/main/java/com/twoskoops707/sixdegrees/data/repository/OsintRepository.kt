@@ -112,6 +112,19 @@ class OsintRepository(context: Context) {
         val persons: List<PersonRecord> = emptyList()
     )
 
+    private data class DdgResult(val title: String, val snippet: String, val url: String)
+
+    private data class ExtractedData(
+        val phones: List<String> = emptyList(),
+        val emails: List<String> = emptyList(),
+        val addresses: List<String> = emptyList(),
+        val ages: List<String> = emptyList(),
+        val relatives: List<String> = emptyList(),
+        val socialUrls: List<String> = emptyList(),
+        val profileUrls: List<String> = emptyList(),
+        val snippets: List<String> = emptyList()
+    )
+
     private fun tryScrapeUrl(url: String): ScrapeOut {
         return try {
             val req = Request.Builder().url(url)
@@ -170,6 +183,102 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) {
             ScrapeOut(false, false)
         }
+    }
+
+    private fun ddgHtmlSearch(query: String): List<DdgResult> = try {
+        val encoded = URLEncoder.encode(query, "UTF-8")
+        val req = Request.Builder()
+            .url("https://html.duckduckgo.com/html/?q=$encoded")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header("Referer", "https://duckduckgo.com/")
+            .build()
+        val resp = fastHttpClient.newCall(req).execute()
+        val body = resp.body?.string() ?: ""
+        resp.close()
+        if (body.isBlank()) return emptyList()
+        val doc = Jsoup.parse(body)
+        doc.select(".result:not(.result--more), .result--web").take(12).mapNotNull { el ->
+            val title = el.selectFirst(".result__a, .result__title a")?.text()?.trim() ?: return@mapNotNull null
+            val snippet = el.selectFirst(".result__snippet, .result-snippet")?.text()?.trim() ?: ""
+            val url = el.selectFirst(".result__url, .result-url")?.text()?.trim() ?: ""
+            if (title.isBlank()) null else DdgResult(title, snippet, url)
+        }
+    } catch (_: Exception) { emptyList() }
+
+    private fun extractDataFromDdgResults(results: List<DdgResult>): ExtractedData {
+        val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
+        val emailRegex = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""")
+        val ageRegex = Regex("""(?i)\bage[:\s]+(\d{2,3})\b|\b(\d{2,3})\s*years?\s*old\b|\baged?\s+(\d{2,3})\b""")
+        val socialDomains = setOf("linkedin.com", "facebook.com", "twitter.com", "instagram.com", "tiktok.com", "youtube.com", "pinterest.com", "reddit.com")
+        val peopleDomains = setOf("fastpeoplesearch.com", "whitepages.com", "spokeo.com", "peoplefinder.com", "beenverified.com", "truepeoplesearch.com", "radaris.com", "thatsthem.com", "zabasearch.com", "411.com", "intelius.com", "truthfinder.com", "familytreenow.com", "usphonebook.com", "addresses.com")
+        val phones = mutableListOf<String>()
+        val emails = mutableListOf<String>()
+        val ages = mutableListOf<String>()
+        val relatives = mutableListOf<String>()
+        val socialUrls = mutableListOf<String>()
+        val profileUrls = mutableListOf<String>()
+        val snippets = mutableListOf<String>()
+        val addresses = mutableListOf<String>()
+        for (r in results) {
+            val text = "${r.title} ${r.snippet}"
+            phoneRegex.findAll(text).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
+            emailRegex.findAll(text).map { it.value.lowercase() }
+                .filter { !it.contains("example") && !it.endsWith(".png") && !it.endsWith(".jpg") }
+                .forEach { emails.add(it) }
+            ageRegex.find(text)?.let { m ->
+                val age = m.groupValues.drop(1).firstOrNull { it.isNotBlank() }
+                if (age != null && (age.toIntOrNull() ?: 0) in 18..120) ages.add(age)
+            }
+            if (r.snippet.isNotBlank()) snippets.add("${r.title}: ${r.snippet}".take(200))
+            val urlLower = r.url.lowercase()
+            when {
+                socialDomains.any { urlLower.contains(it) } -> socialUrls.add(r.url)
+                peopleDomains.any { urlLower.contains(it) } -> profileUrls.add(r.url)
+            }
+            Regex("""(?i)\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Pkwy)\b[.,]?""").find(text)?.value?.trim()?.let { addresses.add(it) }
+            Regex("""(?i)(?:relatives?|associates?|related\s+to|family)[:\s]+([^.\n]+)""").find(text)?.groupValues?.get(1)?.split(",")?.forEach { rel ->
+                val name = rel.trim().take(40)
+                if (name.length > 3 && name.contains(" ")) relatives.add(name)
+            }
+        }
+        return ExtractedData(
+            phones = phones.distinct().take(10),
+            emails = emails.distinct().take(5),
+            addresses = addresses.distinct().take(5),
+            ages = ages.distinct().take(3),
+            relatives = relatives.distinct().take(10),
+            socialUrls = socialUrls.distinct().take(8),
+            profileUrls = profileUrls.distinct().take(8),
+            snippets = snippets.take(15)
+        )
+    }
+
+    private fun buildPersonQueries(name: String, city: String, state: String, phone: String = "", email: String = ""): List<Pair<String, String>> {
+        val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
+        val queries = mutableListOf(
+            "General" to "\"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "Phone" to "\"$name\" phone number${if (loc.isNotBlank()) " $loc" else ""}",
+            "Address" to "\"$name\" address${if (loc.isNotBlank()) " $loc" else ""}",
+            "FPS" to "site:fastpeoplesearch.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "Whitepages" to "site:whitepages.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "Spokeo" to "site:spokeo.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "Radaris" to "site:radaris.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "BeenVerified" to "site:beenverified.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "TruePeopleSearch" to "site:truepeoplesearch.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "PeopleFinder" to "site:peoplefinder.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "Relatives" to "\"$name\" relatives family${if (loc.isNotBlank()) " $loc" else ""}",
+            "LinkedIn" to "site:linkedin.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "Facebook" to "site:facebook.com \"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
+            "Criminal" to "\"$name\" criminal arrest court record${if (loc.isNotBlank()) " $loc" else ""}",
+            "News" to "\"$name\"${if (loc.isNotBlank()) " $loc" else ""} news",
+            "Employment" to "\"$name\" employer company job${if (loc.isNotBlank()) " $loc" else ""}",
+            "Property" to "\"$name\" property records${if (state.isNotBlank()) " $state" else ""}",
+            "Voter" to "\"$name\" voter registration${if (state.isNotBlank()) " $state" else ""}"
+        )
+        if (phone.isNotBlank()) queries.add("PhoneCrossRef" to "\"$phone\" \"$name\"")
+        if (email.isNotBlank()) queries.add("EmailCrossRef" to "\"$email\" \"$name\"")
+        return queries
     }
 
     private fun duckDuckGoSearch(query: String): Map<String, String> {
@@ -279,195 +388,6 @@ class OsintRepository(context: Context) {
             }
         } catch (_: Exception) {}
         return result
-    }
-
-    private fun scrapeFastPeopleSearch(name: String, city: String = "", state: String = ""): ScrapeOut {
-        return try {
-            val hyphen = name.trim().replace(" ", "-").lowercase()
-            val locationSlug = buildString {
-                if (city.isNotBlank()) append("_${city.trim().replace(" ", "-").lowercase()}")
-                if (state.isNotBlank() && city.isNotBlank()) append("-${state.trim().replace(" ", "-").lowercase()}")
-                else if (state.isNotBlank()) append("_${state.trim().replace(" ", "-").lowercase()}")
-            }
-            val url = "https://www.fastpeoplesearch.com/name/$hyphen$locationSlug"
-            val req = Request.Builder().url(url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                .header("Accept-Language", "en-US,en;q=0.9")
-                .header("Referer", "https://www.fastpeoplesearch.com/")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val code = resp.code
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (code == 403 || code == 429 || body.contains("cf-challenge-running") ||
-                body.contains("Just a moment", ignoreCase = true) || body.contains("Enable JavaScript")) {
-                return ScrapeOut(false, true)
-            }
-            if (code == 404 || code >= 500 || body.isBlank()) return ScrapeOut(false, false)
-            val doc = Jsoup.parse(body)
-            val fields = mutableMapOf<String, String>()
-            fields["title"] = doc.title().take(120)
-            val cards = doc.select("div.card-block, div.person, div[class*=result], article")
-            val allNames = mutableListOf<String>()
-            val allAges = mutableListOf<String>()
-            val allLocations = mutableListOf<String>()
-            val allPhones = mutableListOf<String>()
-            val allRelatives = mutableListOf<String>()
-            val personRecords = mutableListOf<PersonRecord>()
-            val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
-            for (card in cards.take(6)) {
-                val cardName = card.selectFirst("h2, h3, .name, [itemprop=name], .card-title")?.text()?.trim()?.takeIf { it.length > 3 } ?: continue
-                val cardAge = (card.selectFirst(".age, .age-value, [data-age]")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() }
-                    ?: Regex("""(?i)\bage[:\s]+(\d{2,3})\b""").find(card.text())?.groupValues?.get(1)) ?: ""
-                val cardLoc = card.selectFirst("address, .address, .location, [itemprop=address], .city-state")?.text()?.trim() ?: ""
-                val cardPhones = phoneRegex.findAll(card.text()).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.distinct().toList()
-                val cardRelatives = card.select(".relatives a, .relative a, .associates a, li a[href*=name]").mapNotNull { a -> a.text().takeIf { it.isNotBlank() && it.length > 3 } }
-                val cardProfileUrl = card.selectFirst("a[href*=/name/]")?.attr("abs:href")
-                personRecords.add(PersonRecord(name = cardName, age = cardAge, location = cardLoc, phones = cardPhones, address = cardLoc, relatives = cardRelatives, profileUrl = cardProfileUrl, source = "FastPeopleSearch"))
-                allNames.add(cardName)
-                if (cardAge.isNotBlank()) allAges.add(cardAge)
-                if (cardLoc.isNotBlank()) allLocations.add(cardLoc)
-                allPhones.addAll(cardPhones)
-                allRelatives.addAll(cardRelatives)
-            }
-            val fullText = doc.body()?.text() ?: ""
-            if (fullText.length < 100) return ScrapeOut(false, false)
-            phoneRegex.findAll(fullText).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { allPhones.add(it) }
-            fields["snippet"] = fullText.take(600)
-            fields["source_type"] = "person_record"
-            if (allNames.isNotEmpty()) fields["names"] = allNames.distinct().take(5).joinToString(", ")
-            if (allAges.isNotEmpty()) fields["age"] = allAges.first()
-            if (allLocations.isNotEmpty()) fields["locations"] = allLocations.distinct().take(6).joinToString(" | ")
-            val distinctPhones = allPhones.distinct().take(8)
-            if (distinctPhones.isNotEmpty()) fields["phones"] = distinctPhones.joinToString(", ")
-            if (allRelatives.isNotEmpty()) fields["relatives"] = allRelatives.distinct().take(10).joinToString(", ")
-            if (fields.size <= 2) return ScrapeOut(false, false)
-            ScrapeOut(true, false, fields, personRecords)
-        } catch (_: Exception) { ScrapeOut(false, false) }
-    }
-
-    private fun scrapeThatsThem(query: String, type: String, city: String = "", state: String = ""): ScrapeOut {
-        return try {
-            val hyphen = query.trim().replace(" ", "-").lowercase()
-            val url = when (type) {
-                "email" -> "https://thatsthem.com/email/${URLEncoder.encode(query, "UTF-8")}"
-                "phone" -> "https://thatsthem.com/phone/${query.replace(Regex("[^0-9]"), "")}"
-                else -> {
-                    val locSlug = listOf(city, state).filter { it.isNotBlank() }.joinToString("-") { it.trim().replace(" ", "-").lowercase() }
-                    if (locSlug.isNotBlank()) "https://thatsthem.com/name/$hyphen?city=${URLEncoder.encode(city, "UTF-8")}&state=${URLEncoder.encode(state, "UTF-8")}"
-                    else "https://thatsthem.com/name/$hyphen"
-                }
-            }
-            val req = Request.Builder().url(url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                .header("Accept-Language", "en-US,en;q=0.9")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val code = resp.code
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (code == 403 || code == 429 || body.contains("cf-challenge-running") ||
-                body.contains("Just a moment", ignoreCase = true) || body.contains("Enable JavaScript")) {
-                return ScrapeOut(false, true)
-            }
-            if (code == 404 || code >= 500 || body.isBlank()) return ScrapeOut(false, false)
-            val doc = Jsoup.parse(body)
-            val fields = mutableMapOf<String, String>()
-            fields["title"] = doc.title().take(120)
-            val cards = doc.select(".ThatsThem-person, .person-block, .result-person, div[class*=person], div[class*=result]")
-            val allNames = mutableListOf<String>()
-            val allAges = mutableListOf<String>()
-            val allLocations = mutableListOf<String>()
-            val allPhones = mutableListOf<String>()
-            val allRelatives = mutableListOf<String>()
-            val personRecords = mutableListOf<PersonRecord>()
-            val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
-            for (card in cards.take(5)) {
-                val cardName = card.selectFirst(".name, h2, h3, [itemprop=name]")?.text()?.trim()?.takeIf { it.length > 3 } ?: continue
-                val cardAge = card.selectFirst(".age, [class*=age]")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() } ?: ""
-                val cardLoc = card.selectFirst(".location, .city, address, [itemprop=address]")?.text()?.trim() ?: ""
-                val cardPhones = phoneRegex.findAll(card.text()).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.distinct().toList()
-                val cardProfileUrl = card.selectFirst("a[href*=/name/], a[href*=/person/]")?.attr("abs:href")
-                personRecords.add(PersonRecord(name = cardName, age = cardAge, location = cardLoc, phones = cardPhones, address = cardLoc, source = "ThatsThem", profileUrl = cardProfileUrl))
-                allNames.add(cardName)
-                if (cardAge.isNotBlank()) allAges.add(cardAge)
-                if (cardLoc.isNotBlank()) allLocations.add(cardLoc)
-                allPhones.addAll(cardPhones)
-            }
-            val fullText = doc.body()?.text() ?: ""
-            if (fullText.length < 100) return ScrapeOut(false, false)
-            phoneRegex.findAll(fullText).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { allPhones.add(it) }
-            fields["snippet"] = fullText.take(600)
-            if (allNames.isNotEmpty()) fields["names"] = allNames.distinct().take(5).joinToString(", ")
-            if (allAges.isNotEmpty()) fields["ages"] = allAges.distinct().take(3).joinToString(", ")
-            if (allLocations.isNotEmpty()) fields["locations"] = allLocations.distinct().take(6).joinToString(" | ")
-            val distinctPhones = allPhones.distinct().take(8)
-            if (distinctPhones.isNotEmpty()) fields["phones"] = distinctPhones.joinToString(", ")
-            if (allRelatives.isNotEmpty()) fields["relatives"] = allRelatives.distinct().take(10).joinToString(", ")
-            if (fields.size <= 2) return ScrapeOut(false, false)
-            ScrapeOut(true, false, fields, personRecords)
-        } catch (_: Exception) { ScrapeOut(false, false) }
-    }
-
-    private fun scrapeTruePeopleSearch(name: String, city: String = "", state: String = ""): ScrapeOut {
-        return try {
-            val encoded = URLEncoder.encode(name, "UTF-8")
-            val url = buildString {
-                append("https://www.truepeoplesearch.com/results?name=$encoded")
-                if (city.isNotBlank()) append("&citystatezip=${URLEncoder.encode("$city ${state}".trim(), "UTF-8")}")
-            }
-            val req = Request.Builder().url(url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                .header("Accept-Language", "en-US,en;q=0.9")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val code = resp.code
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (code == 403 || code == 429 || body.contains("cf-challenge-running") ||
-                body.contains("Just a moment", ignoreCase = true) || body.contains("Enable JavaScript")) {
-                return ScrapeOut(false, true)
-            }
-            if (code == 404 || code >= 500 || body.isBlank()) return ScrapeOut(false, false)
-            val doc = Jsoup.parse(body)
-            val fields = mutableMapOf<String, String>()
-            fields["title"] = doc.title().take(120)
-            val cards = doc.select("div[data-lunr-doc-id], div.card, div[class*=result]")
-            val allNames = mutableListOf<String>()
-            val allAges = mutableListOf<String>()
-            val allLocations = mutableListOf<String>()
-            val allPhones = mutableListOf<String>()
-            val allRelatives = mutableListOf<String>()
-            val personRecords = mutableListOf<PersonRecord>()
-            val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
-            for (card in cards.take(5)) {
-                val cardName = card.selectFirst("div.h4, .full-name, span[itemprop=name], h2")?.text()?.trim()?.takeIf { it.isNotBlank() } ?: continue
-                val cardAge = card.selectFirst("[class*=age], span:contains(Age)")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() } ?: ""
-                val cardLoc = card.selectFirst("div[class*=location], [itemprop=addressLocality]")?.text()?.trim() ?: ""
-                val cardPhones = phoneRegex.findAll(card.text()).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.distinct().toList()
-                val cardProfileUrl = card.selectFirst("a[href*=/find/]")?.attr("abs:href")
-                personRecords.add(PersonRecord(name = cardName, age = cardAge, location = cardLoc, phones = cardPhones, address = cardLoc, source = "TruePeopleSearch", profileUrl = cardProfileUrl))
-                allNames.add(cardName)
-                if (cardAge.isNotBlank()) allAges.add(cardAge)
-                if (cardLoc.isNotBlank()) allLocations.add(cardLoc)
-                allPhones.addAll(cardPhones)
-            }
-            val fullText = doc.body()?.text() ?: ""
-            if (fullText.length < 100) return ScrapeOut(false, false)
-            phoneRegex.findAll(fullText).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { allPhones.add(it) }
-            fields["snippet"] = fullText.take(600)
-            if (allNames.isNotEmpty()) fields["names"] = allNames.distinct().take(5).joinToString(", ")
-            if (allAges.isNotEmpty()) fields["age"] = allAges.first()
-            if (allLocations.isNotEmpty()) fields["locations"] = allLocations.distinct().take(6).joinToString(" | ")
-            val distinctPhones = allPhones.distinct().take(8)
-            if (distinctPhones.isNotEmpty()) fields["phones"] = distinctPhones.joinToString(", ")
-            if (allRelatives.isNotEmpty()) fields["relatives"] = allRelatives.distinct().take(10).joinToString(", ")
-            if (fields.size <= 2) return ScrapeOut(false, false)
-            ScrapeOut(true, false, fields, personRecords)
-        } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
     private fun scrapeCrtSh(domain: String): ScrapeOut {
@@ -641,52 +561,6 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
-    private fun scrapeZabaSearch(name: String, city: String = "", state: String = ""): ScrapeOut {
-        return try {
-            val parts = name.trim().split(" ")
-            val first = parts.firstOrNull()?.lowercase() ?: return ScrapeOut(false, false)
-            val last = parts.drop(1).joinToString("-").lowercase().ifBlank { return ScrapeOut(false, false) }
-            val stateLower = state.trim().lowercase().replace(" ", "-")
-            val url = if (stateLower.isNotBlank()) "https://www.zabasearch.com/people/$first+$last/$stateLower/"
-                      else "https://www.zabasearch.com/people/$first+$last/"
-            tryScrapeUrl(url)
-        } catch (_: Exception) { ScrapeOut(false, false) }
-    }
-
-    private fun scrapeFamilyTreeNow(name: String, city: String = "", state: String = ""): ScrapeOut {
-        return try {
-            val encoded = URLEncoder.encode(name, "UTF-8")
-            val stateEnc = URLEncoder.encode(state, "UTF-8")
-            val url = if (state.isNotBlank()) "https://www.familytreenow.com/search/genealogy/results/?firstname=${encoded.substringBefore("+")}&lastname=${encoded.substringAfter("+")}&state=$stateEnc"
-                      else "https://www.familytreenow.com/search/genealogy/results/?q=$encoded"
-            tryScrapeUrl(url)
-        } catch (_: Exception) { ScrapeOut(false, false) }
-    }
-
-    private fun scrapeUSPhoneBook(name: String, city: String = "", state: String = ""): ScrapeOut {
-        return try {
-            val parts = name.trim().split(" ")
-            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
-            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
-            val stateCode = state.trim().uppercase().take(2)
-            val url = if (stateCode.isNotBlank()) "https://www.usphonebook.com/$first-$last/$stateCode"
-                      else "https://www.usphonebook.com/$first-$last"
-            tryScrapeUrl(url)
-        } catch (_: Exception) { ScrapeOut(false, false) }
-    }
-
-    private fun scrape411(name: String, city: String = "", state: String = ""): ScrapeOut {
-        return try {
-            val nameParts = name.trim().split(" ")
-            val first = URLEncoder.encode(nameParts.firstOrNull() ?: "", "UTF-8")
-            val last = URLEncoder.encode(nameParts.drop(1).joinToString(" "), "UTF-8")
-            val url = if (city.isNotBlank() && state.isNotBlank())
-                "https://www.411.com/name/$first-$last/${URLEncoder.encode(city, "UTF-8")}-${state.trim().uppercase()}"
-            else "https://www.411.com/name/$first-$last"
-            tryScrapeUrl(url)
-        } catch (_: Exception) { ScrapeOut(false, false) }
-    }
-
     private fun scrapeProxyNova(email: String): ScrapeOut {
         return try {
             val encoded = URLEncoder.encode(email, "UTF-8")
@@ -801,10 +675,12 @@ class OsintRepository(context: Context) {
         metadata["person_name"]?.let { appendLine("Name: $it") }
         metadata["field_age"]?.takeIf { it.isNotBlank() }?.let { appendLine("Age: $it") }
         metadata["person_location"]?.takeIf { it.isNotBlank() }?.let { appendLine("Location: $it") }
-        listOfNotNull(metadata["fps_phones"], metadata["tps_phones"], metadata["tt_phones"], metadata["person_phone"])
+        listOfNotNull(metadata["search_phones"], metadata["pipl_phones"], metadata["person_phone"])
             .firstOrNull { it.isNotBlank() }?.let { appendLine("Phone(s): $it") }
-        listOfNotNull(metadata["fps_relatives"], metadata["tps_relatives"], metadata["tt_relatives"])
+        listOfNotNull(metadata["search_relatives"])
             .firstOrNull { it.isNotBlank() }?.let { appendLine("Associates: $it") }
+        metadata["search_addresses"]?.takeIf { it.isNotBlank() }?.let { appendLine("Addresses: ${it.take(200)}") }
+        metadata["search_social_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("Social: ${it.take(200)}") }
         metadata["github_name"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub Name: $it") }
         metadata["github_stats"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub: $it") }
         metadata["reddit_url"]?.takeIf { it.isNotBlank() }?.let { appendLine("Reddit: $it") }
@@ -813,8 +689,7 @@ class OsintRepository(context: Context) {
         metadata.entries.firstOrNull { it.key.contains("news") && it.value.isNotBlank() }
             ?.value?.let { appendLine("\nNews:\n${it.take(400)}") }
         metadata["darksearch_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nDark Web Mentions:\n${it.take(200)}") }
-        listOfNotNull(metadata["fps_snippet"], metadata["tps_snippet"], metadata["tt_snippet"])
-            .firstOrNull { it.isNotBlank() }?.let { appendLine("\nPublic Records:\n${it.take(300)}") }
+        metadata["search_snippets"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nWeb Intelligence:\n${it.take(600)}") }
         appendLine("\nINTELLIGENCE BRIEF:")
     }
 
@@ -925,6 +800,14 @@ class OsintRepository(context: Context) {
             val sources = Collections.synchronizedList(mutableListOf<DataSource>())
             val scrapedPersonRecords = Collections.synchronizedList(mutableListOf<PersonRecord>())
             val semaphore = Semaphore(5)
+            val ddgPhones = Collections.synchronizedList(mutableListOf<String>())
+            val ddgEmails = Collections.synchronizedList(mutableListOf<String>())
+            val ddgRelatives = Collections.synchronizedList(mutableListOf<String>())
+            val ddgAges = Collections.synchronizedList(mutableListOf<String>())
+            val ddgAddresses = Collections.synchronizedList(mutableListOf<String>())
+            val ddgSocial = Collections.synchronizedList(mutableListOf<String>())
+            val ddgProfiles = Collections.synchronizedList(mutableListOf<String>())
+            val ddgSnippets = Collections.synchronizedList(mutableListOf<String>())
 
             send(SearchProgressEvent.Checking("DuckDuckGo"))
             val ddgData = duckDuckGoSearch(primaryQuery)
@@ -941,27 +824,33 @@ class OsintRepository(context: Context) {
             coroutineScope {
                 when (effectiveType) {
                     "person", "comprehensive" -> {
-                        targetedScraperNames += setOf("FastPeopleSearch", "ThatsThem", "TruePeopleSearch", "Wikipedia", "Google News", "DarkSearch", "ZabaSearch", "FamilyTreeNow", "USPhoneBook", "411.com")
+                        targetedScraperNames += setOf("Wikipedia", "Google News", "DarkSearch", "Pipl")
                         launch { termuxRunner.ensureTorRunning().collect { send(it) } }
-                        launch {
-                            send(SearchProgressEvent.Checking("FastPeopleSearch"))
-                            val out = scrapeFastPeopleSearch(primaryQuery, city, state)
-                            scrapedPersonRecords.addAll(out.persons)
-                            val nameSlug = primaryQuery.replace(" ", "-").lowercase()
-                            val locSlug = if (city.isNotBlank()) "_${city.replace(" ", "-").lowercase()}${if (state.isNotBlank()) "-${state.replace(" ", "-").lowercase()}" else ""}" else ""
-                            handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/name/$nameSlug$locSlug", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("ThatsThem"))
-                            val out = scrapeThatsThem(primaryQuery, "person", city, state)
-                            scrapedPersonRecords.addAll(out.persons)
-                            handleScrapeOut("ThatsThem", "https://thatsthem.com/name/${primaryQuery.replace(" ", "-").lowercase()}", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("TruePeopleSearch"))
-                            val out = scrapeTruePeopleSearch(primaryQuery, city, state)
-                            scrapedPersonRecords.addAll(out.persons)
-                            handleScrapeOut("TruePeopleSearch", "https://www.truepeoplesearch.com/results?name=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        val personPhone = fields["phone"] ?: ""
+                        val personEmail = fields["email"] ?: ""
+                        val personQueries = buildPersonQueries(primaryQuery, city, state, personPhone, personEmail)
+                        for ((label, q) in personQueries) {
+                            launch {
+                                semaphore.withPermit {
+                                    send(SearchProgressEvent.Checking("DDG: $label"))
+                                    val results = ddgHtmlSearch(q)
+                                    val extracted = extractDataFromDdgResults(results)
+                                    if (results.isNotEmpty()) {
+                                        sources.add(DataSource("DDG:$label", "https://html.duckduckgo.com/html/?q=${encode(q)}", Date(), 0.6))
+                                        send(SearchProgressEvent.Found("DDG: $label", (extracted.snippets.firstOrNull() ?: results.firstOrNull()?.snippet ?: "").take(120)))
+                                    } else {
+                                        send(SearchProgressEvent.NotFound("DDG: $label"))
+                                    }
+                                    ddgPhones.addAll(extracted.phones)
+                                    ddgEmails.addAll(extracted.emails)
+                                    ddgRelatives.addAll(extracted.relatives)
+                                    ddgAges.addAll(extracted.ages)
+                                    ddgAddresses.addAll(extracted.addresses)
+                                    ddgSocial.addAll(extracted.socialUrls)
+                                    ddgProfiles.addAll(extracted.profileUrls)
+                                    ddgSnippets.addAll(extracted.snippets)
+                                }
+                            }
                         }
                         launch {
                             send(SearchProgressEvent.Checking("Wikipedia"))
@@ -972,43 +861,6 @@ class OsintRepository(context: Context) {
                                 send(SearchProgressEvent.Found("Wikipedia", wikiData["wikipedia_extract"]?.take(120) ?: ""))
                             } else {
                                 send(SearchProgressEvent.NotFound("Wikipedia"))
-                            }
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                val key = apiKeys.getKey("pipl")
-                                if (key.isNullOrBlank()) {
-                                    send(SearchProgressEvent.NotFound("Pipl (no key)"))
-                                } else {
-                                    send(SearchProgressEvent.Checking("Pipl"))
-                                    try {
-                                        val nameParts = primaryQuery.trim().split("\\s+".toRegex())
-                                        val first = nameParts.firstOrNull()
-                                        val last = if (nameParts.size > 1) nameParts.last() else null
-                                        val result = RetrofitClient.piplService.search(
-                                            apiKey = key,
-                                            firstName = first,
-                                            lastName = last
-                                        )
-                                        val person = result.person
-                                        if (person == null) {
-                                            send(SearchProgressEvent.NotFound("Pipl"))
-                                        } else {
-                                            metadata["pipl_found"] = "true"
-                                            val displayName = person.names?.firstOrNull()?.display
-                                            if (!displayName.isNullOrBlank()) metadata["pipl_name"] = displayName
-                                            val emailAddresses = person.emails?.mapNotNull { it.address }
-                                            if (!emailAddresses.isNullOrEmpty()) metadata["pipl_emails"] = emailAddresses.take(3).joinToString(", ")
-                                            val phones = person.phones?.mapNotNull { it.display ?: it.number }
-                                            if (!phones.isNullOrEmpty()) metadata["pipl_phones"] = phones.take(3).joinToString(", ")
-                                            sources.add(DataSource("Pipl", "https://pipl.com/search/?q=${encode(primaryQuery)}", java.util.Date(), 0.9))
-                                            val detail = displayName ?: "Person profile found"
-                                            send(SearchProgressEvent.Found("Pipl", detail))
-                                        }
-                                    } catch (_: Exception) {
-                                        send(SearchProgressEvent.Blocked("Pipl"))
-                                    }
-                                }
                             }
                         }
                         launch {
@@ -1025,30 +877,34 @@ class OsintRepository(context: Context) {
                         }
                         launch {
                             semaphore.withPermit {
-                                send(SearchProgressEvent.Checking("ZabaSearch"))
-                                val out = scrapeZabaSearch(primaryQuery, city, state)
-                                handleScrapeOut("ZabaSearch", "https://www.zabasearch.com/people/${encode(primaryQuery)}/", out, sources, metadata, this@channelFlow)
-                            }
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                send(SearchProgressEvent.Checking("FamilyTreeNow"))
-                                val out = scrapeFamilyTreeNow(primaryQuery, city, state)
-                                handleScrapeOut("FamilyTreeNow", "https://www.familytreenow.com/search/genealogy/results/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
-                            }
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                send(SearchProgressEvent.Checking("USPhoneBook"))
-                                val out = scrapeUSPhoneBook(primaryQuery, city, state)
-                                handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
-                            }
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                send(SearchProgressEvent.Checking("411.com"))
-                                val out = scrape411(primaryQuery, city, state)
-                                handleScrapeOut("411.com", "https://www.411.com/name/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                                val key = apiKeys.getKey("pipl")
+                                if (key.isNullOrBlank()) {
+                                    send(SearchProgressEvent.NotFound("Pipl (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("Pipl"))
+                                    try {
+                                        val nameParts = primaryQuery.trim().split("\\s+".toRegex())
+                                        val first = nameParts.firstOrNull()
+                                        val last = if (nameParts.size > 1) nameParts.last() else null
+                                        val result = RetrofitClient.piplService.search(apiKey = key, firstName = first, lastName = last)
+                                        val person = result.person
+                                        if (person == null) {
+                                            send(SearchProgressEvent.NotFound("Pipl"))
+                                        } else {
+                                            metadata["pipl_found"] = "true"
+                                            val displayName = person.names?.firstOrNull()?.display
+                                            if (!displayName.isNullOrBlank()) metadata["pipl_name"] = displayName
+                                            val piplEmails = person.emails?.mapNotNull { it.address }
+                                            if (!piplEmails.isNullOrEmpty()) metadata["pipl_emails"] = piplEmails.take(3).joinToString(", ")
+                                            val piplPhones = person.phones?.mapNotNull { it.display ?: it.number }
+                                            if (!piplPhones.isNullOrEmpty()) metadata["pipl_phones"] = piplPhones.take(3).joinToString(", ")
+                                            sources.add(DataSource("Pipl", "https://pipl.com/search/?q=${encode(primaryQuery)}", Date(), 0.9))
+                                            send(SearchProgressEvent.Found("Pipl", displayName ?: "Person profile found"))
+                                        }
+                                    } catch (_: Exception) {
+                                        send(SearchProgressEvent.Blocked("Pipl"))
+                                    }
+                                }
                             }
                         }
                     }
@@ -1063,12 +919,6 @@ class OsintRepository(context: Context) {
                             send(SearchProgressEvent.Checking("HackerTarget Email"))
                             val out = scrapeHackerTarget(primaryQuery, "email")
                             handleScrapeOut("HackerTarget Email", "https://api.hackertarget.com/findemail/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("ThatsThem"))
-                            val out = scrapeThatsThem(primaryQuery, "email")
-                            handleScrapeOut("ThatsThem", "https://thatsthem.com/email/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
-                            targetedScraperNames += "ThatsThem"
                         }
                         launch {
                             semaphore.withPermit {
@@ -1095,7 +945,15 @@ class OsintRepository(context: Context) {
                         }
                         launch {
                             semaphore.withPermit {
-                                termuxRunner.runHolehe(primaryQuery).collect { send(it) }
+                                val holeheHits = mutableListOf<String>()
+                                termuxRunner.runHolehe(primaryQuery).collect { event ->
+                                    send(event)
+                                    if (event is SearchProgressEvent.Found) {
+                                        holeheHits.add(event.source.removePrefix("holehe/"))
+                                        sources.add(DataSource(event.source, event.detail, Date(), 0.7))
+                                    }
+                                }
+                                if (holeheHits.isNotEmpty()) metadata["holehe_services"] = holeheHits.joinToString(", ")
                             }
                         }
                     }
@@ -1177,7 +1035,7 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "phone" -> {
-                        targetedScraperNames += setOf("800notes", "ThatsThem")
+                        targetedScraperNames += setOf("800notes", "DDG Phone")
                         launch {
                             send(SearchProgressEvent.Checking("800notes"))
                             val out = scrape800Notes(primaryQuery)
@@ -1186,10 +1044,19 @@ class OsintRepository(context: Context) {
                             handleScrapeOut("800notes", "https://800notes.com/Phone.aspx/$fmt", out, sources, metadata, this@channelFlow)
                         }
                         launch {
-                            send(SearchProgressEvent.Checking("ThatsThem"))
-                            val out = scrapeThatsThem(primaryQuery, "phone")
-                            val digits = primaryQuery.replace(Regex("[^0-9]"), "")
-                            handleScrapeOut("ThatsThem", "https://thatsthem.com/phone/$digits", out, sources, metadata, this@channelFlow)
+                            semaphore.withPermit {
+                                send(SearchProgressEvent.Checking("DDG Phone"))
+                                val results = ddgHtmlSearch("\"$primaryQuery\" who called owner")
+                                val extracted = extractDataFromDdgResults(results)
+                                if (results.isNotEmpty()) {
+                                    sources.add(DataSource("DDG Phone", "https://html.duckduckgo.com/html/?q=${encode(primaryQuery)}", Date(), 0.6))
+                                    metadata["phone_search_snippets"] = results.take(5).joinToString("\n") { "${it.title}: ${it.snippet}".take(150) }
+                                    if (extracted.phones.isNotEmpty()) metadata["phone_owner_name"] = extracted.snippets.firstOrNull() ?: ""
+                                    send(SearchProgressEvent.Found("DDG Phone", results.firstOrNull()?.snippet?.take(100) ?: ""))
+                                } else {
+                                    send(SearchProgressEvent.NotFound("DDG Phone"))
+                                }
+                            }
                         }
                     }
                     "darknet" -> {
@@ -1227,12 +1094,28 @@ class OsintRepository(context: Context) {
                         }
                         launch {
                             semaphore.withPermit {
-                                termuxRunner.runSherlock(primaryQuery).collect { send(it) }
+                                val sherlockHits = mutableListOf<String>()
+                                termuxRunner.runSherlock(primaryQuery).collect { event ->
+                                    send(event)
+                                    if (event is SearchProgressEvent.Found) {
+                                        sherlockHits.add("${event.source.removePrefix("sherlock/")}: ${event.detail}")
+                                        sources.add(DataSource(event.source, event.detail, Date(), 0.75))
+                                    }
+                                }
+                                if (sherlockHits.isNotEmpty()) metadata["sherlock_found"] = sherlockHits.joinToString("\n")
                             }
                         }
                         launch {
                             semaphore.withPermit {
-                                termuxRunner.runMaigret(primaryQuery).collect { send(it) }
+                                val maigretHits = mutableListOf<String>()
+                                termuxRunner.runMaigret(primaryQuery).collect { event ->
+                                    send(event)
+                                    if (event is SearchProgressEvent.Found) {
+                                        maigretHits.add("${event.source.removePrefix("maigret/")}: ${event.detail}")
+                                        sources.add(DataSource(event.source, event.detail, Date(), 0.75))
+                                    }
+                                }
+                                if (maigretHits.isNotEmpty()) metadata["maigret_found"] = maigretHits.joinToString("\n")
                             }
                         }
                         launch {
@@ -1277,6 +1160,36 @@ class OsintRepository(context: Context) {
                 }
 
                 send(SearchProgressEvent.BrowserToolsReady(browserCategories))
+            }
+
+            if (effectiveType == "person" || effectiveType == "comprehensive") {
+                val distinctPhones = ddgPhones.distinct().take(10)
+                val distinctEmails = ddgEmails.distinct().take(5)
+                val distinctRelatives = ddgRelatives.distinct().take(15)
+                val distinctAges = ddgAges.distinct()
+                val distinctAddresses = ddgAddresses.distinct().take(8)
+                val distinctSocial = ddgSocial.distinct().take(10)
+                val distinctProfiles = ddgProfiles.distinct().take(10)
+                if (distinctPhones.isNotEmpty()) metadata["search_phones"] = distinctPhones.joinToString(", ")
+                if (distinctEmails.isNotEmpty()) metadata["search_emails"] = distinctEmails.joinToString(", ")
+                if (distinctRelatives.isNotEmpty()) metadata["search_relatives"] = distinctRelatives.joinToString(", ")
+                if (distinctAges.isNotEmpty()) metadata["search_age"] = distinctAges.first()
+                if (distinctAddresses.isNotEmpty()) metadata["search_addresses"] = distinctAddresses.joinToString("\n")
+                if (distinctSocial.isNotEmpty()) metadata["search_social_links"] = distinctSocial.joinToString("\n")
+                if (distinctProfiles.isNotEmpty()) metadata["search_profile_links"] = distinctProfiles.joinToString("\n")
+                if (ddgSnippets.isNotEmpty()) metadata["search_snippets"] = ddgSnippets.distinct().take(20).joinToString("\n").take(3000)
+                if (distinctPhones.isNotEmpty() || distinctAges.isNotEmpty()) {
+                    val rec = PersonRecord(
+                        name = primaryQuery,
+                        age = distinctAges.firstOrNull() ?: "",
+                        location = distinctAddresses.firstOrNull()?.take(80) ?: locationStr,
+                        phones = distinctPhones,
+                        address = distinctAddresses.firstOrNull() ?: locationStr,
+                        relatives = distinctRelatives,
+                        source = "DDG Search"
+                    )
+                    scrapedPersonRecords.add(rec)
+                }
             }
 
             send(SearchProgressEvent.Checking("AI Brief"))
@@ -1328,9 +1241,9 @@ class OsintRepository(context: Context) {
                     return@withContext
                 } else if (sources.size > 1 || metadata["ddg_abstract"]?.isNotBlank() == true) {
                     val fallbackName = primaryQuery
-                    val fallbackAge = metadata["fps_age"] ?: metadata["tps_age"] ?: ""
-                    val fallbackLoc = metadata["fps_locations"]?.split("|")?.firstOrNull()?.trim() ?: locationStr
-                    val fallbackPhones = (metadata["fps_phones"] ?: metadata["tps_phones"] ?: "").split(",").map { it.trim() }.filter { it.isNotBlank() }
+                    val fallbackAge = metadata["search_age"] ?: ""
+                    val fallbackLoc = metadata["search_addresses"]?.lines()?.firstOrNull()?.trim() ?: locationStr
+                    val fallbackPhones = (metadata["search_phones"] ?: "").split(",").map { it.trim() }.filter { it.isNotBlank() }
                     val candidate = CandidateProfile(
                         name = fallbackName, age = fallbackAge, location = fallbackLoc,
                         phones = fallbackPhones, address = fallbackLoc,
