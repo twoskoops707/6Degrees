@@ -254,7 +254,7 @@ class OsintRepository(context: Context) {
         )
     }
 
-    private fun buildPersonQueries(name: String, city: String, state: String, phone: String = "", email: String = ""): List<Pair<String, String>> {
+    private fun buildPersonQueries(name: String, city: String, state: String, phone: String = "", email: String = "", username: String = ""): List<Pair<String, String>> {
         val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
         val queries = mutableListOf(
             "General" to "\"$name\"${if (loc.isNotBlank()) " $loc" else ""}",
@@ -278,6 +278,7 @@ class OsintRepository(context: Context) {
         )
         if (phone.isNotBlank()) queries.add("PhoneCrossRef" to "\"$phone\" \"$name\"")
         if (email.isNotBlank()) queries.add("EmailCrossRef" to "\"$email\" \"$name\"")
+        if (username.isNotBlank()) queries.add("UsernameCrossRef" to "\"$username\" \"$name\"")
         return queries
     }
 
@@ -828,7 +829,8 @@ class OsintRepository(context: Context) {
                         launch { termuxRunner.ensureTorRunning().collect { send(it) } }
                         val personPhone = fields["phone"] ?: ""
                         val personEmail = fields["email"] ?: ""
-                        val personQueries = buildPersonQueries(primaryQuery, city, state, personPhone, personEmail)
+                        val personUsername = fields["username"] ?: ""
+                        val personQueries = buildPersonQueries(primaryQuery, city, state, personPhone, personEmail, personUsername)
                         for ((label, q) in personQueries) {
                             launch {
                                 semaphore.withPermit {
