@@ -81,4 +81,58 @@
     <color name="fi_smoke">#4A4238</color>
     <color name="fi_border">#3A3228</color>
     <color name="fi_scrim">#CC0E0C0A</color>
+
+    <!-- ── Night Ops Theme ──────────────────────────── -->
+    <color name="nops_bg">#000000</color>
+    <color name="nops_surface">#0A0F0A</color>
+    <color name="nops_border">#0D1A0D</color>
+    <color name="nops_green">#00FF41</color>
+    <color name="nops_green_dim">#001A0D</color>
+    <color name="nops_amber">#00CC33</color>
+    <color name="nops_text">#00FF41</color>
+    <color name="nops_ash">#005C17</color>
+
+    <!-- ── Redacted Theme ───────────────────────────── -->
+    <color name="red_bg">#F0EDE8</color>
+    <color name="red_surface">#FFFFFF</color>
+    <color name="red_border">#C8C0B8</color>
+    <color name="red_ink">#0D0D0D</color>
+    <color name="red_ink_dim">#1A1A1A</color>
+    <color name="red_accent">#BF360C</color>
+    <color name="red_accent_dim">#FBE9E7</color>
+    <color name="red_ash">#6B6B6B</color>
+    <color name="red_success">#1B5E20</color>
+
+    <!-- ── Cold War Theme ───────────────────────────── -->
+    <color name="cw_bg">#1C1508</color>
+    <color name="cw_surface">#2A1F0E</color>
+    <color name="cw_border">#3D2E18</color>
+    <color name="cw_rust">#C0392B</color>
+    <color name="cw_rust_dim">#3B0D09</color>
+    <color name="cw_amber">#D4802A</color>
+    <color name="cw_parchment">#D4B896</color>
+    <color name="cw_ash">#7A6040</color>
+    <color name="cw_moss">#8B9E3A</color>
+
+    <!-- ── HUMINT Theme ──────────────────────────────── -->
+    <color name="hi_bg">#0A0E1A</color>
+    <color name="hi_surface">#111828</color>
+    <color name="hi_border">#1E2B44</color>
+    <color name="hi_blue">#4FC3F7</color>
+    <color name="hi_blue_dim">#041B2C</color>
+    <color name="hi_cyan">#80DEEA</color>
+    <color name="hi_text">#CFD8DC</color>
+    <color name="hi_ash">#546E7A</color>
+
+    <!-- ── The Plug Theme ───────────────────────────── -->
+    <color name="plug_bg">#0A0F0A</color>
+    <color name="plug_surface">#121A12</color>
+    <color name="plug_border">#1E2B1E</color>
+    <color name="plug_green">#39FF14</color>
+    <color name="plug_green_dim">#061A03</color>
+    <color name="plug_gold">#C8A84B</color>
+    <color name="plug_gold_dim">#261E0A</color>
+    <color name="plug_text">#E8E8DC</color>
+    <color name="plug_ash">#7A8A7A</color>
+    <color name="plug_money">#2E7D32</color>
 </resources>
