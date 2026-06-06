@@ -176,6 +176,144 @@
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.FieldIntel</item>
     </style>
 
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- NIGHT OPS — pure black, phosphor green, 0dp corners        -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.NightOps" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">nightops</item>
+        <item name="colorPrimary">@color/nops_green</item>
+        <item name="colorPrimaryVariant">@color/nops_green_dim</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/nops_amber</item>
+        <item name="colorSecondaryVariant">@color/nops_green_dim</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:colorBackground">@color/nops_bg</item>
+        <item name="colorSurface">@color/nops_surface</item>
+        <item name="colorOnSurface">@color/nops_text</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/black</item>
+        <item name="android:statusBarColor">@color/nops_bg</item>
+        <item name="android:navigationBarColor">@color/nops_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.NightOps</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.NightOps</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- REDACTED — white/light, black ink, government document      -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.Redacted" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">redacted</item>
+        <item name="colorPrimary">@color/red_ink</item>
+        <item name="colorPrimaryVariant">@color/red_ink_dim</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/red_accent</item>
+        <item name="colorSecondaryVariant">@color/red_accent_dim</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:colorBackground">@color/red_bg</item>
+        <item name="colorSurface">@color/red_surface</item>
+        <item name="colorOnSurface">@color/red_ink</item>
+        <item name="colorError">@color/red_accent</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/red_bg</item>
+        <item name="android:navigationBarColor">@color/red_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FieldIntel.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Redacted</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Redacted</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- COLD WAR — sepia/aged paper, rust red accent, 2dp corners  -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.ColdWar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">coldwar</item>
+        <item name="colorPrimary">@color/cw_rust</item>
+        <item name="colorPrimaryVariant">@color/cw_rust_dim</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/cw_amber</item>
+        <item name="colorSecondaryVariant">@color/cw_rust_dim</item>
+        <item name="colorOnSecondary">@color/cw_parchment</item>
+        <item name="android:colorBackground">@color/cw_bg</item>
+        <item name="colorSurface">@color/cw_surface</item>
+        <item name="colorOnSurface">@color/cw_parchment</item>
+        <item name="colorError">@color/cw_rust</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/cw_bg</item>
+        <item name="android:navigationBarColor">@color/cw_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FieldIntel.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.ColdWar</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.ColdWar</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- HUMINT — dark navy, steel/ice blue, 4dp corners            -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.Humint" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">humint</item>
+        <item name="colorPrimary">@color/hi_blue</item>
+        <item name="colorPrimaryVariant">@color/hi_blue_dim</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/hi_cyan</item>
+        <item name="colorSecondaryVariant">@color/hi_blue_dim</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:colorBackground">@color/hi_bg</item>
+        <item name="colorSurface">@color/hi_surface</item>
+        <item name="colorOnSurface">@color/hi_text</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/hi_bg</item>
+        <item name="android:navigationBarColor">@color/hi_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Tactical.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Tactical.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Tactical.Medium</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Humint</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Humint</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- THE PLUG — black/green tint, money green, dirty gold, 0dp  -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.ThePlug" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">theplug</item>
+        <item name="colorPrimary">@color/plug_green</item>
+        <item name="colorPrimaryVariant">@color/plug_green_dim</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/plug_gold</item>
+        <item name="colorSecondaryVariant">@color/plug_gold_dim</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:colorBackground">@color/plug_bg</item>
+        <item name="colorSurface">@color/plug_surface</item>
+        <item name="colorOnSurface">@color/plug_text</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/black</item>
+        <item name="android:statusBarColor">@color/plug_bg</item>
+        <item name="android:navigationBarColor">@color/plug_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.ThePlug</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.ThePlug</item>
+    </style>
+
     <!-- ════════════════════ SHAPE APPEARANCES ════════════════════ -->
 
     <style name="ShapeAppearance.FieldIntel.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
@@ -263,6 +401,46 @@
         <item name="strokeWidth">1dp</item>
     </style>
 
+    <style name="Widget.SixDegrees.CardView.NightOps" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/nops_surface</item>
+        <item name="cardCornerRadius">0dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/nops_green</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Redacted" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/red_surface</item>
+        <item name="cardCornerRadius">2dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/red_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.ColdWar" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/cw_surface</item>
+        <item name="cardCornerRadius">2dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/cw_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Humint" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/hi_surface</item>
+        <item name="cardCornerRadius">4dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/hi_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.ThePlug" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/plug_surface</item>
+        <item name="cardCornerRadius">0dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/plug_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
     <!-- ════════════════════ BOTTOM NAV STYLES ════════════════════ -->
 
     <style name="Widget.SixDegrees.BottomNav" parent="Widget.MaterialComponents.BottomNavigationView">
@@ -283,6 +461,22 @@
         <item name="android:background">@color/fi_charcoal</item>
         <item name="itemIconTint">@color/fi_bottom_nav_color</item>
         <item name="itemTextColor">@color/fi_bottom_nav_color</item>
+    </style>
+
+    <style name="Widget.SixDegrees.BottomNav.NightOps" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/nops_bg</item>
+    </style>
+    <style name="Widget.SixDegrees.BottomNav.Redacted" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/red_bg</item>
+    </style>
+    <style name="Widget.SixDegrees.BottomNav.ColdWar" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/cw_bg</item>
+    </style>
+    <style name="Widget.SixDegrees.BottomNav.Humint" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/hi_bg</item>
+    </style>
+    <style name="Widget.SixDegrees.BottomNav.ThePlug" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/plug_bg</item>
     </style>
 
     <!-- ════════════════════ FORM FIELD STYLES ════════════════════ -->
