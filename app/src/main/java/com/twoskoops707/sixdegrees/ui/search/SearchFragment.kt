@@ -33,6 +33,27 @@ class SearchFragment : Fragment() {
     private var pendingImageUri: Uri? = null
     private var attachedImageUri: Uri? = null
 
+    private fun updateQueryCounter() {
+        val b = _binding ?: return
+        if (currentType != "person") {
+            b.tvQueryCounter.text = when (currentType) {
+                "username" -> "▶ 3 QUERIES ARMED"
+                "domain", "ip" -> "▶ 5 QUERIES ARMED"
+                "email" -> "▶ 4 QUERIES ARMED"
+                "phone" -> "▶ 3 QUERIES ARMED"
+                "company" -> "▶ 6 QUERIES ARMED"
+                else -> "▶ 2 QUERIES ARMED"
+            }
+            return
+        }
+        val baseCount = 18
+        val hasPhone = b.inputPhone.text?.isNotBlank() == true
+        val hasEmail = b.inputEmail.text?.isNotBlank() == true
+        val hasUsername = b.inputUsername.text?.isNotBlank() == true
+        val total = baseCount + (if (hasPhone) 1 else 0) + (if (hasEmail) 1 else 0) + (if (hasUsername) 1 else 0)
+        b.tvQueryCounter.text = "▶ $total QUERIES ARMED"
+    }
+
     private val cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
             attachedImageUri = pendingImageUri
@@ -58,6 +79,15 @@ class SearchFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupEntityTypeSelector()
+
+        val counterWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) { updateQueryCounter() }
+        }
+        binding.inputPhone.addTextChangedListener(counterWatcher)
+        binding.inputEmail.addTextChangedListener(counterWatcher)
+        binding.inputUsername.addTextChangedListener(counterWatcher)
 
         binding.btnCamera.setOnClickListener { launchCamera() }
         binding.btnGallery.setOnClickListener { galleryLauncher.launch("image/*") }
@@ -152,6 +182,7 @@ class SearchFragment : Fragment() {
                     else ContextCompat.getColor(requireContext(), R.color.fi_ash)
                 )
             }
+            updateQueryCounter()
         }
 
         binding.cardTypePerson.setOnClickListener { selectType("person") }
