@@ -211,6 +211,45 @@ class TermuxToolRunner(private val context: Context) {
         if (emitted == 0) emit(SearchProgressEvent.NotFound("theHarvester"))
     }.flowOn(Dispatchers.IO)
 
+    fun ensureTorRunning(): Flow<SearchProgressEvent> = flow {
+        if (!isTermuxInstalled()) return@flow
+        val torBin = File("/data/data/com.termux/files/usr/bin/tor")
+        if (!torBin.exists()) {
+            emit(SearchProgressEvent.NotFound("Tor (not installed)"))
+            return@flow
+        }
+        val probeAlive = try {
+            val s = java.net.Socket(); s.connect(java.net.InetSocketAddress("127.0.0.1", 9050), 1000); s.close(); true
+        } catch (_: Exception) { false }
+        if (probeAlive) {
+            emit(SearchProgressEvent.Found("Tor", "Already running on :9050"))
+            return@flow
+        }
+        emit(SearchProgressEvent.Checking("Tor"))
+        val torrcFile = File(outputDir, "torrc")
+        if (!torrcFile.exists()) torrcFile.writeText("SocksPort 9050\nDataDirectory /data/data/com.termux/files/home/.tor\n")
+        try {
+            fireCommand("tor --SocksPort 9050 --DataDirectory /data/data/com.termux/files/home/.tor &>/dev/null &")
+        } catch (_: Exception) {
+            emit(SearchProgressEvent.Blocked("Tor", "Could not start via Termux"))
+            return@flow
+        }
+        var waited = 0L
+        val maxWait = 30_000L
+        while (waited < maxWait) {
+            delay(2000)
+            waited += 2000
+            val ready = try {
+                val s = java.net.Socket(); s.connect(java.net.InetSocketAddress("127.0.0.1", 9050), 500); s.close(); true
+            } catch (_: Exception) { false }
+            if (ready) {
+                emit(SearchProgressEvent.Found("Tor", "Connected on :9050"))
+                return@flow
+            }
+        }
+        emit(SearchProgressEvent.Blocked("Tor", "Timed out waiting for SOCKS proxy"))
+    }.flowOn(Dispatchers.IO)
+
     fun runNmap(target: String): Flow<SearchProgressEvent> = flow {
         if (!isTermuxInstalled()) return@flow
         if (!isToolInstalled("nmap")) {

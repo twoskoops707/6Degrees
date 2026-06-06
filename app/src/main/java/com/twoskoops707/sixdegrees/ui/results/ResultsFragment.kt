@@ -279,6 +279,12 @@ class ResultsFragment : Fragment() {
 
     private fun buildPersonOverview(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
+
+        meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let { summary ->
+            rows.add(sec("AI INTELLIGENCE BRIEF"))
+            summary.lines().filter { it.isNotBlank() }.forEach { rows.add("Brief" to it.trim()) }
+        }
+
         rows.add(sec("IDENTITY"))
         val bestAge = extractBestAge(meta)
         bestAge?.let { rows.add("Age" to it) }
@@ -545,6 +551,13 @@ class ResultsFragment : Fragment() {
 
     private fun buildPersonIntel(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
+
+        val googleNewsSnippet = meta["google_news_snippet"]?.takeIf { it.isNotBlank() }
+        val googleNewsCount = meta["google_news_news_count"]?.toIntOrNull() ?: 0
+        if (googleNewsSnippet != null || googleNewsCount > 0) {
+            rows.add(sec("GOOGLE NEWS"))
+            googleNewsSnippet?.lines()?.filter { it.isNotBlank() }?.take(10)?.forEach { rows.add("Article" to it.trim()) }
+        }
 
         val gnewsCount = meta["gnews_count"]?.toIntOrNull() ?: 0
         val newsCount = meta["news_article_count"]?.toIntOrNull() ?: 0
@@ -815,6 +828,14 @@ class ResultsFragment : Fragment() {
             rows.add(sec("CODE REPOSITORY MENTIONS"))
             rows.add("Repo Hits" to "$grepCount match${if (grepCount != 1) "es" else ""} in public code repositories")
             meta["grep_code_repos"]?.let { rows.add("Repositories" to it) }
+        }
+
+        val darkSearchSnippet = meta["darksearch_snippet"]?.takeIf { it.isNotBlank() }
+        val darkSearchLinks = (meta["darksearch_links"] ?: meta["darksearch_dark_links"])?.takeIf { it.isNotBlank() }
+        if (darkSearchSnippet != null || darkSearchLinks != null) {
+            rows.add(sec("⚠ DARKSEARCH RESULTS"))
+            darkSearchSnippet?.lines()?.filter { it.isNotBlank() }?.take(8)?.forEach { rows.add("⚠ Result" to it.trim()) }
+            darkSearchLinks?.lines()?.filter { it.isNotBlank() }?.take(8)?.forEach { rows.add("⟶ Link" to it.trim()) }
         }
 
         val ahmiaCountRaw = meta["ahmia_count"]

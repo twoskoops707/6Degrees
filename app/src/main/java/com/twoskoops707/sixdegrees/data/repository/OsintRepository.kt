@@ -21,9 +21,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import JSONObject
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import org.jsoup.Jsoup
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -78,25 +80,36 @@ class OsintRepository(context: Context) {
 
     private val termuxRunner by lazy { TermuxToolRunner(appCtx) }
 
-    private val torHttpClient: OkHttpClient? by lazy {
-        try {
-            val probe = java.net.Socket()
-            probe.connect(InetSocketAddress("127.0.0.1", 9050), 2000)
-            probe.close()
-            val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9050))
-            OkHttpClient.Builder()
-                .proxy(proxy)
-                .connectTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
-                .followRedirects(true)
-                .build()
-        } catch (_: Exception) { null }
-    }
+    private fun torHttpClientOrNull(): OkHttpClient? = try {
+        val probe = java.net.Socket()
+        probe.connect(InetSocketAddress("127.0.0.1", 9050), 500)
+        probe.close()
+        val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9050))
+        OkHttpClient.Builder()
+            .proxy(proxy)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .build()
+    } catch (_: Exception) { null }
+
+    private data class PersonRecord(
+        val name: String,
+        val age: String = "",
+        val location: String = "",
+        val phones: List<String> = emptyList(),
+        val address: String = "",
+        val relatives: List<String> = emptyList(),
+        val photoUrl: String? = null,
+        val profileUrl: String? = null,
+        val source: String = ""
+    )
 
     private data class ScrapeOut(
         val found: Boolean,
         val blocked: Boolean,
-        val fields: Map<String, String> = emptyMap()
+        val fields: Map<String, String> = emptyMap(),
+        val persons: List<PersonRecord> = emptyList()
     )
 
     private fun tryScrapeUrl(url: String): ScrapeOut {
@@ -135,6 +148,12 @@ class OsintRepository(context: Context) {
             val fields = mutableMapOf<String, String>()
             fields["title"] = doc.title().take(120)
             fields["snippet"] = text.take(600)
+
+            val ogImage = doc.selectFirst("meta[property=og:image]")?.attr("content")
+                ?: doc.selectFirst("meta[name=twitter:image]")?.attr("content")
+                ?: doc.selectFirst("meta[name=twitter:image:src]")?.attr("content")
+                ?: doc.selectFirst("link[rel=image_src]")?.attr("href")
+            if (!ogImage.isNullOrBlank() && ogImage.startsWith("http")) fields["image_url"] = ogImage
 
             val phones = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(text)
                 .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }
@@ -290,38 +309,41 @@ class OsintRepository(context: Context) {
             val fields = mutableMapOf<String, String>()
             fields["title"] = doc.title().take(120)
             val cards = doc.select("div.card-block, div.person, div[class*=result], article")
-            val names = mutableListOf<String>()
-            val ages = mutableListOf<String>()
-            val locations = mutableListOf<String>()
-            val phones = mutableListOf<String>()
-            val relatives = mutableListOf<String>()
+            val allNames = mutableListOf<String>()
+            val allAges = mutableListOf<String>()
+            val allLocations = mutableListOf<String>()
+            val allPhones = mutableListOf<String>()
+            val allRelatives = mutableListOf<String>()
+            val personRecords = mutableListOf<PersonRecord>()
+            val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
             for (card in cards.take(6)) {
-                card.selectFirst("h2, h3, .name, [itemprop=name], .card-title")?.text()?.takeIf { it.isNotBlank() && it.length > 3 }?.let { names.add(it) }
-                card.selectFirst(".age, .age-value, [data-age]")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() }?.let { ages.add(it) }
-                if (ages.size < cards.indexOf(card) + 1) {
-                    Regex("""(?i)\bage[:\s]+(\d{2,3})\b""").find(card.text())?.groupValues?.get(1)?.let { ages.add(it) }
-                }
-                card.selectFirst("address, .address, .location, [itemprop=address], .city-state")?.text()?.takeIf { it.isNotBlank() }?.let { locations.add(it) }
-                Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(card.text())
-                    .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
-                card.select(".relatives a, .relative a, .associates a, li a[href*=name]").forEach { a ->
-                    a.text().takeIf { it.isNotBlank() && it.length > 3 }?.let { relatives.add(it) }
-                }
+                val cardName = card.selectFirst("h2, h3, .name, [itemprop=name], .card-title")?.text()?.trim()?.takeIf { it.length > 3 } ?: continue
+                val cardAge = (card.selectFirst(".age, .age-value, [data-age]")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() }
+                    ?: Regex("""(?i)\bage[:\s]+(\d{2,3})\b""").find(card.text())?.groupValues?.get(1)) ?: ""
+                val cardLoc = card.selectFirst("address, .address, .location, [itemprop=address], .city-state")?.text()?.trim() ?: ""
+                val cardPhones = phoneRegex.findAll(card.text()).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.distinct().toList()
+                val cardRelatives = card.select(".relatives a, .relative a, .associates a, li a[href*=name]").mapNotNull { a -> a.text().takeIf { it.isNotBlank() && it.length > 3 } }
+                val cardProfileUrl = card.selectFirst("a[href*=/name/]")?.attr("abs:href")
+                personRecords.add(PersonRecord(name = cardName, age = cardAge, location = cardLoc, phones = cardPhones, address = cardLoc, relatives = cardRelatives, profileUrl = cardProfileUrl, source = "FastPeopleSearch"))
+                allNames.add(cardName)
+                if (cardAge.isNotBlank()) allAges.add(cardAge)
+                if (cardLoc.isNotBlank()) allLocations.add(cardLoc)
+                allPhones.addAll(cardPhones)
+                allRelatives.addAll(cardRelatives)
             }
             val fullText = doc.body()?.text() ?: ""
             if (fullText.length < 100) return ScrapeOut(false, false)
-            Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(fullText)
-                .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
+            phoneRegex.findAll(fullText).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { allPhones.add(it) }
             fields["snippet"] = fullText.take(600)
             fields["source_type"] = "person_record"
-            if (names.isNotEmpty()) fields["names"] = names.distinct().take(5).joinToString(", ")
-            if (ages.isNotEmpty()) fields["age"] = ages.first()
-            if (locations.isNotEmpty()) fields["locations"] = locations.distinct().take(6).joinToString(" | ")
-            val distinctPhones = phones.distinct().take(8)
+            if (allNames.isNotEmpty()) fields["names"] = allNames.distinct().take(5).joinToString(", ")
+            if (allAges.isNotEmpty()) fields["age"] = allAges.first()
+            if (allLocations.isNotEmpty()) fields["locations"] = allLocations.distinct().take(6).joinToString(" | ")
+            val distinctPhones = allPhones.distinct().take(8)
             if (distinctPhones.isNotEmpty()) fields["phones"] = distinctPhones.joinToString(", ")
-            if (relatives.isNotEmpty()) fields["relatives"] = relatives.distinct().take(10).joinToString(", ")
+            if (allRelatives.isNotEmpty()) fields["relatives"] = allRelatives.distinct().take(10).joinToString(", ")
             if (fields.size <= 2) return ScrapeOut(false, false)
-            ScrapeOut(true, false, fields)
+            ScrapeOut(true, false, fields, personRecords)
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
@@ -355,31 +377,37 @@ class OsintRepository(context: Context) {
             val fields = mutableMapOf<String, String>()
             fields["title"] = doc.title().take(120)
             val cards = doc.select(".ThatsThem-person, .person-block, .result-person, div[class*=person], div[class*=result]")
-            val names = mutableListOf<String>()
-            val ages = mutableListOf<String>()
-            val locations = mutableListOf<String>()
-            val phones = mutableListOf<String>()
-            val relatives = mutableListOf<String>()
+            val allNames = mutableListOf<String>()
+            val allAges = mutableListOf<String>()
+            val allLocations = mutableListOf<String>()
+            val allPhones = mutableListOf<String>()
+            val allRelatives = mutableListOf<String>()
+            val personRecords = mutableListOf<PersonRecord>()
+            val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
             for (card in cards.take(5)) {
-                card.selectFirst(".name, h2, h3, [itemprop=name]")?.text()?.takeIf { it.isNotBlank() && it.length > 3 }?.let { names.add(it) }
-                card.selectFirst(".age, [class*=age]")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() }?.let { ages.add(it) }
-                card.selectFirst(".location, .city, address, [itemprop=address]")?.text()?.takeIf { it.isNotBlank() }?.let { locations.add(it) }
-                Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(card.text())
-                    .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
+                val cardName = card.selectFirst(".name, h2, h3, [itemprop=name]")?.text()?.trim()?.takeIf { it.length > 3 } ?: continue
+                val cardAge = card.selectFirst(".age, [class*=age]")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() } ?: ""
+                val cardLoc = card.selectFirst(".location, .city, address, [itemprop=address]")?.text()?.trim() ?: ""
+                val cardPhones = phoneRegex.findAll(card.text()).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.distinct().toList()
+                val cardProfileUrl = card.selectFirst("a[href*=/name/], a[href*=/person/]")?.attr("abs:href")
+                personRecords.add(PersonRecord(name = cardName, age = cardAge, location = cardLoc, phones = cardPhones, address = cardLoc, source = "ThatsThem", profileUrl = cardProfileUrl))
+                allNames.add(cardName)
+                if (cardAge.isNotBlank()) allAges.add(cardAge)
+                if (cardLoc.isNotBlank()) allLocations.add(cardLoc)
+                allPhones.addAll(cardPhones)
             }
             val fullText = doc.body()?.text() ?: ""
             if (fullText.length < 100) return ScrapeOut(false, false)
-            Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(fullText)
-                .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
+            phoneRegex.findAll(fullText).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { allPhones.add(it) }
             fields["snippet"] = fullText.take(600)
-            if (names.isNotEmpty()) fields["names"] = names.distinct().take(5).joinToString(", ")
-            if (ages.isNotEmpty()) fields["ages"] = ages.distinct().take(3).joinToString(", ")
-            if (locations.isNotEmpty()) fields["locations"] = locations.distinct().take(6).joinToString(" | ")
-            val distinctPhones = phones.distinct().take(8)
+            if (allNames.isNotEmpty()) fields["names"] = allNames.distinct().take(5).joinToString(", ")
+            if (allAges.isNotEmpty()) fields["ages"] = allAges.distinct().take(3).joinToString(", ")
+            if (allLocations.isNotEmpty()) fields["locations"] = allLocations.distinct().take(6).joinToString(" | ")
+            val distinctPhones = allPhones.distinct().take(8)
             if (distinctPhones.isNotEmpty()) fields["phones"] = distinctPhones.joinToString(", ")
-            if (relatives.isNotEmpty()) fields["relatives"] = relatives.distinct().take(10).joinToString(", ")
+            if (allRelatives.isNotEmpty()) fields["relatives"] = allRelatives.distinct().take(10).joinToString(", ")
             if (fields.size <= 2) return ScrapeOut(false, false)
-            ScrapeOut(true, false, fields)
+            ScrapeOut(true, false, fields, personRecords)
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
@@ -408,31 +436,254 @@ class OsintRepository(context: Context) {
             val fields = mutableMapOf<String, String>()
             fields["title"] = doc.title().take(120)
             val cards = doc.select("div[data-lunr-doc-id], div.card, div[class*=result]")
-            val names = mutableListOf<String>()
-            val ages = mutableListOf<String>()
-            val locations = mutableListOf<String>()
-            val phones = mutableListOf<String>()
-            val relatives = mutableListOf<String>()
+            val allNames = mutableListOf<String>()
+            val allAges = mutableListOf<String>()
+            val allLocations = mutableListOf<String>()
+            val allPhones = mutableListOf<String>()
+            val allRelatives = mutableListOf<String>()
+            val personRecords = mutableListOf<PersonRecord>()
+            val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
             for (card in cards.take(5)) {
-                card.selectFirst("div.h4, .full-name, span[itemprop=name], h2")?.text()?.takeIf { it.isNotBlank() }?.let { names.add(it) }
-                card.selectFirst("[class*=age], span:contains(Age)")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() }?.let { ages.add(it) }
-                card.selectFirst("div[class*=location], [itemprop=addressLocality]")?.text()?.takeIf { it.isNotBlank() }?.let { locations.add(it) }
-                Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(card.text())
-                    .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
+                val cardName = card.selectFirst("div.h4, .full-name, span[itemprop=name], h2")?.text()?.trim()?.takeIf { it.isNotBlank() } ?: continue
+                val cardAge = card.selectFirst("[class*=age], span:contains(Age)")?.text()?.replace(Regex("[^0-9]"), "")?.takeIf { it.isNotBlank() } ?: ""
+                val cardLoc = card.selectFirst("div[class*=location], [itemprop=addressLocality]")?.text()?.trim() ?: ""
+                val cardPhones = phoneRegex.findAll(card.text()).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.distinct().toList()
+                val cardProfileUrl = card.selectFirst("a[href*=/find/]")?.attr("abs:href")
+                personRecords.add(PersonRecord(name = cardName, age = cardAge, location = cardLoc, phones = cardPhones, address = cardLoc, source = "TruePeopleSearch", profileUrl = cardProfileUrl))
+                allNames.add(cardName)
+                if (cardAge.isNotBlank()) allAges.add(cardAge)
+                if (cardLoc.isNotBlank()) allLocations.add(cardLoc)
+                allPhones.addAll(cardPhones)
             }
             val fullText = doc.body()?.text() ?: ""
             if (fullText.length < 100) return ScrapeOut(false, false)
-            Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(fullText)
-                .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
+            phoneRegex.findAll(fullText).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { allPhones.add(it) }
             fields["snippet"] = fullText.take(600)
-            if (names.isNotEmpty()) fields["names"] = names.distinct().take(5).joinToString(", ")
-            if (ages.isNotEmpty()) fields["age"] = ages.first()
-            if (locations.isNotEmpty()) fields["locations"] = locations.distinct().take(6).joinToString(" | ")
-            val distinctPhones = phones.distinct().take(8)
+            if (allNames.isNotEmpty()) fields["names"] = allNames.distinct().take(5).joinToString(", ")
+            if (allAges.isNotEmpty()) fields["age"] = allAges.first()
+            if (allLocations.isNotEmpty()) fields["locations"] = allLocations.distinct().take(6).joinToString(" | ")
+            val distinctPhones = allPhones.distinct().take(8)
             if (distinctPhones.isNotEmpty()) fields["phones"] = distinctPhones.joinToString(", ")
-            if (relatives.isNotEmpty()) fields["relatives"] = relatives.distinct().take(10).joinToString(", ")
+            if (allRelatives.isNotEmpty()) fields["relatives"] = allRelatives.distinct().take(10).joinToString(", ")
             if (fields.size <= 2) return ScrapeOut(false, false)
+            ScrapeOut(true, false, fields, personRecords)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeCrtSh(domain: String): ScrapeOut {
+        return try {
+            val req = Request.Builder().url("https://crt.sh/?q=${URLEncoder.encode(domain, "UTF-8")}&output=json")
+                .header("User-Agent", "Mozilla/5.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || body == "[]") return ScrapeOut(false, false)
+            val arr = org.json.JSONArray(body)
+            val domains = mutableSetOf<String>()
+            val issuers = mutableSetOf<String>()
+            for (i in 0 until minOf(50, arr.length())) {
+                val obj = arr.optJSONObject(i) ?: continue
+                obj.optString("name_value", "").split("\n").forEach { n -> if (n.isNotBlank()) domains.add(n.trim().lowercase()) }
+                obj.optString("issuer_ca_id", "").takeIf { it.isNotBlank() }?.let {}
+                obj.optString("issuer_name", "").takeIf { it.isNotBlank() }?.let { issuers.add(it.take(60)) }
+            }
+            if (domains.isEmpty()) return ScrapeOut(false, false)
+            val fields = mapOf(
+                "title" to "crt.sh: ${arr.length()} certificates",
+                "snippet" to "Subdomains: ${domains.take(20).joinToString(", ")}",
+                "subdomains" to domains.filter { it.startsWith("*.").not() }.take(30).joinToString("\n"),
+                "wildcard_domains" to domains.filter { it.startsWith("*") }.take(10).joinToString("\n"),
+                "issuers" to issuers.take(5).joinToString(", ")
+            )
             ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun searchDarkWeb(query: String): ScrapeOut {
+        return try {
+            val client = torHttpClientOrNull() ?: fastHttpClient
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder().url("https://darksearch.io/api/search?query=$encoded&page=1")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = client.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || body == "{}") return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val data = json.optJSONArray("data") ?: return ScrapeOut(false, false)
+            if (data.length() == 0) return ScrapeOut(false, false)
+            val results = mutableListOf<String>()
+            val links = mutableListOf<String>()
+            for (i in 0 until minOf(10, data.length())) {
+                val item = data.optJSONObject(i) ?: continue
+                val title = item.optString("title", "")
+                val link = item.optString("link", "")
+                val desc = item.optString("description", "").take(200)
+                if (title.isNotBlank()) results.add("$title — $desc".trim())
+                if (link.isNotBlank()) links.add(link)
+            }
+            if (results.isEmpty()) return ScrapeOut(false, false)
+            ScrapeOut(true, false, mapOf(
+                "title" to "DarkSearch: ${data.length()} results",
+                "snippet" to results.take(5).joinToString("\n").take(600),
+                "dark_links" to links.take(10).joinToString("\n"),
+                "source_type" to "dark_web"
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeGoogleNews(query: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val url = "https://news.google.com/rss/search?q=$encoded&hl=en-US&gl=US&ceid=US:en"
+            val req = Request.Builder().url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank()) return ScrapeOut(false, false)
+            val doc = Jsoup.parse(body, "", org.jsoup.parser.Parser.xmlParser())
+            val items = doc.select("item").take(10)
+            if (items.isEmpty()) return ScrapeOut(false, false)
+            val articles = items.mapNotNull { item ->
+                val title = item.selectFirst("title")?.text()?.trim() ?: return@mapNotNull null
+                val pubDate = item.selectFirst("pubDate")?.text()?.trim() ?: ""
+                val source = item.selectFirst("source")?.text()?.trim() ?: ""
+                val link = item.selectFirst("link")?.text()?.trim() ?: ""
+                buildString {
+                    append(title)
+                    if (source.isNotBlank()) append(" [$source]")
+                    if (pubDate.isNotBlank()) append(" ($pubDate)")
+                }.trim()
+            }
+            if (articles.isEmpty()) return ScrapeOut(false, false)
+            ScrapeOut(true, false, mapOf(
+                "title" to "Google News: ${articles.size} articles",
+                "snippet" to articles.joinToString("\n").take(800),
+                "news_count" to articles.size.toString()
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeGitHub(username: String): ScrapeOut {
+        return try {
+            val req = Request.Builder().url("https://api.github.com/users/${URLEncoder.encode(username, "UTF-8")}")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/vnd.github.v3+json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || resp.code == 404) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.optString("message") == "Not Found") return ScrapeOut(false, false)
+            val fields = mutableMapOf<String, String>()
+            fields["title"] = "GitHub: ${json.optString("login", username)}"
+            val name = json.optString("name", "")
+            val bio = json.optString("bio", "")
+            val location = json.optString("location", "")
+            val blog = json.optString("blog", "")
+            val company = json.optString("company", "")
+            val followers = json.optInt("followers", 0)
+            val following = json.optInt("following", 0)
+            val repos = json.optInt("public_repos", 0)
+            val avatarUrl = json.optString("avatar_url", "")
+            val profileUrl = json.optString("html_url", "")
+            val email = json.optString("email", "")
+            if (name.isNotBlank()) fields["name"] = name
+            if (bio.isNotBlank()) fields["snippet"] = bio.take(300)
+            if (location.isNotBlank()) fields["location"] = location
+            if (blog.isNotBlank()) fields["website"] = blog
+            if (company.isNotBlank()) fields["company"] = company
+            fields["stats"] = "Followers: $followers  Following: $following  Repos: $repos"
+            if (avatarUrl.isNotBlank()) fields["image_url"] = avatarUrl
+            if (profileUrl.isNotBlank()) fields["profile_url"] = profileUrl
+            if (email.isNotBlank()) fields["email"] = email
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeReddit(username: String): ScrapeOut {
+        return try {
+            val req = Request.Builder().url("https://www.reddit.com/user/${URLEncoder.encode(username, "UTF-8")}/about.json")
+                .header("User-Agent", "Mozilla/5.0 (compatible; OSINT/1.0)")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || resp.code == 404) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val data = json.optJSONObject("data") ?: return ScrapeOut(false, false)
+            val fields = mutableMapOf<String, String>()
+            val name = data.optString("name", "")
+            val karma = data.optInt("link_karma", 0) + data.optInt("comment_karma", 0)
+            val created = data.optLong("created_utc", 0L)
+            val iconImg = data.optString("icon_img", "").substringBefore("?")
+            val snoovatarImg = data.optString("snoovatar_img", "").substringBefore("?")
+            val verified = data.optBoolean("verified", false)
+            val subreddit = data.optJSONObject("subreddit")
+            val description = subreddit?.optString("public_description", "") ?: ""
+            fields["title"] = "Reddit: u/$name"
+            fields["snippet"] = buildString {
+                append("Reddit user u/$name  |  Karma: $karma")
+                if (verified) append("  |  Email Verified")
+                if (description.isNotBlank()) append("\n$description")
+            }.take(400)
+            val avatarUrl = snoovatarImg.takeIf { it.startsWith("http") } ?: iconImg.takeIf { it.startsWith("http") }
+            if (avatarUrl != null) fields["image_url"] = avatarUrl
+            fields["profile_url"] = "https://www.reddit.com/user/$name"
+            if (created > 0) fields["created_utc"] = created.toString()
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeZabaSearch(name: String, city: String = "", state: String = ""): ScrapeOut {
+        return try {
+            val parts = name.trim().split(" ")
+            val first = parts.firstOrNull()?.lowercase() ?: return ScrapeOut(false, false)
+            val last = parts.drop(1).joinToString("-").lowercase().ifBlank { return ScrapeOut(false, false) }
+            val stateLower = state.trim().lowercase().replace(" ", "-")
+            val url = if (stateLower.isNotBlank()) "https://www.zabasearch.com/people/$first+$last/$stateLower/"
+                      else "https://www.zabasearch.com/people/$first+$last/"
+            tryScrapeUrl(url)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeFamilyTreeNow(name: String, city: String = "", state: String = ""): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(name, "UTF-8")
+            val stateEnc = URLEncoder.encode(state, "UTF-8")
+            val url = if (state.isNotBlank()) "https://www.familytreenow.com/search/genealogy/results/?firstname=${encoded.substringBefore("+")}&lastname=${encoded.substringAfter("+")}&state=$stateEnc"
+                      else "https://www.familytreenow.com/search/genealogy/results/?q=$encoded"
+            tryScrapeUrl(url)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeUSPhoneBook(name: String, city: String = "", state: String = ""): ScrapeOut {
+        return try {
+            val parts = name.trim().split(" ")
+            val first = URLEncoder.encode(parts.firstOrNull() ?: "", "UTF-8")
+            val last = URLEncoder.encode(parts.drop(1).joinToString(" "), "UTF-8")
+            val stateCode = state.trim().uppercase().take(2)
+            val url = if (stateCode.isNotBlank()) "https://www.usphonebook.com/$first-$last/$stateCode"
+                      else "https://www.usphonebook.com/$first-$last"
+            tryScrapeUrl(url)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrape411(name: String, city: String = "", state: String = ""): ScrapeOut {
+        return try {
+            val nameParts = name.trim().split(" ")
+            val first = URLEncoder.encode(nameParts.firstOrNull() ?: "", "UTF-8")
+            val last = URLEncoder.encode(nameParts.drop(1).joinToString(" "), "UTF-8")
+            val url = if (city.isNotBlank() && state.isNotBlank())
+                "https://www.411.com/name/$first-$last/${URLEncoder.encode(city, "UTF-8")}-${state.trim().uppercase()}"
+            else "https://www.411.com/name/$first-$last"
+            tryScrapeUrl(url)
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
@@ -464,7 +715,7 @@ class OsintRepository(context: Context) {
 
     private fun scrapeAhmia(query: String): ScrapeOut {
         return try {
-            val client = torHttpClient ?: fastHttpClient
+            val client = torHttpClientOrNull() ?: fastHttpClient
             val encoded = URLEncoder.encode(query, "UTF-8")
             val url = "https://ahmia.fi/search/?q=$encoded"
             val req = Request.Builder().url(url)
@@ -505,6 +756,98 @@ class OsintRepository(context: Context) {
             tryScrapeUrl(url)
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
+
+    private fun fetchAvatarUrl(username: String, platform: String? = null): String? {
+        return try {
+            val url = if (platform != null) "https://unavatar.io/$platform/$username" else "https://unavatar.io/$username"
+            val req = Request.Builder().url(url).head()
+                .header("User-Agent", "Mozilla/5.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val ok = resp.code == 200 || resp.code == 302
+            resp.close()
+            if (ok) url else null
+        } catch (_: Exception) { null }
+    }
+
+    private fun deduplicatePersonRecords(records: List<PersonRecord>): List<PersonRecord> {
+        val seen = mutableListOf<PersonRecord>()
+        for (rec in records) {
+            val normName = rec.name.trim().lowercase().replace(Regex("\\s+"), " ")
+            val existing = seen.indexOfFirst { it.name.trim().lowercase().replace(Regex("\\s+"), " ") == normName }
+            if (existing == -1) {
+                seen.add(rec)
+            } else {
+                val e = seen[existing]
+                seen[existing] = e.copy(
+                    age = e.age.ifBlank { rec.age },
+                    location = e.location.ifBlank { rec.location },
+                    phones = (e.phones + rec.phones).distinct().take(6),
+                    relatives = (e.relatives + rec.relatives).distinct().take(10),
+                    photoUrl = e.photoUrl ?: rec.photoUrl,
+                    profileUrl = e.profileUrl ?: rec.profileUrl
+                )
+            }
+        }
+        return seen
+    }
+
+    private fun buildAiSummaryPrompt(query: String, type: String, metadata: Map<String, String>): String = buildString {
+        appendLine("Write a concise OSINT intelligence brief (max 350 words) for the subject below. Be factual and analytical. Highlight key findings, risks, and unknowns.")
+        appendLine()
+        appendLine("SUBJECT: $query")
+        appendLine("SEARCH TYPE: $type")
+        appendLine()
+        metadata["person_name"]?.let { appendLine("Name: $it") }
+        metadata["field_age"]?.takeIf { it.isNotBlank() }?.let { appendLine("Age: $it") }
+        metadata["person_location"]?.takeIf { it.isNotBlank() }?.let { appendLine("Location: $it") }
+        listOfNotNull(metadata["fps_phones"], metadata["tps_phones"], metadata["tt_phones"], metadata["person_phone"])
+            .firstOrNull { it.isNotBlank() }?.let { appendLine("Phone(s): $it") }
+        listOfNotNull(metadata["fps_relatives"], metadata["tps_relatives"], metadata["tt_relatives"])
+            .firstOrNull { it.isNotBlank() }?.let { appendLine("Associates: $it") }
+        metadata["github_name"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub Name: $it") }
+        metadata["github_stats"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub: $it") }
+        metadata["reddit_url"]?.takeIf { it.isNotBlank() }?.let { appendLine("Reddit: $it") }
+        metadata["wikipedia_extract"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nWikipedia:\n${it.take(500)}") }
+        metadata["ddg_abstract"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nWeb Summary:\n${it.take(400)}") }
+        metadata.entries.firstOrNull { it.key.contains("news") && it.value.isNotBlank() }
+            ?.value?.let { appendLine("\nNews:\n${it.take(400)}") }
+        metadata["darksearch_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nDark Web Mentions:\n${it.take(200)}") }
+        listOfNotNull(metadata["fps_snippet"], metadata["tps_snippet"], metadata["tt_snippet"])
+            .firstOrNull { it.isNotBlank() }?.let { appendLine("\nPublic Records:\n${it.take(300)}") }
+        appendLine("\nINTELLIGENCE BRIEF:")
+    }
+
+    private fun queryPollinationsAI(prompt: String): String? = try {
+        val body = JSONObject().apply {
+            put("model", "openai-large")
+            put("private", true)
+            put("messages", org.json.JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "system")
+                    put("content", "You are an OSINT intelligence analyst. Write concise, factual intelligence briefs from collected data. Be objective and analytical.")
+                })
+                put(JSONObject().apply { put("role", "user"); put("content", prompt) })
+            })
+            put("max_tokens", 600)
+        }.toString()
+        val reqBody = body.toRequestBody("application/json; charset=utf-8".toMediaType())
+        val req = Request.Builder()
+            .url("https://text.pollinations.ai/openai")
+            .post(reqBody)
+            .header("User-Agent", "Mozilla/5.0")
+            .build()
+        val aiClient = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            .build()
+        val resp = aiClient.newCall(req).execute()
+        val respBody = resp.body?.string() ?: ""
+        resp.close()
+        if (respBody.isBlank()) null
+        else JSONObject(respBody).optJSONArray("choices")?.optJSONObject(0)
+            ?.optJSONObject("message")?.optString("content")?.trim()?.takeIf { it.isNotBlank() }
+    } catch (_: Exception) { null }
 
     private fun encode(s: String) = URLEncoder.encode(s, "UTF-8")
 
@@ -574,8 +917,13 @@ class OsintRepository(context: Context) {
             fields["address"]?.takeIf { it.isNotBlank() }?.let { metadata["person_entered_address"] = it }
             fields["phone"]?.takeIf { it.isNotBlank() }?.let { metadata["person_phone"] = it }
             fields["email"]?.takeIf { it.isNotBlank() }?.let { metadata["person_email"] = it }
+            fields["username"]?.takeIf { it.isNotBlank() }?.let { uname ->
+                val avatarUrl = fetchAvatarUrl(uname)
+                if (avatarUrl != null) metadata["profile_photo_url"] = avatarUrl
+            }
 
             val sources = Collections.synchronizedList(mutableListOf<DataSource>())
+            val scrapedPersonRecords = Collections.synchronizedList(mutableListOf<PersonRecord>())
             val semaphore = Semaphore(5)
 
             send(SearchProgressEvent.Checking("DuckDuckGo"))
@@ -593,10 +941,12 @@ class OsintRepository(context: Context) {
             coroutineScope {
                 when (effectiveType) {
                     "person", "comprehensive" -> {
-                        targetedScraperNames += setOf("FastPeopleSearch", "ThatsThem", "TruePeopleSearch", "Wikipedia")
+                        targetedScraperNames += setOf("FastPeopleSearch", "ThatsThem", "TruePeopleSearch", "Wikipedia", "Google News", "DarkSearch", "ZabaSearch", "FamilyTreeNow", "USPhoneBook", "411.com")
+                        launch { termuxRunner.ensureTorRunning().collect { send(it) } }
                         launch {
                             send(SearchProgressEvent.Checking("FastPeopleSearch"))
                             val out = scrapeFastPeopleSearch(primaryQuery, city, state)
+                            scrapedPersonRecords.addAll(out.persons)
                             val nameSlug = primaryQuery.replace(" ", "-").lowercase()
                             val locSlug = if (city.isNotBlank()) "_${city.replace(" ", "-").lowercase()}${if (state.isNotBlank()) "-${state.replace(" ", "-").lowercase()}" else ""}" else ""
                             handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/name/$nameSlug$locSlug", out, sources, metadata, this@channelFlow)
@@ -604,11 +954,13 @@ class OsintRepository(context: Context) {
                         launch {
                             send(SearchProgressEvent.Checking("ThatsThem"))
                             val out = scrapeThatsThem(primaryQuery, "person", city, state)
+                            scrapedPersonRecords.addAll(out.persons)
                             handleScrapeOut("ThatsThem", "https://thatsthem.com/name/${primaryQuery.replace(" ", "-").lowercase()}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("TruePeopleSearch"))
                             val out = scrapeTruePeopleSearch(primaryQuery, city, state)
+                            scrapedPersonRecords.addAll(out.persons)
                             handleScrapeOut("TruePeopleSearch", "https://www.truepeoplesearch.com/results?name=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
@@ -657,6 +1009,46 @@ class OsintRepository(context: Context) {
                                         send(SearchProgressEvent.Blocked("Pipl"))
                                     }
                                 }
+                            }
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Google News"))
+                            val newsQuery = if (city.isNotBlank()) "$primaryQuery $city" else primaryQuery
+                            val out = scrapeGoogleNews(newsQuery)
+                            handleScrapeOut("Google News", "https://news.google.com/rss/search?q=${encode(newsQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("DarkSearch"))
+                            val out = searchDarkWeb(primaryQuery)
+                            if (out.found) out.fields["dark_links"]?.let { metadata["darksearch_links"] = it }
+                            handleScrapeOut("DarkSearch", "https://darksearch.io/api/search?query=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                send(SearchProgressEvent.Checking("ZabaSearch"))
+                                val out = scrapeZabaSearch(primaryQuery, city, state)
+                                handleScrapeOut("ZabaSearch", "https://www.zabasearch.com/people/${encode(primaryQuery)}/", out, sources, metadata, this@channelFlow)
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                send(SearchProgressEvent.Checking("FamilyTreeNow"))
+                                val out = scrapeFamilyTreeNow(primaryQuery, city, state)
+                                handleScrapeOut("FamilyTreeNow", "https://www.familytreenow.com/search/genealogy/results/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                send(SearchProgressEvent.Checking("USPhoneBook"))
+                                val out = scrapeUSPhoneBook(primaryQuery, city, state)
+                                handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                send(SearchProgressEvent.Checking("411.com"))
+                                val out = scrape411(primaryQuery, city, state)
+                                handleScrapeOut("411.com", "https://www.411.com/name/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                             }
                         }
                     }
@@ -708,7 +1100,8 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "domain", "ip" -> {
-                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX")
+                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX", "crt.sh", "DarkSearch", "Google News")
+                        launch { termuxRunner.ensureTorRunning().collect { send(it) } }
                         launch {
                             send(SearchProgressEvent.Checking("HackerTarget Host"))
                             val out = scrapeHackerTarget(primaryQuery, "host")
@@ -762,6 +1155,26 @@ class OsintRepository(context: Context) {
                                 termuxRunner.runNmap(primaryQuery).collect { send(it) }
                             }
                         }
+                        launch {
+                            send(SearchProgressEvent.Checking("crt.sh"))
+                            val out = scrapeCrtSh(primaryQuery)
+                            if (out.found) {
+                                out.fields["subdomains"]?.let { metadata["crtsh_subdomains"] = it }
+                                out.fields["wildcard_domains"]?.let { metadata["crtsh_wildcards"] = it }
+                            }
+                            handleScrapeOut("crt.sh", "https://crt.sh/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("DarkSearch"))
+                            val out = searchDarkWeb(primaryQuery)
+                            if (out.found) out.fields["dark_links"]?.let { metadata["darksearch_links"] = it }
+                            handleScrapeOut("DarkSearch", "https://darksearch.io/api/search?query=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Google News"))
+                            val out = scrapeGoogleNews(primaryQuery)
+                            handleScrapeOut("Google News", "https://news.google.com/rss/search?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
                     }
                     "phone" -> {
                         targetedScraperNames += setOf("800notes", "ThatsThem")
@@ -788,6 +1201,30 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "username" -> {
+                        targetedScraperNames += setOf("GitHub", "Reddit")
+                        launch {
+                            send(SearchProgressEvent.Checking("GitHub"))
+                            val out = scrapeGitHub(primaryQuery)
+                            if (out.found) {
+                                out.fields["image_url"]?.let { metadata["profile_photo_url"] = it }
+                                out.fields["name"]?.let { metadata["github_name"] = it }
+                                out.fields["location"]?.let { metadata["github_location"] = it }
+                                out.fields["email"]?.let { metadata["github_email"] = it }
+                                out.fields["company"]?.let { metadata["github_company"] = it }
+                                metadata["github_stats"] = out.fields["stats"] ?: ""
+                                metadata["github_url"] = out.fields["profile_url"] ?: ""
+                            }
+                            handleScrapeOut("GitHub", "https://github.com/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Reddit"))
+                            val out = scrapeReddit(primaryQuery)
+                            if (out.found) {
+                                if (metadata["profile_photo_url"].isNullOrBlank()) out.fields["image_url"]?.let { metadata["profile_photo_url"] = it }
+                                metadata["reddit_url"] = out.fields["profile_url"] ?: ""
+                            }
+                            handleScrapeOut("Reddit", "https://www.reddit.com/user/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
                         launch {
                             semaphore.withPermit {
                                 termuxRunner.runSherlock(primaryQuery).collect { send(it) }
@@ -796,6 +1233,22 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 termuxRunner.runMaigret(primaryQuery).collect { send(it) }
+                            }
+                        }
+                        launch {
+                            val platformsToTry = listOf(
+                                "github" to "github",
+                                "twitter" to "twitter",
+                                "instagram" to "instagram",
+                                "tiktok" to "tiktok",
+                                null to null
+                            )
+                            for ((platform, _) in platformsToTry) {
+                                val avatarUrl = if (platform != null) fetchAvatarUrl(primaryQuery, platform) else fetchAvatarUrl(primaryQuery)
+                                if (avatarUrl != null) {
+                                    metadata["profile_photo_url"] = avatarUrl
+                                    break
+                                }
                             }
                         }
                     }
@@ -826,46 +1279,71 @@ class OsintRepository(context: Context) {
                 send(SearchProgressEvent.BrowserToolsReady(browserCategories))
             }
 
+            send(SearchProgressEvent.Checking("AI Brief"))
+            val aiPrompt = buildAiSummaryPrompt(primaryQuery, effectiveType, metadata.toMap())
+            val aiSummary = withContext(Dispatchers.IO) { queryPollinationsAI(aiPrompt) }
+            if (!aiSummary.isNullOrBlank()) {
+                metadata["ai_summary"] = aiSummary
+                send(SearchProgressEvent.Found("AI Brief", aiSummary.take(100)))
+            } else {
+                send(SearchProgressEvent.NotFound("AI Brief"))
+            }
+
             val reportId = saveReport(query, null, sources.toList(), metadata.toMap())
 
             if (effectiveType == "person" && round == 1) {
-                val candidateName = metadata["fps_names"]?.split(",")?.firstOrNull()?.trim()
-                    ?: metadata["tt_names"]?.split(",")?.firstOrNull()?.trim()
-                    ?: metadata["tps_names"]?.split(",")?.firstOrNull()?.trim()
-                    ?: primaryQuery
-                val candidateAge = metadata["fps_age"] ?: metadata["tps_age"] ?: metadata["tt_ages"]?.split(",")?.firstOrNull()?.trim() ?: ""
-                val candidateLoc = metadata["fps_locations"]?.split("|")?.firstOrNull()?.trim()
-                    ?: metadata["tps_locations"]?.split("|")?.firstOrNull()?.trim()
-                    ?: metadata["tt_locations"]?.split("|")?.firstOrNull()?.trim()
-                    ?: locationStr
-                val candidatePhones = (metadata["fps_phones"] ?: metadata["tps_phones"] ?: metadata["tt_phones"] ?: "")
-                    .split(",").map { it.trim() }.filter { it.isNotBlank() }
-                val candidateRelatives = (metadata["fps_relatives"] ?: metadata["tps_relatives"] ?: metadata["tt_relatives"] ?: "")
-                    .split(",").map { it.trim() }.filter { it.isNotBlank() }
-                if (sources.size > 1 || metadata["ddg_abstract"]?.isNotBlank() == true) {
-                    val candidate = CandidateProfile(
-                        name = candidateName,
-                        age = candidateAge,
-                        location = candidateLoc,
-                        phones = candidatePhones,
-                        address = candidateLoc,
-                        source = sources.firstOrNull()?.name ?: "Web",
-                        confidence = minOf(1f, sources.size * 0.15f),
-                        relatives = candidateRelatives
-                    )
-                    val refinedParts = mutableListOf("name=$candidateName")
-                    if (candidateAge.isNotBlank()) refinedParts.add("age=$candidateAge")
+                val allPersonRecords = scrapedPersonRecords.toList()
+                val deduped = deduplicatePersonRecords(allPersonRecords)
+                if (deduped.isNotEmpty()) {
+                    val candidates = deduped.take(6).mapIndexed { i, rec ->
+                        CandidateProfile(
+                            name = rec.name,
+                            age = rec.age,
+                            location = rec.location.ifBlank { locationStr },
+                            phones = rec.phones,
+                            address = rec.address.ifBlank { rec.location },
+                            source = rec.source,
+                            confidence = minOf(1f, (sources.size * 0.12f) - (i * 0.05f)).coerceAtLeast(0.1f),
+                            relatives = rec.relatives,
+                            photoUrl = rec.photoUrl,
+                            profileUrl = rec.profileUrl
+                        )
+                    }
+                    val autoSelect = deduped.size == 1
+                    val primary = candidates.first()
+                    val refinedParts = mutableListOf("name=${primary.name}")
+                    if (primary.age.isNotBlank()) refinedParts.add("age=${primary.age}")
                     if (city.isNotBlank()) refinedParts.add("city=$city")
                     if (state.isNotBlank()) refinedParts.add("state=$state")
-                    else if (candidateLoc.isNotBlank() && city.isBlank()) refinedParts.add("location=$candidateLoc")
-                    if (candidatePhones.isNotEmpty()) refinedParts.add("phone=${candidatePhones.first()}")
+                    else if (primary.location.isNotBlank() && city.isBlank()) refinedParts.add("location=${primary.location}")
+                    primary.phones.firstOrNull()?.let { refinedParts.add("phone=$it") }
                     val refinedQuery = refinedParts.joinToString("|")
                     send(SearchProgressEvent.CandidatesReady(
-                        candidates = listOf(candidate),
+                        candidates = candidates,
                         reportId = reportId,
                         round = round,
-                        autoSelect = true,
-                        refinedQuery = refinedQuery
+                        autoSelect = autoSelect,
+                        refinedQuery = if (autoSelect) refinedQuery else ""
+                    ))
+                    return@withContext
+                } else if (sources.size > 1 || metadata["ddg_abstract"]?.isNotBlank() == true) {
+                    val fallbackName = primaryQuery
+                    val fallbackAge = metadata["fps_age"] ?: metadata["tps_age"] ?: ""
+                    val fallbackLoc = metadata["fps_locations"]?.split("|")?.firstOrNull()?.trim() ?: locationStr
+                    val fallbackPhones = (metadata["fps_phones"] ?: metadata["tps_phones"] ?: "").split(",").map { it.trim() }.filter { it.isNotBlank() }
+                    val candidate = CandidateProfile(
+                        name = fallbackName, age = fallbackAge, location = fallbackLoc,
+                        phones = fallbackPhones, address = fallbackLoc,
+                        source = sources.firstOrNull()?.name ?: "Web",
+                        confidence = minOf(1f, sources.size * 0.15f)
+                    )
+                    val refinedParts = mutableListOf("name=$fallbackName")
+                    if (fallbackAge.isNotBlank()) refinedParts.add("age=$fallbackAge")
+                    if (city.isNotBlank()) refinedParts.add("city=$city")
+                    if (state.isNotBlank()) refinedParts.add("state=$state")
+                    send(SearchProgressEvent.CandidatesReady(
+                        candidates = listOf(candidate), reportId = reportId, round = round,
+                        autoSelect = true, refinedQuery = refinedParts.joinToString("|")
                     ))
                     return@withContext
                 }
