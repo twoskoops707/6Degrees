@@ -39,22 +39,34 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
-        val base = prefs.getString("pref_theme_base", "modern") ?: "modern"
+        val base = prefs.getString("pref_theme_base", "fieldintel") ?: "fieldintel"
         val accent = prefs.getString("pref_accent", "blue") ?: "blue"
-        val themeRes = when ("${base}_${accent}") {
-            "modern_cyan"     -> R.style.Theme_SixDegrees_Modern_Cyan
-            "modern_green"    -> R.style.Theme_SixDegrees_Modern_Green
-            "modern_purple"   -> R.style.Theme_SixDegrees_Modern_Purple
-            "hacker_green"    -> R.style.Theme_SixDegrees_Hacker_Green
-            "hacker_amber"    -> R.style.Theme_SixDegrees_Hacker_Amber
-            "hacker_blue"     -> R.style.Theme_SixDegrees_Hacker_Blue
-            "hacker_cyan"     -> R.style.Theme_SixDegrees_Hacker_Cyan
-            "hacker_purple"   -> R.style.Theme_SixDegrees_Hacker_Purple
-            "tactical_blue"   -> R.style.Theme_SixDegrees_Tactical_Blue
-            "tactical_cyan"   -> R.style.Theme_SixDegrees_Tactical_Cyan
-            "tactical_green"  -> R.style.Theme_SixDegrees_Tactical_Green
-            "tactical_purple" -> R.style.Theme_SixDegrees_Tactical_Purple
-            else              -> R.style.Theme_SixDegrees_Modern_Blue
+        val themeRes = when (base) {
+            "nightops"   -> R.style.Theme_SixDegrees_NightOps
+            "redacted"   -> R.style.Theme_SixDegrees_Redacted
+            "coldwar"    -> R.style.Theme_SixDegrees_ColdWar
+            "humint"     -> R.style.Theme_SixDegrees_Humint
+            "theplug"    -> R.style.Theme_SixDegrees_ThePlug
+            "fieldintel" -> R.style.Theme_SixDegrees_FieldIntel
+            "hacker"     -> when (accent) {
+                "amber"  -> R.style.Theme_SixDegrees_Hacker_Amber
+                "blue"   -> R.style.Theme_SixDegrees_Hacker_Blue
+                "cyan"   -> R.style.Theme_SixDegrees_Hacker_Cyan
+                "purple" -> R.style.Theme_SixDegrees_Hacker_Purple
+                else     -> R.style.Theme_SixDegrees_Hacker_Green
+            }
+            "tactical"   -> when (accent) {
+                "cyan"   -> R.style.Theme_SixDegrees_Tactical_Cyan
+                "green"  -> R.style.Theme_SixDegrees_Tactical_Green
+                "purple" -> R.style.Theme_SixDegrees_Tactical_Purple
+                else     -> R.style.Theme_SixDegrees_Tactical_Blue
+            }
+            else         -> when ("${base}_${accent}") {
+                "modern_cyan"   -> R.style.Theme_SixDegrees_Modern_Cyan
+                "modern_green"  -> R.style.Theme_SixDegrees_Modern_Green
+                "modern_purple" -> R.style.Theme_SixDegrees_Modern_Purple
+                else            -> R.style.Theme_SixDegrees_FieldIntel
+            }
         }
         setTheme(themeRes)
 
