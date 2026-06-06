@@ -284,14 +284,10 @@ class CandidateSelectionFragment : Fragment() {
 
             val card = holder.itemView as? com.google.android.material.card.MaterialCardView
             if (isSelected) {
-                card?.strokeColor = requireContext().getColor(android.R.color.transparent).let {
-                    val tv = android.util.TypedValue()
-                    requireContext().theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
-                    tv.data
-                }
+                card?.strokeColor = ContextCompat.getColor(requireContext(), R.color.fi_orange)
                 card?.strokeWidth = 3
             } else {
-                card?.strokeColor = ContextCompat.getColor(requireContext(), R.color.border)
+                card?.strokeColor = ContextCompat.getColor(requireContext(), R.color.fi_border)
                 card?.strokeWidth = 1
             }
 

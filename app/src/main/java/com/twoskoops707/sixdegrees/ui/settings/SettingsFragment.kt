@@ -49,12 +49,15 @@ class SettingsFragment : Fragment() {
 
         binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME}"
 
-        val currentBase = prefs.getString("pref_theme_base", "modern") ?: "modern"
+        val currentBase = prefs.getString("pref_theme_base", "fieldintel") ?: "fieldintel"
         updateThemeCardSelection(currentBase)
 
-        binding.cardThemeModern.setOnClickListener { selectThemeBase("modern", prefs) }
-        binding.cardThemeHacker.setOnClickListener { selectThemeBase("hacker", prefs) }
-        binding.cardThemeTactical.setOnClickListener { selectThemeBase("tactical", prefs) }
+        binding.cardThemeFieldintel.setOnClickListener { selectThemeBase("fieldintel", prefs) }
+        binding.cardThemeNightops.setOnClickListener { selectThemeBase("nightops", prefs) }
+        binding.cardThemeRedacted.setOnClickListener { selectThemeBase("redacted", prefs) }
+        binding.cardThemeColdwar.setOnClickListener { selectThemeBase("coldwar", prefs) }
+        binding.cardThemeHumint.setOnClickListener { selectThemeBase("humint", prefs) }
+        binding.cardThemeTheplug.setOnClickListener { selectThemeBase("theplug", prefs) }
 
         when (prefs.getString("pref_font_size", "normal")) {
             "small" -> binding.chipFontSmall.isChecked = true
@@ -135,7 +138,7 @@ class SettingsFragment : Fragment() {
     }
 
     private fun selectThemeBase(base: String, prefs: android.content.SharedPreferences) {
-        val current = prefs.getString("pref_theme_base", "modern")
+        val current = prefs.getString("pref_theme_base", "fieldintel")
         prefs.edit().putString("pref_theme_base", base).apply()
         if (_binding != null) updateThemeCardSelection(base)
         if (base != current) {
@@ -146,8 +149,8 @@ class SettingsFragment : Fragment() {
     private fun updateThemeCardSelection(selectedBase: String) {
         val b = _binding ?: return
         val ctx = context ?: return
-        val activeStroke = ContextCompat.getColor(ctx, R.color.accent_blue)
-        val inactiveStroke = ContextCompat.getColor(ctx, R.color.border)
+        val activeStroke = ContextCompat.getColor(ctx, R.color.fi_orange)
+        val inactiveStroke = ContextCompat.getColor(ctx, R.color.fi_border)
         val dp = resources.displayMetrics.density
         val activeWidth = (2 * dp).toInt()
         val inactiveWidth = (1 * dp).toInt()
@@ -157,9 +160,12 @@ class SettingsFragment : Fragment() {
             card.strokeWidth = if (active) activeWidth else inactiveWidth
         }
 
-        style(b.cardThemeModern, selectedBase == "modern")
-        style(b.cardThemeHacker, selectedBase == "hacker")
-        style(b.cardThemeTactical, selectedBase == "tactical")
+        style(b.cardThemeFieldintel, selectedBase == "fieldintel")
+        style(b.cardThemeNightops, selectedBase == "nightops")
+        style(b.cardThemeRedacted, selectedBase == "redacted")
+        style(b.cardThemeColdwar, selectedBase == "coldwar")
+        style(b.cardThemeHumint, selectedBase == "humint")
+        style(b.cardThemeTheplug, selectedBase == "theplug")
     }
 
     override fun onDestroyView() {

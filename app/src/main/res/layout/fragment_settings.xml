@@ -193,152 +193,316 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Theme"
-            android:textColor="@color/text_primary"
-            android:textSize="15sp"
+            android:text="// DISPLAY PROFILE"
+            android:textColor="@color/fi_smoke"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.1"
             android:layout_marginBottom="10dp" />
 
+        <!-- Row 1: Field Intel / Night Ops / Redacted -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_theme_fieldintel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/fi_charcoal"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="2dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/fi_border">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:gravity="center">
+
+                    <View
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@color/fi_orange"
+                        android:layout_marginBottom="6dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="FIELD INTEL"
+                        android:textColor="@color/fi_parchment"
+                        android:textSize="9sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Ink · Orange"
+                        android:textColor="@color/fi_ash"
+                        android:textSize="8sp"
+                        android:fontFamily="monospace"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_theme_nightops"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/nops_surface"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/nops_border">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:gravity="center">
+
+                    <View
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@color/nops_green"
+                        android:layout_marginBottom="6dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="NIGHT OPS"
+                        android:textColor="@color/nops_green"
+                        android:textSize="9sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Black · Matrix"
+                        android:textColor="@color/nops_ash"
+                        android:textSize="8sp"
+                        android:fontFamily="monospace"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_theme_redacted"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/red_surface"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="2dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/red_border">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:gravity="center">
+
+                    <View
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@color/red_accent"
+                        android:layout_marginBottom="6dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="REDACTED"
+                        android:textColor="@color/red_ink"
+                        android:textSize="9sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Paper · Ink"
+                        android:textColor="@color/red_ash"
+                        android:textSize="8sp"
+                        android:fontFamily="monospace"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+        <!-- Row 2: Cold War / HUMINT / The Plug -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginBottom="20dp">
 
-            <!-- Modern -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_theme_modern"
+                android:id="@+id/card_theme_coldwar"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
                 android:clickable="true"
                 android:focusable="true"
+                app:cardBackgroundColor="@color/cw_bg"
                 app:cardElevation="0dp"
-                app:strokeWidth="2dp"
-                app:strokeColor="@color/accent_blue">
+                app:cardCornerRadius="2dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/cw_border">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="12dp"
+                    android:padding="10dp"
                     android:gravity="center">
 
                     <View
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:background="@color/accent_blue"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@color/cw_rust"
+                        android:layout_marginBottom="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Modern"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:text="COLD WAR"
+                        android:textColor="@color/cw_parchment"
+                        android:textSize="9sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Rounded · Navy"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="10sp"
+                        android:text="Sepia · Rust"
+                        android:textColor="@color/cw_ash"
+                        android:textSize="8sp"
+                        android:fontFamily="monospace"
                         android:layout_marginTop="2dp" />
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Hacker -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_theme_hacker"
+                android:id="@+id/card_theme_humint"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
                 android:clickable="true"
                 android:focusable="true"
+                app:cardBackgroundColor="@color/hi_bg"
                 app:cardElevation="0dp"
+                app:cardCornerRadius="2dp"
                 app:strokeWidth="1dp"
-                app:strokeColor="@color/border"
-                app:cardBackgroundColor="@color/surface">
+                app:strokeColor="@color/hi_border">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="12dp"
+                    android:padding="10dp"
                     android:gravity="center">
 
                     <View
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:background="@color/hacker_green"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@color/hi_blue"
+                        android:layout_marginBottom="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Hacker"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:text="HUMINT"
+                        android:textColor="@color/hi_text"
+                        android:textSize="9sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Sharp · Black"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="10sp"
+                        android:text="Navy · Cyan"
+                        android:textColor="@color/hi_ash"
+                        android:fontFamily="monospace"
+                        android:textSize="8sp"
                         android:layout_marginTop="2dp" />
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Tactical -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_theme_tactical"
+                android:id="@+id/card_theme_theplug"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="4dp"
                 android:clickable="true"
                 android:focusable="true"
+                app:cardBackgroundColor="@color/plug_bg"
                 app:cardElevation="0dp"
+                app:cardCornerRadius="0dp"
                 app:strokeWidth="1dp"
-                app:strokeColor="@color/border"
-                app:cardBackgroundColor="@color/surface">
+                app:strokeColor="@color/plug_border">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="12dp"
+                    android:padding="10dp"
                     android:gravity="center">
 
                     <View
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:background="@color/accent_blue"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@color/plug_green"
+                        android:layout_marginBottom="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Tactical"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:text="THE PLUG"
+                        android:textColor="@color/plug_text"
+                        android:textSize="9sp"
+                        android:fontFamily="monospace"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Military · Dark"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="10sp"
+                        android:text="Street · Gold"
+                        android:textColor="@color/plug_ash"
+                        android:textSize="8sp"
+                        android:fontFamily="monospace"
                         android:layout_marginTop="2dp" />
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
