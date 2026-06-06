@@ -132,7 +132,9 @@
     <color name="plug_green_dim">#061A03</color>
     <color name="plug_gold">#C8A84B</color>
     <color name="plug_gold_dim">#261E0A</color>
-    <color name="plug_text">#E8E8DC</color>
+    <color name="plug_text">#FFD700</color>
     <color name="plug_ash">#7A8A7A</color>
     <color name="plug_money">#2E7D32</color>
+    <color name="plug_red">#E53935</color>
+    <color name="plug_yellow">#FFD700</color>
 </resources>

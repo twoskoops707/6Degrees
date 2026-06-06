@@ -59,6 +59,16 @@ class SettingsFragment : Fragment() {
         binding.cardThemeHumint.setOnClickListener { selectThemeBase("humint", prefs) }
         binding.cardThemeTheplug.setOnClickListener { selectThemeBase("theplug", prefs) }
 
+        binding.plugBgSection.visibility = if (currentBase == "theplug") View.VISIBLE else View.GONE
+
+        val currentPlugBg = prefs.getString("pref_plug_bg", "rasta") ?: "rasta"
+        updatePlugBgSelection(currentPlugBg)
+
+        binding.cardPlugBgRasta.setOnClickListener { selectPlugBg("rasta", prefs) }
+        binding.cardPlugBgLeaves.setOnClickListener { selectPlugBg("leaves", prefs) }
+        binding.cardPlugBgBricks.setOnClickListener { selectPlugBg("bricks", prefs) }
+        binding.cardPlugBgMedellin.setOnClickListener { selectPlugBg("medellin", prefs) }
+
         when (prefs.getString("pref_font_size", "normal")) {
             "small" -> binding.chipFontSmall.isChecked = true
             "large" -> binding.chipFontLarge.isChecked = true
@@ -140,10 +150,40 @@ class SettingsFragment : Fragment() {
     private fun selectThemeBase(base: String, prefs: android.content.SharedPreferences) {
         val current = prefs.getString("pref_theme_base", "fieldintel")
         prefs.edit().putString("pref_theme_base", base).apply()
-        if (_binding != null) updateThemeCardSelection(base)
+        if (_binding != null) {
+            updateThemeCardSelection(base)
+            binding.plugBgSection.visibility = if (base == "theplug") View.VISIBLE else View.GONE
+        }
         if (base != current) {
             view?.post { if (_binding != null) activity?.recreate() }
         }
+    }
+
+    private fun selectPlugBg(variant: String, prefs: android.content.SharedPreferences) {
+        val current = prefs.getString("pref_plug_bg", "rasta")
+        prefs.edit().putString("pref_plug_bg", variant).apply()
+        if (_binding != null) updatePlugBgSelection(variant)
+        if (variant != current) {
+            view?.post { if (_binding != null) activity?.recreate() }
+        }
+    }
+
+    private fun updatePlugBgSelection(selected: String) {
+        val b = _binding ?: return
+        val ctx = context ?: return
+        val activeStroke = ContextCompat.getColor(ctx, R.color.plug_green)
+        val inactiveStroke = ContextCompat.getColor(ctx, R.color.plug_border)
+        val dp = resources.displayMetrics.density
+        val activeWidth = (2 * dp).toInt()
+        val inactiveWidth = (1 * dp).toInt()
+        fun style(card: MaterialCardView, active: Boolean) {
+            card.strokeColor = if (active) activeStroke else inactiveStroke
+            card.strokeWidth = if (active) activeWidth else inactiveWidth
+        }
+        style(b.cardPlugBgRasta, selected == "rasta")
+        style(b.cardPlugBgLeaves, selected == "leaves")
+        style(b.cardPlugBgBricks, selected == "bricks")
+        style(b.cardPlugBgMedellin, selected == "medellin")
     }
 
     private fun updateThemeCardSelection(selectedBase: String) {

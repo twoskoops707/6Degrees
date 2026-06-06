@@ -15,6 +15,7 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupWithNavController
 import androidx.appcompat.app.AppCompatActivity
 import com.twoskoops707.sixdegrees.databinding.ActivityMainBinding
+import com.twoskoops707.sixdegrees.ui.settings.PlugBgFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -73,6 +74,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        if (base == "theplug") {
+            val plugBg = prefs.getString("pref_plug_bg", "rasta") ?: "rasta"
+            if (plugBg != "rasta") {
+                window.setBackgroundDrawable(PlugBgFactory.createBg(this, plugBg))
+            }
+        }
 
         com.twoskoops707.sixdegrees.tor.TorBootstrapManager.start(this)
         initTorConnection()

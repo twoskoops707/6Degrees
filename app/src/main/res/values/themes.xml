@@ -294,12 +294,12 @@
         <item name="colorPrimary">@color/plug_green</item>
         <item name="colorPrimaryVariant">@color/plug_green_dim</item>
         <item name="colorOnPrimary">@color/black</item>
-        <item name="colorSecondary">@color/plug_gold</item>
-        <item name="colorSecondaryVariant">@color/plug_gold_dim</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorSecondary">@color/plug_red</item>
+        <item name="colorSecondaryVariant">@color/plug_green_dim</item>
+        <item name="colorOnSecondary">@color/white</item>
         <item name="android:colorBackground">@color/plug_bg</item>
         <item name="colorSurface">@color/plug_surface</item>
-        <item name="colorOnSurface">@color/plug_text</item>
+        <item name="colorOnSurface">@color/plug_yellow</item>
         <item name="colorError">@color/error</item>
         <item name="colorOnError">@color/black</item>
         <item name="android:statusBarColor">@color/plug_bg</item>

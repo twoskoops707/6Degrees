@@ -508,6 +508,187 @@
 
         </LinearLayout>
 
+        <!-- ── THE PLUG — BG VARIANTS (shown only when ThePlug selected) ── -->
+        <LinearLayout
+            android:id="@+id/plug_bg_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="// BACKGROUND VARIANT"
+                android:textColor="@color/plug_green"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="20dp">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_plug_bg_rasta"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="3dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/plug_bg"
+                    app:cardElevation="0dp"
+                    app:cardCornerRadius="0dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="@color/plug_green">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="8dp"
+                        android:gravity="center">
+
+                        <View
+                            android:layout_width="20dp"
+                            android:layout_height="12dp"
+                            android:background="@color/plug_green"
+                            android:layout_marginBottom="5dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="RASTA"
+                            android:textColor="@color/plug_yellow"
+                            android:textSize="8sp"
+                            android:fontFamily="monospace"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_plug_bg_leaves"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="3dp"
+                    android:layout_marginEnd="3dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="#0D1A0D"
+                    app:cardElevation="0dp"
+                    app:cardCornerRadius="0dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="@color/plug_border">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="8dp"
+                        android:gravity="center">
+
+                        <View
+                            android:layout_width="20dp"
+                            android:layout_height="12dp"
+                            android:background="#1A3A12"
+                            android:layout_marginBottom="5dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="LEAVES"
+                            android:textColor="@color/plug_green"
+                            android:textSize="8sp"
+                            android:fontFamily="monospace"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_plug_bg_bricks"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="3dp"
+                    android:layout_marginEnd="3dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="#0F0F0F"
+                    app:cardElevation="0dp"
+                    app:cardCornerRadius="0dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="@color/plug_border">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="8dp"
+                        android:gravity="center">
+
+                        <View
+                            android:layout_width="20dp"
+                            android:layout_height="12dp"
+                            android:background="#2A2A2A"
+                            android:layout_marginBottom="5dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="BRICKS"
+                            android:textColor="@color/plug_ash"
+                            android:textSize="8sp"
+                            android:fontFamily="monospace"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_plug_bg_medellin"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="3dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="#0D0400"
+                    app:cardElevation="0dp"
+                    app:cardCornerRadius="0dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="@color/plug_border">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="8dp"
+                        android:gravity="center">
+
+                        <View
+                            android:layout_width="20dp"
+                            android:layout_height="12dp"
+                            android:background="#FCD116"
+                            android:layout_marginBottom="5dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="MEDELLÍN"
+                            android:textColor="#FCD116"
+                            android:textSize="8sp"
+                            android:fontFamily="monospace"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- Accent Color -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
