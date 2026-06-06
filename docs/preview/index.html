@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6Degrees — UI Redesign Preview</title>
+<style>
+  :root {
+    --fi-ink: #0E0C0A; --fi-charcoal: #1A1714; --fi-border: #3A3228;
+    --fi-smoke: #4A4238; --fi-ash: #8A8070; --fi-orange: #E8530A;
+    --fi-orange-dim: #2A1204; --fi-amber: #E8A020; --fi-amber-dim: #271A04;
+    --fi-parchment: #E8DCC8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111; font-family: monospace; color: #ccc; padding: 24px; }
+  h1 { color: var(--fi-orange); font-size: 11px; letter-spacing: 0.2em; text-align: center; margin-bottom: 4px; }
+  .subtitle { color: var(--fi-ash); font-size: 9px; letter-spacing: 0.15em; text-align: center; margin-bottom: 32px; }
+  .screens { display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; }
+  .screen-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .screen-label { color: var(--fi-smoke); font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; }
+  .phone { width: 320px; border: 2px solid #333; border-radius: 28px; overflow: hidden; background: var(--fi-ink); box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+  .status-bar { background: #000; height: 24px; display: flex; align-items: center; justify-content: flex-end; padding: 0 12px; font-size: 9px; color: #999; gap: 8px; }
+
+  /* ── SEARCH SCREEN ── */
+  .classif-bar { background: var(--fi-orange-dim); color: var(--fi-orange); font-size: 7px; letter-spacing: 0.15em; text-align: center; padding: 4px 0; }
+  .tab-bar { background: var(--fi-charcoal); border-bottom: 1px solid var(--fi-border); display: flex; overflow-x: auto; scrollbar-width: none; }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab { padding: 9px 10px; font-size: 7px; letter-spacing: 0.12em; color: var(--fi-smoke); white-space: nowrap; cursor: pointer; border-bottom: 2px solid transparent; flex-shrink: 0; }
+  .tab.active { color: var(--fi-orange); border-bottom-color: var(--fi-orange); }
+  .search-body { background: var(--fi-ink); padding: 12px; }
+  .case-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .case-label { color: var(--fi-ash); font-size: 8px; letter-spacing: 0.15em; }
+  .query-badge { background: var(--fi-amber-dim); color: var(--fi-amber); font-size: 8px; padding: 3px 7px; letter-spacing: 0.08em; }
+  .section-header { color: var(--fi-smoke); font-size: 7px; letter-spacing: 0.1em; margin: 10px 0 6px; }
+  .field-row { margin-bottom: 7px; }
+  .field-label { color: var(--fi-ash); font-size: 7px; letter-spacing: 0.1em; margin-bottom: 3px; }
+  .field-input { background: var(--fi-charcoal); border: 1px solid var(--fi-border); height: 32px; border-radius: 2px; width: 100%; display: flex; align-items: center; padding: 0 10px; }
+  .field-input-text { color: var(--fi-ash); font-size: 8px; font-family: monospace; }
+  .field-row-2 { display: flex; gap: 8px; }
+  .field-row-2 .field-row { flex: 1; }
+  .search-btn { background: var(--fi-orange); color: var(--fi-ink); font-family: monospace; font-size: 10px; letter-spacing: 0.1em; font-weight: bold; height: 44px; display: flex; align-items: center; justify-content: center; margin-top: 12px; border-radius: 0; cursor: pointer; }
+  .bottom-nav { background: var(--fi-charcoal); border-top: 1px solid var(--fi-border); display: flex; justify-content: space-around; padding: 6px 0 10px; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 6px; letter-spacing: 0.1em; color: var(--fi-smoke); cursor: pointer; }
+  .nav-item.active { color: var(--fi-orange); }
+  .nav-icon { width: 18px; height: 18px; background: var(--fi-smoke); border-radius: 2px; }
+  .nav-item.active .nav-icon { background: var(--fi-orange); }
+
+  /* ── CANDIDATE SCREEN ── */
+  .cand-header-card { background: var(--fi-charcoal); border: 1px solid var(--fi-border); border-radius: 2px; margin: 12px; padding: 12px; }
+  .round-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .round-label { color: var(--fi-orange); font-size: 8px; letter-spacing: 0.12em; }
+  .round-badge { background: var(--fi-amber-dim); color: var(--fi-amber); font-size: 7px; padding: 2px 6px; letter-spacing: 0.08em; }
+  .subject-name { color: var(--fi-parchment); font-size: 13px; font-weight: bold; letter-spacing: 0.04em; margin-bottom: 4px; font-family: monospace; }
+  .cand-instructions { color: var(--fi-ash); font-size: 8px; font-family: monospace; }
+  .cand-list { padding: 0 12px; display: flex; flex-direction: column; gap: 8px; }
+  .cand-card { background: var(--fi-charcoal); border: 1px solid var(--fi-border); border-radius: 2px; padding: 10px; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; transition: border-color 0.15s; }
+  .cand-card.selected { border-color: var(--fi-orange); border-width: 2px; }
+  .cand-photo { width: 42px; height: 54px; background: var(--fi-smoke); border: 1px solid var(--fi-border); border-radius: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; position: relative; overflow: hidden; }
+  .cand-photo.sel::after { content: '✓'; position: absolute; inset: 0; background: rgba(14,12,10,0.8); display: flex; align-items: center; justify-content: center; color: var(--fi-orange); font-size: 18px; }
+  .cand-info { flex: 1; min-width: 0; }
+  .cand-name { color: var(--fi-parchment); font-size: 11px; font-weight: bold; font-family: monospace; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cand-loc { color: var(--fi-ash); font-size: 9px; font-family: monospace; }
+  .cand-phone { color: var(--fi-amber); font-size: 9px; font-family: monospace; margin-top: 2px; }
+  .cand-match { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+  .match-pct { color: var(--fi-amber); font-size: 11px; font-weight: bold; font-family: monospace; }
+  .match-label { color: var(--fi-smoke); font-size: 6px; letter-spacing: 0.18em; font-family: monospace; }
+  .match-bar { width: 36px; height: 2px; background: var(--fi-smoke); overflow: hidden; }
+  .match-fill { height: 100%; background: var(--fi-orange); }
+  .cand-divider { height: 1px; background: var(--fi-smoke); margin: 6px 0; }
+  .cand-address { color: var(--fi-ash); font-size: 8px; font-family: monospace; }
+  .cand-bottom { display: flex; gap: 8px; padding: 12px; background: var(--fi-ink); border-top: 1px solid var(--fi-border); }
+  .btn-skip { border: 1px solid var(--fi-border); background: transparent; color: var(--fi-ash); font-family: monospace; font-size: 9px; letter-spacing: 0.1em; padding: 0 14px; height: 40px; display: flex; align-items: center; cursor: pointer; }
+  .btn-confirm { flex: 1; background: var(--fi-orange); color: var(--fi-ink); font-family: monospace; font-size: 9px; font-weight: bold; letter-spacing: 0.1em; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* ── PROGRESS SCREENS ── */
+  .prog-header { background: var(--fi-charcoal); border-bottom: 1px solid var(--fi-border); padding: 12px 14px; }
+  .prog-title { color: var(--fi-parchment); font-size: 13px; font-weight: bold; font-family: monospace; }
+  .prog-sub { color: var(--fi-ash); font-size: 9px; font-family: monospace; margin-top: 2px; }
+  .prog-body { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .prog-event { display: flex; align-items: center; gap: 8px; font-size: 9px; font-family: monospace; padding: 5px 8px; background: var(--fi-charcoal); border-left: 2px solid var(--fi-border); }
+  .prog-event.found { border-left-color: var(--fi-orange); color: var(--fi-parchment); }
+  .prog-event.cand { border-left-color: var(--fi-amber); color: var(--fi-amber); background: var(--fi-amber-dim); }
+  .prog-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .prog-spinner { width: 6px; height: 6px; border: 1px solid var(--fi-smoke); border-radius: 50%; border-top-color: var(--fi-orange); flex-shrink: 0; animation: spin 1s linear infinite; }
+  .prog-overall { margin: 10px 12px 0; height: 2px; background: var(--fi-smoke); overflow: hidden; }
+  .prog-overall-fill { height: 100%; background: var(--fi-orange); width: 65%; }
+  .prog-pct { text-align: right; color: var(--fi-amber); font-size: 9px; font-family: monospace; padding: 4px 12px 0; }
+
+  /* ── PI DETECTIVE ANIMATION ── */
+  .pi-stage { background: #050505; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 200px; position: relative; overflow: hidden; }
+  .pi-stage::after { content: ''; position: absolute; top: -100%; left: 0; right: 0; height: 40px; background: linear-gradient(transparent, rgba(0,255,65,0.04), transparent); animation: scanline 3s linear infinite; pointer-events: none; }
+  .pi-glass { font-size: 36px; animation: magnify-sweep 2.4s ease-in-out infinite; display: inline-block; }
+  .pi-target { width: 80%; display: flex; flex-direction: column; gap: 4px; }
+  .pi-target-line { height: 5px; background: rgba(0,255,65,0.12); border-radius: 0; position: relative; overflow: hidden; }
+  .pi-target-line::after { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: rgba(0,255,65,0.35); animation: scan-pass 2.4s ease-in-out infinite; }
+  .pi-label { color: #00FF41; font-size: 8px; letter-spacing: 0.15em; animation: crt-flicker 4s ease-in-out infinite; }
+  .pi-query { color: rgba(0,255,65,0.5); font-size: 7px; letter-spacing: 0.1em; }
+
+  /* ── FUN MAZE ANIMATION ── */
+  .fun-stage { background: #060A06; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .maze-grid { display: grid; grid-template-columns: repeat(8,1fr); gap: 2px; width: 180px; }
+  .maze-cell { height: 18px; background: #0A140A; border: 1px solid #0D1A0D; border-radius: 0; transition: background 0.3s; }
+  .maze-cell.lit { background: #39FF14; box-shadow: 0 0 6px #39FF14; }
+  .maze-cell.path { background: #1A4A1A; }
+  .maze-cell.wall { background: #0A0F0A; border-color: #050A05; }
+  .detective { font-size: 14px; animation: detective-run 0.8s steps(2) infinite; display: inline-block; }
+  .fun-status { color: #39FF14; font-size: 8px; letter-spacing: 0.12em; }
+  .fun-count { color: #FFD700; font-size: 7px; letter-spacing: 0.1em; }
+  .fun-bar { width: 160px; height: 4px; background: #0D1A0D; overflow: hidden; border-radius: 0; }
+  .fun-fill { height: 100%; width: 45%; background: linear-gradient(90deg, #39FF14, #FFD700); animation: fun-progress 3s ease-in-out infinite alternate; }
+
+  /* ── SETTINGS SCREEN ── */
+  .settings-body { padding: 14px; overflow-y: auto; max-height: 520px; scrollbar-width: thin; scrollbar-color: var(--fi-border) transparent; }
+  .settings-title { color: var(--fi-parchment); font-size: 18px; font-weight: bold; font-family: monospace; margin-bottom: 16px; }
+  .settings-section { color: var(--fi-ash); font-size: 8px; letter-spacing: 0.12em; margin-bottom: 8px; margin-top: 4px; }
+  .settings-card { background: var(--fi-charcoal); border: 1px solid var(--fi-border); border-radius: 2px; margin-bottom: 16px; overflow: hidden; }
+  .settings-row { display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--fi-border); gap: 8px; }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-text { color: var(--fi-parchment); font-size: 11px; font-family: monospace; flex: 1; }
+  .settings-row-arrow { color: var(--fi-smoke); font-size: 10px; }
+  .theme-section-label { color: var(--fi-smoke); font-size: 8px; letter-spacing: 0.1em; margin-bottom: 8px; font-family: monospace; }
+  .theme-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .theme-row { display: flex; gap: 6px; }
+  .theme-swatch { flex: 1; border: 1px solid var(--fi-border); border-radius: 2px; padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; transition: border-color 0.15s; }
+  .theme-swatch.active { border-color: var(--fi-orange); border-width: 2px; }
+  .swatch-dot { width: 18px; height: 18px; border-radius: 1px; }
+  .swatch-name { font-size: 7px; font-family: monospace; font-weight: bold; letter-spacing: 0.04em; }
+  .swatch-sub { font-size: 6px; font-family: monospace; }
+
+  /* ── THEME SWATCHES ── */
+  .sw-fieldintel { background: var(--fi-charcoal); }
+  .sw-fieldintel .swatch-dot { background: var(--fi-orange); }
+  .sw-fieldintel .swatch-name { color: var(--fi-parchment); }
+  .sw-fieldintel .swatch-sub { color: var(--fi-ash); }
+  .sw-nightops { background: #0A0F0A; border-color: #0D1A0D; }
+  .sw-nightops .swatch-dot { background: #00FF41; }
+  .sw-nightops .swatch-name { color: #00FF41; }
+  .sw-nightops .swatch-sub { color: #005C17; }
+  .sw-redacted { background: #FFFFFF; border-color: #C8C0B8; }
+  .sw-redacted .swatch-dot { background: #BF360C; }
+  .sw-redacted .swatch-name { color: #0D0D0D; }
+  .sw-redacted .swatch-sub { color: #6B6B6B; }
+  .sw-coldwar { background: #1C1508; border-color: #3D2E18; }
+  .sw-coldwar .swatch-dot { background: #C0392B; }
+  .sw-coldwar .swatch-name { color: #D4B896; }
+  .sw-coldwar .swatch-sub { color: #7A6040; }
+  .sw-humint { background: #0A0E1A; border-color: #1E2B44; }
+  .sw-humint .swatch-dot { background: #4FC3F7; }
+  .sw-humint .swatch-name { color: #CFD8DC; }
+  .sw-humint .swatch-sub { color: #546E7A; }
+  .sw-theplug { background: #0A0F0A; border-color: #1E2B1E; border-radius: 0; }
+  .sw-theplug .swatch-dot { background: #39FF14; border-radius: 0; }
+  .sw-theplug .swatch-name { color: #FFD700; animation: gold-shimmer 2.5s ease-in-out infinite; }
+  .sw-theplug .swatch-sub { color: #E53935; }
+
+  /* ── PLUG BG SECTION ── */
+  .plug-bg-section { display: none; margin-bottom: 12px; }
+  .plug-bg-options { display: flex; gap: 5px; }
+  .plug-bg-swatch { flex: 1; border: 1px solid #1E2B1E; padding: 5px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; transition: border-color 0.15s; }
+  .plug-bg-swatch.active { border: 2px solid #39FF14; }
+  .plug-bg-preview { width: 100%; height: 32px; }
+  .plug-bg-label { font-size: 6px; font-family: monospace; color: #FFD700; letter-spacing: 0.06em; text-align: center; }
+
+  /* ── ANIMATION STYLE PICKER ── */
+  .anim-options { display: flex; gap: 6px; margin-bottom: 14px; }
+  .anim-card { flex: 1; background: var(--fi-charcoal); border: 1px solid var(--fi-border); border-radius: 2px; padding: 10px 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; transition: border-color 0.15s; }
+  .anim-card.active { border-color: var(--fi-orange); border-width: 2px; }
+  .anim-icon { font-size: 22px; }
+  .anim-name { color: var(--fi-parchment); font-size: 8px; font-family: monospace; font-weight: bold; letter-spacing: 0.06em; }
+  .anim-desc { color: var(--fi-ash); font-size: 7px; font-family: monospace; text-align: center; }
+
+  /* ── PLUG BG PATTERNS ── */
+  .plug-leaves-bg {
+    background-color: #0A0F0A;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><g transform="translate(40,46)" opacity="0.24"><path d="M0,20 C-1,14 -7,11 -10,14 C-9,7 -4,2 0,1 C4,2 9,7 10,14 C7,11 1,14 0,20 Z" fill="%2339FF14"/><path d="M-1,9 C-7,6 -14,10 -16,4 C-12,-1 -6,1 -1,5 Z" fill="%2339FF14"/><path d="M1,9 C7,6 14,10 16,4 C12,-1 6,1 1,5 Z" fill="%2339FF14"/><path d="M-3,15 C-10,10 -18,14 -19,7 C-15,1 -8,4 -3,9 Z" fill="%2339FF14"/><path d="M3,15 C10,10 18,14 19,7 C15,1 8,4 3,9 Z" fill="%2339FF14"/><line x1="0" y1="20" x2="0" y2="26" stroke="%2339FF14" stroke-width="1.5"/></g><g transform="translate(16,20) scale(0.42) rotate(12)" opacity="0.14"><path d="M0,20 C-1,14 -7,11 -10,14 C-9,7 -4,2 0,1 C4,2 9,7 10,14 C7,11 1,14 0,20 Z" fill="%2339FF14"/><path d="M-1,9 C-7,6 -14,10 -16,4 C-12,-1 -6,1 -1,5 Z" fill="%2339FF14"/><path d="M1,9 C7,6 14,10 16,4 C12,-1 6,1 1,5 Z" fill="%2339FF14"/></g><g transform="translate(65,18) scale(0.36) rotate(-15)" opacity="0.11"><path d="M0,20 C-1,14 -7,11 -10,14 C-9,7 -4,2 0,1 C4,2 9,7 10,14 C7,11 1,14 0,20 Z" fill="%2339FF14"/><path d="M-1,9 C-7,6 -14,10 -16,4 C-12,-1 -6,1 -1,5 Z" fill="%2339FF14"/><path d="M1,9 C7,6 14,10 16,4 C12,-1 6,1 1,5 Z" fill="%2339FF14"/></g><g transform="translate(22,65) scale(0.28) rotate(40)" opacity="0.09"><path d="M0,20 C-1,14 -7,11 -10,14 C-9,7 -4,2 0,1 C4,2 9,7 10,14 C7,11 1,14 0,20 Z" fill="%2339FF14"/><path d="M-1,9 C-7,6 -14,10 -16,4 C-12,-1 -6,1 -1,5 Z" fill="%2339FF14"/><path d="M1,9 C7,6 14,10 16,4 C12,-1 6,1 1,5 Z" fill="%2339FF14"/></g><g transform="translate(60,60) scale(0.32) rotate(-30)" opacity="0.08"><path d="M0,20 C-1,14 -7,11 -10,14 C-9,7 -4,2 0,1 C4,2 9,7 10,14 C7,11 1,14 0,20 Z" fill="%2339FF14"/><path d="M-1,9 C-7,6 -14,10 -16,4 C-12,-1 -6,1 -1,5 Z" fill="%2339FF14"/><path d="M1,9 C7,6 14,10 16,4 C12,-1 6,1 1,5 Z" fill="%2339FF14"/></g></svg>');
+    background-size: 80px 80px;
+  }
+  .plug-bricks-bg {
+    background-color: #0A0F0A;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect x="1" y="2" width="56" height="24" fill="%230A0F0A" stroke="rgba(255,255,255,0.16)" stroke-width="1.5"/><rect x="61" y="2" width="57" height="24" fill="%230A0F0A" stroke="rgba(255,255,255,0.16)" stroke-width="1.5"/><rect x="1" y="30" width="27" height="24" fill="%230A0F0A" stroke="rgba(255,255,255,0.16)" stroke-width="1.5"/><rect x="32" y="30" width="56" height="24" fill="%230A0F0A" stroke="rgba(255,255,255,0.16)" stroke-width="1.5"/><rect x="92" y="30" width="27" height="24" fill="%230A0F0A" stroke="rgba(255,255,255,0.16)" stroke-width="1.5"/></svg>');
+    background-size: 120px 60px;
+  }
+  .plug-medellin-bg {
+    background-color: #0D0400;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect x="1" y="2" width="56" height="24" fill="%230D0400" stroke="%23FCD116" stroke-width="1.5"/><rect x="61" y="2" width="57" height="24" fill="%230D0400" stroke="%23CE1126" stroke-width="1.5"/><rect x="1" y="30" width="27" height="24" fill="%230D0400" stroke="%23CE1126" stroke-width="1.5"/><rect x="32" y="30" width="56" height="24" fill="%230D0400" stroke="%23FCD116" stroke-width="1.5"/><rect x="92" y="30" width="27" height="24" fill="%230D0400" stroke="%23CE1126" stroke-width="1.5"/></svg>');
+    background-size: 120px 60px;
+  }
+
+  /* ── RASTA / PLUG ANIMATIONS ── */
+  @keyframes gold-shimmer {
+    0%,100% { color: #FFD700; text-shadow: none; }
+    50% { color: #FFF59D; text-shadow: 0 0 10px rgba(255,215,0,0.7); }
+  }
+  @keyframes rasta-glow {
+    0%,100% { text-shadow: 0 0 4px rgba(57,255,20,0.4); }
+    50% { text-shadow: 0 0 14px rgba(57,255,20,0.9), 0 0 28px rgba(57,255,20,0.3); }
+  }
+  @keyframes red-pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.72; color: #FF5252; }
+  }
+  @keyframes btn-glow {
+    0%,100% { box-shadow: 0 0 4px rgba(57,255,20,0.4); }
+    50% { box-shadow: 0 0 18px rgba(57,255,20,0.9), 0 0 36px rgba(57,255,20,0.2); }
+  }
+  @keyframes leaves-drift {
+    0%,100% { background-position: 0 0; }
+    50% { background-position: 8px 8px; }
+  }
+
+  /* ── PI DETECTIVE ANIMATIONS ── */
+  @keyframes magnify-sweep {
+    0%,100% { transform: translateX(-28px) rotate(-12deg); }
+    50% { transform: translateX(28px) rotate(12deg); }
+  }
+  @keyframes scanline {
+    0% { top: -20%; }
+    100% { top: 120%; }
+  }
+  @keyframes scan-pass {
+    0%,100% { left: -100%; }
+    50% { left: 200%; }
+  }
+  @keyframes crt-flicker {
+    0%,98%,100% { opacity: 1; }
+    99% { opacity: 0.7; }
+  }
+  @keyframes typewriter {
+    0%,20% { width: 0; opacity: 0; }
+    25%,75% { opacity: 1; }
+    80%,100% { width: 100%; opacity: 0.8; }
+  }
+
+  /* ── FUN MAZE ANIMATIONS ── */
+  @keyframes detective-run {
+    0%,100% { transform: scaleX(1); }
+    50% { transform: scaleX(-1); }
+  }
+  @keyframes fun-progress {
+    0% { width: 20%; }
+    100% { width: 75%; }
+  }
+  @keyframes cell-light {
+    0%,100% { background: #1A4A1A; box-shadow: none; }
+    50% { background: #39FF14; box-shadow: 0 0 6px #39FF14; }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SHOWCASE ── */
+  .theme-showcase { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin-top: 8px; }
+  .mini-phone { width: 120px; border: 1px solid #333; border-radius: 12px; overflow: hidden; font-family: monospace; }
+  .mini-status { height: 10px; background: #000; }
+  .mini-classif { font-size: 5px; letter-spacing: 0.1em; text-align: center; padding: 2px 0; }
+  .mini-tabs { display: flex; overflow: hidden; border-bottom: 1px solid; }
+  .mini-tab { font-size: 4px; padding: 3px 5px; letter-spacing: 0.08em; flex-shrink: 0; }
+  .mini-body { padding: 8px; }
+  .mini-row { height: 10px; border-radius: 1px; margin-bottom: 4px; opacity: 0.5; }
+  .mini-btn { height: 14px; display: flex; align-items: center; justify-content: center; font-size: 4px; letter-spacing: 0.08em; margin-top: 6px; font-weight: bold; }
+  .mini-nav { display: flex; justify-content: space-around; padding: 4px 0 6px; border-top: 1px solid; }
+  .mini-nav-dot { width: 8px; height: 8px; border-radius: 1px; opacity: 0.4; }
+  .mini-nav-dot.active { opacity: 1; }
+  .mini-label { font-size: 7px; font-family: monospace; text-align: center; padding: 6px 0 0; letter-spacing: 0.08em; }
+
+  .divider { height: 1px; background: #222; margin: 32px 0; }
+  .section-title { color: var(--fi-smoke); font-size: 9px; letter-spacing: 0.2em; text-align: center; margin-bottom: 20px; }
+  .plug-group-label { color: #39FF14; font-size: 8px; letter-spacing: 0.15em; text-align: center; margin: 16px 0 8px; }
+</style>
+</head>
+<body>
+
+<h1>6DEGREES // OSINT INVESTIGATION PLATFORM</h1>
+<p class="subtitle">UI REDESIGN PREVIEW · FEATURE/SEARCH-ENGINE-OVERHAUL</p>
+
+<div class="screens">
+
+  <!-- ── SEARCH SCREEN ── -->
+  <div class="screen-wrap">
+    <span class="screen-label">// SEARCH — SUBJECT TAB</span>
+    <div class="phone">
+      <div class="status-bar"><span>19:41</span><span>▐▐▐ ◾ 100%</span></div>
+      <div class="classif-bar">CLASSIFIED // SIGINT COLLECTION TERMINAL</div>
+      <div class="tab-bar">
+        <div class="tab active">SUBJECT</div><div class="tab">ENTITY</div>
+        <div class="tab">DOMAIN</div><div class="tab">EMAIL</div>
+        <div class="tab">PHONE</div><div class="tab">HANDLE</div>
+      </div>
+      <div class="search-body">
+        <div class="case-header">
+          <span class="case-label">CASE FILE</span>
+          <span class="query-badge">▶ 21 QUERIES ARMED</span>
+        </div>
+        <div class="section-header">// IDENTITY</div>
+        <div class="field-row-2">
+          <div class="field-row"><div class="field-label">FORENAME</div><div class="field-input"><span class="field-input-text">John</span></div></div>
+          <div class="field-row"><div class="field-label">SURNAME</div><div class="field-input"><span class="field-input-text">Smith</span></div></div>
+        </div>
+        <div class="section-header">// LAST KNOWN LOCATION</div>
+        <div class="field-row-2">
+          <div class="field-row"><div class="field-label">CITY</div><div class="field-input"><span class="field-input-text">Dallas</span></div></div>
+          <div class="field-row"><div class="field-label">STATE</div><div class="field-input"><span class="field-input-text">TX</span></div></div>
+        </div>
+        <div class="section-header">// KNOWN IDENTIFIERS</div>
+        <div class="field-row"><div class="field-label">PRIMARY PHONE</div><div class="field-input"><span class="field-input-text" style="color:#555">optional</span></div></div>
+        <div class="field-row"><div class="field-label">EMAIL ADDRESS</div><div class="field-input"><span class="field-input-text" style="color:#555">optional</span></div></div>
+        <div class="field-row"><div class="field-label">USERNAME / HANDLE</div><div class="field-input"><span class="field-input-text" style="color:#555">optional +1 query</span></div></div>
+        <div class="search-btn">INITIATE INVESTIGATION ▶</div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item active"><div class="nav-icon"></div><span>SEARCH</span></div>
+        <div class="nav-item"><div class="nav-icon"></div><span>REPORTS</span></div>
+        <div class="nav-item"><div class="nav-icon"></div><span>SAVED</span></div>
+        <div class="nav-item"><div class="nav-icon"></div><span>SETTINGS</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PROGRESS: PI / DETECTIVE MODE ── -->
+  <div class="screen-wrap">
+    <span class="screen-label">// PROGRESS — PI DETECTIVE MODE</span>
+    <div class="phone">
+      <div class="status-bar"><span>19:42</span><span>▐▐▐ ◾ 100%</span></div>
+      <div class="classif-bar" style="background:#001205;color:#00FF41;animation:crt-flicker 5s infinite">CLASSIFIED // SURVEILLANCE ACTIVE</div>
+      <div class="prog-header" style="background:#050505;border-color:#001A0D">
+        <div class="prog-title" style="color:#00FF41;animation:crt-flicker 4s infinite">INVESTIGATING SUBJECT</div>
+        <div class="prog-sub" style="color:#005C17">John Smith · Dallas TX</div>
+      </div>
+
+      <!-- Animated PI stage -->
+      <div class="pi-stage">
+        <div class="pi-glass">🔍</div>
+        <div class="pi-target">
+          <div class="pi-target-line"></div>
+          <div class="pi-target-line" style="animation-delay:0.4s"></div>
+          <div class="pi-target-line" style="animation-delay:0.8s"></div>
+        </div>
+        <div class="pi-label">SCANNING RECORDS...</div>
+        <div class="pi-query" style="animation:typewriter 3s ease-in-out infinite">site:whitepages.com "john smith" "dallas"_</div>
+      </div>
+
+      <div class="prog-pct" style="color:#00FF41">65%</div>
+      <div class="prog-overall" style="background:#001A0D"><div class="prog-overall-fill" style="background:#00FF41"></div></div>
+      <div class="prog-body" style="max-height:110px;overflow:hidden">
+        <div class="prog-event found" style="border-left-color:#00FF41;color:#00CC33;background:#000F00">
+          <div class="prog-dot" style="background:#00FF41"></div>WhitePages — 4 records
+        </div>
+        <div class="prog-event found" style="border-left-color:#00FF41;color:#00CC33;background:#000F00">
+          <div class="prog-dot" style="background:#00FF41"></div>BeenVerified — hit
+        </div>
+        <div class="prog-event" style="border-left-color:#004A00;color:#005C17;background:#050505">
+          <div class="prog-spinner" style="border-top-color:#00FF41"></div>Facebook — scanning…
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PROGRESS: FUN MAZE MODE ── -->
+  <div class="screen-wrap">
+    <span class="screen-label">// PROGRESS — FUN MAZE MODE</span>
+    <div class="phone">
+      <div class="status-bar"><span>19:42</span><span>▐▐▐ ◾ 100%</span></div>
+      <div class="classif-bar">CLASSIFIED // SIGINT COLLECTION TERMINAL</div>
+      <div class="prog-header">
+        <div class="prog-title">INVESTIGATING SUBJECT</div>
+        <div class="prog-sub">John Smith · Dallas TX</div>
+      </div>
+
+      <!-- Animated maze stage -->
+      <div class="fun-stage">
+        <div style="font-size:9px;color:var(--fi-ash);letter-spacing:0.1em;margin-bottom:4px">NAVIGATING DATA MAZE</div>
+        <div class="maze-grid" id="maze">
+          <!-- 8x5 maze, JS will animate cells -->
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <span class="detective">🕵️</span>
+          <div>
+            <div class="fun-status">QUERIES ACTIVE</div>
+            <div class="fun-count">13 / 21 COMPLETE</div>
+          </div>
+        </div>
+        <div class="fun-bar"><div class="fun-fill"></div></div>
+      </div>
+
+      <div class="prog-pct">62%</div>
+      <div class="prog-overall"><div class="prog-overall-fill" style="width:62%"></div></div>
+      <div class="prog-body" style="max-height:90px;overflow:hidden">
+        <div class="prog-event found"><div class="prog-dot"></div>WhitePages — 4 records</div>
+        <div class="prog-event found"><div class="prog-dot"></div>LinkedIn — profile found</div>
+        <div class="prog-event" style="border-left-color:var(--fi-border);color:var(--fi-ash)">
+          <div class="prog-spinner"></div>Spokeo — scanning…
+        </div>
+        <div class="prog-event cand"><div class="prog-dot"></div>▶ 6 CANDIDATE RECORDS FOUND</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CANDIDATE SELECTION ── -->
+  <div class="screen-wrap">
+    <span class="screen-label">// TARGET IDENTIFICATION</span>
+    <div class="phone">
+      <div class="status-bar"><span>19:43</span><span>▐▐▐ ◾ 100%</span></div>
+      <div class="classif-bar" style="background:#1A0000;color:#CE1126">CLASSIFIED // TARGET IDENTIFICATION</div>
+      <div class="cand-header-card">
+        <div class="round-row">
+          <span class="round-label">ROUND 1 OF 3</span>
+          <span class="round-badge">NARROWING</span>
+        </div>
+        <div class="subject-name">John Smith</div>
+        <div class="cand-instructions">Select up to 4 people who could be your subject</div>
+      </div>
+      <div class="cand-list">
+        <div class="cand-card selected" onclick="toggleCard(this)">
+          <div class="cand-photo sel">👤</div>
+          <div class="cand-info">
+            <div class="cand-name">SMITH, JOHN R.</div>
+            <div class="cand-loc">Age 34 · Dallas, TX</div>
+            <div class="cand-phone">(214) 555-0192</div>
+            <div class="cand-divider"></div>
+            <div class="cand-address">📍 4521 Oak Cliff Blvd</div>
+          </div>
+          <div class="cand-match">
+            <div class="match-pct">87%</div>
+            <div class="match-label">MATCH</div>
+            <div class="match-bar"><div class="match-fill" style="width:87%"></div></div>
+          </div>
+        </div>
+        <div class="cand-card" onclick="toggleCard(this)">
+          <div class="cand-photo">👤</div>
+          <div class="cand-info">
+            <div class="cand-name">SMITH, JOHN T.</div>
+            <div class="cand-loc">Age 41 · Plano, TX</div>
+            <div class="cand-divider"></div>
+            <div class="cand-address">📍 892 Preston Rd</div>
+          </div>
+          <div class="cand-match">
+            <div class="match-pct">62%</div>
+            <div class="match-label">MATCH</div>
+            <div class="match-bar"><div class="match-fill" style="width:62%"></div></div>
+          </div>
+        </div>
+        <div class="cand-card" onclick="toggleCard(this)">
+          <div class="cand-photo">👤</div>
+          <div class="cand-info">
+            <div class="cand-name">SMITH, JOHNNY</div>
+            <div class="cand-loc">Age 28 · Irving, TX</div>
+            <div class="cand-divider"></div>
+            <div class="cand-address">📍 211 Las Colinas</div>
+          </div>
+          <div class="cand-match">
+            <div class="match-pct">44%</div>
+            <div class="match-label">MATCH</div>
+            <div class="match-bar"><div class="match-fill" style="width:44%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div style="height:6px"></div>
+      <div class="cand-bottom">
+        <div class="btn-skip">SKIP</div>
+        <div class="btn-confirm">CONFIRM TARGET ▶</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS ── -->
+  <div class="screen-wrap">
+    <span class="screen-label">// SETTINGS</span>
+    <div class="phone">
+      <div class="status-bar"><span>19:44</span><span>▐▐▐ ◾ 100%</span></div>
+      <div class="settings-body">
+        <div class="settings-title">Settings</div>
+
+        <div class="settings-section">// SEARCH</div>
+        <div class="settings-card">
+          <div class="settings-row"><span class="settings-row-text">API Keys</span><span class="settings-row-arrow">›</span></div>
+          <div class="settings-row"><span class="settings-row-text">My Profile</span><span class="settings-row-arrow">›</span></div>
+          <div class="settings-row"><span class="settings-row-text">Setup / API Status</span><span class="settings-row-arrow">›</span></div>
+          <div class="settings-row"><span class="settings-row-text">Tool Installer</span><span class="settings-row-arrow" style="color:var(--fi-orange);font-size:9px">APK download ›</span></div>
+        </div>
+
+        <div class="settings-section">// APPEARANCE</div>
+        <div class="theme-section-label">// DISPLAY PROFILE</div>
+        <div class="theme-grid">
+          <div class="theme-row">
+            <div class="theme-swatch sw-fieldintel active" onclick="selectTheme(this,'fieldintel')">
+              <div class="swatch-dot"></div><div class="swatch-name">FIELD INTEL</div><div class="swatch-sub">Ink · Orange</div>
+            </div>
+            <div class="theme-swatch sw-nightops" onclick="selectTheme(this,'nightops')">
+              <div class="swatch-dot"></div><div class="swatch-name">NIGHT OPS</div><div class="swatch-sub">Black · Matrix</div>
+            </div>
+            <div class="theme-swatch sw-redacted" onclick="selectTheme(this,'redacted')">
+              <div class="swatch-dot"></div><div class="swatch-name">REDACTED</div><div class="swatch-sub">Paper · Ink</div>
+            </div>
+          </div>
+          <div class="theme-row">
+            <div class="theme-swatch sw-coldwar" onclick="selectTheme(this,'coldwar')">
+              <div class="swatch-dot"></div><div class="swatch-name">COLD WAR</div><div class="swatch-sub">Sepia · Rust</div>
+            </div>
+            <div class="theme-swatch sw-humint" onclick="selectTheme(this,'humint')">
+              <div class="swatch-dot"></div><div class="swatch-name">HUMINT</div><div class="swatch-sub">Navy · Cyan</div>
+            </div>
+            <div class="theme-swatch sw-theplug" onclick="selectTheme(this,'theplug')">
+              <div class="swatch-dot"></div><div class="swatch-name">THE PLUG</div><div class="swatch-sub">Rasta · Green</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plug bg sub-options — only visible when THE PLUG selected -->
+        <div id="plug-bg-section" class="plug-bg-section">
+          <div class="theme-section-label" style="color:#E53935;font-size:7px;margin-bottom:5px">// PLUG BACKGROUND</div>
+          <div class="plug-bg-options">
+            <div class="plug-bg-swatch active" onclick="selectPlugBg(this,'default')">
+              <div class="plug-bg-preview" style="background:#0A0F0A;border:1px solid #1E2B1E"></div>
+              <div class="plug-bg-label">RASTA</div>
+            </div>
+            <div class="plug-bg-swatch" onclick="selectPlugBg(this,'leaves')">
+              <div class="plug-bg-preview plug-leaves-bg"></div>
+              <div class="plug-bg-label">LEAF FRACTAL</div>
+            </div>
+            <div class="plug-bg-swatch" onclick="selectPlugBg(this,'bricks')">
+              <div class="plug-bg-preview plug-bricks-bg"></div>
+              <div class="plug-bg-label">WHITE BRICKS</div>
+            </div>
+            <div class="plug-bg-swatch" onclick="selectPlugBg(this,'medellin')">
+              <div class="plug-bg-preview plug-medellin-bg"></div>
+              <div class="plug-bg-label">MEDELLÍN</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress animation picker -->
+        <div class="theme-section-label" style="margin-top:4px">// PROGRESS ANIMATION</div>
+        <div class="anim-options">
+          <div class="anim-card active" onclick="selectAnim(this,'pi')">
+            <div class="anim-icon">🔍</div>
+            <div class="anim-name">PI MODE</div>
+            <div class="anim-desc">Detective surveillance style</div>
+          </div>
+          <div class="anim-card" onclick="selectAnim(this,'fun')">
+            <div class="anim-icon">🕵️</div>
+            <div class="anim-name">FUN MODE</div>
+            <div class="anim-desc">Maze navigator style</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="nav-icon"></div><span>SEARCH</span></div>
+        <div class="nav-item"><div class="nav-icon"></div><span>REPORTS</span></div>
+        <div class="nav-item"><div class="nav-icon"></div><span>SAVED</span></div>
+        <div class="nav-item active"><div class="nav-icon"></div><span>SETTINGS</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="divider"></div>
+<div class="section-title">// ALL 6 THEMES — VISUAL REFERENCE</div>
+
+<div class="theme-showcase">
+
+  <!-- Field Intel -->
+  <div>
+    <div class="mini-phone" style="background:#0E0C0A;border-color:#3A3228">
+      <div class="mini-status"></div>
+      <div class="mini-classif" style="background:#2A1204;color:#E8530A">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:#1A1714;border-color:#3A3228">
+        <div class="mini-tab" style="color:#E8530A;border-bottom:2px solid #E8530A">SUBJECT</div>
+        <div class="mini-tab" style="color:#4A4238">ENTITY</div>
+      </div>
+      <div class="mini-body">
+        <div class="mini-row" style="background:#1A1714;border:1px solid #3A3228"></div>
+        <div class="mini-row" style="background:#1A1714;border:1px solid #3A3228;width:70%"></div>
+        <div class="mini-btn" style="background:#E8530A;color:#0E0C0A">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:#1A1714;border-color:#3A3228">
+        <div class="mini-nav-dot active" style="background:#E8530A"></div>
+        <div class="mini-nav-dot" style="background:#4A4238"></div>
+        <div class="mini-nav-dot" style="background:#4A4238"></div>
+        <div class="mini-nav-dot" style="background:#4A4238"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#E8530A">FIELD INTEL</div>
+  </div>
+
+  <!-- Night Ops -->
+  <div>
+    <div class="mini-phone" style="background:#000000;border-color:#0D1A0D">
+      <div class="mini-status"></div>
+      <div class="mini-classif" style="background:#001A0D;color:#00FF41">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:#0A0F0A;border-color:#0D1A0D">
+        <div class="mini-tab" style="color:#00FF41;border-bottom:2px solid #00FF41">SUBJECT</div>
+        <div class="mini-tab" style="color:#005C17">ENTITY</div>
+      </div>
+      <div class="mini-body">
+        <div class="mini-row" style="background:#0A0F0A;border:1px solid #0D1A0D"></div>
+        <div class="mini-row" style="background:#0A0F0A;border:1px solid #0D1A0D;width:70%"></div>
+        <div class="mini-btn" style="background:#00FF41;color:#000">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:#0A0F0A;border-color:#0D1A0D">
+        <div class="mini-nav-dot active" style="background:#00FF41"></div>
+        <div class="mini-nav-dot" style="background:#005C17"></div>
+        <div class="mini-nav-dot" style="background:#005C17"></div>
+        <div class="mini-nav-dot" style="background:#005C17"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#00FF41">NIGHT OPS</div>
+  </div>
+
+  <!-- Redacted -->
+  <div>
+    <div class="mini-phone" style="background:#F0EDE8;border-color:#C8C0B8">
+      <div class="mini-status" style="background:#E0DDD8"></div>
+      <div class="mini-classif" style="background:#FBE9E7;color:#BF360C">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:#FFFFFF;border-color:#C8C0B8">
+        <div class="mini-tab" style="color:#BF360C;border-bottom:2px solid #BF360C">SUBJECT</div>
+        <div class="mini-tab" style="color:#9E9E9E">ENTITY</div>
+      </div>
+      <div class="mini-body">
+        <div class="mini-row" style="background:#FFFFFF;border:1px solid #C8C0B8"></div>
+        <div class="mini-row" style="background:#FFFFFF;border:1px solid #C8C0B8;width:70%"></div>
+        <div class="mini-btn" style="background:#BF360C;color:#fff">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:#FFFFFF;border-color:#C8C0B8">
+        <div class="mini-nav-dot active" style="background:#BF360C"></div>
+        <div class="mini-nav-dot" style="background:#C8C0B8"></div>
+        <div class="mini-nav-dot" style="background:#C8C0B8"></div>
+        <div class="mini-nav-dot" style="background:#C8C0B8"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#BF360C">REDACTED</div>
+  </div>
+
+  <!-- Cold War -->
+  <div>
+    <div class="mini-phone" style="background:#1C1508;border-color:#3D2E18">
+      <div class="mini-status"></div>
+      <div class="mini-classif" style="background:#3B0D09;color:#C0392B">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:#2A1F0E;border-color:#3D2E18">
+        <div class="mini-tab" style="color:#C0392B;border-bottom:2px solid #C0392B">SUBJECT</div>
+        <div class="mini-tab" style="color:#7A6040">ENTITY</div>
+      </div>
+      <div class="mini-body">
+        <div class="mini-row" style="background:#2A1F0E;border:1px solid #3D2E18"></div>
+        <div class="mini-row" style="background:#2A1F0E;border:1px solid #3D2E18;width:70%"></div>
+        <div class="mini-btn" style="background:#C0392B;color:#D4B896">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:#2A1F0E;border-color:#3D2E18">
+        <div class="mini-nav-dot active" style="background:#C0392B"></div>
+        <div class="mini-nav-dot" style="background:#7A6040"></div>
+        <div class="mini-nav-dot" style="background:#7A6040"></div>
+        <div class="mini-nav-dot" style="background:#7A6040"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#C0392B">COLD WAR</div>
+  </div>
+
+  <!-- HUMINT -->
+  <div>
+    <div class="mini-phone" style="background:#0A0E1A;border-color:#1E2B44">
+      <div class="mini-status"></div>
+      <div class="mini-classif" style="background:#041B2C;color:#4FC3F7">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:#111828;border-color:#1E2B44">
+        <div class="mini-tab" style="color:#4FC3F7;border-bottom:2px solid #4FC3F7">SUBJECT</div>
+        <div class="mini-tab" style="color:#546E7A">ENTITY</div>
+      </div>
+      <div class="mini-body">
+        <div class="mini-row" style="background:#111828;border:1px solid #1E2B44"></div>
+        <div class="mini-row" style="background:#111828;border:1px solid #1E2B44;width:70%"></div>
+        <div class="mini-btn" style="background:#4FC3F7;color:#0A0E1A">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:#111828;border-color:#1E2B44">
+        <div class="mini-nav-dot active" style="background:#4FC3F7"></div>
+        <div class="mini-nav-dot" style="background:#546E7A"></div>
+        <div class="mini-nav-dot" style="background:#546E7A"></div>
+        <div class="mini-nav-dot" style="background:#546E7A"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#4FC3F7">HUMINT</div>
+  </div>
+
+</div>
+
+<!-- Plug variants -->
+<div class="plug-group-label">// THE PLUG — RASTA VARIANTS</div>
+<div class="theme-showcase">
+
+  <!-- The Plug: Rasta Default -->
+  <div>
+    <div class="mini-phone" style="background:#0A0F0A;border-color:#1E2B1E;border-radius:4px">
+      <div class="mini-status"></div>
+      <div class="mini-classif" style="background:#1A0000;color:#E53935;animation:red-pulse 3s infinite">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:#121A12;border-color:#1E2B1E">
+        <div class="mini-tab" style="color:#39FF14;border-bottom:2px solid #39FF14;animation:rasta-glow 2s infinite">SUBJECT</div>
+        <div class="mini-tab" style="color:#5A3A00">ENTITY</div>
+      </div>
+      <div class="mini-body" style="background:#0A0F0A">
+        <div class="mini-row" style="background:#121A12;border:1px solid #1E2B1E;border-radius:0"></div>
+        <div class="mini-row" style="background:#121A12;border:1px solid #1E2B1E;border-radius:0;width:70%"></div>
+        <div class="mini-btn" style="background:#39FF14;color:#0A0F0A;border-radius:0;animation:btn-glow 2s infinite">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:#121A12;border-color:#1E2B1E">
+        <div class="mini-nav-dot active" style="background:#39FF14;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#FFD700;animation:gold-shimmer 2.5s infinite">THE PLUG<br><span style="color:#E53935;font-size:6px">RASTA DEFAULT</span></div>
+  </div>
+
+  <!-- The Plug: Leaf Fractal -->
+  <div>
+    <div class="mini-phone" style="border-color:#1E2B1E;border-radius:4px;overflow:hidden">
+      <div class="mini-status" style="background:#000"></div>
+      <div class="mini-classif" style="background:#1A0000;color:#E53935">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:rgba(18,26,18,0.9);border-color:#1E2B1E">
+        <div class="mini-tab" style="color:#39FF14;border-bottom:2px solid #39FF14">SUBJECT</div>
+        <div class="mini-tab" style="color:#5A3A00">ENTITY</div>
+      </div>
+      <div class="mini-body plug-leaves-bg" style="animation:leaves-drift 6s ease-in-out infinite">
+        <div class="mini-row" style="background:rgba(18,26,18,0.85);border:1px solid #1E2B1E;border-radius:0"></div>
+        <div class="mini-row" style="background:rgba(18,26,18,0.85);border:1px solid #1E2B1E;border-radius:0;width:70%"></div>
+        <div class="mini-btn" style="background:#39FF14;color:#0A0F0A;border-radius:0">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:rgba(18,26,18,0.95);border-color:#1E2B1E">
+        <div class="mini-nav-dot active" style="background:#39FF14;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#FFD700">THE PLUG<br><span style="color:#E53935;font-size:6px">LEAF FRACTAL</span></div>
+  </div>
+
+  <!-- The Plug: White Bricks -->
+  <div>
+    <div class="mini-phone" style="border-color:#1E2B1E;border-radius:4px;overflow:hidden">
+      <div class="mini-status" style="background:#000"></div>
+      <div class="mini-classif" style="background:#1A0000;color:#E53935">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:rgba(18,26,18,0.9);border-color:#1E2B1E">
+        <div class="mini-tab" style="color:#39FF14;border-bottom:2px solid #39FF14">SUBJECT</div>
+        <div class="mini-tab" style="color:#5A3A00">ENTITY</div>
+      </div>
+      <div class="mini-body plug-bricks-bg">
+        <div class="mini-row" style="background:rgba(18,26,18,0.85);border:1px solid #1E2B1E;border-radius:0"></div>
+        <div class="mini-row" style="background:rgba(18,26,18,0.85);border:1px solid #1E2B1E;border-radius:0;width:70%"></div>
+        <div class="mini-btn" style="background:#39FF14;color:#0A0F0A;border-radius:0">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:rgba(18,26,18,0.95);border-color:#1E2B1E">
+        <div class="mini-nav-dot active" style="background:#39FF14;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#5A3A00;border-radius:0"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#FFD700">THE PLUG<br><span style="color:#E53935;font-size:6px">WHITE BRICKS</span></div>
+  </div>
+
+  <!-- The Plug: Medellín -->
+  <div>
+    <div class="mini-phone" style="border-color:#5A1A00;border-radius:4px;overflow:hidden">
+      <div class="mini-status" style="background:#000"></div>
+      <div class="mini-classif" style="background:#1A0000;color:#CE1126">CLASSIFIED // SIGINT</div>
+      <div class="mini-tabs" style="background:rgba(18,4,0,0.95);border-color:#5A1A00">
+        <div class="mini-tab" style="color:#FCD116;border-bottom:2px solid #FCD116">SUBJECT</div>
+        <div class="mini-tab" style="color:#5A1A00">ENTITY</div>
+      </div>
+      <div class="mini-body plug-medellin-bg">
+        <div class="mini-row" style="background:rgba(13,4,0,0.88);border:1px solid #5A1A00;border-radius:0"></div>
+        <div class="mini-row" style="background:rgba(13,4,0,0.88);border:1px solid #5A1A00;border-radius:0;width:70%"></div>
+        <div class="mini-btn" style="background:#FCD116;color:#0D0400;border-radius:0">INITIATE ▶</div>
+      </div>
+      <div class="mini-nav" style="background:rgba(13,4,0,0.95);border-color:#5A1A00">
+        <div class="mini-nav-dot active" style="background:#FCD116;border-radius:0"></div>
+        <div class="mini-nav-dot" style="background:#CE1126;border-radius:0;opacity:0.6"></div>
+        <div class="mini-nav-dot" style="background:#CE1126;border-radius:0;opacity:0.4"></div>
+        <div class="mini-nav-dot" style="background:#CE1126;border-radius:0;opacity:0.4"></div>
+      </div>
+    </div>
+    <div class="mini-label" style="color:#FCD116">THE PLUG<br><span style="color:#CE1126;font-size:6px">MEDELLÍN</span></div>
+  </div>
+
+</div>
+
+<script>
+function selectTheme(el, name) {
+  document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  const sec = document.getElementById('plug-bg-section');
+  if (sec) sec.style.display = name === 'theplug' ? 'block' : 'none';
+}
+function selectPlugBg(el, name) {
+  document.querySelectorAll('.plug-bg-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+function selectAnim(el, name) {
+  document.querySelectorAll('.anim-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+function toggleCard(el) {
+  el.classList.toggle('selected');
+  el.querySelector('.cand-photo').classList.toggle('sel');
+}
+
+// Build maze grid
+const maze = document.getElementById('maze');
+const layout = [
+  1,1,0,1,1,0,1,1,
+  0,1,0,1,0,0,0,1,
+  0,1,1,1,1,1,0,1,
+  0,0,0,0,0,1,0,1,
+  1,1,1,1,0,1,1,1,
+];
+layout.forEach((v, i) => {
+  const cell = document.createElement('div');
+  cell.className = 'maze-cell ' + (v ? 'path' : 'wall');
+  maze.appendChild(cell);
+});
+// Animate cells lighting up
+let litCount = 0;
+const pathCells = maze.querySelectorAll('.maze-cell.path');
+function lightNext() {
+  if (litCount < pathCells.length) {
+    pathCells[litCount].classList.add('lit');
+    litCount++;
+    setTimeout(lightNext, 280);
+  } else {
+    setTimeout(() => {
+      pathCells.forEach(c => c.classList.remove('lit'));
+      litCount = 0;
+      setTimeout(lightNext, 800);
+    }, 1200);
+  }
+}
+lightNext();
+</script>
+</body>
+</html>
