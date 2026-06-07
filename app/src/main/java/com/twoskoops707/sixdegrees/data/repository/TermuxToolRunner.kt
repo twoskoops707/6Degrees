@@ -50,11 +50,7 @@ class TermuxToolRunner(private val context: Context) {
     }
 
     fun runSherlock(username: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled()) return@flow
-        if (!isToolInstalled("sherlock")) {
-            emit(SearchProgressEvent.NotFound("sherlock"))
-            return@flow
-        }
+        if (!isTermuxInstalled() || !isToolInstalled("sherlock")) return@flow
         emit(SearchProgressEvent.Checking("sherlock"))
         val outFile = File(outputDir, "sherlock_${System.currentTimeMillis()}.txt")
         val cmd = "sherlock ${username.trim()} --output ${outFile.absolutePath} --print-found 2>/dev/null"
@@ -89,11 +85,7 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runMaigret(username: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled()) return@flow
-        if (!isToolInstalled("maigret")) {
-            emit(SearchProgressEvent.NotFound("maigret"))
-            return@flow
-        }
+        if (!isTermuxInstalled() || !isToolInstalled("maigret")) return@flow
         emit(SearchProgressEvent.Checking("maigret"))
         val outFile = File(outputDir, "maigret_${System.currentTimeMillis()}.json")
         val cmd = "maigret ${username.trim()} -J simple --no-pics -o ${outFile.absolutePath} 2>/dev/null"
@@ -133,11 +125,7 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runHolehe(email: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled()) return@flow
-        if (!isToolInstalled("holehe")) {
-            emit(SearchProgressEvent.NotFound("holehe"))
-            return@flow
-        }
+        if (!isTermuxInstalled() || !isToolInstalled("holehe")) return@flow
         emit(SearchProgressEvent.Checking("holehe"))
         val outFile = File(outputDir, "holehe_${System.currentTimeMillis()}.txt")
         val cmd = "holehe ${email.trim()} > ${outFile.absolutePath} 2>&1"
@@ -173,11 +161,7 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runTheHarvester(domain: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled()) return@flow
-        if (!isToolInstalled("theHarvester")) {
-            emit(SearchProgressEvent.NotFound("theHarvester"))
-            return@flow
-        }
+        if (!isTermuxInstalled() || !isToolInstalled("theHarvester")) return@flow
         emit(SearchProgressEvent.Checking("theHarvester"))
         val outFile = File(outputDir, "harvester_${System.currentTimeMillis()}.txt")
         val cmd = "theHarvester -d ${domain.trim()} -b duckduckgo,bing,google -f ${outFile.absolutePath} 2>/dev/null"
@@ -251,11 +235,7 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runNmap(target: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled()) return@flow
-        if (!isToolInstalled("nmap")) {
-            emit(SearchProgressEvent.NotFound("nmap"))
-            return@flow
-        }
+        if (!isTermuxInstalled() || !isToolInstalled("nmap")) return@flow
         emit(SearchProgressEvent.Checking("nmap"))
         val outFile = File(outputDir, "nmap_${System.currentTimeMillis()}.txt")
         val cmd = "nmap -sV --open -oN ${outFile.absolutePath} ${target.trim()} 2>/dev/null"

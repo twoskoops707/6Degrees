@@ -1,12 +1,17 @@
 package com.twoskoops707.sixdegrees
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
@@ -25,6 +30,11 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+
+    private val permissionLauncher: ActivityResultLauncher<Array<String>> =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            showTermuxOnboardingIfNeeded()
+        }
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
@@ -121,6 +131,68 @@ class MainActivity : AppCompatActivity() {
 
         if (savedInstanceState == null && !prefs.getBoolean("setup_complete", false)) {
             navController.navigate(R.id.nav_wizard)
+        }
+
+        if (!prefs.getBoolean("perms_requested", false)) {
+            requestFirstLaunchPermissions()
+        }
+    }
+
+    private fun requestFirstLaunchPermissions() {
+        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
+        prefs.edit().putBoolean("perms_requested", true).apply()
+
+        val needed = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                needed.add(Manifest.permission.READ_MEDIA_IMAGES)
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                needed.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                needed.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            needed.add(Manifest.permission.CAMERA)
+
+        if (needed.isNotEmpty()) {
+            permissionLauncher.launch(needed.toTypedArray())
+        } else {
+            showTermuxOnboardingIfNeeded()
+        }
+    }
+
+    private fun showTermuxOnboardingIfNeeded() {
+        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
+        if (prefs.getBoolean("termux_onboarding_shown", false)) return
+        val isTermuxInstalled = try {
+            packageManager.getPackageInfo("com.termux", 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) { false }
+        if (!isTermuxInstalled) return
+
+        prefs.edit().putBoolean("termux_onboarding_shown", true).apply()
+        window?.decorView?.post {
+            if (!isFinishing && !isDestroyed) {
+                AlertDialog.Builder(this)
+                    .setTitle("Connect to Termux")
+                    .setMessage(
+                        "6Degrees can use Termux CLI tools (sherlock, maigret, holehe, nmap) to supercharge your searches.\n\n" +
+                        "To enable this, open Termux and run:\n\n" +
+                        "  termux-setup-storage\n\n" +
+                        "Then go to Termux → Settings → Advanced and enable:\n\n" +
+                        "  \"Allow External Apps\"\n\n" +
+                        "Without this, CLI tools are silently skipped and everything else works normally."
+                    )
+                    .setPositiveButton("Got it") { _, _ -> }
+                    .setNeutralButton("Open Termux") { _, _ ->
+                        try {
+                            startActivity(packageManager.getLaunchIntentForPackage("com.termux"))
+                        } catch (_: Exception) {}
+                    }
+                    .show()
+            }
         }
     }
 

@@ -185,26 +185,28 @@ class OsintRepository(context: Context) {
         }
     }
 
-    private fun ddgHtmlSearch(query: String): List<DdgResult> = try {
-        val encoded = URLEncoder.encode(query, "UTF-8")
-        val req = Request.Builder()
-            .url("https://html.duckduckgo.com/html/?q=$encoded")
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            .header("Referer", "https://duckduckgo.com/")
-            .build()
-        val resp = fastHttpClient.newCall(req).execute()
-        val body = resp.body?.string() ?: ""
-        resp.close()
-        if (body.isBlank()) return emptyList()
-        val doc = Jsoup.parse(body)
-        doc.select(".result:not(.result--more), .result--web").take(12).mapNotNull { el ->
-            val title = el.selectFirst(".result__a, .result__title a")?.text()?.trim() ?: return@mapNotNull null
-            val snippet = el.selectFirst(".result__snippet, .result-snippet")?.text()?.trim() ?: ""
-            val url = el.selectFirst(".result__url, .result-url")?.text()?.trim() ?: ""
-            if (title.isBlank()) null else DdgResult(title, snippet, url)
-        }
-    } catch (_: Exception) { emptyList() }
+    private fun ddgHtmlSearch(query: String): List<DdgResult> {
+        return try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val req = Request.Builder()
+                .url("https://html.duckduckgo.com/html/?q=$encoded")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Referer", "https://duckduckgo.com/")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank()) return emptyList()
+            val doc = Jsoup.parse(body)
+            doc.select(".result:not(.result--more), .result--web").take(12).mapNotNull { el ->
+                val title = el.selectFirst(".result__a, .result__title a")?.text()?.trim() ?: return@mapNotNull null
+                val snippet = el.selectFirst(".result__snippet, .result-snippet")?.text()?.trim() ?: ""
+                val url = el.selectFirst(".result__url, .result-url")?.text()?.trim() ?: ""
+                if (title.isBlank()) null else DdgResult(title, snippet, url)
+            }
+        } catch (_: Exception) { emptyList() }
+    }
 
     private fun extractDataFromDdgResults(results: List<DdgResult>): ExtractedData {
         val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
