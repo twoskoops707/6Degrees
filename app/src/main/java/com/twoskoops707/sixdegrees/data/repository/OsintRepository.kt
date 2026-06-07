@@ -1673,7 +1673,11 @@ class OsintRepository(context: Context) {
                 send(SearchProgressEvent.NotFound("AI Brief"))
             }
 
-            val reportId = saveReport(query, null, sources.toList(), metadata.toMap())
+            val reportId = try {
+                saveReport(query, null, sources.toList(), metadata.toMap())
+            } catch (_: Exception) {
+                UUID.randomUUID().toString()
+            }
 
             if (effectiveType == "person" && round == 1) {
                 val allPersonRecords = scrapedPersonRecords.toList()

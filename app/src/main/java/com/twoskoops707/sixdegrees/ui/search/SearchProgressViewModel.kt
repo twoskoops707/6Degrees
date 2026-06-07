@@ -31,14 +31,18 @@ class SearchProgressViewModel(
     fun startSearch() {
         if (started) return
         started = true
-        val handler = CoroutineExceptionHandler { _, _ -> }
+        val handler = CoroutineExceptionHandler { _, throwable ->
+            viewModelScope.launch {
+                _events.emit(SearchProgressEvent.Failed("Search", throwable.message ?: "Unexpected error"))
+            }
+        }
         viewModelScope.launch(Dispatchers.IO + handler) {
             try {
                 repository.searchWithProgress(query, type, round).collect { event ->
                     _events.emit(event)
                 }
-            } catch (_: Exception) {
-                // search flow handles its own errors
+            } catch (e: Exception) {
+                _events.emit(SearchProgressEvent.Failed("Search", e.message ?: "Unexpected error"))
             }
         }
     }

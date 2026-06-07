@@ -41,7 +41,7 @@ abstract class OsintDatabase : RoomDatabase() {
                     context.applicationContext,
                     OsintDatabase::class.java,
                     "osint_database"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }

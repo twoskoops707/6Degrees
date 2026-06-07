@@ -192,17 +192,24 @@ class SearchProgressFragment : Fragment() {
                 updateCounts()
             }
             is SearchProgressEvent.Failed -> {
-                val idx = sourceRows.indexOfFirst { it.source == event.source }
-                if (idx != -1) {
-                    sourceRows[idx].state = SourceRow.State.FAILED
-                    sourceRows[idx].detail = event.reason
-                    adapter.notifyItemChanged(idx)
+                if (event.source == "Search") {
+                    binding.progressBar.visibility = View.GONE
+                    binding.tvEta.text = ""
+                    binding.tvStatus.text = "Search failed: ${event.reason}"
+                    binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
                 } else {
-                    sourceRows.add(SourceRow(event.source, SourceRow.State.FAILED, event.reason))
-                    adapter.notifyItemInserted(sourceRows.lastIndex)
+                    val idx = sourceRows.indexOfFirst { it.source == event.source }
+                    if (idx != -1) {
+                        sourceRows[idx].state = SourceRow.State.FAILED
+                        sourceRows[idx].detail = event.reason
+                        adapter.notifyItemChanged(idx)
+                    } else {
+                        sourceRows.add(SourceRow(event.source, SourceRow.State.FAILED, event.reason))
+                        adapter.notifyItemInserted(sourceRows.lastIndex)
+                    }
+                    checkedCount++
+                    updateCounts()
                 }
-                checkedCount++
-                updateCounts()
             }
             is SearchProgressEvent.Blocked -> {
                 val idx = sourceRows.indexOfFirst { it.source == event.source }
