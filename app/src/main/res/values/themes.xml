@@ -169,6 +169,7 @@
         <item name="android:navigationBarColor">@color/fi_ink</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FieldIntel.Small</item>
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
         <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
@@ -224,6 +225,7 @@
         <item name="android:navigationBarColor">@color/red_bg</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FieldIntel.Small</item>
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
         <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
@@ -279,6 +281,7 @@
         <item name="android:navigationBarColor">@color/hi_bg</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Tactical.Small</item>
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Tactical.Medium</item>
         <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Tactical.Medium</item>
