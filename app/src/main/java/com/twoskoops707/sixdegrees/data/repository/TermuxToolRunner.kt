@@ -21,8 +21,15 @@ class TermuxToolRunner(private val context: Context) {
         true
     } catch (_: PackageManager.NameNotFoundException) { false }
 
-    private fun isToolInstalled(name: String): Boolean =
-        File("/data/data/com.termux/files/usr/bin/$name").exists()
+    private fun isToolInstalled(name: String): Boolean {
+        val statusFile = File("/storage/emulated/0/.6degrees/.6d_tools_status.txt")
+        return if (statusFile.exists()) {
+            try { statusFile.readText().contains("${name.lowercase()}:ok") }
+            catch (_: Exception) { true }
+        } else {
+            true
+        }
+    }
 
     private fun fireCommand(cmd: String) {
         val intent = Intent().apply {

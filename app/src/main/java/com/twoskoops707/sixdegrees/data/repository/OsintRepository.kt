@@ -634,6 +634,380 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
+    private fun scrapeLeakCheck(query: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(query.trim().lowercase(), "UTF-8")
+            val req = Request.Builder()
+                .url("https://leakcheck.io/api/public?check=$encoded")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val found = json.optBoolean("found", false)
+            val sources = json.optJSONArray("sources")
+            if (!found || sources == null || sources.length() == 0) return ScrapeOut(false, false)
+            val sourceList = (0 until sources.length()).mapNotNull { sources.optJSONObject(it)?.optString("name") }.joinToString(", ")
+            ScrapeOut(true, false, mapOf(
+                "title" to "LeakCheck: ${sources.length()} breach(es)",
+                "snippet" to "Found in: $sourceList",
+                "breach_sources" to sourceList,
+                "breach_count" to sources.length().toString()
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeEmailRep(email: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(email.trim().lowercase(), "UTF-8")
+            val req = Request.Builder()
+                .url("https://emailrep.io/$encoded")
+                .header("User-Agent", "6Degrees OSINT/1.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val reputation = json.optString("reputation", "")
+            val suspicious = json.optBoolean("suspicious", false)
+            val refs = json.optInt("references", 0)
+            if (refs == 0 && reputation.isBlank()) return ScrapeOut(false, false)
+            val details = json.optJSONObject("details")
+            val fields = mutableMapOf<String, String>()
+            fields["title"] = "EmailRep: $email"
+            fields["snippet"] = "Reputation: $reputation | Suspicious: $suspicious | References: $refs"
+            if (details != null) {
+                details.optString("days_since_domain_creation", "").takeIf { it.isNotBlank() }
+                    ?.let { fields["domain_age_days"] = it }
+                details.optBoolean("spam", false).let { if (it) fields["spam_flag"] = "true" }
+                details.optJSONArray("profiles")?.let { arr ->
+                    val profiles = (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }
+                    if (profiles.isNotEmpty()) fields["linked_profiles"] = profiles.joinToString(", ")
+                }
+                details.optString("first_seen", "").takeIf { it.isNotBlank() }?.let { fields["first_seen"] = it }
+                details.optString("last_seen", "").takeIf { it.isNotBlank() }?.let { fields["last_seen"] = it }
+            }
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeGravatar(email: String): ScrapeOut {
+        return try {
+            val hash = java.security.MessageDigest.getInstance("MD5")
+                .digest(email.trim().lowercase().toByteArray())
+                .joinToString("") { "%02x".format(it) }
+            val req = Request.Builder()
+                .url("https://www.gravatar.com/$hash.json")
+                .header("User-Agent", "Mozilla/5.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 404 || body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val entry = json.optJSONArray("entry")?.optJSONObject(0) ?: return ScrapeOut(false, false)
+            val fields = mutableMapOf<String, String>()
+            val displayName = entry.optString("displayName", "")
+            val profileUrl = entry.optString("profileUrl", "")
+            val thumbnailUrl = entry.optString("thumbnailUrl", "")
+            val aboutMe = entry.optString("aboutMe", "")
+            val name = entry.optJSONObject("name")
+            val formattedName = name?.optString("formatted", "") ?: displayName
+            if (formattedName.isNotBlank()) fields["name"] = formattedName
+            if (displayName.isNotBlank()) fields["title"] = "Gravatar: $displayName"
+            else fields["title"] = "Gravatar profile found"
+            if (profileUrl.isNotBlank()) fields["profile_url"] = profileUrl
+            if (thumbnailUrl.isNotBlank()) {
+                fields["image_url"] = thumbnailUrl
+                fields["snippet"] = "Gravatar profile with photo: $formattedName"
+            } else {
+                fields["snippet"] = "Gravatar profile: $formattedName"
+            }
+            if (aboutMe.isNotBlank()) fields["about"] = aboutMe.take(200)
+            entry.optJSONArray("accounts")?.let { accounts ->
+                val linked = (0 until accounts.length()).mapNotNull { i ->
+                    val acc = accounts.optJSONObject(i) ?: return@mapNotNull null
+                    "${acc.optString("shortname", "")} (${acc.optString("display", "")})"
+                        .takeIf { it.length > 3 }
+                }.joinToString(", ")
+                if (linked.isNotBlank()) fields["linked_accounts"] = linked
+            }
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeCourtListener(query: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode("\"${query.trim()}\"", "UTF-8")
+            val req = Request.Builder()
+                .url("https://www.courtlistener.com/api/rest/v4/search/?q=$encoded&type=r&order_by=score+desc&page_size=5")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val count = json.optInt("count", 0)
+            if (count == 0) return ScrapeOut(false, false)
+            val results = json.optJSONArray("results") ?: return ScrapeOut(false, false)
+            val cases = mutableListOf<String>()
+            val urls = mutableListOf<String>()
+            for (i in 0 until minOf(5, results.length())) {
+                val r = results.optJSONObject(i) ?: continue
+                val caseName = r.optString("caseName", "")
+                val court = r.optString("court_citation_string", r.optString("court", ""))
+                val date = r.optString("dateFiled", "")
+                val absoluteUrl = r.optString("absolute_url", "")
+                if (caseName.isNotBlank()) {
+                    cases.add("$caseName${if (court.isNotBlank()) " ($court)" else ""}${if (date.isNotBlank()) " $date" else ""}")
+                }
+                if (absoluteUrl.isNotBlank()) urls.add("https://www.courtlistener.com$absoluteUrl")
+            }
+            if (cases.isEmpty()) return ScrapeOut(false, false)
+            ScrapeOut(true, false, mapOf(
+                "title" to "CourtListener: $count case(s) found",
+                "snippet" to cases.joinToString("\n").take(500),
+                "case_urls" to urls.joinToString("\n"),
+                "case_count" to count.toString()
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeGleif(name: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(name.trim(), "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.gleif.org/api/v1/fuzzycompletions?q=$encoded&field=entity.legalName")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val data = json.optJSONArray("data") ?: return ScrapeOut(false, false)
+            if (data.length() == 0) return ScrapeOut(false, false)
+            val entities = mutableListOf<String>()
+            for (i in 0 until minOf(5, data.length())) {
+                val item = data.optJSONObject(i) ?: continue
+                val attrs = item.optJSONObject("attributes") ?: continue
+                val legalName = attrs.optString("value", "")
+                if (legalName.isNotBlank()) entities.add(legalName)
+            }
+            if (entities.isEmpty()) return ScrapeOut(false, false)
+            ScrapeOut(true, false, mapOf(
+                "title" to "GLEIF: ${entities.size} legal entit(ies)",
+                "snippet" to entities.joinToString("\n"),
+                "legal_entities" to entities.joinToString("\n")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeIpApi(ip: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("http://ip-api.com/json/${URLEncoder.encode(ip.trim(), "UTF-8")}?fields=status,country,regionName,city,zip,lat,lon,isp,org,as,query,proxy,hosting")
+                .header("User-Agent", "Mozilla/5.0")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.optString("status") != "success") return ScrapeOut(false, false)
+            val city = json.optString("city", "")
+            val region = json.optString("regionName", "")
+            val country = json.optString("country", "")
+            val isp = json.optString("isp", "")
+            val org = json.optString("org", "")
+            val asn = json.optString("as", "")
+            val proxy = json.optBoolean("proxy", false)
+            val hosting = json.optBoolean("hosting", false)
+            val lat = json.optDouble("lat", 0.0)
+            val lon = json.optDouble("lon", 0.0)
+            val fields = mutableMapOf<String, String>()
+            fields["title"] = "ip-api: $ip"
+            fields["location"] = listOf(city, region, country).filter { it.isNotBlank() }.joinToString(", ")
+            fields["isp"] = isp
+            if (org.isNotBlank()) fields["org"] = org
+            if (asn.isNotBlank()) fields["asn"] = asn
+            if (lat != 0.0) fields["coords"] = "$lat, $lon"
+            fields["snippet"] = "${fields["location"]} | ISP: $isp${if (proxy) " | PROXY" else ""}${if (hosting) " | HOSTING" else ""}"
+            if (proxy) fields["proxy"] = "true"
+            if (hosting) fields["hosting"] = "true"
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeBgpView(ip: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://api.bgpview.io/ip/${URLEncoder.encode(ip.trim(), "UTF-8")}")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.optString("status") != "ok") return ScrapeOut(false, false)
+            val data = json.optJSONObject("data") ?: return ScrapeOut(false, false)
+            val prefixes = data.optJSONArray("prefixes") ?: return ScrapeOut(false, false)
+            if (prefixes.length() == 0) return ScrapeOut(false, false)
+            val prefix = prefixes.optJSONObject(0) ?: return ScrapeOut(false, false)
+            val asn = prefix.optJSONObject("asn")
+            val asnNum = asn?.optInt("asn", 0) ?: 0
+            val asnName = asn?.optString("name", "") ?: ""
+            val asnDesc = asn?.optString("description", "") ?: ""
+            val cidr = prefix.optString("prefix", "")
+            val country = prefix.optString("country_code", "")
+            ScrapeOut(true, false, mapOf(
+                "title" to "BGPView: AS$asnNum $asnName",
+                "snippet" to "ASN: AS$asnNum | Prefix: $cidr | Country: $country | Org: $asnDesc",
+                "asn" to "AS$asnNum",
+                "asn_name" to asnName,
+                "prefix" to cidr,
+                "country" to country
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeShodanInternetDB(ip: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://internetdb.shodan.io/${URLEncoder.encode(ip.trim(), "UTF-8")}")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 404 || body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.has("detail")) return ScrapeOut(false, false)
+            val ports = json.optJSONArray("ports")
+            val cves = json.optJSONArray("cpes")
+            val hostnames = json.optJSONArray("hostnames")
+            val tags = json.optJSONArray("tags")
+            val fields = mutableMapOf<String, String>()
+            fields["title"] = "Shodan InternetDB: $ip"
+            if (ports != null && ports.length() > 0) {
+                val portList = (0 until ports.length()).map { ports.optInt(it) }.joinToString(", ")
+                fields["open_ports"] = portList
+            }
+            if (cves != null && cves.length() > 0) {
+                val cveList = (0 until cves.length()).map { cves.optString(it) }.joinToString(", ")
+                fields["cves"] = cveList
+            }
+            if (hostnames != null && hostnames.length() > 0) {
+                val hnList = (0 until hostnames.length()).map { hostnames.optString(it) }.joinToString(", ")
+                fields["hostnames"] = hnList
+            }
+            if (tags != null && tags.length() > 0) {
+                val tagList = (0 until tags.length()).map { tags.optString(it) }.joinToString(", ")
+                fields["tags"] = tagList
+            }
+            fields["snippet"] = buildString {
+                fields["open_ports"]?.let { append("Ports: $it ") }
+                fields["hostnames"]?.let { append("| Hosts: $it ") }
+                fields["cves"]?.let { append("| CVEs: $it") }
+            }.trim().ifBlank { "No open ports or vulns" }
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeRdap(domain: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://rdap.org/domain/${URLEncoder.encode(domain.trim().lowercase(), "UTF-8")}")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val fields = mutableMapOf<String, String>()
+            val domainName = json.optString("ldhName", domain)
+            fields["title"] = "RDAP: $domainName"
+            json.optJSONArray("events")?.let { events ->
+                for (i in 0 until events.length()) {
+                    val ev = events.optJSONObject(i) ?: continue
+                    val action = ev.optString("eventAction", "")
+                    val date = ev.optString("eventDate", "").take(10)
+                    when (action) {
+                        "registration" -> fields["registered"] = date
+                        "expiration" -> fields["expires"] = date
+                        "last changed" -> fields["updated"] = date
+                    }
+                }
+            }
+            json.optJSONArray("nameservers")?.let { ns ->
+                val nameservers = (0 until ns.length()).mapNotNull { ns.optJSONObject(it)?.optString("ldhName") }.joinToString(", ")
+                if (nameservers.isNotBlank()) fields["nameservers"] = nameservers
+            }
+            json.optJSONArray("entities")?.let { entities ->
+                for (i in 0 until entities.length()) {
+                    val entity = entities.optJSONObject(i) ?: continue
+                    val roles = entity.optJSONArray("roles")
+                    val role = (0 until (roles?.length() ?: 0)).map { roles?.optString(it) }.joinToString(",")
+                    if (role.contains("registrant") || role.contains("registrar")) {
+                        entity.optJSONArray("vcardArray")?.optJSONArray(1)?.let { vcard ->
+                            for (j in 0 until vcard.length()) {
+                                val entry = vcard.optJSONArray(j) ?: continue
+                                if (entry.optString(0) == "fn") fields["registrant"] = entry.optString(3, "")
+                                if (entry.optString(0) == "org") fields["registrant_org"] = entry.optString(3, "")
+                            }
+                        }
+                    }
+                }
+            }
+            fields["snippet"] = buildString {
+                fields["registrant"]?.takeIf { it.isNotBlank() }?.let { append("Registrant: $it | ") }
+                fields["registered"]?.let { append("Reg: $it | ") }
+                fields["expires"]?.let { append("Exp: $it | ") }
+                fields["nameservers"]?.let { append("NS: $it") }
+            }.trimEnd(' ', '|').ifBlank { "RDAP data for $domainName" }
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun extractOgImage(url: String): String? {
+        return try {
+            val fullUrl = if (!url.startsWith("http")) "https://$url" else url
+            val req = Request.Builder().url(fullUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "text/html,application/xhtml+xml")
+                .build()
+            val client = OkHttpClient.Builder()
+                .connectTimeout(8, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .build()
+            val resp = client.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank()) return null
+            val doc = Jsoup.parse(body)
+            (doc.selectFirst("meta[property=og:image]")?.attr("content")
+                ?: doc.selectFirst("meta[name=twitter:image]")?.attr("content")
+                ?: doc.selectFirst("meta[name=twitter:image:src]")?.attr("content"))
+                ?.takeIf { it.startsWith("http") && !it.contains("placeholder") && !it.contains("default") }
+        } catch (_: Exception) { null }
+    }
+
     private fun fetchAvatarUrl(username: String, platform: String? = null): String? {
         return try {
             val url = if (platform != null) "https://unavatar.io/$platform/$username" else "https://unavatar.io/$username"
@@ -827,7 +1201,7 @@ class OsintRepository(context: Context) {
             coroutineScope {
                 when (effectiveType) {
                     "person", "comprehensive" -> {
-                        targetedScraperNames += setOf("Wikipedia", "Google News", "DarkSearch", "Pipl")
+                        targetedScraperNames += setOf("Wikipedia", "Google News", "DarkSearch", "Pipl", "CourtListener", "GLEIF")
                         launch { termuxRunner.ensureTorRunning().collect { send(it) } }
                         val personPhone = fields["phone"] ?: ""
                         val personEmail = fields["email"] ?: ""
@@ -880,6 +1254,24 @@ class OsintRepository(context: Context) {
                             handleScrapeOut("DarkSearch", "https://darksearch.io/api/search?query=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
+                            send(SearchProgressEvent.Checking("CourtListener"))
+                            val out = scrapeCourtListener(primaryQuery)
+                            if (out.found) {
+                                out.fields["case_count"]?.let { metadata["court_case_count"] = it }
+                                out.fields["snippet"]?.let { metadata["court_cases"] = it }
+                                out.fields["case_urls"]?.let { metadata["court_case_urls"] = it }
+                            }
+                            handleScrapeOut("CourtListener", "https://www.courtlistener.com/?q=${encode(primaryQuery)}&type=r", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("GLEIF"))
+                            val out = scrapeGleif(primaryQuery)
+                            if (out.found) {
+                                out.fields["legal_entities"]?.let { metadata["gleif_entities"] = it }
+                            }
+                            handleScrapeOut("GLEIF", "https://search.gleif.org/#/record/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("pipl")
                                 if (key.isNullOrBlank()) {
@@ -913,7 +1305,7 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "email", "breach" -> {
-                        targetedScraperNames += setOf("ProxyNova", "HackerTarget")
+                        targetedScraperNames += setOf("ProxyNova", "HackerTarget", "LeakCheck", "EmailRep", "Gravatar")
                         launch {
                             send(SearchProgressEvent.Checking("ProxyNova Breach"))
                             val out = scrapeProxyNova(primaryQuery)
@@ -923,6 +1315,36 @@ class OsintRepository(context: Context) {
                             send(SearchProgressEvent.Checking("HackerTarget Email"))
                             val out = scrapeHackerTarget(primaryQuery, "email")
                             handleScrapeOut("HackerTarget Email", "https://api.hackertarget.com/findemail/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("LeakCheck"))
+                            val out = scrapeLeakCheck(primaryQuery)
+                            if (out.found) {
+                                out.fields["breach_sources"]?.let { metadata["leakcheck_sources"] = it }
+                                out.fields["breach_count"]?.let { metadata["leakcheck_count"] = it }
+                            }
+                            handleScrapeOut("LeakCheck", "https://leakcheck.io/api/public?check=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("EmailRep"))
+                            val out = scrapeEmailRep(primaryQuery)
+                            if (out.found) {
+                                out.fields["linked_profiles"]?.let { metadata["emailrep_profiles"] = it }
+                                out.fields["spam_flag"]?.let { metadata["emailrep_spam"] = it }
+                                out.fields["first_seen"]?.let { metadata["emailrep_first_seen"] = it }
+                            }
+                            handleScrapeOut("EmailRep", "https://emailrep.io/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Gravatar"))
+                            val out = scrapeGravatar(primaryQuery)
+                            if (out.found) {
+                                out.fields["image_url"]?.let { if (metadata["profile_photo_url"].isNullOrBlank()) metadata["profile_photo_url"] = it }
+                                out.fields["name"]?.let { metadata["gravatar_name"] = it }
+                                out.fields["linked_accounts"]?.let { metadata["gravatar_accounts"] = it }
+                                out.fields["about"]?.let { metadata["gravatar_about"] = it }
+                            }
+                            handleScrapeOut("Gravatar", "https://gravatar.com/profile/avatars", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             semaphore.withPermit {
@@ -962,7 +1384,7 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "domain", "ip" -> {
-                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX", "crt.sh", "DarkSearch", "Google News")
+                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX", "crt.sh", "DarkSearch", "Google News", "ip-api", "BGPView", "Shodan InternetDB", "RDAP")
                         launch { termuxRunner.ensureTorRunning().collect { send(it) } }
                         launch {
                             send(SearchProgressEvent.Checking("HackerTarget Host"))
@@ -1036,6 +1458,51 @@ class OsintRepository(context: Context) {
                             send(SearchProgressEvent.Checking("Google News"))
                             val out = scrapeGoogleNews(primaryQuery)
                             handleScrapeOut("Google News", "https://news.google.com/rss/search?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("ip-api"))
+                            val ipQuery = primaryQuery
+                            val out = scrapeIpApi(ipQuery)
+                            if (out.found) {
+                                out.fields["location"]?.let { metadata["ip_location"] = it }
+                                out.fields["isp"]?.let { metadata["ip_isp"] = it }
+                                out.fields["asn"]?.let { metadata["ip_asn"] = it }
+                                out.fields["coords"]?.let { metadata["ip_coords"] = it }
+                                out.fields["proxy"]?.let { metadata["ip_proxy"] = it }
+                            }
+                            handleScrapeOut("ip-api", "http://ip-api.com/json/$ipQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("BGPView"))
+                            val out = scrapeBgpView(primaryQuery)
+                            if (out.found) {
+                                out.fields["asn"]?.let { metadata["bgp_asn"] = it }
+                                out.fields["asn_name"]?.let { metadata["bgp_asn_name"] = it }
+                                out.fields["prefix"]?.let { metadata["bgp_prefix"] = it }
+                            }
+                            handleScrapeOut("BGPView", "https://bgpview.io/ip/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Shodan InternetDB"))
+                            val out = scrapeShodanInternetDB(primaryQuery)
+                            if (out.found) {
+                                out.fields["open_ports"]?.let { metadata["shodan_ports"] = it }
+                                out.fields["cves"]?.let { metadata["shodan_cves"] = it }
+                                out.fields["hostnames"]?.let { metadata["shodan_hostnames"] = it }
+                            }
+                            handleScrapeOut("Shodan InternetDB", "https://internetdb.shodan.io/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("RDAP"))
+                            val out = scrapeRdap(primaryQuery)
+                            if (out.found) {
+                                out.fields["registrant"]?.let { metadata["rdap_registrant"] = it }
+                                out.fields["registrant_org"]?.let { metadata["rdap_org"] = it }
+                                out.fields["registered"]?.let { metadata["rdap_registered"] = it }
+                                out.fields["expires"]?.let { metadata["rdap_expires"] = it }
+                                out.fields["nameservers"]?.let { metadata["rdap_nameservers"] = it }
+                            }
+                            handleScrapeOut("RDAP", "https://rdap.org/domain/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
                     }
                     "phone" -> {

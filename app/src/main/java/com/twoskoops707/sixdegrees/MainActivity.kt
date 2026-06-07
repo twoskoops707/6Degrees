@@ -208,7 +208,7 @@ class MainActivity : AppCompatActivity() {
 
         val statusPath = "/storage/emulated/0/.6degrees/.6d_tools_status.txt"
         val outFile = java.io.File(statusPath)
-        val tools = listOf("sherlock", "maigret", "holehe", "tor", "theharvester")
+        val tools = listOf("sherlock", "maigret", "holehe", "tor", "theharvester", "nmap")
         val checks = tools.joinToString(" ; ") { t ->
             val bin = "/data/data/com.termux/files/usr/bin/$t"
             "[ -f $bin ] && echo $t:ok || echo $t:missing"
