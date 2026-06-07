@@ -39,12 +39,11 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="FOUNDATION"
+                android:text="// COMPANION APPS"
                 android:textColor="@color/fi_ash"
                 android:textSize="9sp"
                 android:fontFamily="monospace"
                 android:letterSpacing="0.18"
-                android:textAllCaps="true"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -56,14 +55,33 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="OSINT TOOLS"
-                android:textColor="@color/fi_ash"
+                android:text="// CLI — POWER USERS ONLY"
+                android:textColor="@color/fi_orange"
                 android:textSize="9sp"
                 android:fontFamily="monospace"
                 android:letterSpacing="0.18"
-                android:textAllCaps="true"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="10dp" />
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/fi_orange_dim"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="0dp"
+                app:strokeColor="@color/fi_orange"
+                app:strokeWidth="1dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="These tools require a terminal and Linux knowledge. Most users do not need them — 6Degrees works without any CLI tools installed."
+                    android:textColor="@color/fi_parchment"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:padding="12dp"
+                    android:lineSpacingMultiplier="1.3" />
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
                 android:id="@+id/container_browser"

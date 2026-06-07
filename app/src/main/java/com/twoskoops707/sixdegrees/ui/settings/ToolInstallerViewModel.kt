@@ -35,12 +35,23 @@ class ToolInstallerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val downloader = ApkDownloader(app)
 
-    val foundationApks = listOf(
+    val companionApks = listOf(
+        ApkEntry(
+            id = "orbot",
+            displayName = "Orbot: Tor for Android",
+            packageName = "org.torproject.android",
+            description = "Routes 6Degrees searches through the Tor anonymity network for anonymous OSINT",
+            downloadUrl = "https://f-droid.org/en/packages/org.torproject.android/",
+            fileName = ""
+        )
+    )
+
+    val cliApks = listOf(
         ApkEntry(
             id = "termux",
             displayName = "Termux",
             packageName = "com.termux",
-            description = "Terminal emulator and Linux environment",
+            description = "Terminal emulator — required to run sherlock, maigret, holehe and other CLI tools",
             downloadUrl = "https://f-droid.org/repo/com.termux_1020.apk",
             fileName = "termux.apk"
         ),
@@ -48,18 +59,15 @@ class ToolInstallerViewModel(app: Application) : AndroidViewModel(app) {
             id = "termux_api",
             displayName = "Termux:API",
             packageName = "com.termux.api",
-            description = "Access Android APIs from Termux scripts",
+            description = "Exposes Android APIs to Termux shell scripts",
             downloadUrl = "https://f-droid.org/repo/com.termux.api_51.apk",
             fileName = "termux_api.apk"
-        )
-    )
-
-    val browserApks = listOf(
+        ),
         ApkEntry(
             id = "nethunter",
             displayName = "NetHunter Rootless",
             packageName = "com.offsec.nethunter",
-            description = "Kali Linux tools without root",
+            description = "Kali Linux security tools without root",
             downloadUrl = "https://github.com/offensive-security/kali-nethunter-app/releases",
             fileName = ""
         ),
@@ -72,6 +80,8 @@ class ToolInstallerViewModel(app: Application) : AndroidViewModel(app) {
             fileName = ""
         )
     )
+
+    val foundationApks: List<ApkEntry> get() = cliApks.filter { it.fileName.isNotEmpty() }
 
     private val _installStates = MutableStateFlow<Map<String, InstallState>>(emptyMap())
     val installStates: StateFlow<Map<String, InstallState>> = _installStates

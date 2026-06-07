@@ -35,9 +35,73 @@ class ToolInstallerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
-        buildFoundationSection()
-        buildBrowserSection()
+        buildCompanionSection()
+        buildCliSection()
         observeStates()
+    }
+
+    private fun buildCompanionSection() {
+        val ctx = requireContext()
+        val d = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * d).toInt()
+
+        viewModel.companionApks.forEach { apk ->
+            val card = com.google.android.material.card.MaterialCardView(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = dp(10f) }
+                setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.fi_charcoal))
+                radius = 0f
+                cardElevation = 0f
+                strokeColor = ContextCompat.getColor(ctx, R.color.fi_border)
+                strokeWidth = dp(1f)
+            }
+            val inner = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(14f), dp(12f), dp(14f), dp(12f))
+            }
+            val textCol = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            textCol.addView(TextView(ctx).apply {
+                text = apk.displayName
+                textSize = 14f
+                setTextColor(ContextCompat.getColor(ctx, R.color.fi_parchment))
+                typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
+            })
+            textCol.addView(TextView(ctx).apply {
+                text = apk.description
+                textSize = 11f
+                setTextColor(ContextCompat.getColor(ctx, R.color.fi_ash))
+                typeface = android.graphics.Typeface.MONOSPACE
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.topMargin = dp(2f) }
+            })
+            val isInstalled = viewModel.isInstalled(apk.packageName)
+            val btn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = if (isInstalled) "INSTALLED" else "GET"
+                isEnabled = !isInstalled
+                textSize = 10f
+                letterSpacing = 0.1f
+                cornerRadius = 0
+                strokeColor = android.content.res.ColorStateList.valueOf(
+                    ContextCompat.getColor(ctx, if (isInstalled) R.color.fi_ash else R.color.fi_orange)
+                )
+                setTextColor(ContextCompat.getColor(ctx, if (isInstalled) R.color.fi_ash else R.color.fi_orange))
+                setOnClickListener {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apk.downloadUrl)))
+                }
+            }
+            inner.addView(textCol)
+            inner.addView(btn)
+            card.addView(inner)
+            binding.containerFoundation.addView(card)
+        }
     }
 
     private fun buildFoundationSection() {
@@ -45,7 +109,7 @@ class ToolInstallerFragment : Fragment() {
         val d = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * d).toInt()
 
-        viewModel.foundationApks.forEach { apk ->
+        viewModel.cliApks.filter { it.fileName.isNotEmpty() }.forEach { apk ->
             val card = com.google.android.material.card.MaterialCardView(ctx).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -119,12 +183,12 @@ class ToolInstallerFragment : Fragment() {
         }
     }
 
-    private fun buildBrowserSection() {
+    private fun buildCliSection() {
         val ctx = requireContext()
         val d = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * d).toInt()
 
-        viewModel.browserApks.forEach { apk ->
+        viewModel.cliApks.filter { it.fileName.isEmpty() }.forEach { apk ->
             val card = com.google.android.material.card.MaterialCardView(ctx).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
