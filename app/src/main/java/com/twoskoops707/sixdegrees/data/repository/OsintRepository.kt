@@ -237,7 +237,8 @@ class OsintRepository(context: Context) {
                 emailRegex.findAll(text).map { it.value.lowercase() }
                     .filter { !it.contains("example") && !it.endsWith(".png") && !it.endsWith(".jpg") }
                     .forEach { emails.add(it) }
-                Regex("""(?i)\d{1,5}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Pkwy)\b""").find(text)?.value?.trim()?.let { addresses.add(it) }
+                Regex("""(?i)\d{1,5}\s+[A-Za-z0-9][A-Za-z0-9\s]{1,35}\s+(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Pkwy|Road|Street|Avenue|Boulevard|Drive|Lane|Court)[,\s]+(?:[A-Za-z\s]{2,25}[,\s]+)?[A-Z]{2}[\s,]+\d{5}(?:-\d{4})?""")
+                    .find(text)?.value?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.length in 15..120 }?.let { addresses.add(it) }
                 Regex("""(?i)(?:relatives?|associates?|related\s+to|family)[:\s]+([^.\n]{5,80})""").find(text)?.groupValues?.get(1)?.split(",")?.forEach { rel ->
                     val name = rel.trim().take(40)
                     if (name.length > 3 && name.contains(" ")) relatives.add(name)
@@ -1563,8 +1564,7 @@ class OsintRepository(context: Context) {
                                 metadata["github_stats"] = out.fields["stats"] ?: ""
                                 val ghUrl = out.fields["profile_url"] ?: "https://github.com/$primaryQuery"
                                 metadata["github_url"] = ghUrl
-                                val existing = metadata["found_urls"]
-                                metadata["found_urls"] = if (existing.isNullOrBlank()) "GitHub: $ghUrl" else "$existing\nGitHub: $ghUrl"
+                                metadata.merge("found_urls", "GitHub: $ghUrl") { old, new -> "$old\n$new" }
                             }
                             handleScrapeOut("GitHub", "https://github.com/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
@@ -1575,8 +1575,7 @@ class OsintRepository(context: Context) {
                                 if (metadata["profile_photo_url"].isNullOrBlank()) out.fields["image_url"]?.let { metadata["profile_photo_url"] = it }
                                 val rdUrl = out.fields["profile_url"] ?: "https://www.reddit.com/user/$primaryQuery"
                                 metadata["reddit_url"] = rdUrl
-                                val existing = metadata["found_urls"]
-                                metadata["found_urls"] = if (existing.isNullOrBlank()) "Reddit: $rdUrl" else "$existing\nReddit: $rdUrl"
+                                metadata.merge("found_urls", "Reddit: $rdUrl") { old, new -> "$old\n$new" }
                             }
                             handleScrapeOut("Reddit", "https://www.reddit.com/user/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
@@ -1592,9 +1591,9 @@ class OsintRepository(context: Context) {
                                 }
                                 if (sherlockHits.isNotEmpty()) {
                                     metadata["sherlock_found"] = sherlockHits.joinToString("\n")
-                                    val existing = metadata["found_urls"]
-                                    val appended = sherlockHits.joinToString("\n")
-                                    metadata["found_urls"] = if (existing.isNullOrBlank()) appended else "$existing\n$appended"
+                                    sherlockHits.forEach { hit ->
+                                        metadata.merge("found_urls", hit) { old, new -> "$old\n$new" }
+                                    }
                                 }
                             }
                         }
@@ -1610,9 +1609,9 @@ class OsintRepository(context: Context) {
                                 }
                                 if (maigretHits.isNotEmpty()) {
                                     metadata["maigret_found"] = maigretHits.joinToString("\n")
-                                    val existing = metadata["found_urls"]
-                                    val appended = maigretHits.joinToString("\n")
-                                    metadata["found_urls"] = if (existing.isNullOrBlank()) appended else "$existing\n$appended"
+                                    maigretHits.forEach { hit ->
+                                        metadata.merge("found_urls", hit) { old, new -> "$old\n$new" }
+                                    }
                                 }
                             }
                         }
@@ -1683,7 +1682,7 @@ class OsintRepository(context: Context) {
                 if (distinctSocial.isNotEmpty()) metadata["search_social_links"] = distinctSocial.joinToString("\n")
                 if (distinctProfiles.isNotEmpty()) metadata["search_profile_links"] = distinctProfiles.joinToString("\n")
                 if (ddgSnippets.isNotEmpty()) metadata["search_snippets"] = ddgSnippets.distinct().take(20).joinToString("\n").take(3000)
-                if (distinctPhones.isNotEmpty() || distinctAges.isNotEmpty()) {
+                if (distinctPhones.isNotEmpty() || distinctAges.isNotEmpty() || stateFilteredAddresses.isNotEmpty() || distinctRelatives.isNotEmpty()) {
                     val rec = PersonRecord(
                         name = primaryQuery,
                         age = distinctAges.firstOrNull() ?: "",

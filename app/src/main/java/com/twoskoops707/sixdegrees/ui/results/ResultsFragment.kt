@@ -1544,10 +1544,10 @@ class ResultsFragment : Fragment() {
             meta[k]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         }
         listOf("search_phones", "tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
-               "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones", "phone_search_snippets")
+               "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
-                    phone.isNotBlank() && areaCodeRegex.find(phone)?.groupValues?.get(1) !in tollfree
+                    phone.isNotBlank() && areaCodeRegex.find(phone) != null && areaCodeRegex.find(phone)!!.groupValues[1] !in tollfree
                 }?.forEach { set.add(it) }
             }
         return set
