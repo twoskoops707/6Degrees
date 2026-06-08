@@ -1561,7 +1561,10 @@ class OsintRepository(context: Context) {
                                 out.fields["email"]?.let { metadata["github_email"] = it }
                                 out.fields["company"]?.let { metadata["github_company"] = it }
                                 metadata["github_stats"] = out.fields["stats"] ?: ""
-                                metadata["github_url"] = out.fields["profile_url"] ?: ""
+                                val ghUrl = out.fields["profile_url"] ?: "https://github.com/$primaryQuery"
+                                metadata["github_url"] = ghUrl
+                                val existing = metadata["found_urls"]
+                                metadata["found_urls"] = if (existing.isNullOrBlank()) "GitHub: $ghUrl" else "$existing\nGitHub: $ghUrl"
                             }
                             handleScrapeOut("GitHub", "https://github.com/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
@@ -1570,7 +1573,10 @@ class OsintRepository(context: Context) {
                             val out = scrapeReddit(primaryQuery)
                             if (out.found) {
                                 if (metadata["profile_photo_url"].isNullOrBlank()) out.fields["image_url"]?.let { metadata["profile_photo_url"] = it }
-                                metadata["reddit_url"] = out.fields["profile_url"] ?: ""
+                                val rdUrl = out.fields["profile_url"] ?: "https://www.reddit.com/user/$primaryQuery"
+                                metadata["reddit_url"] = rdUrl
+                                val existing = metadata["found_urls"]
+                                metadata["found_urls"] = if (existing.isNullOrBlank()) "Reddit: $rdUrl" else "$existing\nReddit: $rdUrl"
                             }
                             handleScrapeOut("Reddit", "https://www.reddit.com/user/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
@@ -1584,7 +1590,12 @@ class OsintRepository(context: Context) {
                                         sources.add(DataSource(event.source, event.detail, Date(), 0.75))
                                     }
                                 }
-                                if (sherlockHits.isNotEmpty()) metadata["sherlock_found"] = sherlockHits.joinToString("\n")
+                                if (sherlockHits.isNotEmpty()) {
+                                    metadata["sherlock_found"] = sherlockHits.joinToString("\n")
+                                    val existing = metadata["found_urls"]
+                                    val appended = sherlockHits.joinToString("\n")
+                                    metadata["found_urls"] = if (existing.isNullOrBlank()) appended else "$existing\n$appended"
+                                }
                             }
                         }
                         launch {
@@ -1597,7 +1608,12 @@ class OsintRepository(context: Context) {
                                         sources.add(DataSource(event.source, event.detail, Date(), 0.75))
                                     }
                                 }
-                                if (maigretHits.isNotEmpty()) metadata["maigret_found"] = maigretHits.joinToString("\n")
+                                if (maigretHits.isNotEmpty()) {
+                                    metadata["maigret_found"] = maigretHits.joinToString("\n")
+                                    val existing = metadata["found_urls"]
+                                    val appended = maigretHits.joinToString("\n")
+                                    metadata["found_urls"] = if (existing.isNullOrBlank()) appended else "$existing\n$appended"
+                                }
                             }
                         }
                         launch {

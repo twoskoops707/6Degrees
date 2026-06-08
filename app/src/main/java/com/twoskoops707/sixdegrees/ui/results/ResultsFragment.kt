@@ -1345,14 +1345,15 @@ class ResultsFragment : Fragment() {
 
     private fun buildUsernameProfiles(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
-        meta["github_profile"]?.takeIf { it.isNotBlank() }?.let { profile ->
+        val hasGitHub = !meta["github_url"].isNullOrBlank() || !meta["github_name"].isNullOrBlank()
+        if (hasGitHub) {
             rows.add(sec("GITHUB"))
-            Regex("\"name\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("Name" to it) }
-            Regex("\"bio\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("Bio" to it) }
-            Regex("\"company\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("Company" to it) }
-            Regex("\"location\":\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)?.let { rows.add("Location" to it) }
-            Regex("\"followers\":\\s*(\\d+)").find(profile)?.groupValues?.get(1)?.let { rows.add("Followers" to it) }
-            Regex("\"public_repos\":\\s*(\\d+)").find(profile)?.groupValues?.get(1)?.let { rows.add("Repos" to it) }
+            meta["github_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Name" to it) }
+            meta["github_company"]?.takeIf { it.isNotBlank() }?.let { rows.add("Company" to it) }
+            meta["github_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
+            meta["github_email"]?.takeIf { it.isNotBlank() }?.let { rows.add("Email" to it) }
+            meta["github_stats"]?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
+            meta["github_url"]?.takeIf { it.isNotBlank() }?.let { rows.add("Profile" to it) }
         }
         val hasKeybase = !meta["keybase_name"].isNullOrBlank()
         if (hasKeybase) {
