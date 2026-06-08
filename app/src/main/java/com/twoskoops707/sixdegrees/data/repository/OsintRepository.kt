@@ -208,10 +208,11 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { emptyList() }
     }
 
-    private fun extractDataFromDdgResults(results: List<DdgResult>): ExtractedData {
+    private fun extractDataFromDdgResults(results: List<DdgResult>, nameTokens: List<String> = emptyList()): ExtractedData {
         val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
         val emailRegex = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""")
         val ageRegex = Regex("""(?i)\bage[:\s]+(\d{2,3})\b|\b(\d{2,3})\s*years?\s*old\b|\baged?\s+(\d{2,3})\b""")
+        val tollfree = setOf("800", "888", "877", "866", "855", "844", "833")
         val socialDomains = setOf("linkedin.com", "facebook.com", "twitter.com", "instagram.com", "tiktok.com", "youtube.com", "pinterest.com", "reddit.com")
         val peopleDomains = setOf("fastpeoplesearch.com", "whitepages.com", "spokeo.com", "peoplefinder.com", "beenverified.com", "truepeoplesearch.com", "radaris.com", "thatsthem.com", "zabasearch.com", "411.com", "intelius.com", "truthfinder.com", "familytreenow.com", "usphonebook.com", "addresses.com")
         val phones = mutableListOf<String>()
@@ -222,12 +223,26 @@ class OsintRepository(context: Context) {
         val profileUrls = mutableListOf<String>()
         val snippets = mutableListOf<String>()
         val addresses = mutableListOf<String>()
+        val requiredMatches = if (nameTokens.size >= 2) 2 else 1
         for (r in results) {
             val text = "${r.title} ${r.snippet}"
-            phoneRegex.findAll(text).map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }.forEach { phones.add(it) }
-            emailRegex.findAll(text).map { it.value.lowercase() }
-                .filter { !it.contains("example") && !it.endsWith(".png") && !it.endsWith(".jpg") }
-                .forEach { emails.add(it) }
+            val textLower = text.lowercase()
+            val namePresent = nameTokens.isEmpty() ||
+                nameTokens.count { textLower.contains(it.lowercase()) } >= requiredMatches
+            if (namePresent) {
+                phoneRegex.findAll(text).forEach { m ->
+                    val area = m.groupValues[1]
+                    if (area !in tollfree) phones.add("(${area}) ${m.groupValues[2]}-${m.groupValues[3]}")
+                }
+                emailRegex.findAll(text).map { it.value.lowercase() }
+                    .filter { !it.contains("example") && !it.endsWith(".png") && !it.endsWith(".jpg") }
+                    .forEach { emails.add(it) }
+                Regex("""(?i)\d{1,5}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Pkwy)\b""").find(text)?.value?.trim()?.let { addresses.add(it) }
+                Regex("""(?i)(?:relatives?|associates?|related\s+to|family)[:\s]+([^.\n]{5,80})""").find(text)?.groupValues?.get(1)?.split(",")?.forEach { rel ->
+                    val name = rel.trim().take(40)
+                    if (name.length > 3 && name.contains(" ")) relatives.add(name)
+                }
+            }
             ageRegex.find(text)?.let { m ->
                 val age = m.groupValues.drop(1).firstOrNull { it.isNotBlank() }
                 if (age != null && (age.toIntOrNull() ?: 0) in 18..120) ages.add(age)
@@ -237,11 +252,6 @@ class OsintRepository(context: Context) {
             when {
                 socialDomains.any { urlLower.contains(it) } -> socialUrls.add(r.url)
                 peopleDomains.any { urlLower.contains(it) } -> profileUrls.add(r.url)
-            }
-            Regex("""(?i)\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:St|Ave|Blvd|Dr|Rd|Ln|Ct|Way|Pl|Pkwy)\b[.,]?""").find(text)?.value?.trim()?.let { addresses.add(it) }
-            Regex("""(?i)(?:relatives?|associates?|related\s+to|family)[:\s]+([^.\n]+)""").find(text)?.groupValues?.get(1)?.split(",")?.forEach { rel ->
-                val name = rel.trim().take(40)
-                if (name.length > 3 && name.contains(" ")) relatives.add(name)
             }
         }
         return ExtractedData(
@@ -1207,12 +1217,13 @@ class OsintRepository(context: Context) {
                         val personEmail = fields["email"] ?: ""
                         val personUsername = fields["username"] ?: ""
                         val personQueries = buildPersonQueries(primaryQuery, city, state, personPhone, personEmail, personUsername)
+                        val nameTokens = primaryQuery.lowercase().split(" ").filter { it.length > 1 }
                         for ((label, q) in personQueries) {
                             launch {
                                 semaphore.withPermit {
                                     send(SearchProgressEvent.Checking("DDG: $label"))
                                     val results = ddgHtmlSearch(q)
-                                    val extracted = extractDataFromDdgResults(results)
+                                    val extracted = extractDataFromDdgResults(results, nameTokens)
                                     if (results.isNotEmpty()) {
                                         sources.add(DataSource("DDG:$label", "https://html.duckduckgo.com/html/?q=${encode(q)}", Date(), 0.6))
                                         send(SearchProgressEvent.Found("DDG: $label", (extracted.snippets.firstOrNull() ?: results.firstOrNull()?.snippet ?: "").take(120)))
@@ -1638,14 +1649,21 @@ class OsintRepository(context: Context) {
                 val distinctEmails = ddgEmails.distinct().take(5)
                 val distinctRelatives = ddgRelatives.distinct().take(15)
                 val distinctAges = ddgAges.distinct()
-                val distinctAddresses = ddgAddresses.distinct().take(8)
+                val allAddresses = ddgAddresses.distinct()
+                val stateFilteredAddresses = if (state.isNotBlank()) {
+                    allAddresses.filter { addr ->
+                        addr.contains(state, ignoreCase = true) || (city.isNotBlank() && addr.contains(city, ignoreCase = true))
+                    }.ifEmpty { allAddresses.take(2) }
+                } else {
+                    allAddresses
+                }.take(8)
                 val distinctSocial = ddgSocial.distinct().take(10)
                 val distinctProfiles = ddgProfiles.distinct().take(10)
                 if (distinctPhones.isNotEmpty()) metadata["search_phones"] = distinctPhones.joinToString(", ")
                 if (distinctEmails.isNotEmpty()) metadata["search_emails"] = distinctEmails.joinToString(", ")
                 if (distinctRelatives.isNotEmpty()) metadata["search_relatives"] = distinctRelatives.joinToString(", ")
                 if (distinctAges.isNotEmpty()) metadata["search_age"] = distinctAges.first()
-                if (distinctAddresses.isNotEmpty()) metadata["search_addresses"] = distinctAddresses.joinToString("\n")
+                if (stateFilteredAddresses.isNotEmpty()) metadata["search_addresses"] = stateFilteredAddresses.joinToString("\n")
                 if (distinctSocial.isNotEmpty()) metadata["search_social_links"] = distinctSocial.joinToString("\n")
                 if (distinctProfiles.isNotEmpty()) metadata["search_profile_links"] = distinctProfiles.joinToString("\n")
                 if (ddgSnippets.isNotEmpty()) metadata["search_snippets"] = ddgSnippets.distinct().take(20).joinToString("\n").take(3000)
@@ -1653,14 +1671,32 @@ class OsintRepository(context: Context) {
                     val rec = PersonRecord(
                         name = primaryQuery,
                         age = distinctAges.firstOrNull() ?: "",
-                        location = distinctAddresses.firstOrNull()?.take(80) ?: locationStr,
+                        location = stateFilteredAddresses.firstOrNull()?.take(80) ?: locationStr,
                         phones = distinctPhones,
-                        address = distinctAddresses.firstOrNull() ?: locationStr,
+                        address = stateFilteredAddresses.firstOrNull() ?: locationStr,
                         relatives = distinctRelatives,
                         source = "DDG Search"
                     )
                     scrapedPersonRecords.add(rec)
                 }
+
+                val enc = { s: String -> URLEncoder.encode(s, "UTF-8") }
+                val locQ = listOf(city, state).filter { it.isNotBlank() }.joinToString("+")
+                val locEncoded = if (locQ.isNotBlank()) "+$locQ" else ""
+                val nameEnc = enc(primaryQuery)
+                val dorkLinks = listOf(
+                    "DDG: Name + Location" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22$locEncoded",
+                    "DDG: Phone Lookup" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+phone+number$locEncoded",
+                    "DDG: Address" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+address$locEncoded",
+                    "DDG: Criminal" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+criminal+arrest+record$locEncoded",
+                    "DDG: Relatives" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+relatives+family$locEncoded",
+                    "DDG: Employment" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+employer+job$locEncoded",
+                    "FastPeopleSearch" to "https://www.fastpeoplesearch.com/name/${enc(primaryQuery.replace(" ", "-"))}${if (state.isNotBlank()) "/${enc(state.lowercase())}" else ""}",
+                    "TruePeopleSearch" to "https://www.truepeoplesearch.com/results?name=$nameEnc&citystatezip=${enc(locationStr)}",
+                    "Whitepages" to "https://www.whitepages.com/name/${enc(primaryQuery.replace(" ", "-"))}",
+                    "CourtListener" to "https://www.courtlistener.com/?q=$nameEnc&type=p&order_by=score+desc"
+                ).joinToString("\n") { (label, url) -> "$label: $url" }
+                metadata["dork_search_links"] = dorkLinks
             }
 
             send(SearchProgressEvent.Checking("AI Brief"))

@@ -331,6 +331,14 @@ class ResultsFragment : Fragment() {
             allRel.take(12).forEach { rows.add("Name" to it) }
         }
 
+        meta["search_snippets"]?.takeIf { it.isNotBlank() }?.let { snips ->
+            val lines = snips.lines().filter { it.isNotBlank() }
+            if (lines.isNotEmpty()) {
+                rows.add(sec("WEB INTELLIGENCE"))
+                lines.take(10).forEach { rows.add("Result" to it.trim()) }
+            }
+        }
+
         val wikiExtract = meta["wikipedia_extract"]?.takeIf { it.isNotBlank() }
         if (wikiExtract != null) {
             rows.add(sec("WIKIPEDIA"))
@@ -409,6 +417,18 @@ class ResultsFragment : Fragment() {
         meta["dork_identity_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("IDENTITY INTEL (AUTO-DORK)"))
             it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Intel" to s.trim()) }
+        }
+
+        meta["dork_search_links"]?.takeIf { it.isNotBlank() }?.let { links ->
+            rows.add(sec("OPEN IN BROWSER"))
+            links.lines().filter { it.isNotBlank() }.forEach { line ->
+                val colonIdx = line.indexOf(": http")
+                if (colonIdx > 0) {
+                    val label = "⟶ ${line.substring(0, colonIdx)}"
+                    val url = line.substring(colonIdx + 2)
+                    rows.add(label to url)
+                }
+            }
         }
 
         if (rows.size <= 2) rows.add("Status" to "No identity data found for this subject")
