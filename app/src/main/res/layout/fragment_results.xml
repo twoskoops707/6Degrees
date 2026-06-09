@@ -78,6 +78,7 @@
             android:gravity="center" />
 
         <TextView
+            android:id="@+id/tv_empty_message"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/results_empty_message"

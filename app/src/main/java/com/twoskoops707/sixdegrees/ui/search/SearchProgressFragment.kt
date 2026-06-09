@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -273,6 +274,7 @@ class SearchProgressFragment : Fragment() {
                     binding.tvEta.text = ""
                     binding.tvStatus.text = "Search failed: ${event.reason}"
                     binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
+                    Toast.makeText(requireContext(), event.reason, Toast.LENGTH_LONG).show()
                 } else {
                     if (investigatorMode) updateSourceRow(event.source, SourceRow.State.FAILED, event.reason)
                     checkedCount++
@@ -359,6 +361,12 @@ class SearchProgressFragment : Fragment() {
                     alpha = 0f
                     animate().alpha(1f).setDuration(400).start()
                 }
+                if (!investigatorMode) {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        delay(1_200)
+                        navigateToResults(completedReportId)
+                    }
+                }
             }
         }
     }
@@ -399,7 +407,8 @@ class SearchProgressFragment : Fragment() {
             val elapsedMs = System.currentTimeMillis() - searchStartMs
             val minMs = SubjectSearchOrchestrator.minimumDurationMs(
                 if (currentRound > 1 || currentType == "comprehensive") SearchPhase.DEEP_INVESTIGATION
-                else SearchPhase.CANDIDATE_DISCOVERY
+                else SearchPhase.CANDIDATE_DISCOVERY,
+                fastMode = !investigatorMode
             )
             if (checkedCount > 0 && checkedCount < total && elapsedMs < minMs) {
                 val remainingMs = (minMs - elapsedMs).coerceAtLeast(0)

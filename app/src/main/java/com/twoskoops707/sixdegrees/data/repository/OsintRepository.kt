@@ -2705,7 +2705,8 @@ class OsintRepository(context: Context) {
             val metadata = ConcurrentHashMap<String, String>()
             val effectiveType = if (type == "scan") "person" else type
             val searchPhase = SubjectSearchOrchestrator.resolvePhase(type, round, subjectProfile)
-            val minPhaseMs = SubjectSearchOrchestrator.minimumDurationMs(searchPhase)
+            val fastMode = !AppSettings.isInvestigatorMode(appCtx)
+            val minPhaseMs = SubjectSearchOrchestrator.minimumDurationMs(searchPhase, fastMode)
             send(SearchProgressEvent.PhaseUpdate(
                 SubjectSearchOrchestrator.phaseLabel(searchPhase),
                 SubjectSearchOrchestrator.phaseDurationHint(searchPhase)
@@ -3996,7 +3997,7 @@ class OsintRepository(context: Context) {
             }
 
             val nameTokens = primaryQuery.lowercase().split(" ").filter { it.length > 1 }
-            if (System.currentTimeMillis() - searchStartMs < SubjectSearchOrchestrator.SECONDARY_PASS_THRESHOLD_MS ||
+            if (System.currentTimeMillis() - searchStartMs < SubjectSearchOrchestrator.secondaryPassThresholdMs(fastMode) ||
                 System.currentTimeMillis() - searchStartMs < minPhaseMs
             ) {
                 runSecondaryPassesUntilMinimum(

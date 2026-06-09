@@ -132,6 +132,7 @@
     <!-- Results screen -->
     <string name="results_empty_title">No Report Yet</string>
     <string name="results_empty_message">Choose an investigation type on the main screen, fill in what you know, and tap Investigate.</string>
+    <string name="results_no_findings">No findings yet — try adding a city or full name.</string>
     <string name="results_risk_label">Safe to meet?</string>
     <string name="results_risk_calculating">Assessing red flags…</string>
 

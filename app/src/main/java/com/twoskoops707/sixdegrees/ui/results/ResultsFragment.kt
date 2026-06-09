@@ -53,7 +53,7 @@ class ResultsFragment : Fragment() {
         viewModel.state.observe(viewLifecycleOwner) { state ->
             when {
                 state.isLoading -> showLoading()
-                state.error != null -> showEmptyState()
+                state.error != null -> showEmptyState(state.error)
                 state.report != null -> {
                     showResults()
                     populateReport(state)
@@ -2053,10 +2053,12 @@ class ResultsFragment : Fragment() {
         InvestigationPipelineView.bind(binding.resultsContent, InvestigationStep.DOSSIER)
     }
 
-    private fun showEmptyState() {
+    private fun showEmptyState(message: String? = null) {
         binding.loadingIndicator.visibility = View.GONE
         binding.resultsContent.visibility = View.GONE
         binding.emptyState.visibility = View.VISIBLE
+        binding.tvEmptyMessage.text = message
+            ?: getString(R.string.results_empty_message)
     }
 
     override fun onDestroyView() {

@@ -156,6 +156,10 @@ object DossierBuilder {
         if (investigatorMode) buildSections(meta, searchType) else buildSimpleSections(meta, searchType)
 
     fun buildSections(meta: Map<String, String>, searchType: String): List<DossierSection> {
+        when (searchType) {
+            "phone" -> return buildPhoneSections(meta)
+            "email", "breach" -> return buildEmailSections(meta)
+        }
         if (searchType !in setOf("person", "scan", "comprehensive")) {
             return listOf(buildLegacyFallback(meta))
         }
@@ -179,6 +183,10 @@ object DossierBuilder {
     }
 
     fun buildSimpleSections(meta: Map<String, String>, searchType: String): List<DossierSection> {
+        when (searchType) {
+            "phone" -> return buildPhoneSimpleSections(meta)
+            "email", "breach" -> return buildEmailSimpleSections(meta)
+        }
         if (searchType !in setOf("person", "scan", "comprehensive")) {
             return listOf(buildLegacyFallback(meta))
         }
@@ -302,6 +310,105 @@ object DossierBuilder {
             verdict = verdict,
             detail = detail,
             displayValue = if (score == 0) "✓" else score.toString()
+        )
+    }
+
+    private fun buildPhoneSections(meta: Map<String, String>): List<DossierSection> {
+        val intel = mutableListOf<DossierFinding>()
+        meta["person_phone"]?.takeIf { it.isNotBlank() }
+            ?.let { intel.add(finding(it, "Search Input", DossierConfidence.HIGH, "Number")) }
+        listOf(
+            "libphone_valid" to "Valid",
+            "libphone_carrier" to "Carrier",
+            "libphone_location" to "Location",
+            "libphone_line_type" to "Line Type",
+            "libphone_country" to "Country",
+            "numverify_carrier" to "Carrier",
+            "numverify_location" to "Location",
+            "numverify_line_type" to "Line Type",
+            "calltracer_carrier" to "Carrier",
+            "calltracer_location" to "Location",
+            "calltracer_spam_score" to "Spam Score",
+            "calltracer_spam_reports" to "Spam Reports"
+        ).forEach { (key, label) ->
+            meta[key]?.takeIf { it.isNotBlank() }?.let {
+                intel.add(finding(it, sourceFromKey(key), confidenceFromKey(key), label))
+            }
+        }
+        meta["phone_search_snippets"]?.lines()?.filter { it.isNotBlank() }?.take(6)?.forEach { line ->
+            intel.add(finding(line.trim(), "Web Search", DossierConfidence.MEDIUM, "Mention"))
+        }
+        meta["800notes_snippet"]?.takeIf { it.isNotBlank() }
+            ?.let { intel.add(finding(it, "800notes", DossierConfidence.MEDIUM, "Caller Reports")) }
+        meta["tt_names"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
+            intel.add(finding(name, "ThatsThem", DossierConfidence.MEDIUM, "Possible Owner"))
+        }
+        meta["fps_names"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
+            intel.add(finding(name, "FastPeopleSearch", DossierConfidence.MEDIUM, "Possible Owner"))
+        }
+        meta["ai_executive_summary"]?.lines()?.filter { it.isNotBlank() }?.take(3)?.forEach { line ->
+            intel.add(finding(line.trim(), "AI Brief", DossierConfidence.MEDIUM, "Summary"))
+        }
+        val contact = buildContactSection(meta)
+        val legal = buildLegalSection(meta)
+        val dark = buildDarkWebSection(meta)
+        return listOf(
+            DossierSection(
+                "phone", "Phone Intel", "☎",
+                intel.ifEmpty { listOf(finding("No phone-specific findings yet", "SixDegrees", DossierConfidence.LOW)) }
+            ),
+            contact,
+            legal,
+            dark,
+            buildAiSection(meta)
+        ).filter { !it.isEmpty }
+    }
+
+    private fun buildPhoneSimpleSections(meta: Map<String, String>): List<DossierSection> {
+        val full = buildPhoneSections(meta)
+        val intel = full.firstOrNull { it.id == "phone" }?.findings.orEmpty()
+        val owners = intel.filter { it.label == "Possible Owner" || it.label == "Matched Name" }
+        val carrier = intel.filter {
+            it.label in setOf("Carrier", "Location", "Line Type", "Valid", "Spam Score", "Spam Reports")
+        }
+        val mentions = intel.filter { it.label in setOf("Mention", "Caller Reports", "Summary") }
+        val flags = full.flatMap { it.findings }.filter { it.isWarning || isRedFlagFinding(it) }
+        return listOf(
+            DossierSection("who", "Who owns this number?", "👤", owners.ifEmpty {
+                mentions.take(3).ifEmpty {
+                    listOf(finding("No owner name found in public records", "SixDegrees", DossierConfidence.LOW))
+                }
+            }),
+            DossierSection("carrier", "Carrier & location", "📡", carrier.ifEmpty {
+                listOf(finding("Carrier details not available", "SixDegrees", DossierConfidence.LOW))
+            }),
+            DossierSection("flags", "Red flags", "⚠", flags.ifEmpty {
+                listOf(finding("Nothing alarming turned up for this number", "SixDegrees", DossierConfidence.LOW))
+            }),
+            DossierSection("mentions", "What people say", "💬", mentions.ifEmpty {
+                listOf(finding("No public comments found for this number", "SixDegrees", DossierConfidence.LOW))
+            })
+        )
+    }
+
+    private fun buildEmailSections(meta: Map<String, String>): List<DossierSection> =
+        listOf(buildContactSection(meta), buildDigitalSection(meta), buildLegalSection(meta), buildAiSection(meta))
+            .filter { !it.isEmpty }
+
+    private fun buildEmailSimpleSections(meta: Map<String, String>): List<DossierSection> {
+        val contact = buildContactSection(meta)
+        val digital = buildDigitalSection(meta)
+        val legal = buildLegalSection(meta)
+        return listOf(
+            DossierSection("email", "Email profile", "✉", contact.findings.ifEmpty {
+                listOf(finding("No email profile data found", "SixDegrees", DossierConfidence.LOW))
+            }),
+            DossierSection("digital", "Online footprint", "🌐", digital.findings.ifEmpty {
+                listOf(finding("No linked accounts found", "SixDegrees", DossierConfidence.LOW))
+            }),
+            DossierSection("flags", "Red flags", "⚠", legal.findings.filter { it.isWarning || isRedFlagFinding(it) }.ifEmpty {
+                listOf(finding("No breaches or legal hits found", "SixDegrees", DossierConfidence.LOW))
+            })
         )
     }
 

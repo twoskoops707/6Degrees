@@ -56,8 +56,13 @@ object SubjectSearchOrchestrator {
     /** Phase 2 target: 5–8 minutes of deep investigation work. */
     const val MIN_DEEP_MS = 300_000L
 
+    /** Simple mode: enough time for parallel scrapers without feeling stuck. */
+    const val MIN_DISCOVERY_FAST_MS = 25_000L
+    const val MIN_DEEP_FAST_MS = 45_000L
+
     /** Floor before secondary DDG passes kick in. */
     const val SECONDARY_PASS_THRESHOLD_MS = 180_000L
+    const val SECONDARY_PASS_THRESHOLD_FAST_MS = 35_000L
 
     fun resolvePhase(type: String, round: Int, profile: SubjectProfile): SearchPhase {
         val effectiveType = if (type == "scan") "person" else type
@@ -72,10 +77,15 @@ object SubjectSearchOrchestrator {
         }
     }
 
-    fun minimumDurationMs(phase: SearchPhase): Long = when (phase) {
-        SearchPhase.CANDIDATE_DISCOVERY -> MIN_DISCOVERY_MS
-        SearchPhase.DEEP_INVESTIGATION -> MIN_DEEP_MS
+    fun minimumDurationMs(phase: SearchPhase, fastMode: Boolean = false): Long = when (phase) {
+        SearchPhase.CANDIDATE_DISCOVERY ->
+            if (fastMode) MIN_DISCOVERY_FAST_MS else MIN_DISCOVERY_MS
+        SearchPhase.DEEP_INVESTIGATION ->
+            if (fastMode) MIN_DEEP_FAST_MS else MIN_DEEP_MS
     }
+
+    fun secondaryPassThresholdMs(fastMode: Boolean = false): Long =
+        if (fastMode) SECONDARY_PASS_THRESHOLD_FAST_MS else SECONDARY_PASS_THRESHOLD_MS
 
     fun phaseLabel(phase: SearchPhase): String = when (phase) {
         SearchPhase.CANDIDATE_DISCOVERY -> "Discovery"
