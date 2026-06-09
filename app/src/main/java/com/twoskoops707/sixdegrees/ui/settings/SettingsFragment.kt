@@ -12,13 +12,34 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.card.MaterialCardView
 import com.twoskoops707.sixdegrees.BuildConfig
 import com.twoskoops707.sixdegrees.R
+import com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner
 import com.twoskoops707.sixdegrees.databinding.FragmentSettingsBinding
+import com.twoskoops707.sixdegrees.tor.TorBootstrapManager
 
 class SettingsFragment : Fragment() {
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
     private var isInitializing = true
+
+    override fun onResume() {
+        super.onResume()
+        refreshInfrastructureStatus()
+    }
+
+    private fun refreshInfrastructureStatus() {
+        if (_binding == null) return
+        val ctx = requireContext()
+        val runner = TermuxToolRunner(ctx)
+        val summary = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            .getString("infra_status_summary", null)
+            ?: runner.infrastructureSummary()
+        binding.tvInfraStatus.text = summary
+        binding.tvInfraStatus.visibility = View.VISIBLE
+        if (TorBootstrapManager.isPortOpen()) {
+            binding.tvInfraStatus.setTextColor(ContextCompat.getColor(ctx, R.color.score_green))
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,6 +68,8 @@ class SettingsFragment : Fragment() {
         binding.toolInstallerRow.setOnClickListener {
             findNavController().navigate(R.id.action_settings_to_tool_installer)
         }
+
+        refreshInfrastructureStatus()
 
         binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME}"
 

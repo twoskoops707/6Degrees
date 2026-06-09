@@ -15,6 +15,14 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("clearbit", "") ?: ""
         set(v) { prefs.edit().putString("clearbit", v).apply() }
 
+    var opensanctionsKey: String
+        get() = prefs.getString("opensanctions", "") ?: ""
+        set(v) { prefs.edit().putString("opensanctions", v).apply() }
+
+    var opencorporatesKey: String
+        get() = prefs.getString("opencorporates", "") ?: ""
+        set(v) { prefs.edit().putString("opencorporates", v).apply() }
+
     var pdlKey: String
         get() = prefs.getString("pdl", "") ?: ""
         set(v) { prefs.edit().putString("pdl", v).apply() }
@@ -148,6 +156,16 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("google_safebrowsing", "") ?: ""
         set(v) { prefs.edit().putString("google_safebrowsing", v).apply() }
 
+    /** OpenRouter — structured OSINT dossier synthesis (free tier models available). https://openrouter.ai/keys */
+    var openrouterKey: String
+        get() = prefs.getString("openrouter", "") ?: ""
+        set(v) { prefs.edit().putString("openrouter", v).apply() }
+
+    /** Optional override for OpenRouter model id (default: meta-llama/llama-3.3-70b-instruct:free). */
+    var openrouterModel: String
+        get() = prefs.getString("openrouter_model", "") ?: ""
+        set(v) { prefs.edit().putString("openrouter_model", v).apply() }
+
     fun getKey(service: String): String? =
         prefs.getString(service, null)?.takeIf { it.isNotBlank() }
 
@@ -227,6 +245,7 @@ class ApiKeyManager(context: Context) {
         ApiUsageSummary("FullHunt", getMonthlyUsage("fullhunt"), 100, isUnlimited = fullHuntKey.isBlank()),
         ApiUsageSummary("Tomba", getMonthlyUsage("tomba"), 25, isUnlimited = tombaKey.isBlank()),
         ApiUsageSummary("MarkerAPI", getMonthlyUsage("markerapi"), Int.MAX_VALUE, isUnlimited = true),
-        ApiUsageSummary("Google SafeBrowsing", getMonthlyUsage("safebrowsing"), Int.MAX_VALUE, isUnlimited = false)
+        ApiUsageSummary("Google SafeBrowsing", getMonthlyUsage("safebrowsing"), Int.MAX_VALUE, isUnlimited = false),
+        ApiUsageSummary("OpenRouter AI", getMonthlyUsage("openrouter"), 50, isUnlimited = openrouterKey.isBlank())
     )
 }

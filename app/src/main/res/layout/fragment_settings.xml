@@ -134,6 +134,19 @@
                         app:tint="@color/text_secondary" />
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/tv_infra_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="10dp"
+                    android:textSize="11sp"
+                    android:textColor="@color/text_secondary"
+                    android:fontFamily="monospace"
+                    android:visibility="gone" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"

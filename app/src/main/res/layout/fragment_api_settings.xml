@@ -933,6 +933,51 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
                         <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="OpenRouter AI"
+                            android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Free tier" android:textColor="@color/success" android:textSize="11sp" />
+                    </LinearLayout>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Structured OSINT dossier synthesis — executive summary, findings, confidence, next steps"
+                        android:textColor="?attr/colorControlNormal" android:textSize="11sp"
+                        android:layout_marginBottom="6dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/openrouter_key_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="@string/openrouter_api_key_hint"
+                        app:endIconMode="password_toggle"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/openrouter_api_key_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textPassword" android:textColor="?attr/colorOnSurface" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/openrouter_model_layout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="@string/openrouter_model_hint"
+                        app:boxBackgroundColor="@color/surface_elevated"
+                        app:boxStrokeColor="@color/border"
+                        app:hintTextColor="@color/text_secondary">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/openrouter_model_input"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:textColor="?attr/colorOnSurface" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/border" android:layout_marginVertical="14dp" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                             android:layout_weight="1" android:text="Intelligence X (IntelX)"
                             android:textColor="?attr/colorOnSurface" android:textSize="14sp" android:textStyle="bold" />
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"

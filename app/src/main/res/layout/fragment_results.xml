@@ -12,7 +12,8 @@
         style="@style/Widget.SixDegrees.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        app:title="@string/results_title">
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:title="@string/dossier_title">
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -94,6 +95,8 @@
         android:layout_weight="1"
         android:orientation="vertical"
         android:visibility="gone">
+
+        <include layout="@layout/include_investigation_pipeline" />
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/person_card"
@@ -303,28 +306,31 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <View
+        <LinearLayout
+            android:id="@+id/dossier_alerts_container"
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="12dp"
-            android:layout_marginEnd="12dp"
-            android:background="?attr/colorOutline" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="4dp" />
 
-        <androidx.core.widget.NestedScrollView
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/dossier_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/colorSurface"
+            app:tabMode="scrollable"
+            app:tabGravity="start"
+            app:tabIndicatorColor="?attr/colorPrimary"
+            app:tabSelectedTextColor="?attr/colorPrimary"
+            app:tabTextColor="?attr/colorOnSurfaceVariant"
+            app:tabRippleColor="?attr/colorPrimary" />
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/dossier_pager"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:clipToPadding="false">
-
-            <LinearLayout
-                android:id="@+id/accordion_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp"
-                android:paddingBottom="80dp" />
-
-        </androidx.core.widget.NestedScrollView>
+            android:layout_weight="1" />
 
     </LinearLayout>
 

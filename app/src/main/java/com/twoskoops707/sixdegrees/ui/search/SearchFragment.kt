@@ -21,6 +21,8 @@ import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentSearchBinding
+import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
+import com.twoskoops707.sixdegrees.ui.common.InvestigationStep
 import java.io.File
 
 class SearchFragment : Fragment() {
@@ -85,6 +87,8 @@ class SearchFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        InvestigationPipelineView.bind(binding.root, InvestigationStep.INTAKE)
 
         setupEntityTypeSelector()
 

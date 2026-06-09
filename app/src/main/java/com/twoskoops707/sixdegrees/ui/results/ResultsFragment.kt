@@ -20,9 +20,12 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import coil.load
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.tabs.TabLayoutMediator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
+import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
+import com.twoskoops707.sixdegrees.ui.common.InvestigationStep
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -169,7 +172,7 @@ class ResultsFragment : Fragment() {
         }
 
         val sections = buildTabs(enrichedMeta, searchType)
-        buildAccordion(sections)
+        setupDossierTabs(sections)
         buildCandidateDisambiguation(enrichedMeta)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
@@ -194,9 +197,9 @@ class ResultsFragment : Fragment() {
         val enteredCity = meta["person_city"]?.trim()?.lowercase() ?: ""
         val enteredState = meta["person_state"]?.trim()?.lowercase() ?: ""
         val allLocs = listOfNotNull(
-            meta["search_addresses"], meta["tps_locations"], meta["zaba_locations"], meta["411_locations"],
-            meta["ftn_locations"], meta["voter_addresses"], meta["uspb_addresses"],
-            meta["tt_locations"], meta["fps_locations"], meta["radaris_locations"],
+            meta["search_addresses"], meta["ddg_addresses"], meta["tps_locations"], meta["zaba_locations"], meta["411_locations"],
+            meta["ftn_locations"], meta["voter_addresses"], meta["uspb_addresses"], meta["pdl_address"], meta["pdl_location"],
+            meta["tt_locations"], meta["tt_addresses"], meta["fps_locations"], meta["fps_addresses"], meta["radaris_locations"],
             meta["peekyou_locations"], meta["nuwber_locations"], meta["wp_locations"]
         ).flatMap { it.split(" | ").flatMap { s -> s.split("\n") } }.map { it.trim() }.filter { it.isNotBlank() }
         if (enteredCity.isNotBlank() || enteredState.isNotBlank()) {
@@ -213,57 +216,59 @@ class ResultsFragment : Fragment() {
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
         return when (type) {
             "person", "scan" -> listOf(
-                "OVERVIEW" to buildPersonOverview(meta),
-                "CONTACTS" to buildPersonContacts(meta),
-                "LEGAL" to buildPersonLegal(meta),
-                "INTEL" to buildPersonIntel(meta)
+                getString(R.string.dossier_tab_subject) to buildPersonOverview(meta),
+                getString(R.string.dossier_tab_contacts) to buildPersonContacts(meta),
+                getString(R.string.dossier_tab_digital) to buildPersonDigitalTrace(meta),
+                getString(R.string.dossier_tab_legal) to buildPersonLegal(meta),
+                getString(R.string.dossier_tab_intel) to buildPersonIntel(meta)
             )
             "email" -> listOf(
-                "OVERVIEW" to buildEmailOverview(meta),
-                "BREACHES" to buildEmailBreaches(meta),
-                "IDENTITY" to buildEmailIdentity(meta)
+                getString(R.string.dossier_tab_subject) to buildEmailOverview(meta),
+                getString(R.string.dossier_tab_breaches) to buildEmailBreaches(meta),
+                getString(R.string.dossier_tab_identity) to buildEmailIdentity(meta)
             )
             "ip", "domain" -> {
                 val tabs = mutableListOf(
-                    "NETWORK" to buildIpNetwork(meta),
-                    "THREATS" to buildIpThreats(meta)
+                    getString(R.string.dossier_tab_network) to buildIpNetwork(meta),
+                    getString(R.string.dossier_tab_threats) to buildIpThreats(meta)
                 )
                 val hasDomain = !meta["rdap_registrar"].isNullOrBlank() || !meta["whois"].isNullOrBlank()
                     || !meta["subdomains"].isNullOrBlank()
-                if (hasDomain) tabs.add("DOMAIN" to buildIpDomain(meta))
+                if (hasDomain) tabs.add(getString(R.string.dossier_tab_domain) to buildIpDomain(meta))
                 tabs
             }
             "username" -> listOf(
-                "FOUND" to buildUsernameFound(meta),
-                "PROFILES" to buildUsernameProfiles(meta)
+                getString(R.string.dossier_tab_handles) to buildUsernameFound(meta),
+                getString(R.string.dossier_tab_profiles) to buildUsernameProfiles(meta)
             )
             "phone" -> listOf(
-                "VALIDATION" to buildPhoneValidation(meta),
-                "RISK" to buildPhoneRisk(meta)
+                getString(R.string.dossier_tab_validation) to buildPhoneValidation(meta),
+                getString(R.string.dossier_tab_risk) to buildPhoneRisk(meta)
             )
             "company" -> listOf(
-                "RECORDS" to buildCompanyRecords(meta),
-                "OFFICERS" to buildCompanyOfficers(meta),
-                "FILINGS" to buildCompanyFilings(meta)
+                getString(R.string.dossier_tab_corporate) to buildCompanyRecords(meta),
+                getString(R.string.dossier_tab_officers) to buildCompanyOfficers(meta),
+                getString(R.string.dossier_tab_filings) to buildCompanyFilings(meta)
             )
             "image" -> listOf(
-                "FACE SEARCH" to buildImageFace(meta),
-                "REVERSE IMG" to buildImageReverse(meta)
+                getString(R.string.dossier_tab_face) to buildImageFace(meta),
+                getString(R.string.dossier_tab_reverse) to buildImageReverse(meta)
             )
             "comprehensive" -> {
                 val tabs = mutableListOf(
-                    "SUBJECT" to buildPersonOverview(meta),
-                    "CONTACTS" to buildPersonContacts(meta),
-                    "LEGAL" to buildPersonLegal(meta),
-                    "INTEL" to buildPersonIntel(meta)
+                    getString(R.string.dossier_tab_subject) to buildPersonOverview(meta),
+                    getString(R.string.dossier_tab_contacts) to buildPersonContacts(meta),
+                    getString(R.string.dossier_tab_digital) to buildPersonDigitalTrace(meta),
+                    getString(R.string.dossier_tab_legal) to buildPersonLegal(meta),
+                    getString(R.string.dossier_tab_intel) to buildPersonIntel(meta)
                 )
                 val hasEmail = !meta["comp_email"].isNullOrBlank()
-                if (hasEmail) tabs.add("EMAIL" to buildEmailBreaches(meta))
+                if (hasEmail) tabs.add(getString(R.string.dossier_tab_breaches) to buildEmailBreaches(meta))
                 val hasIp = !meta["comp_ip"].isNullOrBlank() && !meta["ip_city"].isNullOrBlank()
-                if (hasIp) tabs.add("IP" to buildIpNetwork(meta))
+                if (hasIp) tabs.add(getString(R.string.dossier_tab_network) to buildIpNetwork(meta))
                 tabs
             }
-            else -> listOf("DATA" to buildPersonOverview(meta))
+            else -> listOf(getString(R.string.dossier_tab_data) to buildPersonOverview(meta))
         }
     }
 
@@ -278,13 +283,38 @@ class ResultsFragment : Fragment() {
         return "$prefix$clean$suffix" to ""
     }
 
-    private fun buildPersonOverview(meta: Map<String, String>): List<Pair<String, String>> {
-        val rows = mutableListOf<Pair<String, String>>()
-
+    private fun appendAiReportRows(rows: MutableList<Pair<String, String>>, meta: Map<String, String>) {
+        val hasStructured = meta["ai_executive_summary"]?.isNotBlank() == true
+        if (hasStructured) {
+            rows.add(sec("AI INTELLIGENCE DOSSIER"))
+            meta["ai_provider"]?.takeIf { it.isNotBlank() }?.let {
+                rows.add("Provider" to it.replaceFirstChar { c -> c.uppercase() })
+            }
+            meta["ai_executive_summary"]?.let { rows.add("Executive Summary" to it.trim()) }
+            meta["ai_key_findings"]?.lines()?.filter { it.isNotBlank() }?.forEach { rows.add("Finding" to it.trim()) }
+            meta["ai_confidence"]?.takeIf { it.isNotBlank() }?.let { conf ->
+                val rationale = meta["ai_confidence_rationale"]?.takeIf { it.isNotBlank() }
+                rows.add("Confidence" to if (rationale != null) "$conf — $rationale" else conf)
+            }
+            meta["ai_false_positives"]?.lines()?.filter { it.isNotBlank() }?.forEach {
+                rows.add("False Positive" to it.trim())
+            }
+            meta["ai_next_steps"]?.lines()?.filter { it.isNotBlank() }?.forEach {
+                rows.add("Next Step" to it.trim())
+            }
+            rows.add("⚠ Disclaimer" to "AI-generated synthesis — verify all claims independently.")
+            return
+        }
         meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let { summary ->
             rows.add(sec("AI INTELLIGENCE BRIEF"))
             summary.lines().filter { it.isNotBlank() }.forEach { rows.add("Brief" to it.trim()) }
+            rows.add("⚠ Disclaimer" to "AI-generated summary — verify all claims independently.")
         }
+    }
+
+    private fun buildPersonOverview(meta: Map<String, String>): List<Pair<String, String>> {
+        val rows = mutableListOf<Pair<String, String>>()
+        appendAiReportRows(rows, meta)
 
         rows.add(sec("IDENTITY"))
         val bestAge = extractBestAge(meta)
@@ -304,6 +334,15 @@ class ResultsFragment : Fragment() {
             rows.add(sec("EMPLOYMENT HISTORY"))
             emp.lines().filter { it.isNotBlank() }.forEach { rows.add("Job" to it) }
         }
+        meta["pdl_employment"]?.takeIf { meta["pipl_employment"].isNullOrBlank() && it.isNotBlank() }?.let { emp ->
+            rows.add(sec("EMPLOYMENT HISTORY (PDL)"))
+            emp.lines().filter { it.isNotBlank() }.forEach { rows.add("Job" to it) }
+        }
+        meta["pdl_company"]?.takeIf { it.isNotBlank() }?.let { rows.add("Current Company" to it) }
+        meta["pdl_job_title"]?.takeIf { it.isNotBlank() }?.let { rows.add("Job Title" to it) }
+        meta["clearbit_person_title"]?.takeIf { it.isNotBlank() }?.let { rows.add("Title (Clearbit)" to it) }
+        meta["clearbit_person_company"]?.takeIf { it.isNotBlank() }?.let { rows.add("Company (Clearbit)" to it) }
+        meta["wikidata_employers"]?.takeIf { it.isNotBlank() }?.let { rows.add("Employers (Wikidata)" to it) }
 
         val allPhones = extractPhones(meta)
         if (allPhones.isNotEmpty()) {
@@ -376,6 +415,13 @@ class ResultsFragment : Fragment() {
             rows.add("Answer" to it)
         }
 
+        if (rows.size <= 2) rows.add("Status" to "No identity data found for this subject")
+        return rows
+    }
+
+    private fun buildPersonDigitalTrace(meta: Map<String, String>): List<Pair<String, String>> {
+        val rows = mutableListOf<Pair<String, String>>()
+
         val socialLinks = buildSocialLinks(meta)
         if (socialLinks.isNotEmpty()) {
             rows.add(sec("SOCIAL DISCOVERY"))
@@ -432,7 +478,7 @@ class ResultsFragment : Fragment() {
             }
         }
 
-        if (rows.size <= 2) rows.add("Status" to "No identity data found for this subject")
+        if (rows.isEmpty()) rows.add("Status" to "No digital footprint found for this subject")
         return rows
     }
 
@@ -501,6 +547,8 @@ class ResultsFragment : Fragment() {
 
         val emails = linkedSetOf<String>()
         meta["pipl_email"]?.takeIf { it.isNotBlank() }?.let { emails.add(it) }
+        meta["pdl_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
+        meta["clearbit_person_email"]?.takeIf { it.isNotBlank() }?.let { emails.add(it) }
         meta["radaris_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
         meta["nuwber_emails"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
         meta["cse_email_hits"]?.split(",")?.map { it.trim() }?.filter { it.contains("@") }?.forEach { emails.add(it) }
@@ -610,6 +658,8 @@ class ResultsFragment : Fragment() {
             meta["wikipedia_link"]?.takeIf { wikiHits > 0 }?.let { rows.add("⟶ View on Wikipedia" to it) }
             meta["wikidata_descriptions"]?.let { rows.add("WikiData" to it) }
             meta["wikidata_link"]?.let { rows.add("⟶ View on WikiData" to it) }
+            meta["wikidata_employers"]?.takeIf { it.isNotBlank() }?.let { rows.add("Employers" to it) }
+            meta["wikidata_organizations"]?.takeIf { it.isNotBlank() }?.let { rows.add("Organizations" to it) }
             if (gnewsCount > 0) {
                 meta["gnews_articles"]?.takeIf { it.isNotBlank() }?.let {
                     it.split("\n---\n").filter { a -> a.isNotBlank() }.forEach { article ->
@@ -917,11 +967,7 @@ class ResultsFragment : Fragment() {
             }
         }
 
-        meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let {
-            rows.add(sec("AI INTELLIGENCE SYNTHESIS"))
-            it.lines().filter { l -> l.isNotBlank() }.forEach { line -> rows.add("AI Analysis" to line) }
-            rows.add("⚠ Disclaimer" to "AI-generated summary — may not reflect actual individual. Verify all claims independently.")
-        }
+        appendAiReportRows(rows, meta)
 
 
         val socialLinks = buildSocialLinks(meta)
@@ -1541,7 +1587,7 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        listOf("comp_phone", "comp_phone2", "comp_phone3", "person_phone", "pipl_phone", "pipl_phones").forEach { k ->
+        listOf("comp_phone", "comp_phone2", "comp_phone3", "person_phone", "pipl_phone", "pipl_phones", "pdl_phones").forEach { k ->
             meta[k]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         }
         listOf("search_phones", "tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
@@ -1558,11 +1604,15 @@ class ResultsFragment : Fragment() {
         val set = linkedSetOf<String>()
         meta["person_entered_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
+        meta["pdl_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
+        meta["pdl_location"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
+        meta["clearbit_person_location"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         meta["search_addresses"]?.lines()?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
+        meta["ddg_addresses"]?.lines()?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
         listOf(
             "tps_full_addresses", "zaba_full_addresses", "411_full_addresses", "ftn_full_addresses",
             "tps_locations", "zaba_locations", "411_locations", "ftn_locations",
-            "voter_addresses", "uspb_addresses", "tt_locations", "fps_locations",
+            "voter_addresses", "uspb_addresses", "tt_locations", "tt_addresses", "fps_locations", "fps_addresses",
             "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations"
         ).forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
         val streetPattern = Regex("""\d{1,5}\s+[A-Z][A-Za-z0-9\s]{2,35}(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Cir\.?|Pkwy|Hwy|Ter\.?|Trl\.?|Loop|Pass|Pt\.?|Road|Street|Avenue|Boulevard|Drive|Lane|Court)\b[^<\n]{0,40}[A-Z]{2}[\s,]+\d{5}(?:-\d{4})?""")
@@ -1577,7 +1627,7 @@ class ResultsFragment : Fragment() {
 
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
-        listOf("search_relatives", "pipl_relatives", "tps_relatives", "ftn_relatives", "411_relatives", "zaba_relatives", "tt_relatives", "fps_relatives",
+        listOf("search_relatives", "pipl_relatives", "pdl_associates", "tps_relatives", "ftn_relatives", "411_relatives", "zaba_relatives", "tt_relatives", "fps_relatives",
             "corpwiki_associates", "radaris_relatives", "nuwber_relatives", "wp_relatives", "checkpeople_relatives")
             .forEach { key -> meta[key]?.split(",")?.map { it.trim() }?.filter { it.length > 3 && it.isNotBlank() }?.forEach { set.add(it) } }
         val namePattern = Regex("[A-Z][a-z]{1,20} [A-Z][a-z]{1,20}(?:\\s[A-Z][a-z]{1,20})?")
@@ -1724,7 +1774,8 @@ class ResultsFragment : Fragment() {
         val tv = TypedValue()
         ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
         val colorPrimary = tv.data
-        val container = binding.accordionContainer
+        val container = binding.dossierAlertsContainer
+        container.removeAllViews()
 
         fun makeCard(): Pair<MaterialCardView, LinearLayout> {
             val card = MaterialCardView(ctx).apply {
@@ -1855,103 +1906,34 @@ class ResultsFragment : Fragment() {
         }
     }
 
-    private fun buildAccordion(sections: List<Pair<String, List<Pair<String, String>>>>) {
-        val container = binding.accordionContainer
+    private fun setupDossierTabs(sections: List<Pair<String, List<Pair<String, String>>>>) {
+        val nonEmptySections = sections.filter { (_, rows) ->
+            rows.any { it.second.isNotBlank() } || rows.any { it.second.isEmpty() && it.first.isNotBlank() }
+        }.ifEmpty { sections }
+
+        val adapter = DossierSectionAdapter(nonEmptySections) { container, rows ->
+            populateSectionContent(container, rows)
+        }
+        binding.dossierPager.adapter = adapter
+        binding.dossierPager.offscreenPageLimit = 1
+
+        TabLayoutMediator(binding.dossierTabs, binding.dossierPager) { tab, position ->
+            val (title, rows) = nonEmptySections[position]
+            tab.text = title
+            val count = rows.count { it.second.isNotBlank() }
+            if (count > 0) tab.contentDescription = "$title, $count data points"
+        }.attach()
+    }
+
+    private fun populateSectionContent(container: LinearLayout, rows: List<Pair<String, String>>) {
         container.removeAllViews()
         val inflater = LayoutInflater.from(requireContext())
-        val density = requireContext().resources.displayMetrics.density
-        fun dp(f: Float) = (f * density).toInt()
-        val tv = TypedValue()
-        requireContext().theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, tv, true)
-        val colorPrimary = tv.data
-        val colorBorder = ContextCompat.getColor(requireContext(), R.color.border)
-        val colorSurface = ContextCompat.getColor(requireContext(), R.color.surface)
-
-        sections.forEachIndexed { index, (sectionName, rows) ->
-            val outerCard = MaterialCardView(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                ).also { it.bottomMargin = dp(8f) }
-                radius = dp(12f).toFloat()
-                strokeWidth = dp(1f)
-                strokeColor = colorBorder
-                cardElevation = 0f
-                setCardBackgroundColor(colorSurface)
-            }
-
-            val outerLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
-
-            val headerRow = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16f), dp(14f), dp(16f), dp(14f))
-                setBackgroundColor(Color.argb(20, Color.red(colorPrimary), Color.green(colorPrimary), Color.blue(colorPrimary)))
-            }
-
-            val accentBar = View(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(4f), dp(18f)).also { it.marginEnd = dp(12f) }
-                setBackgroundColor(colorPrimary)
-            }
-
-            val sectionTitle = TextView(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                text = sectionName
-                textSize = 11f
-                setTypeface(typeface, Typeface.BOLD)
-                isAllCaps = true
-                letterSpacing = 0.15f
-                setTextColor(colorPrimary)
-                setTextIsSelectable(true)
-            }
-
-            val dataRowCount = rows.count { it.second.isNotBlank() }
-            val badge = TextView(requireContext()).apply {
-                text = "$dataRowCount"
-                textSize = 8f
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(colorSurface)
-                setBackgroundColor(colorPrimary)
-                setPadding(dp(5f), dp(2f), dp(5f), dp(2f))
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                ).also { it.marginEnd = dp(8f) }
-            }
-
-            val chevron = TextView(requireContext()).apply {
-                text = if (index < 2) "▲" else "▼"
-                textSize = 10f
-                setTextColor(colorPrimary)
-            }
-
-            headerRow.addView(accentBar)
-            headerRow.addView(sectionTitle)
-            if (dataRowCount > 0) headerRow.addView(badge)
-            headerRow.addView(chevron)
-
-            val contentLayout = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.VERTICAL
-                visibility = if (index < 2) View.VISIBLE else View.GONE
-            }
-
-            val subSections = groupIntoSections(rows)
-            for ((subTitle, subRows) in subSections) {
-                contentLayout.addView(buildSectionCard(requireContext(), inflater, subTitle, subRows))
-            }
-            if (subSections.isEmpty()) {
-                val empty = buildSectionCard(requireContext(), inflater, "", listOf("Status" to "No data available"))
-                contentLayout.addView(empty)
-            }
-
-            headerRow.setOnClickListener {
-                val isVisible = contentLayout.visibility == View.VISIBLE
-                contentLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
-                chevron.text = if (isVisible) "▼" else "▲"
-            }
-
-            outerLayout.addView(headerRow)
-            outerLayout.addView(contentLayout)
-            outerCard.addView(outerLayout)
-            container.addView(outerCard)
+        val subSections = groupIntoSections(rows)
+        for ((subTitle, subRows) in subSections) {
+            container.addView(buildSectionCard(requireContext(), inflater, subTitle, subRows))
+        }
+        if (subSections.isEmpty()) {
+            container.addView(buildSectionCard(requireContext(), inflater, "", listOf("Status" to "No data available")))
         }
     }
 
@@ -1965,6 +1947,7 @@ class ResultsFragment : Fragment() {
         binding.loadingIndicator.visibility = View.GONE
         binding.resultsContent.visibility = View.VISIBLE
         binding.emptyState.visibility = View.GONE
+        InvestigationPipelineView.bind(binding.resultsContent, InvestigationStep.DOSSIER)
     }
 
     private fun showEmptyState() {

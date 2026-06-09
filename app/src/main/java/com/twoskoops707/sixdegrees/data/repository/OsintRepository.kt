@@ -6,10 +6,14 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.twoskoops707.sixdegrees.data.ai.OpenRouterAiClient
+import com.twoskoops707.sixdegrees.data.ai.OsintAiReport
 import com.twoskoops707.sixdegrees.data.local.OsintDatabase
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
 import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
 import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
+import com.twoskoops707.sixdegrees.data.remote.dto.peopledatalabs.PdlPerson
+import com.twoskoops707.sixdegrees.data.remote.dto.pipl.PiplPerson
 import com.twoskoops707.sixdegrees.data.remote.RetrofitClient
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.DataSource
@@ -17,7 +21,9 @@ import com.twoskoops707.sixdegrees.scraper.ScrapeResult
 import com.twoskoops707.sixdegrees.scraper.scrapeFastPeopleSearch
 import com.twoskoops707.sixdegrees.scraper.scrapeProxyNova as scrapeProxyNovaWeb
 import com.twoskoops707.sixdegrees.scraper.scrapeThatsThem
+import com.twoskoops707.sixdegrees.tor.TorBootstrapManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -76,7 +82,8 @@ private val SOURCE_ABBREVS = mapOf(
     "abuseipdb" to "abuseipdb",
     "virustotal" to "vt",
     "urlscan" to "urlscan",
-    "numverify" to "numverify"
+    "numverify" to "numverify",
+    "name demographics" to "demographics"
 )
 
     private fun isIpAddress(value: String): Boolean =
@@ -86,6 +93,26 @@ private val SOURCE_ABBREVS = mapOf(
         val v = value.trim().lowercase()
         return v.contains(".") && !isIpAddress(v) && !v.contains("@") &&
             v.matches(Regex("""^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$"""))
+    }
+
+    private fun queryTokens(query: String): List<String> =
+        query.trim().lowercase().split(Regex("\\s+")).filter { it.length > 1 }
+
+    private fun textMatchesQuery(text: String, query: String): Boolean {
+        val tokens = queryTokens(query)
+        if (tokens.isEmpty()) return true
+        val lower = text.lowercase()
+        val required = if (tokens.size >= 2) 2 else 1
+        return tokens.count { lower.contains(it) } >= required
+    }
+
+    /** Generic HTML scrape is only safe for domain/threat/vehicle/darknet tools — not people/email lookups. */
+    private fun shouldAutoScrapeRegistryTool(tool: OsintToolRegistry.OsintTool): Boolean {
+        val browserOnlyCategories = setOf(
+            "person", "social", "email", "phone", "username",
+            "records", "image", "company", "breach", "finance", "geo"
+        )
+        return tool.categories.none { it in browserOnlyCategories }
     }
 
     private const val SEC_USER_AGENT = "6Degrees/1.0 (Android OSINT; contact@6degrees.app)"
@@ -105,18 +132,35 @@ class OsintRepository(context: Context) {
 
     private val termuxRunner by lazy { TermuxToolRunner(appCtx) }
 
-    private fun torHttpClientOrNull(): OkHttpClient? = try {
-        val probe = java.net.Socket()
-        probe.connect(InetSocketAddress("127.0.0.1", 9050), 500)
-        probe.close()
-        val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9050))
-        OkHttpClient.Builder()
+    private fun torHttpClientOrNull(): OkHttpClient? {
+        if (!TorBootstrapManager.isPortOpen()) return null
+        TorBootstrapManager.markReady()
+        val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", TorBootstrapManager.TOR_SOCKS_PORT))
+        return OkHttpClient.Builder()
             .proxy(proxy)
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .followRedirects(true)
             .build()
-    } catch (_: Exception) { null }
+    }
+
+    private suspend fun ensureDarkWebTor(channel: SendChannel<SearchProgressEvent>) {
+        channel.send(SearchProgressEvent.Checking("Tor"))
+        if (TorBootstrapManager.isPortOpen()) {
+            TorBootstrapManager.markReady()
+            channel.send(SearchProgressEvent.Found("Tor", "SOCKS proxy ready on :9050"))
+            return
+        }
+        if (TorBootstrapManager.ensureReady(appCtx, embeddedTimeoutMs = 45_000L)) {
+            channel.send(SearchProgressEvent.Found("Tor", "Embedded Tor ready on :9050"))
+            return
+        }
+        termuxRunner.ensureTorRunning().collect { channel.send(it) }
+    }
+
+    private fun applyAhmiaMetadata(out: ScrapeOut, metadata: ConcurrentHashMap<String, String>) {
+        out.fields.forEach { (k, v) -> metadata["ahmia_$k"] = v }
+    }
 
     private data class PersonRecord(
         val name: String,
@@ -158,7 +202,7 @@ class OsintRepository(context: Context) {
             val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString("-").lowercase()
             val path = if (loc.isNotBlank()) "$slug/$loc" else slug
             val url = "https://www.usphonebook.com/name/$path"
-            tryScrapeUrl(url)
+            tryScrapeUrl(url, query)
         } catch (_: Exception) {
             ScrapeOut(false, false)
         }
@@ -278,7 +322,7 @@ class OsintRepository(context: Context) {
         val snippets: List<String> = emptyList()
     )
 
-    private fun tryScrapeUrl(url: String): ScrapeOut {
+    private fun tryScrapeUrl(url: String, expectedQuery: String? = null): ScrapeOut {
         return try {
             val req = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -309,6 +353,25 @@ class OsintRepository(context: Context) {
             )
             if (text.length < 150 || notFoundPhrases.any { text.lowercase().contains(it) }) {
                 return ScrapeOut(false, false)
+            }
+
+            if (!expectedQuery.isNullOrBlank()) {
+                val domainCheck = expectedQuery.trim().lowercase()
+                val phoneDigits = expectedQuery.replace(Regex("[^0-9]"), "")
+                when {
+                    isLikelyDomain(domainCheck) -> {
+                        if (!text.lowercase().contains(domainCheck) && !url.lowercase().contains(domainCheck)) {
+                            return ScrapeOut(false, false)
+                        }
+                    }
+                    phoneDigits.length >= 10 -> {
+                        val last10 = phoneDigits.takeLast(10)
+                        if (!text.replace(Regex("[^0-9]"), "").contains(last10)) {
+                            return ScrapeOut(false, false)
+                        }
+                    }
+                    !textMatchesQuery(text, expectedQuery) -> return ScrapeOut(false, false)
+                }
             }
 
             val fields = mutableMapOf<String, String>()
@@ -396,10 +459,10 @@ class OsintRepository(context: Context) {
                     val name = rel.trim().take(40)
                     if (name.length > 3 && name.contains(" ")) relatives.add(name)
                 }
-            }
-            ageRegex.find(text)?.let { m ->
-                val age = m.groupValues.drop(1).firstOrNull { it.isNotBlank() }
-                if (age != null && (age.toIntOrNull() ?: 0) in 18..120) ages.add(age)
+                ageRegex.find(text)?.let { m ->
+                    val age = m.groupValues.drop(1).firstOrNull { it.isNotBlank() }
+                    if (age != null && (age.toIntOrNull() ?: 0) in 18..120) ages.add(age)
+                }
             }
             if (r.snippet.isNotBlank()) snippets.add("${r.title}: ${r.snippet}".take(200))
             val urlLower = r.url.lowercase()
@@ -548,9 +611,12 @@ class OsintRepository(context: Context) {
                 val title = json.optString("title", "")
                 val pageUrl = json.optJSONObject("content_urls")?.optJSONObject("desktop")?.optString("page", "") ?: ""
                 if (extract.isNotBlank()) {
-                    result["wikipedia_extract"] = extract.take(1200)
-                    result["wikipedia_title"] = title
-                    if (pageUrl.isNotBlank()) result["wikipedia_url"] = pageUrl
+                    val titleMatches = title.isBlank() || textMatchesQuery("$title $extract", name)
+                    if (titleMatches) {
+                        result["wikipedia_extract"] = extract.take(1200)
+                        result["wikipedia_title"] = title
+                        if (pageUrl.isNotBlank()) result["wikipedia_url"] = pageUrl
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -622,7 +688,7 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
-    private fun scrapeGoogleNews(query: String): ScrapeOut {
+    private fun scrapeGoogleNews(query: String, matchQuery: String? = null): ScrapeOut {
         return try {
             val encoded = URLEncoder.encode(query, "UTF-8")
             val url = "https://news.google.com/rss/search?q=$encoded&hl=en-US&gl=US&ceid=US:en"
@@ -638,6 +704,7 @@ class OsintRepository(context: Context) {
             if (items.isEmpty()) return ScrapeOut(false, false)
             val articles = items.mapNotNull { item ->
                 val title = item.selectFirst("title")?.text()?.trim() ?: return@mapNotNull null
+                if (!matchQuery.isNullOrBlank() && !textMatchesQuery(title, matchQuery)) return@mapNotNull null
                 val pubDate = item.selectFirst("pubDate")?.text()?.trim() ?: ""
                 val source = item.selectFirst("source")?.text()?.trim() ?: ""
                 val link = item.selectFirst("link")?.text()?.trim() ?: ""
@@ -751,20 +818,59 @@ class OsintRepository(context: Context) {
 
     private fun scrapeAhmia(query: String): ScrapeOut {
         return try {
+            val viaTor = torHttpClientOrNull() != null
             val client = torHttpClientOrNull() ?: fastHttpClient
             val encoded = URLEncoder.encode(query, "UTF-8")
-            val url = "https://ahmia.fi/search/?q=$encoded"
+            val url = if (viaTor) {
+                "http://juhanurmihxlp77nkq76iba5ek5w6frgijb5lvlxm3qmqyestw57k5ad.onion/search/?q=$encoded"
+            } else {
+                "https://ahmia.fi/search/?q=$encoded"
+            }
             val req = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "text/html,application/xhtml+xml")
                 .build()
             val resp = client.newCall(req).execute()
             val body = resp.body?.string() ?: ""
             resp.close()
+            if (body.isBlank()) {
+                return ScrapeOut(false, false, mapOf("count" to "0", "via_tor" to viaTor.toString()))
+            }
             val doc = Jsoup.parse(body)
-            val results = doc.select(".result").take(5).map { it.text() }
-            if (results.isEmpty()) return ScrapeOut(false, false)
-            ScrapeOut(true, false, mapOf("snippet" to results.joinToString(" | ").take(600), "title" to "Ahmia Dark Web"))
-        } catch (_: Exception) { ScrapeOut(false, false) }
+            val items = doc.select("li.result, ol.results li, #results li, .result").take(10)
+            val titles = mutableListOf<String>()
+            val urls = mutableListOf<String>()
+            val descs = mutableListOf<String>()
+            for (item in items) {
+                val linkEl = item.selectFirst("h4 a[href], a[href*=.onion], a[href]")
+                val title = linkEl?.text()?.trim().orEmpty()
+                var href = linkEl?.attr("href")?.trim().orEmpty()
+                if (href.startsWith("/")) href = "https://ahmia.fi$href"
+                val desc = item.selectFirst("p, .description, span")?.text()?.trim().orEmpty()
+                if (title.isBlank() && href.isBlank()) continue
+                titles.add(title.ifBlank { href })
+                urls.add(href)
+                descs.add(desc.take(300))
+            }
+            val count = titles.size
+            val fields = mutableMapOf(
+                "count" to count.toString(),
+                "via_tor" to viaTor.toString(),
+                "title" to "Ahmia: $count indexed hit${if (count != 1) "s" else ""}"
+            )
+            if (count > 0) {
+                fields["snippet"] = titles.zip(descs) { t, d ->
+                    if (d.isNotBlank()) "$t — $d" else t
+                }.joinToString("\n").take(600)
+                fields["titles"] = titles.joinToString("\n")
+                fields["urls"] = urls.joinToString("\n")
+                fields["descs"] = descs.joinToString("\n---\n")
+                return ScrapeOut(true, false, fields)
+            }
+            ScrapeOut(false, false, fields)
+        } catch (_: Exception) {
+            ScrapeOut(false, false, mapOf("count" to "0", "via_tor" to TorBootstrapManager.isPortOpen().toString()))
+        }
     }
 
     private fun scrapeWaybackCdx(domain: String): ScrapeOut {
@@ -789,7 +895,7 @@ class OsintRepository(context: Context) {
             if (digits.length < 10) return ScrapeOut(false, false)
             val formatted = "${digits.substring(0,3)}-${digits.substring(3,6)}-${digits.substring(6,10)}"
             val url = "https://800notes.com/Phone.aspx/$formatted"
-            tryScrapeUrl(url)
+            tryScrapeUrl(url, digits.takeLast(10))
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
@@ -1336,7 +1442,9 @@ class OsintRepository(context: Context) {
             val ids = mutableListOf<String>()
             for (i in 0 until search.length()) {
                 val item = search.optJSONObject(i) ?: continue
-                item.optString("label").takeIf { it.isNotBlank() }?.let { labels.add(it) }
+                val label = item.optString("label")
+                if (label.isNotBlank() && !textMatchesQuery(label, query)) continue
+                label.takeIf { it.isNotBlank() }?.let { labels.add(it) }
                 item.optString("description").takeIf { it.isNotBlank() }?.let { descriptions.add(it) }
                 item.optString("id").takeIf { it.isNotBlank() }?.let { ids.add(it) }
             }
@@ -1351,6 +1459,300 @@ class OsintRepository(context: Context) {
                 "link" to link
             ))
         } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun normalizeScraperFieldAliases(sourceKey: String, metadata: ConcurrentHashMap<String, String>) {
+        val prefix = "${sourceKey}_"
+        metadata["${prefix}addresses"]?.takeIf { it.isNotBlank() }?.let { addrs ->
+            if (metadata["${prefix}locations"].isNullOrBlank()) metadata["${prefix}locations"] = addrs
+        }
+        if (sourceKey == "demographics") {
+            metadata["${prefix}estimated_age"]?.takeIf { it.isNotBlank() }?.let {
+                if (metadata["demographics_age_estimate"].isNullOrBlank()) metadata["demographics_age_estimate"] = it
+            }
+            metadata["${prefix}gender"]?.takeIf { it.isNotBlank() }?.let {
+                if (metadata["demographics_gender"].isNullOrBlank()) metadata["demographics_gender"] = it
+            }
+            metadata["${prefix}nationality"]?.takeIf { it.isNotBlank() }?.let {
+                if (metadata["demographics_nationality"].isNullOrBlank()) metadata["demographics_nationality"] = it
+            }
+        }
+    }
+
+    private fun appendPersonRecordFromScrape(
+        sourceKey: String,
+        primaryQuery: String,
+        metadata: Map<String, String>,
+        records: MutableList<PersonRecord>
+    ) {
+        val prefix = "${sourceKey}_"
+        val addrs = metadata["${prefix}locations"] ?: metadata["${prefix}addresses"] ?: ""
+        val phones = metadata["${prefix}phones"] ?: ""
+        val ages = metadata["${prefix}ages"] ?: metadata["${prefix}age"] ?: ""
+        val relatives = metadata["${prefix}relatives"] ?: ""
+        if (addrs.isBlank() && phones.isBlank() && ages.isBlank()) return
+        records.add(
+            PersonRecord(
+                name = metadata["${prefix}name"]?.takeIf { it.isNotBlank() } ?: primaryQuery,
+                age = ages.split(" | ", ",").firstOrNull()?.trim().orEmpty(),
+                location = addrs.split(" | ", "\n").firstOrNull()?.trim().orEmpty(),
+                phones = phones.split(" | ", ",").map { it.trim() }.filter { it.isNotBlank() },
+                address = addrs.split(" | ", "\n").firstOrNull()?.trim().orEmpty(),
+                relatives = relatives.split(",").map { it.trim() }.filter { it.length > 3 },
+                source = sourceKey.uppercase()
+            )
+        )
+    }
+
+    private fun applyPiplPersonToMetadata(person: PiplPerson, metadata: ConcurrentHashMap<String, String>) {
+        metadata["pipl_found"] = "true"
+        val displayName = person.names?.firstOrNull()?.display
+        if (!displayName.isNullOrBlank()) metadata["pipl_name"] = displayName
+        person.emails?.mapNotNull { it.address }?.take(3)?.joinToString(", ")
+            ?.let { metadata["pipl_emails"] = it }
+        person.phones?.mapNotNull { it.display ?: it.number }?.take(3)?.joinToString(", ")
+            ?.let { metadata["pipl_phones"] = it }
+        person.jobs?.mapNotNull { job ->
+            job.display ?: listOfNotNull(job.title, job.organization).joinToString(" at ").takeIf { it.isNotBlank() }
+        }?.take(5)?.joinToString("\n")?.let { metadata["pipl_employment"] = it }
+        person.addresses?.mapNotNull { addr ->
+            addr.display ?: listOfNotNull(addr.street, addr.city, addr.state, addr.zipCode)
+                .filter { !it.isNullOrBlank() }.joinToString(", ").takeIf { it.isNotBlank() }
+        }?.take(4)?.joinToString(" | ")?.let { metadata["pipl_addresses"] = it }
+        person.relationships?.mapNotNull { rel -> rel.names?.firstOrNull()?.display }
+            ?.take(10)?.joinToString(",")?.let { metadata["pipl_relatives"] = it }
+        person.dob?.takeIf { it.isNotBlank() }?.let { metadata["pipl_dob"] = it }
+        person.gender?.takeIf { it.isNotBlank() }?.let { metadata["pipl_gender"] = it }
+        person.urls?.mapNotNull { it.url }?.take(6)?.joinToString("\n")?.let { metadata["pipl_socials"] = it }
+    }
+
+    private fun applyPdlPersonToMetadata(person: PdlPerson, metadata: ConcurrentHashMap<String, String>) {
+        metadata["pdl_found"] = "true"
+        person.fullName?.let { metadata["pdl_name"] = it }
+        person.emails?.mapNotNull { it.address }?.take(3)?.joinToString(", ")
+            ?.let { metadata["pdl_emails"] = it }
+        person.phones?.mapNotNull { it.number }?.take(3)?.joinToString(", ")
+            ?.let { metadata["pdl_phones"] = it }
+        person.jobTitle?.let { metadata["pdl_job_title"] = it }
+        person.jobCompanyName?.let { metadata["pdl_company"] = it }
+        person.locationName?.takeIf { it.isNotBlank() }?.let { metadata["pdl_location"] = it }
+        listOfNotNull(person.locationStreet, person.locationCity, person.locationState, person.locationZip)
+            .filter { it.isNotBlank() }.joinToString(", ").takeIf { it.isNotBlank() }
+            ?.let { metadata["pdl_address"] = it }
+        person.employment?.mapNotNull { emp ->
+            listOfNotNull(emp.title, emp.companyName).joinToString(" at ").takeIf { it.isNotBlank() }
+        }?.take(6)?.joinToString("\n")?.let { metadata["pdl_employment"] = it }
+        person.profiles?.mapNotNull { p ->
+            p.url?.let { url -> "${p.network ?: "profile"}: $url" }
+        }?.take(6)?.joinToString("\n")?.let { metadata["pdl_profiles"] = it }
+        person.education?.mapNotNull { ed ->
+            listOfNotNull(ed.degree, ed.schoolName).joinToString(" — ").takeIf { it.isNotBlank() }
+        }?.take(3)?.joinToString("\n")?.let { metadata["pdl_education"] = it }
+    }
+
+    private fun scrapeOpenSanctions(name: String, apiKey: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(name.trim(), "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.opensanctions.org/search/default?q=$encoded&schema=Person&limit=5")
+                .header("Authorization", "ApiKey $apiKey")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 401 || code == 403) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val results = json.optJSONArray("results") ?: return ScrapeOut(false, false)
+            if (results.length() == 0) return ScrapeOut(false, false)
+            val names = mutableListOf<String>()
+            val datasets = mutableSetOf<String>()
+            val countries = mutableSetOf<String>()
+            for (i in 0 until minOf(5, results.length())) {
+                val item = results.optJSONObject(i) ?: continue
+                item.optString("caption").takeIf { it.isNotBlank() }?.let { names.add(it) }
+                item.optJSONArray("datasets")?.let { ds ->
+                    for (j in 0 until ds.length()) ds.optString(j).takeIf { it.isNotBlank() }?.let { datasets.add(it) }
+                }
+                item.optJSONObject("properties")?.optJSONArray("country")?.let { cs ->
+                    for (j in 0 until cs.length()) cs.optString(j).takeIf { it.isNotBlank() }?.let { countries.add(it) }
+                }
+            }
+            if (names.isEmpty()) return ScrapeOut(false, false)
+            apiKeys.recordUsage("opensanctions")
+            ScrapeOut(true, false, mapOf(
+                "title" to "OpenSanctions: ${names.size} match(es)",
+                "snippet" to names.take(3).joinToString("; "),
+                "total" to names.size.toString(),
+                "names" to names.joinToString(", "),
+                "datasets" to datasets.take(5).joinToString(", "),
+                "countries" to countries.take(5).joinToString(", "),
+                "link" to "https://www.opensanctions.org/search/?q=$encoded"
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeOpenCorporatesOfficers(name: String, apiKey: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(name.trim(), "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.opencorporates.com/v0.4/officers/search?q=$encoded&api_token=$apiKey&per_page=10")
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 401 || code == 403) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val officers = JSONObject(body).optJSONObject("results")?.optJSONArray("officers")
+                ?: return ScrapeOut(false, false)
+            if (officers.length() == 0) return ScrapeOut(false, false)
+            val companies = mutableListOf<String>()
+            val positions = mutableListOf<String>()
+            val jurisdictions = mutableSetOf<String>()
+            for (i in 0 until minOf(10, officers.length())) {
+                val wrapper = officers.optJSONObject(i) ?: continue
+                val officer = wrapper.optJSONObject("officer") ?: continue
+                val officerName = officer.optString("name", "")
+                if (officerName.isNotBlank() && !textMatchesQuery(officerName, name)) continue
+                val company = wrapper.optJSONObject("company")?.optString("name").orEmpty()
+                val position = officer.optString("position", "")
+                val jurisdiction = officer.optString("jurisdiction_code", "")
+                if (company.isNotBlank()) companies.add(company)
+                if (position.isNotBlank()) positions.add(position)
+                if (jurisdiction.isNotBlank()) jurisdictions.add(jurisdiction.uppercase())
+            }
+            if (companies.isEmpty()) return ScrapeOut(false, false)
+            apiKeys.recordUsage("opencorporates")
+            ScrapeOut(true, false, mapOf(
+                "title" to "OpenCorporates: ${companies.size} officer record(s)",
+                "snippet" to companies.take(3).joinToString("; "),
+                "person_companies" to companies.distinct().take(8).joinToString("\n"),
+                "positions" to positions.take(8).joinToString(", "),
+                "person_states" to jurisdictions.take(5).joinToString(", "),
+                "officer_matches" to companies.size.toString()
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeWikidataEnriched(query: String): ScrapeOut {
+        val base = scrapeWikidata(query)
+        if (!base.found) return base
+        val link = base.fields["link"] ?: return base
+        val entityId = link.substringAfterLast("/").takeIf { it.startsWith("Q") } ?: return base
+        return try {
+            val req = Request.Builder()
+                .url("https://www.wikidata.org/w/api.php?action=wbgetentities&ids=$entityId&props=claims&format=json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return base
+            val claims = JSONObject(body).optJSONObject("entities")?.optJSONObject(entityId)
+                ?.optJSONObject("claims") ?: return base
+            val employers = mutableListOf<String>()
+            val orgs = mutableListOf<String>()
+            claims.optJSONArray("P108")?.let { arr ->
+                for (i in 0 until minOf(3, arr.length())) {
+                    arr.optJSONObject(i)?.optJSONObject("mainsnak")?.optJSONObject("datavalue")
+                        ?.optJSONObject("value")?.optString("id")?.let { id ->
+                            resolveWikidataLabel(id)?.let { employers.add(it) }
+                        }
+                }
+            }
+            claims.optJSONArray("P463")?.let { arr ->
+                for (i in 0 until minOf(3, arr.length())) {
+                    arr.optJSONObject(i)?.optJSONObject("mainsnak")?.optJSONObject("datavalue")
+                        ?.optJSONObject("value")?.optString("id")?.let { id ->
+                            resolveWikidataLabel(id)?.let { orgs.add(it) }
+                        }
+                }
+            }
+            val fields = base.fields.toMutableMap()
+            if (employers.isNotEmpty()) fields["employers"] = employers.joinToString(", ")
+            if (orgs.isNotEmpty()) fields["organizations"] = orgs.joinToString(", ")
+            base.copy(fields = fields)
+        } catch (_: Exception) { base }
+    }
+
+    private fun resolveWikidataLabel(entityId: String): String? {
+        return try {
+            val req = Request.Builder()
+                .url("https://www.wikidata.org/w/api.php?action=wbgetentities&ids=$entityId&props=labels&languages=en&format=json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            JSONObject(body).optJSONObject("entities")?.optJSONObject(entityId)
+                ?.optJSONObject("labels")?.optJSONObject("en")?.optString("value")
+                ?.takeIf { it.isNotBlank() }
+        } catch (_: Exception) { null }
+    }
+
+    private fun formatDdgDorkResults(results: List<DdgResult>, nameTokens: List<String>): String {
+        val required = if (nameTokens.size >= 2) 2 else 1
+        return results.filter { r ->
+            val text = "${r.title} ${r.snippet}".lowercase()
+            nameTokens.isEmpty() || nameTokens.count { text.contains(it.lowercase()) } >= required
+        }.take(8).joinToString("\n---\n") { "${it.title}: ${it.snippet}".trim().take(220) }
+    }
+
+    private suspend fun runPersonAutoDorks(
+        name: String,
+        city: String,
+        state: String,
+        nameTokens: List<String>,
+        metadata: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        channel: SendChannel<SearchProgressEvent>,
+        semaphore: Semaphore
+    ) {
+        val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
+        val q = "\"$name\""
+        val dorks = listOf(
+            "dork_address_results" to "$q address${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_address_full_results" to "$q street address${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_relatives_results" to "$q relatives family${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_phone_results" to "$q phone number${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_voter_results" to "$q voter registration${if (state.isNotBlank()) " $state" else ""}",
+            "dork_criminal_results" to "$q criminal arrest record",
+            "dork_court_results" to "$q site:courtlistener.com OR site:judyrecords.com",
+            "dork_property_results" to "$q property deed records${if (state.isNotBlank()) " $state" else ""}",
+            "dork_financial_results" to "$q site:sec.gov OR site:opencorporates.com officer director",
+            "dork_bio_results" to "$q linkedin bio resume${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_linkedin_results" to "site:linkedin.com $q${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_news_results" to "$q news article${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_social_results" to "$q site:facebook.com OR site:instagram.com",
+            "dork_identity_results" to "$q profile contact${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_tps_results" to "site:truepeoplesearch.com $q${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_fps_results" to "site:fastpeoplesearch.com $q${if (loc.isNotBlank()) " $loc" else ""}",
+            "dork_wp_results" to "site:whitepages.com $q",
+            "dork_rad_results" to "site:radaris.com $q"
+        )
+        coroutineScope {
+            for ((metaKey, query) in dorks) {
+                launch {
+                    semaphore.withPermit {
+                        channel.send(SearchProgressEvent.Checking("Dork: $metaKey"))
+                        val results = ddgHtmlSearch(query)
+                        val formatted = formatDdgDorkResults(results, nameTokens)
+                        if (formatted.isNotBlank()) {
+                            metadata[metaKey] = formatted
+                            sources.add(DataSource("Dork:$metaKey", "https://html.duckduckgo.com/html/?q=${encode(query)}", Date(), 0.55))
+                            channel.send(SearchProgressEvent.Found("Dork: $metaKey", formatted.lines().firstOrNull()?.take(100) ?: ""))
+                        } else {
+                            channel.send(SearchProgressEvent.NotFound("Dork: $metaKey"))
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun scrapeUrlhaus(host: String, authKey: String): ScrapeOut {
@@ -1444,31 +1846,77 @@ class OsintRepository(context: Context) {
         return seen
     }
 
-    private fun buildAiSummaryPrompt(query: String, type: String, metadata: Map<String, String>): String = buildString {
-        appendLine("Write a concise OSINT intelligence brief (max 350 words) for the subject below. Be factual and analytical. Highlight key findings, risks, and unknowns.")
+    private fun buildOsintAiContext(
+        query: String,
+        type: String,
+        metadata: Map<String, String>,
+        sources: List<DataSource>
+    ): String = buildString {
+        appendLine("Synthesize an OSINT dossier from the collected data below.")
         appendLine()
         appendLine("SUBJECT: $query")
         appendLine("SEARCH TYPE: $type")
+        appendLine("SOURCES CHECKED (${sources.size}): ${sources.take(20).joinToString(", ") { it.name }}")
         appendLine()
         metadata["person_name"]?.let { appendLine("Name: $it") }
         metadata["field_age"]?.takeIf { it.isNotBlank() }?.let { appendLine("Age: $it") }
         metadata["person_location"]?.takeIf { it.isNotBlank() }?.let { appendLine("Location: $it") }
-        listOfNotNull(metadata["search_phones"], metadata["pipl_phones"], metadata["person_phone"])
+        listOfNotNull(metadata["search_phones"], metadata["pipl_phones"], metadata["pdl_phones"], metadata["person_phone"])
             .firstOrNull { it.isNotBlank() }?.let { appendLine("Phone(s): $it") }
-        listOfNotNull(metadata["search_relatives"])
+        listOfNotNull(metadata["search_emails"], metadata["pipl_emails"], metadata["pdl_emails"])
+            .firstOrNull { it.isNotBlank() }?.let { appendLine("Email(s): $it") }
+        listOfNotNull(metadata["search_relatives"], metadata["pipl_relatives"])
             .firstOrNull { it.isNotBlank() }?.let { appendLine("Associates: $it") }
-        metadata["search_addresses"]?.takeIf { it.isNotBlank() }?.let { appendLine("Addresses: ${it.take(200)}") }
-        metadata["search_social_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("Social: ${it.take(200)}") }
+        metadata["search_addresses"]?.takeIf { it.isNotBlank() }?.let { appendLine("Addresses:\n${it.take(300)}") }
+        metadata["pdl_address"]?.takeIf { metadata["search_addresses"].isNullOrBlank() }?.let { appendLine("Address: $it") }
+        metadata["pipl_addresses"]?.takeIf { it.isNotBlank() }?.let { appendLine("Addresses (Pipl):\n${it.take(200)}") }
+        metadata["search_social_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("Social:\n${it.take(300)}") }
+        metadata["search_profile_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("Profiles:\n${it.take(300)}") }
+        metadata["pdl_profiles"]?.takeIf { it.isNotBlank() }?.let { appendLine("Profiles (PDL):\n${it.take(200)}") }
         metadata["github_name"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub Name: $it") }
         metadata["github_stats"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub: $it") }
         metadata["reddit_url"]?.takeIf { it.isNotBlank() }?.let { appendLine("Reddit: $it") }
-        metadata["wikipedia_extract"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nWikipedia:\n${it.take(500)}") }
-        metadata["ddg_abstract"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nWeb Summary:\n${it.take(400)}") }
+        listOfNotNull(metadata["pipl_employment"], metadata["pdl_employment"])
+            .firstOrNull { it.isNotBlank() }?.let { appendLine("Employment:\n${it.take(300)}") }
+        metadata["pdl_company"]?.takeIf { it.isNotBlank() }?.let { appendLine("Company (PDL): $it") }
+        metadata["clearbit_person_company"]?.takeIf { it.isNotBlank() }?.let { appendLine("Company (Clearbit): $it") }
+        metadata["corpwiki_person_companies"]?.takeIf { it.isNotBlank() }?.let { appendLine("Companies (OpenCorporates):\n${it.take(200)}") }
+        metadata["sec_person_entities"]?.takeIf { it.isNotBlank() }?.let { appendLine("SEC Affiliations: $it") }
+        metadata["wikidata_employers"]?.takeIf { it.isNotBlank() }?.let { appendLine("Employers (Wikidata): $it") }
+        metadata["wikipedia_extract"]?.takeIf { it.isNotBlank() }?.let { appendLine("Wikipedia:\n${it.take(500)}") }
+        metadata["ddg_abstract"]?.takeIf { it.isNotBlank() }?.let { appendLine("Web Summary:\n${it.take(400)}") }
         metadata.entries.firstOrNull { it.key.contains("news") && it.value.isNotBlank() }
-            ?.value?.let { appendLine("\nNews:\n${it.take(400)}") }
-        metadata["darksearch_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nDark Web Mentions:\n${it.take(200)}") }
-        metadata["search_snippets"]?.takeIf { it.isNotBlank() }?.let { appendLine("\nWeb Intelligence:\n${it.take(600)}") }
-        appendLine("\nINTELLIGENCE BRIEF:")
+            ?.value?.let { appendLine("News:\n${it.take(400)}") }
+        metadata["darksearch_links"]?.takeIf { it.isNotBlank() }?.let { appendLine("Dark Web Mentions:\n${it.take(200)}") }
+        metadata["search_snippets"]?.takeIf { it.isNotBlank() }?.let { appendLine("Web Intelligence:\n${it.take(800)}") }
+        metadata.entries.filter { (k, v) ->
+            v.isNotBlank() && (k.contains("breach") || k.contains("hibp") || k.contains("risk"))
+        }.take(5).forEach { (k, v) -> appendLine("${k.replace('_', ' ')}: ${v.take(200)}") }
+    }
+
+    private fun buildAiSummaryPrompt(query: String, type: String, metadata: Map<String, String>): String =
+        buildOsintAiContext(query, type, metadata, emptyList()) + "\nWrite a concise OSINT intelligence brief (max 350 words). Be factual and analytical."
+
+    private fun generateOsintAiReport(
+        query: String,
+        type: String,
+        metadata: Map<String, String>,
+        sources: List<DataSource>
+    ): OsintAiReport? {
+        val context = buildOsintAiContext(query, type, metadata, sources)
+        val openrouterKey = apiKeys.openrouterKey.trim()
+        if (openrouterKey.isNotBlank()) {
+            val model = apiKeys.openrouterModel.trim()
+                .ifBlank { "meta-llama/llama-3.3-70b-instruct:free" }
+            val report = OpenRouterAiClient.generateReport(openrouterKey, context, model)
+            if (report != null) {
+                apiKeys.recordUsage("openrouter")
+                return report
+            }
+        }
+        val fallbackPrompt = buildAiSummaryPrompt(query, type, metadata)
+        val plain = queryPollinationsAI(fallbackPrompt) ?: return null
+        return OsintAiReport.fromPlainText(plain, "pollinations")
     }
 
     private fun queryPollinationsAI(prompt: String): String? = try {
@@ -1605,8 +2053,8 @@ class OsintRepository(context: Context) {
             coroutineScope {
                 when (effectiveType) {
                     "person", "comprehensive" -> {
-                        targetedScraperNames += setOf("Wikipedia", "Google News", "DarkSearch", "Pipl", "CourtListener", "GLEIF", "SEC EDGAR", "Wikidata", "ThatsThem", "FastPeopleSearch", "USPhoneBook", "Name Demographics")
-                        launch { termuxRunner.ensureTorRunning().collect { send(it) } }
+                        targetedScraperNames += setOf("Wikipedia", "Google News", "DarkSearch", "Ahmia", "Pipl", "CourtListener", "GLEIF", "SEC EDGAR", "Wikidata", "ThatsThem", "FastPeopleSearch", "USPhoneBook", "Name Demographics", "OpenSanctions", "OpenCorporates", "Clearbit Person")
+                        launch { ensureDarkWebTor(this@channelFlow) }
                         val personPhone = fields["phone"] ?: ""
                         val personEmail = fields["email"] ?: ""
                         val personUsername = fields["username"] ?: ""
@@ -1649,7 +2097,7 @@ class OsintRepository(context: Context) {
                         launch {
                             send(SearchProgressEvent.Checking("Google News"))
                             val newsQuery = if (city.isNotBlank()) "$primaryQuery $city" else primaryQuery
-                            val out = scrapeGoogleNews(newsQuery)
+                            val out = scrapeGoogleNews(newsQuery, matchQuery = primaryQuery)
                             handleScrapeOut("Google News", "https://news.google.com/rss/search?q=${encode(newsQuery)}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
@@ -1657,6 +2105,12 @@ class OsintRepository(context: Context) {
                             val out = searchDarkWeb(primaryQuery)
                             if (out.found) out.fields["dark_links"]?.let { metadata["darksearch_links"] = it }
                             handleScrapeOut("DarkSearch", "https://darksearch.io/api/search?query=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Ahmia"))
+                            val out = scrapeAhmia(primaryQuery)
+                            applyAhmiaMetadata(out, metadata)
+                            handleScrapeOut("Ahmia", "https://ahmia.fi/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("CourtListener"))
@@ -1697,10 +2151,12 @@ class OsintRepository(context: Context) {
                         }
                         launch {
                             send(SearchProgressEvent.Checking("Wikidata"))
-                            val out = scrapeWikidata(primaryQuery)
+                            val out = scrapeWikidataEnriched(primaryQuery)
                             if (out.found) {
                                 out.fields["descriptions"]?.let { metadata["wikidata_descriptions"] = it }
                                 out.fields["link"]?.let { metadata["wikidata_link"] = it }
+                                out.fields["employers"]?.let { metadata["wikidata_employers"] = it }
+                                out.fields["organizations"]?.let { metadata["wikidata_organizations"] = it }
                                 metadata["wikipedia_hits"] = "1"
                             }
                             handleScrapeOut("Wikidata", "https://www.wikidata.org/w/index.php?search=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
@@ -1709,16 +2165,19 @@ class OsintRepository(context: Context) {
                             send(SearchProgressEvent.Checking("ThatsThem"))
                             val out = scrapeThatsThemPerson(primaryQuery)
                             handleScrapeOut("ThatsThem", "https://thatsthem.com/name/${encode(primaryQuery.replace(" ", "-"))}", out, sources, metadata, this@channelFlow)
+                            appendPersonRecordFromScrape("tt", primaryQuery, metadata, scrapedPersonRecords)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("FastPeopleSearch"))
                             val out = scrapeFastPeopleSearchPerson(primaryQuery)
                             handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/name/${encode(primaryQuery.replace(" ", "-"))}", out, sources, metadata, this@channelFlow)
+                            appendPersonRecordFromScrape("fps", primaryQuery, metadata, scrapedPersonRecords)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("USPhoneBook"))
                             val out = scrapeUSPhoneBook(primaryQuery, city, state)
                             handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/name/${encode(primaryQuery.replace(" ", "-"))}", out, sources, metadata, this@channelFlow)
+                            appendPersonRecordFromScrape("uspb", primaryQuery, metadata, scrapedPersonRecords)
                         }
                         launch {
                             val firstName = primaryQuery.trim().split("\\s+".toRegex()).firstOrNull().orEmpty()
@@ -1751,15 +2210,9 @@ class OsintRepository(context: Context) {
                                         if (person == null) {
                                             send(SearchProgressEvent.NotFound("Pipl"))
                                         } else {
-                                            metadata["pipl_found"] = "true"
-                                            val displayName = person.names?.firstOrNull()?.display
-                                            if (!displayName.isNullOrBlank()) metadata["pipl_name"] = displayName
-                                            val piplEmails = person.emails?.mapNotNull { it.address }
-                                            if (!piplEmails.isNullOrEmpty()) metadata["pipl_emails"] = piplEmails.take(3).joinToString(", ")
-                                            val piplPhones = person.phones?.mapNotNull { it.display ?: it.number }
-                                            if (!piplPhones.isNullOrEmpty()) metadata["pipl_phones"] = piplPhones.take(3).joinToString(", ")
+                                            applyPiplPersonToMetadata(person, metadata)
                                             sources.add(DataSource("Pipl", "https://pipl.com/search/?q=${encode(primaryQuery)}", Date(), 0.9))
-                                            send(SearchProgressEvent.Found("Pipl", displayName ?: "Person profile found"))
+                                            send(SearchProgressEvent.Found("Pipl", person.names?.firstOrNull()?.display ?: "Person profile found"))
                                             apiKeys.recordUsage("pipl")
                                         }
                                     } catch (_: Exception) {
@@ -1788,14 +2241,7 @@ class OsintRepository(context: Context) {
                                         if (person == null) {
                                             send(SearchProgressEvent.NotFound("People Data Labs"))
                                         } else {
-                                            metadata["pdl_found"] = "true"
-                                            person.fullName?.let { metadata["pdl_name"] = it }
-                                            person.emails?.mapNotNull { it.address }?.take(3)?.joinToString(", ")
-                                                ?.let { metadata["pdl_emails"] = it }
-                                            person.phones?.mapNotNull { it.number }?.take(3)?.joinToString(", ")
-                                                ?.let { metadata["pdl_phones"] = it }
-                                            person.jobTitle?.let { metadata["pdl_job_title"] = it }
-                                            person.jobCompanyName?.let { metadata["pdl_company"] = it }
+                                            applyPdlPersonToMetadata(person, metadata)
                                             sources.add(DataSource("People Data Labs", "https://peopledatalabs.com/", Date(), 0.9))
                                             send(SearchProgressEvent.Found("People Data Labs", person.fullName ?: "Profile enriched"))
                                             apiKeys.recordUsage("pdl")
@@ -1805,6 +2251,82 @@ class OsintRepository(context: Context) {
                                     }
                                 }
                             }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                val key = apiKeys.clearbitKey.ifBlank { apiKeys.getKey("clearbit") ?: "" }
+                                if (key.isBlank()) {
+                                    send(SearchProgressEvent.NotFound("Clearbit Person (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("Clearbit Person"))
+                                    try {
+                                        val nameParts = primaryQuery.trim().split("\\s+".toRegex())
+                                        val resp = RetrofitClient.clearbitPersonService.findPerson(
+                                            email = fields["email"],
+                                            givenName = nameParts.firstOrNull(),
+                                            familyName = if (nameParts.size > 1) nameParts.last() else null,
+                                            bearerToken = "Bearer $key"
+                                        )
+                                        val cbPerson = resp.body()?.person
+                                        if (!resp.isSuccessful || cbPerson == null) {
+                                            send(SearchProgressEvent.NotFound("Clearbit Person"))
+                                        } else {
+                                            metadata["clearbit_person_found"] = "true"
+                                            cbPerson.name?.fullName?.let { metadata["clearbit_person_name"] = it }
+                                            cbPerson.email?.let { metadata["clearbit_person_email"] = it }
+                                            cbPerson.location?.let { metadata["clearbit_person_location"] = it }
+                                            cbPerson.employment?.let { emp ->
+                                                emp.name?.let { metadata["clearbit_person_company"] = it }
+                                                emp.title?.let { metadata["clearbit_person_title"] = it }
+                                            }
+                                            cbPerson.linkedin?.handle?.let {
+                                                metadata.merge("found_urls", "LinkedIn: https://linkedin.com/in/$it") { o, n -> "$o\n$n" }
+                                            }
+                                            sources.add(DataSource("Clearbit Person", "https://clearbit.com/", Date(), 0.88))
+                                            send(SearchProgressEvent.Found("Clearbit Person", cbPerson.name?.fullName ?: "Profile found"))
+                                            apiKeys.recordUsage("clearbit")
+                                        }
+                                    } catch (_: Exception) {
+                                        send(SearchProgressEvent.Blocked("Clearbit Person"))
+                                    }
+                                }
+                            }
+                        }
+                        launch {
+                            val key = apiKeys.opensanctionsKey.ifBlank { apiKeys.getKey("opensanctions") ?: "" }
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.NotFound("OpenSanctions (no key)"))
+                            } else {
+                                send(SearchProgressEvent.Checking("OpenSanctions"))
+                                val out = scrapeOpenSanctions(primaryQuery, key)
+                                if (out.found) {
+                                    out.fields["total"]?.let { metadata["opensanctions_total"] = it }
+                                    out.fields["names"]?.let { metadata["opensanctions_names"] = it }
+                                    out.fields["datasets"]?.let { metadata["opensanctions_datasets"] = it }
+                                    out.fields["countries"]?.let { metadata["opensanctions_countries"] = it }
+                                    out.fields["link"]?.let { metadata["opensanctions_link"] = it }
+                                }
+                                handleScrapeOut("OpenSanctions", "https://api.opensanctions.org/search/default?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                            }
+                        }
+                        launch {
+                            val key = apiKeys.opencorporatesKey.ifBlank { apiKeys.getKey("opencorporates") ?: "" }
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.NotFound("OpenCorporates (no key)"))
+                            } else {
+                                send(SearchProgressEvent.Checking("OpenCorporates Officers"))
+                                val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
+                                if (out.found) {
+                                    out.fields["person_companies"]?.let { metadata["corpwiki_person_companies"] = it }
+                                    out.fields["positions"]?.let { metadata["opencorp_positions"] = it }
+                                    out.fields["person_states"]?.let { metadata["corpwiki_person_states"] = it }
+                                    out.fields["officer_matches"]?.let { metadata["officer_matches"] = it }
+                                }
+                                handleScrapeOut("OpenCorporates", "https://api.opencorporates.com/v0.4/officers/search?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                            }
+                        }
+                        launch {
+                            runPersonAutoDorks(primaryQuery, city, state, nameTokens, metadata, sources, this@channelFlow, semaphore)
                         }
                     }
                     "email", "breach" -> {
@@ -1929,8 +2451,8 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "domain", "ip" -> {
-                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX", "crt.sh", "DarkSearch", "Google News", "ip-api", "BGPView", "Shodan InternetDB", "RDAP", "AbuseIPDB", "VirusTotal", "URLScan", "URLhaus")
-                        launch { termuxRunner.ensureTorRunning().collect { send(it) } }
+                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX", "crt.sh", "DarkSearch", "Ahmia", "Google News", "ip-api", "BGPView", "Shodan InternetDB", "RDAP", "AbuseIPDB", "VirusTotal", "URLScan", "URLhaus")
+                        launch { ensureDarkWebTor(this@channelFlow) }
                         launch {
                             send(SearchProgressEvent.Checking("HackerTarget Host"))
                             val out = scrapeHackerTarget(primaryQuery, "host")
@@ -1999,6 +2521,12 @@ class OsintRepository(context: Context) {
                             val out = searchDarkWeb(primaryQuery)
                             if (out.found) out.fields["dark_links"]?.let { metadata["darksearch_links"] = it }
                             handleScrapeOut("DarkSearch", "https://darksearch.io/api/search?query=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Ahmia"))
+                            val out = scrapeAhmia(primaryQuery)
+                            applyAhmiaMetadata(out, metadata)
+                            handleScrapeOut("Ahmia", "https://ahmia.fi/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("Google News"))
@@ -2434,11 +2962,19 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "darknet" -> {
-                        targetedScraperNames += "Ahmia"
+                        targetedScraperNames += setOf("Ahmia", "DarkSearch")
+                        launch { ensureDarkWebTor(this@channelFlow) }
                         launch {
-                            send(SearchProgressEvent.Checking("Ahmia Dark Web"))
+                            send(SearchProgressEvent.Checking("Ahmia"))
                             val out = scrapeAhmia(primaryQuery)
-                            handleScrapeOut("Ahmia Dark Web", "https://ahmia.fi/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                            applyAhmiaMetadata(out, metadata)
+                            handleScrapeOut("Ahmia", "https://ahmia.fi/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("DarkSearch"))
+                            val out = searchDarkWeb(primaryQuery)
+                            if (out.found) out.fields["dark_links"]?.let { metadata["darksearch_links"] = it }
+                            handleScrapeOut("DarkSearch", "https://darksearch.io/api/search?query=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
                     }
                     "username" -> {
@@ -2537,11 +3073,17 @@ class OsintRepository(context: Context) {
 
                 for (tool in allTools) {
                     if (tool.name in targetedScraperNames) continue
+                    if (!shouldAutoScrapeRegistryTool(tool)) continue
                     launch {
                         semaphore.withPermit {
                             val url = OsintToolRegistry.buildUrl(tool.urlTemplate, primaryQuery)
                             send(SearchProgressEvent.Checking(tool.name))
-                            val out = tryScrapeUrl(url)
+                            val validationQuery = when {
+                                isLikelyDomain(primaryQuery) -> primaryQuery
+                                isIpAddress(primaryQuery) -> primaryQuery
+                                else -> null
+                            }
+                            val out = tryScrapeUrl(url, validationQuery)
                             handleScrapeOut(tool.name, url, out, sources, metadata, this@channelFlow)
                         }
                     }
@@ -2569,7 +3111,10 @@ class OsintRepository(context: Context) {
                 if (distinctEmails.isNotEmpty()) metadata["search_emails"] = distinctEmails.joinToString(", ")
                 if (distinctRelatives.isNotEmpty()) metadata["search_relatives"] = distinctRelatives.joinToString(", ")
                 if (distinctAges.isNotEmpty()) metadata["search_age"] = distinctAges.first()
-                if (stateFilteredAddresses.isNotEmpty()) metadata["search_addresses"] = stateFilteredAddresses.joinToString("\n")
+                if (stateFilteredAddresses.isNotEmpty()) {
+                    metadata["search_addresses"] = stateFilteredAddresses.joinToString("\n")
+                    metadata["ddg_addresses"] = stateFilteredAddresses.joinToString("\n")
+                }
                 if (distinctSocial.isNotEmpty()) metadata["search_social_links"] = distinctSocial.joinToString("\n")
                 if (distinctProfiles.isNotEmpty()) metadata["search_profile_links"] = distinctProfiles.joinToString("\n")
                 if (ddgSnippets.isNotEmpty()) metadata["search_snippets"] = ddgSnippets.distinct().take(20).joinToString("\n").take(3000)
@@ -2606,11 +3151,17 @@ class OsintRepository(context: Context) {
             }
 
             send(SearchProgressEvent.Checking("AI Brief"))
-            val aiPrompt = buildAiSummaryPrompt(primaryQuery, effectiveType, metadata.toMap())
-            val aiSummary = withContext(Dispatchers.IO) { queryPollinationsAI(aiPrompt) }
-            if (!aiSummary.isNullOrBlank()) {
-                metadata["ai_summary"] = aiSummary
-                send(SearchProgressEvent.Found("AI Brief", aiSummary.take(100)))
+            val aiReport = withContext(Dispatchers.IO) {
+                generateOsintAiReport(primaryQuery, effectiveType, metadata.toMap(), sources.toList())
+            }
+            if (aiReport != null) {
+                aiReport.toMetadataMap().forEach { (k, v) -> metadata[k] = v }
+                val preview = aiReport.executiveSummary.take(100)
+                val providerLabel = when (aiReport.provider) {
+                    "openrouter" -> "OpenRouter"
+                    else -> "Pollinations"
+                }
+                send(SearchProgressEvent.Found("AI Brief ($providerLabel)", preview))
             } else {
                 send(SearchProgressEvent.NotFound("AI Brief"))
             }
@@ -2703,6 +3254,7 @@ class OsintRepository(context: Context) {
                 sources.add(DataSource(name, url, Date(), 0.6))
                 val key = SOURCE_ABBREVS[name.lowercase()] ?: name.lowercase().replace(" ", "_")
                 out.fields.forEach { (k, v) -> metadata["${key}_$k"] = v }
+                normalizeScraperFieldAliases(key, metadata)
             }
             else -> channel.send(SearchProgressEvent.NotFound(name))
         }

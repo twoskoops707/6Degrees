@@ -14,21 +14,63 @@ import java.io.File
 
 class TermuxToolRunner(private val context: Context) {
 
-    private val outputDir = File("/storage/emulated/0/.6degrees").also { it.mkdirs() }
+    companion object {
+        const val STATUS_FILE = "/storage/emulated/0/.6degrees/.6d_tools_status.txt"
+        val OUTPUT_DIR = File("/storage/emulated/0/.6degrees").also { it.mkdirs() }
+        val SEARCH_TOOLS = listOf("sherlock", "maigret", "holehe", "tor", "theharvester", "nmap")
+    }
+
+    private val outputDir = OUTPUT_DIR
+    private val statusFile = File(STATUS_FILE)
 
     fun isTermuxInstalled(): Boolean = try {
         context.packageManager.getPackageInfo("com.termux", 0)
         true
     } catch (_: PackageManager.NameNotFoundException) { false }
 
-    private fun isToolInstalled(name: String): Boolean {
-        val statusFile = File("/storage/emulated/0/.6degrees/.6d_tools_status.txt")
-        return if (statusFile.exists()) {
-            try { statusFile.readText().contains("${name.lowercase()}:ok") }
-            catch (_: Exception) { true }
-        } else {
-            true
+    fun readToolStatus(): Map<String, Boolean> {
+        if (!statusFile.exists()) return emptyMap()
+        return try {
+            statusFile.readText().lines()
+                .filter { it.contains(":ok") || it.contains(":missing") }
+                .associate { line ->
+                    val key = line.substringBefore(":").trim()
+                    key to line.contains(":ok")
+                }
+        } catch (_: Exception) {
+            emptyMap()
         }
+    }
+
+    fun infrastructureSummary(): String {
+        val termux = if (isTermuxInstalled()) "installed" else "missing"
+        val status = readToolStatus()
+        val ready = SEARCH_TOOLS.count { status[it] == true }
+        val torLine = when {
+            com.twoskoops707.sixdegrees.tor.TorBootstrapManager.isPortOpen() -> "Tor SOCKS :9050 ready"
+            status["tor"] == true -> "Tor installed in Termux (not running)"
+            else -> "Tor not available"
+        }
+        return "Termux: $termux · CLI tools: $ready/${SEARCH_TOOLS.size} · $torLine"
+    }
+
+    fun requestToolStatusRefresh() {
+        if (!isTermuxInstalled()) return
+        fireCommand(buildStatusCheckCommand(SEARCH_TOOLS))
+    }
+
+    fun buildStatusCheckCommand(tools: List<String>): String {
+        val checks = tools.joinToString(" ; ") { t ->
+            val bin = "/data/data/com.termux/files/usr/bin/$t"
+            "[ -f $bin ] && echo $t:ok || echo $t:missing"
+        }
+        return "mkdir -p ${outputDir.absolutePath} && { $checks ; } > $STATUS_FILE 2>&1 ; echo __DONE__ >> $STATUS_FILE"
+    }
+
+    private fun isToolInstalled(name: String): Boolean {
+        val status = readToolStatus()
+        if (status.isNotEmpty()) return status[name.lowercase()] == true
+        return false
     }
 
     private fun fireCommand(cmd: String) {
@@ -48,16 +90,20 @@ class TermuxToolRunner(private val context: Context) {
         var waited = 0L
         var backoffIdx = 0
         while (waited < maxMs) {
-            val delay = if (backoffIdx < backoffs.size) backoffs[backoffIdx++] else backoffs.last()
-            delay(delay)
-            waited += delay
+            val delayMs = if (backoffIdx < backoffs.size) backoffs[backoffIdx++] else backoffs.last()
+            delay(delayMs)
+            waited += delayMs
             if (file.exists() && file.length() > 0) return file.readText()
         }
         return null
     }
 
     fun runSherlock(username: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled() || !isToolInstalled("sherlock")) return@flow
+        if (!isTermuxInstalled()) return@flow
+        if (!isToolInstalled("sherlock")) {
+            emit(SearchProgressEvent.NotFound("sherlock"))
+            return@flow
+        }
         emit(SearchProgressEvent.Checking("sherlock"))
         val outFile = File(outputDir, "sherlock_${System.currentTimeMillis()}.txt")
         val cmd = "sherlock ${username.trim()} --output ${outFile.absolutePath} --print-found 2>/dev/null"
@@ -92,7 +138,11 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runMaigret(username: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled() || !isToolInstalled("maigret")) return@flow
+        if (!isTermuxInstalled()) return@flow
+        if (!isToolInstalled("maigret")) {
+            emit(SearchProgressEvent.NotFound("maigret"))
+            return@flow
+        }
         emit(SearchProgressEvent.Checking("maigret"))
         val outFile = File(outputDir, "maigret_${System.currentTimeMillis()}.json")
         val cmd = "maigret ${username.trim()} -J simple --no-pics -o ${outFile.absolutePath} 2>/dev/null"
@@ -132,7 +182,11 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runHolehe(email: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled() || !isToolInstalled("holehe")) return@flow
+        if (!isTermuxInstalled()) return@flow
+        if (!isToolInstalled("holehe")) {
+            emit(SearchProgressEvent.NotFound("holehe"))
+            return@flow
+        }
         emit(SearchProgressEvent.Checking("holehe"))
         val outFile = File(outputDir, "holehe_${System.currentTimeMillis()}.txt")
         val cmd = "holehe ${email.trim()} > ${outFile.absolutePath} 2>&1"
@@ -168,7 +222,11 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runTheHarvester(domain: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled() || !isToolInstalled("theHarvester")) return@flow
+        if (!isTermuxInstalled()) return@flow
+        if (!isToolInstalled("theharvester")) {
+            emit(SearchProgressEvent.NotFound("theHarvester"))
+            return@flow
+        }
         emit(SearchProgressEvent.Checking("theHarvester"))
         val outFile = File(outputDir, "harvester_${System.currentTimeMillis()}.txt")
         val cmd = "theHarvester -d ${domain.trim()} -b duckduckgo,bing,google -f ${outFile.absolutePath} 2>/dev/null"
@@ -204,21 +262,16 @@ class TermuxToolRunner(private val context: Context) {
 
     fun ensureTorRunning(): Flow<SearchProgressEvent> = flow {
         if (!isTermuxInstalled()) return@flow
-        val torBin = File("/data/data/com.termux/files/usr/bin/tor")
-        if (!torBin.exists()) {
-            emit(SearchProgressEvent.NotFound("Tor (not installed)"))
+        if (com.twoskoops707.sixdegrees.tor.TorBootstrapManager.isPortOpen()) {
+            com.twoskoops707.sixdegrees.tor.TorBootstrapManager.markReady()
+            emit(SearchProgressEvent.Found("Tor", "SOCKS proxy ready on :9050"))
             return@flow
         }
-        val probeAlive = try {
-            val s = java.net.Socket(); s.connect(java.net.InetSocketAddress("127.0.0.1", 9050), 1000); s.close(); true
-        } catch (_: Exception) { false }
-        if (probeAlive) {
-            emit(SearchProgressEvent.Found("Tor", "Already running on :9050"))
+        if (!isToolInstalled("tor")) {
+            emit(SearchProgressEvent.NotFound("Tor (not installed in Termux)"))
             return@flow
         }
         emit(SearchProgressEvent.Checking("Tor"))
-        val torrcFile = File(outputDir, "torrc")
-        if (!torrcFile.exists()) torrcFile.writeText("SocksPort 9050\nDataDirectory /data/data/com.termux/files/home/.tor\n")
         try {
             fireCommand("tor --SocksPort 9050 --DataDirectory /data/data/com.termux/files/home/.tor &>/dev/null &")
         } catch (_: Exception) {
@@ -226,15 +279,13 @@ class TermuxToolRunner(private val context: Context) {
             return@flow
         }
         var waited = 0L
-        val maxWait = 30_000L
+        val maxWait = 45_000L
         while (waited < maxWait) {
             delay(2000)
             waited += 2000
-            val ready = try {
-                val s = java.net.Socket(); s.connect(java.net.InetSocketAddress("127.0.0.1", 9050), 500); s.close(); true
-            } catch (_: Exception) { false }
-            if (ready) {
-                emit(SearchProgressEvent.Found("Tor", "Connected on :9050"))
+            if (com.twoskoops707.sixdegrees.tor.TorBootstrapManager.isPortOpen()) {
+                com.twoskoops707.sixdegrees.tor.TorBootstrapManager.markReady()
+                emit(SearchProgressEvent.Found("Tor", "Termux Tor connected on :9050"))
                 return@flow
             }
         }
@@ -242,7 +293,11 @@ class TermuxToolRunner(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun runNmap(target: String): Flow<SearchProgressEvent> = flow {
-        if (!isTermuxInstalled() || !isToolInstalled("nmap")) return@flow
+        if (!isTermuxInstalled()) return@flow
+        if (!isToolInstalled("nmap")) {
+            emit(SearchProgressEvent.NotFound("nmap"))
+            return@flow
+        }
         emit(SearchProgressEvent.Checking("nmap"))
         val outFile = File(outputDir, "nmap_${System.currentTimeMillis()}.txt")
         val cmd = "nmap -sV --open -oN ${outFile.absolutePath} ${target.trim()} 2>/dev/null"

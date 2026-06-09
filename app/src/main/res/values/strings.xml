@@ -39,6 +39,34 @@
     <string name="search_type_hint_wifi">Geolocates a WiFi network by SSID or BSSID using the WiGLE wardriving database.</string>
 
     <string name="results_title">INTELLIGENCE REPORT</string>
+    <string name="dossier_title">CASE DOSSIER</string>
+    <string name="pipeline_label">Investigation pipeline</string>
+    <string name="pipeline_step_intake">Intake</string>
+    <string name="pipeline_step_collect">Collect</string>
+    <string name="pipeline_step_resolve">Resolve</string>
+    <string name="pipeline_step_dossier">Dossier</string>
+    <string name="search_intake_title">Case intake</string>
+    <string name="search_intake_subtitle">Define your target — more identifiers reduce false positives</string>
+    <string name="dossier_tab_subject">Subject file</string>
+    <string name="dossier_tab_contacts">Contact matrix</string>
+    <string name="dossier_tab_digital">Digital trace</string>
+    <string name="dossier_tab_legal">Legal &amp; exposure</string>
+    <string name="dossier_tab_intel">Field intel</string>
+    <string name="dossier_tab_network">Network map</string>
+    <string name="dossier_tab_threats">Threat intel</string>
+    <string name="dossier_tab_domain">Domain registry</string>
+    <string name="dossier_tab_breaches">Breach exposure</string>
+    <string name="dossier_tab_identity">Identity links</string>
+    <string name="dossier_tab_handles">Handle scan</string>
+    <string name="dossier_tab_profiles">Profile index</string>
+    <string name="dossier_tab_validation">Line validation</string>
+    <string name="dossier_tab_risk">Risk signals</string>
+    <string name="dossier_tab_corporate">Corporate file</string>
+    <string name="dossier_tab_officers">Officers</string>
+    <string name="dossier_tab_filings">Filings</string>
+    <string name="dossier_tab_face">Face search</string>
+    <string name="dossier_tab_reverse">Reverse image</string>
+    <string name="dossier_tab_data">Raw data</string>
     <string name="person_info_title">Identity</string>
     <string name="contact_info_title">Contact</string>
     <string name="social_profiles_title">Social Profiles</string>
@@ -118,6 +146,8 @@
     <string name="abuseipdb_api_key_hint">AbuseIPDB — IP reputation &amp; abuse reports</string>
     <string name="urlscan_api_key_hint">URLScan.io — website screenshot &amp; analysis</string>
     <string name="save_api_keys_button">Save Keys</string>
+    <string name="openrouter_api_key_hint">OpenRouter — AI dossier synthesis (openrouter.ai/keys)</string>
+    <string name="openrouter_model_hint">OpenRouter model (optional — default: meta-llama/llama-3.3-70b-instruct:free)</string>
     <string name="api_guides_section_title">How to Get Your Keys</string>
     <string name="api_status_active">active</string>
     <string name="api_status_free">free — setup needed</string>
@@ -176,5 +206,7 @@
 
     <!-- Search progress -->
     <string name="progress_title">Investigating…</string>
+    <string name="progress_collect_title">Collecting intelligence</string>
     <string name="progress_subtitle">Querying sources in parallel — this takes 10–30 seconds</string>
+    <string name="candidate_resolve_title">Resolve identity</string>
 </resources>

@@ -120,6 +120,8 @@ class ApiSettingsFragment : Fragment() {
                 "dehashed" -> { apiKeyManager.dehashed = v; count++ }
                 "dehashed_user" -> { apiKeyManager.dehashedUser = v; count++ }
                 "wigle" -> { apiKeyManager.wigleKey = v; count++ }
+                "openrouter", "openrouter_ai" -> { apiKeyManager.openrouterKey = v; count++ }
+                "openrouter_model" -> { apiKeyManager.openrouterModel = v; count++ }
             }
         }
         if (count > 0) {
@@ -161,7 +163,9 @@ class ApiSettingsFragment : Fragment() {
             "abstractapi_phone" to apiKeyManager.abstractApiPhoneKey,
             "leakix" to apiKeyManager.leakixKey,
             "intelx" to apiKeyManager.intelxKey,
-            "wigle" to apiKeyManager.wigleKey
+            "wigle" to apiKeyManager.wigleKey,
+            "openrouter" to apiKeyManager.openrouterKey,
+            "openrouter_model" to apiKeyManager.openrouterModel
         ).forEach { (name, key) ->
             sb.appendLine("$name,$key")
         }
@@ -344,6 +348,8 @@ class ApiSettingsFragment : Fragment() {
         binding.abstractapiPhoneApiKeyInput.setText(apiKeyManager.abstractApiPhoneKey)
         binding.leakixApiKeyInput.setText(apiKeyManager.leakixKey)
         binding.intelxApiKeyInput.setText(apiKeyManager.intelxKey)
+        binding.openrouterApiKeyInput.setText(apiKeyManager.openrouterKey)
+        binding.openrouterModelInput.setText(apiKeyManager.openrouterModel)
     }
 
     private fun saveApiKeys() {
@@ -374,6 +380,8 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.abstractApiPhoneKey = binding.abstractapiPhoneApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.leakixKey = binding.leakixApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.intelxKey = binding.intelxApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.openrouterKey = binding.openrouterApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.openrouterModel = binding.openrouterModelInput.text?.toString()?.trim() ?: ""
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()
     }
 

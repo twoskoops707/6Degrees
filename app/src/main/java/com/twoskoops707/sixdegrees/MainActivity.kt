@@ -18,6 +18,7 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupWithNavController
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.twoskoops707.sixdegrees.databinding.ActivityMainBinding
 import com.twoskoops707.sixdegrees.ui.settings.PlugBgFactory
@@ -116,7 +117,19 @@ class MainActivity : AppCompatActivity() {
                 true
             } else false
         }
+        val investigationFlowDestinations = setOf(
+            R.id.nav_search_progress,
+            R.id.nav_candidate_selection,
+            R.id.nav_results
+        )
+
         navController.addOnDestinationChangedListener { _, destination, _ ->
+            bottomNav?.visibility = if (destination.id in investigationFlowDestinations) {
+                View.GONE
+            } else {
+                View.VISIBLE
+            }
+
             val menuId = when (destination.id) {
                 R.id.nav_search, R.id.nav_search_progress, R.id.nav_results, R.id.nav_wizard, R.id.nav_dork_builder, R.id.nav_candidate_selection -> R.id.nav_search
                 R.id.nav_osint_resources -> R.id.nav_osint_resources
@@ -206,24 +219,14 @@ class MainActivity : AppCompatActivity() {
         val lastCheck = prefs.getLong("termux_tools_last_check", 0L)
         if (System.currentTimeMillis() - lastCheck < 24 * 60 * 60 * 1000L) return
 
-        val statusPath = "/storage/emulated/0/.6degrees/.6d_tools_status.txt"
-        val outFile = java.io.File(statusPath)
-        val tools = listOf("sherlock", "maigret", "holehe", "tor", "theharvester", "nmap")
-        val checks = tools.joinToString(" ; ") { t ->
-            val bin = "/data/data/com.termux/files/usr/bin/$t"
-            "[ -f $bin ] && echo $t:ok || echo $t:missing"
+        val runner = com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner(this)
+        if (!runner.isTermuxInstalled()) {
+            prefs.edit().putString("infra_status_summary", "Termux not installed").apply()
+            return
         }
-        val cmd = "mkdir -p /storage/emulated/0/.6degrees && { $checks ; } > $statusPath 2>&1 ; echo __DONE__ >> $statusPath"
+        val outFile = java.io.File(com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner.STATUS_FILE)
         try {
-            val intent = Intent().apply {
-                setClassName("com.termux", "com.termux.app.RunCommandService")
-                action = "com.termux.RUN_COMMAND"
-                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
-                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
-                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-            }
-            startForegroundService(intent)
+            runner.requestToolStatusRefresh()
         } catch (_: Exception) { return }
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -236,7 +239,10 @@ class MainActivity : AppCompatActivity() {
                         val lines = content.lines().filter { it.contains(":ok") || it.contains(":missing") }
                         val missing = lines.filter { it.contains(":missing") }.map { it.split(":").first() }
                         val ok = lines.filter { it.contains(":ok") }.map { it.split(":").first() }
-                        prefs.edit().putLong("termux_tools_last_check", System.currentTimeMillis()).apply()
+                        prefs.edit()
+                            .putLong("termux_tools_last_check", System.currentTimeMillis())
+                            .putString("infra_status_summary", runner.infrastructureSummary())
+                            .apply()
                         if (missing.isNotEmpty()) {
                             withContext(Dispatchers.Main) {
                                 if (!isFinishing && !isDestroyed) {

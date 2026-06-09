@@ -53,3 +53,12 @@ jobs:
           prerelease: ${{ github.ref_name != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify APK ready (ntfy)
+        if: success() && github.event_name == 'push'
+        run: |
+          curl -s -H "Title: 6Degrees APK Ready" \
+            -H "Tags: package" \
+            -H "Priority: high" \
+            -d "Download: https://github.com/${{ github.repository }}/releases/latest" \
+            https://ntfy.sh/twoskoops707-6degrees-apk

@@ -18,6 +18,8 @@ import coil.load
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentCandidateSelectionBinding
 import com.twoskoops707.sixdegrees.databinding.ItemCandidateCardBinding
+import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
+import com.twoskoops707.sixdegrees.ui.common.InvestigationStep
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import kotlinx.coroutines.launch
 
@@ -41,6 +43,8 @@ class CandidateSelectionFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        InvestigationPipelineView.bind(binding.root, InvestigationStep.RESOLVE)
 
         binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 

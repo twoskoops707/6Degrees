@@ -11,13 +11,15 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <include layout="@layout/include_investigation_pipeline" />
+
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             style="@style/Widget.SixDegrees.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:navigationIcon="@drawable/ic_arrow_back"
-            app:title="Select candidate" />
+            app:title="@string/candidate_resolve_title" />
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -87,7 +89,7 @@
             android:layout_weight="1"
             android:clipToPadding="false"
             android:paddingTop="4dp"
-            android:paddingBottom="100dp" />
+            android:paddingBottom="24dp" />
     </LinearLayout>
 
     <LinearLayout

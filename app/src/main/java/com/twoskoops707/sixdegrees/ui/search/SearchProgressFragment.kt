@@ -18,6 +18,8 @@ import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.repository.SearchProgressEvent
 import com.twoskoops707.sixdegrees.databinding.FragmentSearchProgressBinding
 import com.twoskoops707.sixdegrees.databinding.ItemSearchSourceBinding
+import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
+import com.twoskoops707.sixdegrees.ui.common.InvestigationStep
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import kotlinx.coroutines.launch
 
@@ -61,6 +63,8 @@ class SearchProgressFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        InvestigationPipelineView.bind(binding.root, InvestigationStep.COLLECT)
 
         val rawQuery = arguments?.getString("query") ?: ""
         val type = arguments?.getString("type") ?: "person"

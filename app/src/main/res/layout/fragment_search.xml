@@ -11,19 +11,21 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <include layout="@layout/include_investigation_pipeline" />
+
         <!-- Screen header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingHorizontal="@dimen/screen_padding_horizontal"
-            android:paddingTop="24dp"
+            android:paddingTop="16dp"
             android:paddingBottom="8dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/menu_search"
+                android:text="@string/search_intake_title"
                 android:textAppearance="@style/TextAppearance.SixDegrees.HeadlineMedium"
                 android:textStyle="bold" />
 
@@ -31,7 +33,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Investigate people, companies, domains, and more"
+                android:text="@string/search_intake_subtitle"
                 android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
                 android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -242,7 +244,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Search details"
+                android:text="Target identifiers"
                 android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium" />
 
             <TextView
@@ -1236,7 +1238,7 @@
                 android:layout_width="0dp"
                 android:layout_height="52dp"
                 android:layout_weight="1"
-                android:text="Start search"
+                android:text="Launch collection"
                 app:icon="@drawable/ic_search"
                 app:iconGravity="textStart" />
 
@@ -1294,7 +1296,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Recent searches"
+                    android:text="Recent dossiers"
                     android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium" />
 
                 <View
