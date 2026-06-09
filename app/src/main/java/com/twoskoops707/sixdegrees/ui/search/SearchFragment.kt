@@ -46,8 +46,6 @@ class SearchFragment : Fragment() {
             attachedImageUri = pendingImageUri
             binding.tvImageAttached.text = getString(R.string.intake_photo_attached)
             binding.tvImageAttached.isVisible = true
-            binding.chipPhoto.isChecked = true
-            binding.cardPhoto.isVisible = true
             updateQueryCounter()
         }
     }
@@ -62,8 +60,6 @@ class SearchFragment : Fragment() {
             attachedImageUri = uri
             binding.tvImageAttached.text = getString(R.string.intake_photo_selected)
             binding.tvImageAttached.isVisible = true
-            binding.chipPhoto.isChecked = true
-            binding.cardPhoto.isVisible = true
             updateQueryCounter()
         }
     }
@@ -78,7 +74,6 @@ class SearchFragment : Fragment() {
 
         InvestigationPipelineView.bind(binding.root, InvestigationStep.INTAKE)
 
-        setupFieldChips()
         setupIntentChips()
         setupTextWatchers()
         setupActions()
@@ -102,22 +97,6 @@ class SearchFragment : Fragment() {
             binding.tvQueryCounter.text = getString(R.string.intake_sources_simple)
         } else {
             updateQueryCounter()
-        }
-    }
-
-    private fun setupFieldChips() {
-        val chipToCard = mapOf(
-            binding.chipName to binding.cardName,
-            binding.chipPhoto to binding.cardPhoto,
-            binding.chipEmail to binding.cardEmail,
-            binding.chipUsername to binding.cardUsername,
-            binding.chipLocation to binding.cardLocation
-        )
-
-        chipToCard.forEach { (chip, card) ->
-            chip.setOnCheckedChangeListener { _, isChecked ->
-                card.isVisible = isChecked
-            }
         }
     }
 
@@ -265,22 +244,11 @@ class SearchFragment : Fragment() {
         selectedIntent = null
 
         listOf(
-            binding.chipName,
-            binding.chipPhoto,
-            binding.chipEmail,
-            binding.chipUsername,
-            binding.chipLocation,
             binding.chipIntentFirstDate,
             binding.chipIntentMeeting,
             binding.chipIntentVerify,
             binding.chipIntentFraud
         ).forEach { (it as Chip).isChecked = false }
-
-        binding.cardName.isVisible = false
-        binding.cardPhoto.isVisible = false
-        binding.cardEmail.isVisible = false
-        binding.cardUsername.isVisible = false
-        binding.cardLocation.isVisible = false
 
         updateQueryCounter()
     }
