@@ -24,7 +24,6 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
-import com.twoskoops707.sixdegrees.domain.GoogleDorkLibrary
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
 import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
@@ -288,13 +287,97 @@ class ResultsFragment : Fragment() {
         return "$prefix$clean$suffix" to ""
     }
 
-    private fun appendAiSuggestedSearchRows(rows: MutableList<Pair<String, String>>, meta: Map<String, String>) {
+    private fun appendAiSuggestedSearchRows(
+        rows: MutableList<Pair<String, String>>,
+        meta: Map<String, String>,
+        investigatorMode: Boolean = false
+    ) {
+        if (!investigatorMode) return
         meta["ai_suggested_searches"]?.takeIf { it.isNotBlank() }?.let { links ->
-            rows.add(sec("AI SUGGESTED SEARCHES"))
+            rows.add(sec("AI SUGGESTED SEARCHES (VERIFY)"))
             links.lines().filter { it.isNotBlank() }.forEach { line ->
                 val colonIdx = line.indexOf(": http")
                 if (colonIdx > 0) {
-                    val label = "⟶ ${line.substring(0, colonIdx)}"
+                    val label = "Verify ↗ ${line.substring(0, colonIdx)}"
+                    val url = line.substring(colonIdx + 2)
+                    rows.add(label to url)
+                }
+            }
+        }
+    }
+
+    private fun appendGoogleIntelligence(rows: MutableList<Pair<String, String>>, meta: Map<String, String>) {
+        val needleLines = meta["dork_needle_findings"]?.lines()?.filter { it.isNotBlank() }.orEmpty()
+        val categories = DorkMetadataStore.allCategories(meta)
+        val hasIntel = needleLines.isNotEmpty() || categories.isNotEmpty()
+            || !meta["dork_corroborated_phones"].isNullOrBlank()
+            || !meta["dork_follow_snippets"].isNullOrBlank()
+        if (!hasIntel) return
+
+        rows.add(sec("GOOGLE INTELLIGENCE"))
+        meta["dork_total_hits"]?.takeIf { it.isNotBlank() }?.let { total ->
+            rows.add("Auto-dork hits" to "$total parsed in-app")
+        }
+
+        needleLines.take(12).forEach { line ->
+            val parsed = DorkMetadataStore.parseNeedleLine(line)
+            val type = parsed["type"] ?: "Finding"
+            val value = parsed["value"] ?: line
+            val confidence = parsed["confidence"] ?: parsed["hits"] ?: "?"
+            val label = when (type) {
+                "PHONE" -> "Phone (corroborated ×$confidence)"
+                "EMAIL" -> "Email (corroborated ×$confidence)"
+                "ADDRESS" -> "Address (corroborated ×$confidence)"
+                else -> "High-confidence $type"
+            }
+            rows.add(label to value)
+        }
+
+        meta["dork_corroborated_phones"]?.takeIf { it.isNotBlank() }?.split(",")?.map { it.trim() }
+            ?.filter { it.isNotBlank() }?.forEach { phone ->
+                rows.add("Corroborated phone" to phone)
+            }
+        meta["dork_corroborated_emails"]?.takeIf { it.isNotBlank() }?.split(",")?.map { it.trim() }
+            ?.filter { it.isNotBlank() }?.forEach { email ->
+                rows.add("Corroborated email" to email)
+            }
+        meta["dork_employers"]?.takeIf { it.isNotBlank() }?.split(",")?.map { it.trim() }
+            ?.filter { it.isNotBlank() }?.take(6)?.forEach { employer ->
+                rows.add("Employer hint" to employer)
+            }
+        meta["dork_follow_snippets"]?.takeIf { it.isNotBlank() }?.split("\n---\n")
+            ?.filter { it.isNotBlank() }?.take(6)?.forEach { snippet ->
+                rows.add("Profile page" to snippet.trim())
+            }
+
+        categories.forEach { category ->
+            val hits = DorkMetadataStore.hitsForCategory(meta, category)
+            hits.take(5).forEach { hit ->
+                val text = buildString {
+                    append(hit.title)
+                    if (hit.snippet.isNotBlank()) append(": ${hit.snippet.take(160)}")
+                }.trim()
+                rows.add(category.displayName to text)
+                if (hit.url.startsWith("http")) {
+                    rows.add("Verify ↗" to hit.url)
+                }
+            }
+        }
+    }
+
+    private fun appendBrowserVerifyLinks(
+        rows: MutableList<Pair<String, String>>,
+        meta: Map<String, String>,
+        investigatorMode: Boolean
+    ) {
+        if (!investigatorMode) return
+        val links = meta["dork_browser_verify_links"] ?: meta["dork_search_links"]
+        links?.takeIf { it.isNotBlank() }?.let {
+            rows.add(sec("BROWSER VERIFY (OPTIONAL)"))
+            it.lines().filter { line -> line.isNotBlank() }.forEach { line ->
+                val colonIdx = line.indexOf(": http")
+                if (colonIdx > 0) {
+                    val label = "Verify ↗ ${line.substring(0, colonIdx)}"
                     val url = line.substring(colonIdx + 2)
                     rows.add(label to url)
                 }
@@ -321,7 +404,7 @@ class ResultsFragment : Fragment() {
             meta["ai_next_steps"]?.lines()?.filter { it.isNotBlank() }?.forEach {
                 rows.add("Next Step" to it.trim())
             }
-            appendAiSuggestedSearchRows(rows, meta)
+            appendAiSuggestedSearchRows(rows, meta, AppSettings.isInvestigatorMode(requireContext()))
             rows.add("⚠ Disclaimer" to "AI-generated synthesis — verify all claims independently.")
             return
         }
@@ -441,6 +524,9 @@ class ResultsFragment : Fragment() {
 
     private fun buildPersonDigitalTrace(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
+        val investigatorMode = AppSettings.isInvestigatorMode(requireContext())
+
+        appendGoogleIntelligence(rows, meta)
 
         val socialLinks = buildSocialLinks(meta)
         if (socialLinks.isNotEmpty()) {
@@ -486,17 +572,7 @@ class ResultsFragment : Fragment() {
             it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Intel" to s.trim()) }
         }
 
-        meta["dork_search_links"]?.takeIf { it.isNotBlank() }?.let { links ->
-            rows.add(sec("OPEN IN BROWSER"))
-            links.lines().filter { it.isNotBlank() }.forEach { line ->
-                val colonIdx = line.indexOf(": http")
-                if (colonIdx > 0) {
-                    val label = "⟶ ${line.substring(0, colonIdx)}"
-                    val url = line.substring(colonIdx + 2)
-                    rows.add(label to url)
-                }
-            }
-        }
+        appendBrowserVerifyLinks(rows, meta, investigatorMode)
 
         if (rows.isEmpty()) rows.add("Status" to "No digital footprint found for this subject")
         return rows
@@ -640,6 +716,8 @@ class ResultsFragment : Fragment() {
 
     private fun buildPersonIntel(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
+
+        appendGoogleIntelligence(rows, meta)
 
         meta["search_social_links"]?.takeIf { it.isNotBlank() }?.let { links ->
             val linkList = links.lines().filter { it.isNotBlank() }
@@ -1625,7 +1703,7 @@ class ResultsFragment : Fragment() {
             meta[k]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         }
         listOf("search_phones", "tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
-               "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones")
+               "ddg_person_phones", "ddg_social_phones", "ddg_phones", "cse_phones", "dork_phones", "dork_corroborated_phones", "dork_follow_phones")
             .forEach { key ->
                 meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
                     phone.isNotBlank() && areaCodeRegex.find(phone) != null && areaCodeRegex.find(phone)!!.groupValues[1] !in tollfree

@@ -512,6 +512,33 @@ object DossierBuilder {
 
     private fun buildDigitalSection(meta: Map<String, String>): DossierSection {
         val findings = mutableListOf<DossierFinding>()
+        meta["dork_needle_findings"]?.lines()?.filter { it.isNotBlank() }?.take(10)?.forEach { line ->
+            val parsed = com.twoskoops707.sixdegrees.domain.DorkMetadataStore.parseNeedleLine(line)
+            val value = parsed["value"] ?: line
+            val confidence = parsed["confidence"]?.toIntOrNull() ?: 2
+            val conf = when {
+                confidence >= 4 -> DossierConfidence.HIGH
+                confidence >= 2 -> DossierConfidence.MEDIUM
+                else -> DossierConfidence.LOW
+            }
+            findings.add(finding(value, "Google Intelligence", conf, parsed["type"] ?: "Corroborated"))
+        }
+        com.twoskoops707.sixdegrees.domain.DorkMetadataStore.allCategories(meta).forEach { category ->
+            com.twoskoops707.sixdegrees.domain.DorkMetadataStore.hitsForCategory(meta, category)
+                .take(4).forEach { hit ->
+                    val text = "${hit.title}: ${hit.snippet}".trim().take(200)
+                    findings.add(
+                        finding(
+                            value = text,
+                            source = "Google Intelligence",
+                            confidence = DossierConfidence.MEDIUM,
+                            label = category.displayName,
+                            sourceUrl = hit.url.takeIf { it.startsWith("http") },
+                            isLink = false
+                        )
+                    )
+                }
+        }
         meta["found_urls"]?.lines()?.filter { it.isNotBlank() }?.take(15)?.forEach { line ->
             val isNsfw = line.startsWith("⚠NSFW:")
             val clean = if (isNsfw) line.removePrefix("⚠NSFW:") else line
@@ -666,14 +693,6 @@ object DossierBuilder {
             }
             meta["ai_next_steps"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
                 findings.add(finding(line.trim(), "AI Analysis", DossierConfidence.MEDIUM, "Next Step"))
-            }
-            meta["ai_suggested_searches"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
-                val colonIdx = line.indexOf(": http")
-                if (colonIdx > 0) {
-                    val label = line.substring(0, colonIdx)
-                    val url = line.substring(colonIdx + 2)
-                    findings.add(finding(url, "AI Suggested Search", DossierConfidence.MEDIUM, label, isLink = true))
-                }
             }
         } else {
             meta["ai_summary"]?.takeIf { it.isNotBlank() }?.lines()?.filter { it.isNotBlank() }?.forEach { line ->

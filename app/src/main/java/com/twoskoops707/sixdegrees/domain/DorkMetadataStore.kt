@@ -112,8 +112,8 @@ object DorkMetadataStore {
             val confidence = hits + if (queryMatch) 2 else 0
             if (hits >= 2 || confidence >= 3) {
                 val display = formatPhone(digits)
-                ranked += confidence to "PHONE|$display|hits=$hits|confidence=$confidence"
-                if (queryMatch) ranked[ranked.lastIndex] = (confidence + 1) to ranked.last().second + "|query_match=true"
+                val suffix = if (queryMatch) "|query_match=true" else ""
+                ranked += confidence to "PHONE|$display|hits=$hits|confidence=$confidence$suffix"
             }
         }
         emailHits.forEach { (email, count) ->
