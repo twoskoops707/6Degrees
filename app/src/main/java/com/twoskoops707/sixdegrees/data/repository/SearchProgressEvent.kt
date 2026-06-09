@@ -8,6 +8,8 @@ sealed class SearchProgressEvent {
     data class Found(val source: String, val detail: String) : SearchProgressEvent()
     data class NotFound(val source: String) : SearchProgressEvent()
     data class Blocked(val source: String, val reason: String = "Cloudflare / Bot protection") : SearchProgressEvent()
+    /** Source skipped because domain is in [BlockedSourceCache] (24h TTL). */
+    data class Skipped(val source: String, val reason: String = "blocked") : SearchProgressEvent()
     data class Failed(val source: String, val reason: String = "") : SearchProgressEvent()
     data class CandidatesReady(
         val candidates: List<CandidateProfile>,

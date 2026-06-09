@@ -21,7 +21,8 @@ data class DossierFinding(
     val confidence: DossierConfidence,
     val isPivot: Boolean = false,
     val isLink: Boolean = false,
-    val isWarning: Boolean = false
+    val isWarning: Boolean = false,
+    val sourceUrl: String? = null
 )
 
 data class DossierSection(
@@ -382,10 +383,24 @@ object DossierBuilder {
         val findings = mutableListOf<DossierFinding>()
         extractPhones(meta).forEach { phone ->
             val source = inferPhoneSource(meta, phone)
-            findings.add(finding(phone, source, confidenceFromKey(source), "Phone"))
+            val srcKey = inferPhoneMetaKey(meta, phone)
+            findings.add(finding(
+                phone, source, confidenceFromKey(source), "Phone",
+                sourceUrl = srcKey?.let { sourceUrlFromMeta(meta, it) }
+            ))
+        }
+        meta["company_phone"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { phone ->
+            findings.add(finding(
+                phone, "Company registry", DossierConfidence.MEDIUM, "Company Phone",
+                sourceUrl = sourceUrlFromMeta(meta, "company_phone")
+            ))
         }
         extractEmails(meta).forEach { email ->
-            findings.add(finding(email, inferEmailSource(meta, email), DossierConfidence.HIGH, "Email"))
+            val srcKey = inferEmailMetaKey(meta, email)
+            findings.add(finding(
+                email, inferEmailSource(meta, email), DossierConfidence.HIGH, "Email",
+                sourceUrl = srcKey?.let { sourceUrlFromMeta(meta, it) }
+            ))
         }
         meta["voter_names"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
             findings.add(finding(name, "Voter Records", DossierConfidence.HIGH, "Registered As"))
@@ -603,6 +618,14 @@ object DossierBuilder {
             meta["ai_next_steps"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
                 findings.add(finding(line.trim(), "AI Analysis", DossierConfidence.MEDIUM, "Next Step"))
             }
+            meta["ai_suggested_searches"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
+                val colonIdx = line.indexOf(": http")
+                if (colonIdx > 0) {
+                    val label = line.substring(0, colonIdx)
+                    val url = line.substring(colonIdx + 2)
+                    findings.add(finding(url, "AI Suggested Search", DossierConfidence.MEDIUM, label, isLink = true))
+                }
+            }
         } else {
             meta["ai_summary"]?.takeIf { it.isNotBlank() }?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
                 findings.add(finding(line.trim(), "AI Analysis", DossierConfidence.MEDIUM, "Brief"))
@@ -645,7 +668,8 @@ object DossierBuilder {
         label: String? = null,
         isPivot: Boolean = false,
         isLink: Boolean = false,
-        isWarning: Boolean = false
+        isWarning: Boolean = false,
+        sourceUrl: String? = null
     ) = DossierFinding(
         label = label,
         value = value,
@@ -653,8 +677,13 @@ object DossierBuilder {
         confidence = confidence,
         isPivot = isPivot || value.startsWith("pivot://"),
         isLink = isLink || value.startsWith("http://") || value.startsWith("https://"),
-        isWarning = isWarning || (label?.startsWith("⚠") == true)
+        isWarning = isWarning || (label?.startsWith("⚠") == true),
+        sourceUrl = sourceUrl
     )
+
+    private fun sourceUrlFromMeta(meta: Map<String, String>, keyPrefix: String): String? =
+        meta["${keyPrefix}_source_url"]?.takeIf { it.startsWith("http") }
+            ?: meta["ddg_source_url"]?.takeIf { it.startsWith("http") }
 
     private fun sourceFromKey(key: String): String {
         val prefix = key.substringBefore('_').lowercase()
@@ -682,7 +711,7 @@ object DossierBuilder {
         val tollfree = setOf("800", "888", "877", "866", "855", "844", "833", "822")
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
-        listOf("comp_phone", "comp_phone2", "comp_phone3", "person_phone", "pipl_phone", "pipl_phones", "pdl_phones",
+        listOf("person_phone", "pipl_phone", "pipl_phones", "pdl_phones",
             "search_phones", "tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones",
             "radaris_phones", "nuwber_phones", "wp_phones").forEach { key ->
             meta[key]?.split(",")?.map { it.trim() }?.filter { phone ->
@@ -737,10 +766,25 @@ object DossierBuilder {
     private fun inferPhoneSource(meta: Map<String, String>, phone: String): String {
         val digits = phone.filter { it.isDigit() }.takeLast(10)
         listOf("pipl_phones" to "Pipl", "pdl_phones" to "People Data Labs", "tps_phones" to "TruePeopleSearch",
-            "search_phones" to "Web Search").forEach { (key, source) ->
+            "search_phones" to "Web Search", "person_phone" to "Search Input").forEach { (key, source) ->
             if (meta[key]?.filter { it.isDigit() }?.contains(digits) == true) return source
         }
         return "Records"
+    }
+
+    private fun inferPhoneMetaKey(meta: Map<String, String>, phone: String): String? {
+        val digits = phone.filter { it.isDigit() }.takeLast(10)
+        listOf("pipl_phones", "pdl_phones", "tps_phones", "search_phones", "person_phone", "pipl_phone").forEach { key ->
+            if (meta[key]?.filter { it.isDigit() }?.contains(digits) == true) return key
+        }
+        return "search_phones"
+    }
+
+    private fun inferEmailMetaKey(meta: Map<String, String>, email: String): String? {
+        listOf("pipl_emails", "pdl_emails", "clearbit_person_email", "person_email").forEach { key ->
+            if (meta[key]?.contains(email, ignoreCase = true) == true) return key.removeSuffix("s")
+        }
+        return null
     }
 
     private fun inferEmailSource(meta: Map<String, String>, email: String): String {

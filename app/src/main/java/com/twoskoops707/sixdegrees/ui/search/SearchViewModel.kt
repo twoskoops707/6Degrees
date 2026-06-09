@@ -41,15 +41,10 @@ sealed class SearchUiState {
 
 
 enum class InvestigationIntent(val key: String) {
-
-    IDENTITY("identity"),
-
-    BACKGROUND("background"),
-
-    LOCATE("locate"),
-
+    FIRST_DATE("first_date"),
+    MEETING_NEW("meeting_new"),
+    VERIFY_IDENTITY("verify_identity"),
     FRAUD("fraud")
-
 }
 
 

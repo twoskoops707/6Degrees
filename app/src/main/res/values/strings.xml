@@ -121,7 +121,7 @@
     <string name="email_label">Email</string>
     <string name="phone_label">Phone</string>
     <string name="no_results_title">No Intelligence Found</string>
-    <string name="no_results_message">Try adding more details — city, employer, or age. More API keys in Settings unlock additional sources.</string>
+    <string name="no_results_message">Try adding more details — city, employer, or age. Free sources run automatically with no setup.</string>
     <string name="shady_score_title">Safe to meet?</string>
     <string name="results_score_badge">RISK</string>
     <string name="results_risk_disclaimer">Informational only — not legal advice. Trust your instincts.</string>
@@ -138,8 +138,8 @@
     <!-- Wizard screen -->
     <string name="wizard_toolbar_title">Investigation Wizard</string>
     <string name="wizard_title">What are you investigating?</string>
-    <string name="wizard_subtitle">Configure your tools and API keys — then tap Investigate on the main screen to begin</string>
-    <string name="wizard_section_api_keys">API KEYS — UNLOCK MORE SOURCES</string>
+    <string name="wizard_subtitle">Optional: set up Termux tools — then tap Investigate on the main screen to begin</string>
+    <string name="wizard_section_api_keys">OPTIONAL — POWER-USER API KEYS</string>
     <string name="wizard_section_termux_setup">STEP 1 — ENABLE TERMUX INTEGRATION</string>
     <string name="wizard_section_termux_tools">STEP 2 — OSINT COMMAND-LINE TOOLS</string>
     <string name="wizard_section_tips">INVESTIGATION TIPS</string>
@@ -176,7 +176,10 @@
     <string name="tip_8">Tap any phone number, email, or URL in a report to dial, open mail, or launch the browser directly</string>
 
     <!-- API settings screen -->
-    <string name="api_settings_title">API Keys</string>
+    <string name="api_settings_title">Optional Power-User Keys</string>
+    <string name="api_settings_zero_config_title">Zero configuration</string>
+    <string name="api_settings_zero_config_body">Investigations use free public APIs automatically — SEC EDGAR, CourtListener, EmailRep, DuckDuckGo, crt.sh, ip-api, Shodan InternetDB, GitHub, and 40+ more. No keys required.</string>
+    <string name="settings_api_keys_row">Optional power-user keys</string>
     <string name="api_keys_section_title">Paid / Key-Required Sources</string>
     <string name="api_keys_section_description">Each key below unlocks a specific investigation category. Free tiers are available for most — tap the info icon for signup instructions.</string>
     <string name="pdl_api_key_hint">People Data Labs — person identity graph</string>
@@ -262,9 +265,21 @@
     </plurals>
 
     <!-- Investigator / OSINT Pro mode -->
+    <string name="settings_search_preset_header">Search mode</string>
+    <string name="settings_search_preset_subtitle">Choose which source categories run during investigations</string>
+    <string name="settings_custom_categories">Custom categories</string>
+    <string name="save_custom_preset">Save as custom preset</string>
+    <string name="preset_full">Full scan</string>
+    <string name="preset_people">People only</string>
+    <string name="preset_phone">Phone only</string>
+    <string name="preset_email">Email &amp; breach</string>
+    <string name="preset_darkweb">Dark web</string>
+    <string name="preset_courts_sec">Courts + SEC</string>
     <string name="settings_advanced_header">Advanced</string>
     <string name="settings_investigator_mode">OSINT Pro mode</string>
     <string name="settings_investigator_mode_hint">Unlock source logs, full dossier tabs, Web Hub, and raw export</string>
+    <string name="settings_ai_agent_assist">AI search assist</string>
+    <string name="settings_ai_agent_assist_hint">After investigations, suggest follow-up searches with open-in-browser links (requires OpenRouter key)</string>
     <string name="settings_search_tools_header">Investigator tools</string>
     <string name="progress_simple_status">Checking public records…</string>
     <string name="progress_simple_found">Found something — still checking…</string>

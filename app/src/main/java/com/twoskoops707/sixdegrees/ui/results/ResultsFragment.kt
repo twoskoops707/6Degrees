@@ -175,7 +175,7 @@ class ResultsFragment : Fragment() {
 
         viewModel.updateDossier(enrichedMeta, searchType)
         applyShadyScore(viewModel.state.value?.shadyScore, enrichedMeta, searchType, investigatorMode)
-        setupDossierTabs(viewModel.state.value?.dossierSections.orEmpty(), investigatorMode)
+        setupDossierTabs(viewModel.state.value?.dossierSections.orEmpty(), investigatorMode, enrichedMeta)
         buildCandidateDisambiguation(enrichedMeta)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
@@ -286,6 +286,20 @@ class ResultsFragment : Fragment() {
         return "$prefix$clean$suffix" to ""
     }
 
+    private fun appendAiSuggestedSearchRows(rows: MutableList<Pair<String, String>>, meta: Map<String, String>) {
+        meta["ai_suggested_searches"]?.takeIf { it.isNotBlank() }?.let { links ->
+            rows.add(sec("AI SUGGESTED SEARCHES"))
+            links.lines().filter { it.isNotBlank() }.forEach { line ->
+                val colonIdx = line.indexOf(": http")
+                if (colonIdx > 0) {
+                    val label = "⟶ ${line.substring(0, colonIdx)}"
+                    val url = line.substring(colonIdx + 2)
+                    rows.add(label to url)
+                }
+            }
+        }
+    }
+
     private fun appendAiReportRows(rows: MutableList<Pair<String, String>>, meta: Map<String, String>) {
         val hasStructured = meta["ai_executive_summary"]?.isNotBlank() == true
         if (hasStructured) {
@@ -305,6 +319,7 @@ class ResultsFragment : Fragment() {
             meta["ai_next_steps"]?.lines()?.filter { it.isNotBlank() }?.forEach {
                 rows.add("Next Step" to it.trim())
             }
+            appendAiSuggestedSearchRows(rows, meta)
             rows.add("⚠ Disclaimer" to "AI-generated synthesis — verify all claims independently.")
             return
         }
@@ -1604,7 +1619,7 @@ class ResultsFragment : Fragment() {
         val areaCodeRegex = Regex("^\\((\\d{3})\\)")
         val set = linkedSetOf<String>()
         meta["pipl_phone"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        listOf("comp_phone", "comp_phone2", "comp_phone3", "person_phone", "pipl_phone", "pipl_phones", "pdl_phones").forEach { k ->
+        listOf("person_phone", "pipl_phone", "pipl_phones", "pdl_phones").forEach { k ->
             meta[k]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
         }
         listOf("search_phones", "tps_phones", "zaba_phones", "411_phones", "tt_phones", "uspb_phones", "fps_phones", "radaris_phones", "nuwber_phones", "wp_phones", "checkpeople_phones",
@@ -1912,10 +1927,14 @@ class ResultsFragment : Fragment() {
         }
     }
 
-    private fun setupDossierTabs(sections: List<DossierSection>, investigatorMode: Boolean) {
+    private fun setupDossierTabs(
+        sections: List<DossierSection>,
+        investigatorMode: Boolean,
+        meta: Map<String, String> = emptyMap()
+    ) {
         if (sections.isEmpty()) return
 
-        val adapter = DossierSectionAdapter(this, sections, showTechnicalDetails = investigatorMode)
+        val adapter = DossierSectionAdapter(this, sections, showTechnicalDetails = investigatorMode, meta = meta)
         binding.dossierPager.adapter = adapter
         binding.dossierPager.offscreenPageLimit = 2
 

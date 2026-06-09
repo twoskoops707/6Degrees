@@ -19,6 +19,7 @@ import androidx.navigation.fragment.findNavController
 import android.os.Bundle
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
+import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.databinding.FragmentWizardBinding
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -110,7 +111,15 @@ class WizardFragment : Fragment() {
         }
 
         val apiKeyManager = ApiKeyManager(requireContext())
-        populateApiKeys(apiKeyManager)
+        val investigator = AppSettings.isInvestigatorMode(requireContext())
+        if (investigator) {
+            populateApiKeys(apiKeyManager)
+            binding.wizardApiKeysHeader.visibility = View.VISIBLE
+            binding.wizardApiKeysCard.visibility = View.VISIBLE
+        } else {
+            binding.wizardApiKeysHeader.visibility = View.GONE
+            binding.wizardApiKeysCard.visibility = View.GONE
+        }
         populateTermuxTools()
         populateTips()
 

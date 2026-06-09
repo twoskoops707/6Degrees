@@ -12,7 +12,9 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.card.MaterialCardView
 import com.twoskoops707.sixdegrees.BuildConfig
 import com.twoskoops707.sixdegrees.R
+import com.google.android.material.chip.Chip
 import com.twoskoops707.sixdegrees.data.AppSettings
+import com.twoskoops707.sixdegrees.data.SearchPresetManager
 import com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner
 import com.twoskoops707.sixdegrees.databinding.FragmentSettingsBinding
 import com.twoskoops707.sixdegrees.tor.TorBootstrapManager
@@ -74,6 +76,8 @@ class SettingsFragment : Fragment() {
 
         binding.switchInvestigatorMode.isChecked =
             prefs.getBoolean(AppSettings.KEY_INVESTIGATOR_MODE, false)
+        binding.switchAiAgentAssist.isChecked =
+            prefs.getBoolean(AppSettings.KEY_AI_AGENT_ASSIST, false)
         advancedExpanded = prefs.getBoolean(AppSettings.KEY_INVESTIGATOR_MODE, false)
         binding.advancedHeaderRow.setOnClickListener { toggleAdvancedSection() }
         binding.switchInvestigatorMode.setOnCheckedChangeListener { _, enabled ->
@@ -82,6 +86,10 @@ class SettingsFragment : Fragment() {
             if (enabled) advancedExpanded = true
             applyInvestigatorModeUi()
             activity?.invalidateOptionsMenu()
+        }
+        binding.switchAiAgentAssist.setOnCheckedChangeListener { _, enabled ->
+            if (isInitializing) return@setOnCheckedChangeListener
+            prefs.edit().putBoolean(AppSettings.KEY_AI_AGENT_ASSIST, enabled).apply()
         }
         applyInvestigatorModeUi()
 
@@ -185,6 +193,56 @@ class SettingsFragment : Fragment() {
         binding.switchAnimations.setOnCheckedChangeListener { _, enabled ->
             if (isInitializing) return@setOnCheckedChangeListener
             prefs.edit().putBoolean("pref_animations", enabled).apply()
+        }
+
+        setupSearchPresets(prefs)
+    }
+
+    private fun setupSearchPresets(prefs: android.content.SharedPreferences) {
+        val active = SearchPresetManager.getActivePresetId(requireContext())
+        when (active) {
+            SearchPresetManager.PRESET_PEOPLE -> binding.chipPresetPeople.isChecked = true
+            SearchPresetManager.PRESET_PHONE -> binding.chipPresetPhone.isChecked = true
+            SearchPresetManager.PRESET_EMAIL -> binding.chipPresetEmail.isChecked = true
+            SearchPresetManager.PRESET_DARKWEB -> binding.chipPresetDarkweb.isChecked = true
+            SearchPresetManager.PRESET_COURTS_SEC -> binding.chipPresetCourts.isChecked = true
+            else -> binding.chipPresetFull.isChecked = true
+        }
+
+        binding.chipGroupCustomCategories.removeAllViews()
+        val customSelected = SearchPresetManager.getCustomCategories(requireContext())
+        SearchPresetManager.ALL_CATEGORIES.forEach { catId ->
+            val chip = Chip(requireContext()).apply {
+                text = SearchPresetManager.CATEGORY_LABELS[catId] ?: catId
+                isCheckable = true
+                isChecked = catId in customSelected
+                tag = catId
+            }
+            binding.chipGroupCustomCategories.addView(chip)
+        }
+
+        binding.chipGroupSearchPreset.setOnCheckedStateChangeListener { _, checkedIds ->
+            if (isInitializing) return@setOnCheckedStateChangeListener
+            val presetId = when (checkedIds.firstOrNull()) {
+                R.id.chip_preset_people -> SearchPresetManager.PRESET_PEOPLE
+                R.id.chip_preset_phone -> SearchPresetManager.PRESET_PHONE
+                R.id.chip_preset_email -> SearchPresetManager.PRESET_EMAIL
+                R.id.chip_preset_darkweb -> SearchPresetManager.PRESET_DARKWEB
+                R.id.chip_preset_courts -> SearchPresetManager.PRESET_COURTS_SEC
+                else -> SearchPresetManager.PRESET_FULL
+            }
+            SearchPresetManager.saveBuiltinPreset(requireContext(), presetId)
+        }
+
+        binding.btnSaveCustomPreset.setOnClickListener {
+            val categories = mutableSetOf<String>()
+            for (i in 0 until binding.chipGroupCustomCategories.childCount) {
+                val chip = binding.chipGroupCustomCategories.getChildAt(i) as? Chip ?: continue
+                if (chip.isChecked) categories.add(chip.tag as String)
+            }
+            if (categories.isEmpty()) return@setOnClickListener
+            SearchPresetManager.saveCustomPreset(requireContext(), "Custom", categories)
+            binding.chipGroupSearchPreset.clearCheck()
         }
     }
 

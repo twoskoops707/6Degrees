@@ -65,7 +65,7 @@ class SearchProgressFragment : Fragment() {
         var state: State,
         var detail: String = ""
     ) {
-        enum class State { CHECKING, FOUND, NOT_FOUND, FAILED, BLOCKED }
+        enum class State { CHECKING, FOUND, NOT_FOUND, FAILED, BLOCKED, SKIPPED }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -284,6 +284,11 @@ class SearchProgressFragment : Fragment() {
                 checkedCount++
                 updateCounts()
             }
+            is SearchProgressEvent.Skipped -> {
+                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.SKIPPED, event.reason)
+                checkedCount++
+                updateCounts()
+            }
             is SearchProgressEvent.CandidatesReady -> {
                 completedReportId = event.reportId
                 pendingCandidatesRound = event.round
@@ -336,13 +341,19 @@ class SearchProgressFragment : Fragment() {
                 binding.progressBar.visibility = View.GONE
                 binding.btnPartialResults.visibility = View.GONE
                 val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
-                val suffix = if (hitCount != 1) "s" else ""
-                binding.tvStatus.text = getString(R.string.progress_findings, hitCount, suffix) +
-                    " · ${elapsedSec / 60}m ${elapsedSec % 60}s"
                 binding.tvEta.text = ""
-                binding.tvPhase.text = getString(R.string.progress_phase_ai)
                 binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
-                binding.fabViewReport.text = "View Full Report"
+                if (investigatorMode) {
+                    val suffix = if (hitCount != 1) "s" else ""
+                    binding.tvStatus.text = getString(R.string.progress_findings, hitCount, suffix) +
+                        " · ${elapsedSec / 60}m ${elapsedSec % 60}s"
+                    binding.tvPhase.text = getString(R.string.progress_phase_ai)
+                    binding.fabViewReport.text = "View Full Report"
+                } else {
+                    binding.tvStatus.text = getString(R.string.progress_simple_complete) +
+                        " — ${hitCount} result${if (hitCount != 1) "s" else ""}"
+                    binding.fabViewReport.text = getString(R.string.progress_simple_open_dossier)
+                }
                 binding.fabViewReport.apply {
                     visibility = View.VISIBLE
                     alpha = 0f
@@ -352,23 +363,54 @@ class SearchProgressFragment : Fragment() {
         }
     }
 
+    private fun applySimpleProgressUi() {
+        binding.chipSearchType.visibility = View.GONE
+        binding.layoutCheckedColumn.visibility = View.GONE
+        binding.statsDivider.visibility = View.GONE
+        binding.tvFoundLabel.text = getString(R.string.progress_simple_complete)
+        binding.tvSourceLogHeader.visibility = View.GONE
+        binding.rvSources.visibility = View.GONE
+        binding.tvPhase.visibility = View.GONE
+        binding.tvEta.visibility = View.GONE
+        binding.btnPartialResults.visibility = View.GONE
+        binding.tvStatus.text = getString(R.string.progress_simple_status)
+        binding.searchProgressToolbar.title = getString(R.string.progress_collect_title)
+    }
+
+    private fun updateSourceRow(source: String, state: SourceRow.State, detail: String = "") {
+        val idx = sourceRows.indexOfFirst { it.source == source }
+        if (idx != -1) {
+            sourceRows[idx].state = state
+            sourceRows[idx].detail = detail
+            adapter.notifyItemChanged(idx)
+        } else {
+            sourceRows.add(SourceRow(source, state, detail))
+            adapter.notifyItemInserted(sourceRows.lastIndex)
+            binding.rvSources.smoothScrollToPosition(sourceRows.lastIndex)
+        }
+    }
+
     private fun updateCounts() {
-        val suffix = if (hitCount != 1) "s" else ""
-        binding.tvFoundCount.text = getString(R.string.progress_findings, hitCount, suffix)
-        val total = maxOf(estimatedTotal, sourceRows.size)
-        binding.tvCheckedCount.text = getString(R.string.progress_sources_checked, checkedCount, total)
-        val elapsedMs = System.currentTimeMillis() - searchStartMs
-        val minMs = SubjectSearchOrchestrator.minimumDurationMs(
-            if (currentRound > 1 || currentType == "comprehensive") SearchPhase.DEEP_INVESTIGATION
-            else SearchPhase.CANDIDATE_DISCOVERY
-        )
-        if (checkedCount > 0 && checkedCount < total && elapsedMs < minMs) {
-            val remainingMs = (minMs - elapsedMs).coerceAtLeast(0)
-            val etaMin = (remainingMs / 60_000).toInt()
-            val etaSec = ((remainingMs % 60_000) / 1000).toInt()
-            binding.tvEta.text = if (etaMin > 0) "~${etaMin}m ${etaSec}s left" else "~${etaSec}s left"
-        } else if (checkedCount < total) {
-            binding.tvEta.text = "Sweeping sources…"
+        if (investigatorMode) {
+            val suffix = if (hitCount != 1) "s" else ""
+            binding.tvFoundCount.text = getString(R.string.progress_findings, hitCount, suffix)
+            val total = maxOf(estimatedTotal, sourceRows.size)
+            binding.tvCheckedCount.text = getString(R.string.progress_sources_checked, checkedCount, total)
+            val elapsedMs = System.currentTimeMillis() - searchStartMs
+            val minMs = SubjectSearchOrchestrator.minimumDurationMs(
+                if (currentRound > 1 || currentType == "comprehensive") SearchPhase.DEEP_INVESTIGATION
+                else SearchPhase.CANDIDATE_DISCOVERY
+            )
+            if (checkedCount > 0 && checkedCount < total && elapsedMs < minMs) {
+                val remainingMs = (minMs - elapsedMs).coerceAtLeast(0)
+                val etaMin = (remainingMs / 60_000).toInt()
+                val etaSec = ((remainingMs % 60_000) / 1000).toInt()
+                binding.tvEta.text = if (etaMin > 0) "~${etaMin}m ${etaSec}s left" else "~${etaSec}s left"
+            } else if (checkedCount < total) {
+                binding.tvEta.text = "Sweeping sources…"
+            }
+        } else {
+            binding.tvFoundCount.text = hitCount.toString()
         }
     }
 
@@ -450,6 +492,16 @@ class SearchProgressFragment : Fragment() {
                     holder.b.sourceBadge.text = "BLOCKED"
                     holder.b.sourceBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
                     holder.b.sourceBadge.setBackgroundResource(0)
+                    (holder.itemView as? com.google.android.material.card.MaterialCardView)
+                        ?.strokeColor = ContextCompat.getColor(requireContext(), R.color.border)
+                }
+                SourceRow.State.SKIPPED -> {
+                    holder.b.sourceSpinner.visibility = View.GONE
+                    holder.b.sourceIcon.visibility = View.VISIBLE
+                    holder.b.sourceIcon.setImageResource(R.drawable.ic_minus_circle)
+                    holder.b.sourceDetail.text = "Skipped (${row.detail})"
+                    holder.b.sourceDetail.visibility = View.VISIBLE
+                    holder.b.sourceBadge.visibility = View.GONE
                     (holder.itemView as? com.google.android.material.card.MaterialCardView)
                         ?.strokeColor = ContextCompat.getColor(requireContext(), R.color.border)
                 }

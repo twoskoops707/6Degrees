@@ -20,6 +20,7 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupWithNavController
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.databinding.ActivityMainBinding
 import com.twoskoops707.sixdegrees.ui.settings.PlugBgFactory
 import com.twoskoops707.sixdegrees.ui.theme.PatrinoJitterHelper
@@ -115,6 +116,7 @@ class MainActivity : AppCompatActivity() {
 
         val bottomNav = binding.appBarMain.contentMain.bottomNavView
         bottomNav?.setupWithNavController(navController)
+        updateBottomNavForInvestigatorMode(bottomNav)
         bottomNav?.setOnItemSelectedListener { item ->
             val currentDest = navController.currentDestination?.id
             if (currentDest == item.itemId) return@setOnItemSelectedListener true
@@ -158,6 +160,16 @@ class MainActivity : AppCompatActivity() {
         if (!prefs.getBoolean("perms_requested", false)) {
             requestFirstLaunchPermissions()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateBottomNavForInvestigatorMode(binding.appBarMain.contentMain.bottomNavView)
+    }
+
+    private fun updateBottomNavForInvestigatorMode(bottomNav: com.google.android.material.bottomnavigation.BottomNavigationView?) {
+        bottomNav?.menu?.findItem(R.id.nav_osint_resources)?.isVisible =
+            AppSettings.isInvestigatorMode(this)
     }
 
     private fun requestFirstLaunchPermissions() {

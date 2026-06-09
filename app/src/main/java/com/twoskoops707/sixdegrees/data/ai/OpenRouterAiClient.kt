@@ -24,8 +24,11 @@ object OpenRouterAiClient {
         .build()
 
     private const val SYSTEM_PROMPT = """You are an OSINT intelligence analyst synthesizing collected open-source data into a structured dossier.
-Rules:
-- Only state facts supported by the provided data; mark speculation clearly.
+STRICT RULES (ai_facts_only=true):
+- ONLY cite facts explicitly present in the provided metadata keys and values.
+- NEVER invent, guess, or infer phone numbers, addresses, emails, names, employers, or ages.
+- If a field has no backing data in the input, do not mention it at all.
+- Do not use outside knowledge about the subject.
 - Flag likely false positives (common names, mismatched locations, unverified social profiles).
 - Be concise and analytical; no filler.
 - Respond with valid JSON only, no markdown fences."""
@@ -51,11 +54,68 @@ Rules:
             ?: OsintAiReport.fromPlainText(content, "openrouter").takeIf { it.executiveSummary.isNotBlank() }
     }
 
+    private const val SUGGESTED_SEARCHES_SCHEMA = """Return JSON with exactly this shape:
+{
+  "suggested_searches": [
+    {"label": "short action label", "query": "specific DuckDuckGo search query"}
+  ]
+}
+Rules:
+- Suggest 3-5 highly targeted follow-up searches based on gaps in the collected OSINT data.
+- Each query must be specific to this subject (include name, city, employer, username when known).
+- Do not repeat searches already covered by listed sources.
+- Output query strings only — not URLs.
+- Respond with valid JSON only, no markdown fences."""
+
+    /**
+     * Suggests follow-up DuckDuckGo queries from investigation context (no autonomous scraping).
+     */
+    fun generateSuggestedSearches(
+        apiKey: String,
+        contextPrompt: String,
+        model: String = DEFAULT_MODEL
+    ): List<AiSuggestedSearch>? {
+        val userPrompt = buildString {
+            appendLine(contextPrompt.trim())
+            appendLine()
+            appendLine("Based on the investigation above, what 3-5 follow-up web searches would best fill data gaps?")
+            appendLine()
+            appendLine(SUGGESTED_SEARCHES_SCHEMA)
+        }
+        val content = query(
+            apiKey, model, userPrompt, useJsonMode = true,
+            systemPrompt = """You are an OSINT analyst recommending follow-up search queries.
+Be specific and actionable. Never invent facts about the subject."""
+        ) ?: return null
+        return parseSuggestedSearches(content)
+    }
+
+    private fun parseSuggestedSearches(content: String): List<AiSuggestedSearch>? {
+        return try {
+            val trimmed = content.trim()
+            val jsonStart = trimmed.indexOf('{')
+            val jsonEnd = trimmed.lastIndexOf('}')
+            if (jsonStart < 0 || jsonEnd <= jsonStart) return null
+            val arr = JSONObject(trimmed.substring(jsonStart, jsonEnd + 1))
+                .optJSONArray("suggested_searches") ?: return null
+            (0 until arr.length()).mapNotNull { i ->
+                val obj = arr.optJSONObject(i) ?: return@mapNotNull null
+                val label = obj.optString("label").trim()
+                val query = obj.optString("query").trim()
+                if (label.isBlank() || query.isBlank()) null
+                else AiSuggestedSearch(label, query)
+            }.takeIf { it.isNotEmpty() }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun query(
         apiKey: String,
         model: String,
         userPrompt: String,
-        useJsonMode: Boolean
+        useJsonMode: Boolean,
+        systemPrompt: String = SYSTEM_PROMPT
     ): String? {
         return try {
         val body = JSONObject().apply {
@@ -63,7 +123,7 @@ Rules:
             put("messages", JSONArray().apply {
                 put(JSONObject().apply {
                     put("role", "system")
-                    put("content", SYSTEM_PROMPT)
+                    put("content", systemPrompt)
                 })
                 put(JSONObject().apply {
                     put("role", "user")
@@ -105,3 +165,6 @@ Rules:
         }
     }
 }
+
+/** Label + DuckDuckGo query string (converted to URL by caller). */
+data class AiSuggestedSearch(val label: String, val query: String)

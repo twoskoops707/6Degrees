@@ -6,8 +6,11 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.twoskoops707.sixdegrees.data.SearchPresetManager
+import com.twoskoops707.sixdegrees.data.BlockedSourceCache
 import com.twoskoops707.sixdegrees.data.ai.OpenRouterAiClient
 import com.twoskoops707.sixdegrees.data.ai.OsintAiReport
+import android.util.Log
 import com.twoskoops707.sixdegrees.data.local.OsintDatabase
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
 import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
@@ -128,6 +131,7 @@ class OsintRepository(context: Context) {
 
     private val appCtx = context.applicationContext
     private val apiKeys = com.twoskoops707.sixdegrees.data.ApiKeyManager(context)
+    private val blockedSourceCache = BlockedSourceCache(context)
     private val db = OsintDatabase.getDatabase(context)
     private val moshi = Moshi.Builder().add(DateAdapter()).add(KotlinJsonAdapterFactory()).build()
 
@@ -261,7 +265,10 @@ class OsintRepository(context: Context) {
             val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString("-").lowercase()
             val path = if (loc.isNotBlank()) "$slug/$loc" else slug
             val url = "https://www.usphonebook.com/name/$path"
-            tryScrapeUrl(url, query)
+            tryScrapeUrl(
+                url, query,
+                SubjectProfile(name = query, city = city, state = state, phone = "")
+            )
         } catch (_: Exception) {
             ScrapeOut(false, false)
         }
@@ -365,7 +372,8 @@ class OsintRepository(context: Context) {
         val found: Boolean,
         val blocked: Boolean,
         val fields: Map<String, String> = emptyMap(),
-        val persons: List<PersonRecord> = emptyList()
+        val persons: List<PersonRecord> = emptyList(),
+        val skippedBlocked: Boolean = false
     )
 
     private data class DdgResult(val title: String, val snippet: String, val url: String)
@@ -381,7 +389,52 @@ class OsintRepository(context: Context) {
         val snippets: List<String> = emptyList()
     )
 
-    private fun tryScrapeUrl(url: String, expectedQuery: String? = null): ScrapeOut {
+    private fun parseContactList(raw: String): List<String> =
+        raw.split(",", "|", "\n").map { it.trim() }.filter { it.isNotBlank() }
+
+    private fun subjectProfileFromMetadata(metadata: Map<String, String>, fallbackName: String = ""): SubjectProfile =
+        SubjectProfile.fromFields(
+            mapOf(
+                "name" to (metadata["person_name"]?.takeIf { it.isNotBlank() } ?: fallbackName),
+                "city" to (metadata["person_city"] ?: ""),
+                "state" to (metadata["person_state"] ?: ""),
+                "phone" to (metadata["person_phone"] ?: metadata["field_phone"] ?: ""),
+                "email" to (metadata["person_email"] ?: metadata["field_email"] ?: "")
+            )
+        )
+
+    private fun filterScrapeContactFields(
+        fields: Map<String, String>,
+        profile: SubjectProfile
+    ): Map<String, String> {
+        val context = fields["snippet"] ?: fields["title"] ?: ""
+        val out = fields.toMutableMap()
+        out["phones"]?.let { raw ->
+            val validated = SubjectFilter.filterPhones(parseContactList(raw), context, profile)
+            if (validated.isEmpty()) out.remove("phones") else out["phones"] = validated.joinToString(", ")
+        }
+        out["emails"]?.let { raw ->
+            val validated = SubjectFilter.filterEmails(parseContactList(raw), context, profile)
+            if (validated.isEmpty()) out.remove("emails") else out["emails"] = validated.joinToString(", ")
+        }
+        listOf("addresses", "locations").forEach { key ->
+            out[key]?.let { raw ->
+                val validated = SubjectFilter.filterAddresses(parseContactList(raw), profile)
+                if (validated.isEmpty()) out.remove(key) else out[key] = validated.joinToString(" | ")
+            }
+        }
+        return out
+    }
+
+    private fun tryScrapeUrl(
+        url: String,
+        expectedQuery: String? = null,
+        subjectProfile: SubjectProfile? = null
+    ): ScrapeOut {
+        val domain = BlockedSourceCache.domainFromUrl(url)
+        if (blockedSourceCache.isBlocked(domain)) {
+            return ScrapeOut(found = false, blocked = true, skippedBlocked = true)
+        }
         return try {
             val req = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -396,7 +449,9 @@ class OsintRepository(context: Context) {
             if (code == 403 || code == 429
                 || body.contains("cf-challenge-running")
                 || body.contains("Just a moment", ignoreCase = true)
-                || body.contains("Enable JavaScript")) {
+                || body.contains("Enable JavaScript")
+                || body.contains("challenge-platform", ignoreCase = true)) {
+                blockedSourceCache.markBlocked(domain, "http_$code")
                 return ScrapeOut(false, true)
             }
 
@@ -443,20 +498,41 @@ class OsintRepository(context: Context) {
                 ?: doc.selectFirst("link[rel=image_src]")?.attr("href")
             if (!ogImage.isNullOrBlank() && ogImage.startsWith("http")) fields["image_url"] = ogImage
 
+            val profile = subjectProfile ?: SubjectProfile(
+                name = expectedQuery?.takeIf { !isLikelyPhone(it) }?.trim().orEmpty(),
+                city = "",
+                state = "",
+                phone = expectedQuery?.takeIf { isLikelyPhone(it) }?.trim().orEmpty()
+            )
             val phones = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""").findAll(text)
                 .map { "(${it.groupValues[1]}) ${it.groupValues[2]}-${it.groupValues[3]}" }
+                .filter { p ->
+                    !SubjectFilter.isTollFreeOrGeneric(p) &&
+                        SubjectFilter.shouldAcceptPersonPhone(
+                            p, text, profile.phone, profile.name, profile.city, profile.state, "", url, false
+                        )
+                }
                 .distinct().take(5).toList()
             val emails = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""").findAll(text)
                 .map { it.value.lowercase() }
                 .filter { !it.contains("example") && !it.contains("domain") }
+                .filter { SubjectFilter.validateEmail(it, text, profile) }
                 .distinct().take(3).toList()
 
             if (phones.isNotEmpty()) fields["phones"] = phones.joinToString(", ")
             if (emails.isNotEmpty()) fields["emails"] = emails.joinToString(", ")
 
             ScrapeOut(true, false, fields)
-        } catch (_: Exception) {
-            ScrapeOut(false, false)
+        } catch (e: Exception) {
+            val isTimeout = e is java.net.SocketTimeoutException
+                || e is java.io.InterruptedIOException
+                || e.message?.contains("timeout", ignoreCase = true) == true
+            if (isTimeout && domain.isNotBlank()) {
+                blockedSourceCache.markBlocked(domain, "timeout")
+                ScrapeOut(false, true)
+            } else {
+                ScrapeOut(false, false)
+            }
         }
     }
 
@@ -483,7 +559,10 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { emptyList() }
     }
 
-    private fun extractDataFromDdgResults(results: List<DdgResult>, nameTokens: List<String> = emptyList()): ExtractedData {
+    private fun extractDataFromDdgResults(
+        results: List<DdgResult>,
+        subject: SubjectProfile = SubjectProfile()
+    ): ExtractedData {
         val phoneRegex = Regex("""\(?(\d{3})\)?[.\-\s](\d{3})[.\-\s](\d{4})""")
         val emailRegex = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""")
         val ageRegex = Regex("""(?i)\bage[:\s]+(\d{2,3})\b|\b(\d{2,3})\s*years?\s*old\b|\baged?\s+(\d{2,3})\b""")
@@ -498,30 +577,32 @@ class OsintRepository(context: Context) {
         val profileUrls = mutableListOf<String>()
         val snippets = mutableListOf<String>()
         val addresses = mutableListOf<String>()
-        val requiredMatches = if (nameTokens.size >= 2) 2 else 1
         for (r in results) {
             val text = "${r.title} ${r.snippet}"
-            val textLower = text.lowercase()
-            val namePresent = nameTokens.isEmpty() ||
-                nameTokens.count { textLower.contains(it.lowercase()) } >= requiredMatches
-            if (namePresent) {
-                phoneRegex.findAll(text).forEach { m ->
-                    val area = m.groupValues[1]
-                    if (area !in tollfree) phones.add("(${area}) ${m.groupValues[2]}-${m.groupValues[3]}")
-                }
-                emailRegex.findAll(text).map { it.value.lowercase() }
-                    .filter { !it.contains("example") && !it.endsWith(".png") && !it.endsWith(".jpg") }
-                    .forEach { emails.add(it) }
-                Regex("""(?i)\d{1,5}\s+[A-Za-z0-9][A-Za-z0-9\s]{1,35}\s+(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Pkwy|Road|Street|Avenue|Boulevard|Drive|Lane|Court)[,\s]+(?:[A-Za-z\s]{2,25}[,\s]+)?[A-Z]{2}[\s,]+\d{5}(?:-\d{4})?""")
-                    .find(text)?.value?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.length in 15..120 }?.let { addresses.add(it) }
-                Regex("""(?i)(?:relatives?|associates?|related\s+to|family)[:\s]+([^.\n]{5,80})""").find(text)?.groupValues?.get(1)?.split(",")?.forEach { rel ->
-                    val name = rel.trim().take(40)
-                    if (name.length > 3 && name.contains(" ")) relatives.add(name)
-                }
-                ageRegex.find(text)?.let { m ->
-                    val age = m.groupValues.drop(1).firstOrNull { it.isNotBlank() }
-                    if (age != null && (age.toIntOrNull() ?: 0) in 18..120) ages.add(age)
-                }
+            if (!SubjectFilter.matchesSubject(text, subject) && subject.phone.isBlank()) continue
+            phoneRegex.findAll(text).forEach { m ->
+                val area = m.groupValues[1]
+                val formatted = "(${area}) ${m.groupValues[2]}-${m.groupValues[3]}"
+                if (area !in tollfree && SubjectFilter.shouldAcceptPersonPhone(
+                        formatted, text, subject.phone, subject.name, subject.city, subject.state, "ddg", r.url, false
+                    )
+                ) phones.add(formatted)
+            }
+            emailRegex.findAll(text).map { it.value.lowercase() }
+                .filter { !it.contains("example") && !it.endsWith(".png") && !it.endsWith(".jpg") }
+                .filter { SubjectFilter.validateEmail(it, text, subject) }
+                .forEach { emails.add(it) }
+            Regex("""(?i)\d{1,5}\s+[A-Za-z0-9][A-Za-z0-9\s]{1,35}\s+(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Pkwy|Road|Street|Avenue|Boulevard|Drive|Lane|Court)[,\s]+(?:[A-Za-z\s]{2,25}[,\s]+)?[A-Z]{2}[\s,]+\d{5}(?:-\d{4})?""")
+                .find(text)?.value?.replace(Regex("\\s+"), " ")?.trim()
+                ?.takeIf { it.length in 15..120 && SubjectFilter.validateAddress(it, subject) }
+                ?.let { addresses.add(it) }
+            Regex("""(?i)(?:relatives?|associates?|related\s+to|family)[:\s]+([^.\n]{5,80})""").find(text)?.groupValues?.get(1)?.split(",")?.forEach { rel ->
+                val name = rel.trim().take(40)
+                if (name.length > 3 && name.contains(" ")) relatives.add(name)
+            }
+            ageRegex.find(text)?.let { m ->
+                val age = m.groupValues.drop(1).firstOrNull { it.isNotBlank() }
+                if (age != null && (age.toIntOrNull() ?: 0) in 18..120) ages.add(age)
             }
             if (r.snippet.isNotBlank()) snippets.add("${r.title}: ${r.snippet}".take(200))
             val urlLower = r.url.lowercase()
@@ -549,10 +630,11 @@ class OsintRepository(context: Context) {
         phone: String = "",
         email: String = "",
         username: String = "",
-        phase: SearchPhase = SearchPhase.DEEP_INVESTIGATION
+        phase: SearchPhase = SearchPhase.DEEP_INVESTIGATION,
+        activeCategories: Set<String>? = null
     ): List<Pair<String, String>> {
         val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
-        val allowedLabels = SubjectSearchOrchestrator.ddgLabelsForPhase(phase)
+        val allowedLabels = SubjectSearchOrchestrator.ddgLabelsFiltered(phase, activeCategories)
         if (name.isBlank() && phone.isNotBlank()) {
             val phoneQueries = mutableListOf(
                 "Phone" to "\"$phone\" owner name reverse lookup",
@@ -1687,13 +1769,31 @@ class OsintRepository(context: Context) {
         )
     }
 
-    private fun applyPiplPersonToMetadata(person: PiplPerson, metadata: ConcurrentHashMap<String, String>) {
+    private fun applyPiplPersonToMetadata(
+        person: PiplPerson,
+        metadata: ConcurrentHashMap<String, String>,
+        profile: SubjectProfile
+    ) {
+        val displayName = person.names?.firstOrNull()?.display ?: return
+        if (profile.name.isNotBlank() && !SubjectFilter.textMatchesQuery(displayName, profile.name)) return
         metadata["pipl_found"] = "true"
-        val displayName = person.names?.firstOrNull()?.display
-        if (!displayName.isNullOrBlank()) metadata["pipl_name"] = displayName
-        person.emails?.mapNotNull { it.address }?.take(3)?.joinToString(", ")
+        metadata["pipl_name"] = displayName
+        val context = buildString {
+            append(displayName)
+            person.addresses?.forEach { append(" "); append(it.display ?: "") }
+            person.jobs?.forEach { append(" "); append(it.display ?: "") }
+        }
+        person.emails?.mapNotNull { it.address }
+            ?.filter { SubjectFilter.validateEmail(it, context, profile) }
+            ?.take(3)?.joinToString(", ")
             ?.let { metadata["pipl_emails"] = it }
-        person.phones?.mapNotNull { it.display ?: it.number }?.take(3)?.joinToString(", ")
+        person.phones?.mapNotNull { it.display ?: it.number }
+            ?.filter {
+                SubjectFilter.shouldAcceptPersonPhone(
+                    it, context, profile.phone, profile.name, profile.city, profile.state, "pipl", "", true
+                )
+            }
+            ?.take(3)?.joinToString(", ")
             ?.let { metadata["pipl_phones"] = it }
         person.jobs?.mapNotNull { job ->
             job.display ?: listOfNotNull(job.title, job.organization).joinToString(" at ").takeIf { it.isNotBlank() }
@@ -1709,12 +1809,31 @@ class OsintRepository(context: Context) {
         person.urls?.mapNotNull { it.url }?.take(6)?.joinToString("\n")?.let { metadata["pipl_socials"] = it }
     }
 
-    private fun applyPdlPersonToMetadata(person: PdlPerson, metadata: ConcurrentHashMap<String, String>) {
+    private fun applyPdlPersonToMetadata(
+        person: PdlPerson,
+        metadata: ConcurrentHashMap<String, String>,
+        profile: SubjectProfile
+    ) {
+        val fullName = person.fullName ?: return
+        if (profile.name.isNotBlank() && !SubjectFilter.textMatchesQuery(fullName, profile.name)) return
         metadata["pdl_found"] = "true"
-        person.fullName?.let { metadata["pdl_name"] = it }
-        person.emails?.mapNotNull { it.address }?.take(3)?.joinToString(", ")
+        metadata["pdl_name"] = fullName
+        val context = buildString {
+            append(fullName)
+            append(" "); append(person.locationName ?: "")
+            append(" "); append(person.jobCompanyName ?: "")
+        }
+        person.emails?.mapNotNull { it.address }
+            ?.filter { SubjectFilter.validateEmail(it, context, profile) }
+            ?.take(3)?.joinToString(", ")
             ?.let { metadata["pdl_emails"] = it }
-        person.phones?.mapNotNull { it.number }?.take(3)?.joinToString(", ")
+        person.phones?.mapNotNull { it.number }
+            ?.filter {
+                SubjectFilter.shouldAcceptPersonPhone(
+                    it, context, profile.phone, profile.name, profile.city, profile.state, "pdl", "", true
+                )
+            }
+            ?.take(3)?.joinToString(", ")
             ?.let { metadata["pdl_phones"] = it }
         person.jobTitle?.let { metadata["pdl_job_title"] = it }
         person.jobCompanyName?.let { metadata["pdl_company"] = it }
@@ -2211,7 +2330,8 @@ class OsintRepository(context: Context) {
                 channel.send(SearchProgressEvent.NotFound("Candidate Photos"))
             }
             enriched
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("CandidatePhotoEnricher", "Photo enrichment failed: ${e.message}", e)
             channel.send(SearchProgressEvent.NotFound("Candidate Photos"))
             candidates
         }
@@ -2224,6 +2344,7 @@ class OsintRepository(context: Context) {
         sources: List<DataSource>
     ): String = buildString {
         appendLine("Synthesize an OSINT dossier from the collected data below.")
+        appendLine("ai_facts_only=true — cite ONLY the metadata keys/values below. Never invent contact info.")
         appendLine()
         appendLine("SUBJECT: $query")
         appendLine("SEARCH TYPE: $type")
@@ -2279,19 +2400,40 @@ class OsintRepository(context: Context) {
         sources: List<DataSource>
     ): OsintAiReport? {
         val context = buildOsintAiContext(query, type, metadata, sources)
+        val allowedFacts = OsintAiReport.collectAllowedFactValues(metadata)
         val openrouterKey = apiKeys.openrouterKey.trim()
-        if (openrouterKey.isNotBlank()) {
+        val report = if (openrouterKey.isNotBlank()) {
             val model = apiKeys.openrouterModel.trim()
                 .ifBlank { "meta-llama/llama-3.3-70b-instruct:free" }
-            val report = OpenRouterAiClient.generateReport(openrouterKey, context, model)
-            if (report != null) {
+            OpenRouterAiClient.generateReport(openrouterKey, context, model)?.also {
                 apiKeys.recordUsage("openrouter")
-                return report
             }
+        } else {
+            val fallbackPrompt = buildAiSummaryPrompt(query, type, metadata) +
+                "\n\nai_facts_only=true — only state facts from the data above."
+            queryPollinationsAI(fallbackPrompt)?.let { OsintAiReport.fromPlainText(it, "pollinations") }
+        } ?: return null
+        return OsintAiReport.enforceFactsOnly(report, allowedFacts)
+    }
+
+    private fun generateAiSuggestedSearchLinks(
+        query: String,
+        type: String,
+        metadata: Map<String, String>,
+        sources: List<DataSource>
+    ): String? {
+        if (!AppSettings.isAiAgentAssist(appCtx)) return null
+        val openrouterKey = apiKeys.openrouterKey.trim()
+        if (openrouterKey.isBlank()) return null
+        val context = buildOsintAiContext(query, type, metadata, sources)
+        val model = apiKeys.openrouterModel.trim()
+            .ifBlank { "meta-llama/llama-3.3-70b-instruct:free" }
+        val searches = OpenRouterAiClient.generateSuggestedSearches(openrouterKey, context, model)
+            ?: return null
+        apiKeys.recordUsage("openrouter")
+        return searches.joinToString("\n") { search ->
+            "${search.label}: https://html.duckduckgo.com/html/?q=${encode(search.query)}"
         }
-        val fallbackPrompt = buildAiSummaryPrompt(query, type, metadata)
-        val plain = queryPollinationsAI(fallbackPrompt) ?: return null
-        return OsintAiReport.fromPlainText(plain, "pollinations")
     }
 
     private fun queryPollinationsAI(prompt: String): String? = try {
@@ -2301,7 +2443,7 @@ class OsintRepository(context: Context) {
             put("messages", org.json.JSONArray().apply {
                 put(JSONObject().apply {
                     put("role", "system")
-                    put("content", "You are an OSINT intelligence analyst. Write concise, factual intelligence briefs from collected data. Be objective and analytical.")
+                    put("content", "You are an OSINT intelligence analyst. ai_facts_only=true: only cite data explicitly provided. Never invent phone, address, email, or name. Be objective and analytical.")
                 })
                 put(JSONObject().apply { put("role", "user"); put("content", prompt) })
             })
@@ -2331,16 +2473,17 @@ class OsintRepository(context: Context) {
         query: String,
         personId: String?,
         sources: List<DataSource>,
-        metadata: Map<String, String>
+        metadata: Map<String, String>,
+        reportId: String? = null
     ): String {
-        val reportId = UUID.randomUUID().toString()
+        val id = reportId ?: UUID.randomUUID().toString()
         val sourcesType = Types.newParameterizedType(List::class.java, DataSource::class.java)
         val sourcesAdapter = moshi.adapter<List<DataSource>>(sourcesType)
         val metaType = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
         val metaAdapter = moshi.adapter<Map<String, String>>(metaType)
 
         val entity = OsintReportEntity(
-            id = reportId,
+            id = id,
             searchQuery = query,
             generatedAt = Date(),
             personId = personId,
@@ -2352,7 +2495,7 @@ class OsintRepository(context: Context) {
             sourcesJson = sourcesAdapter.toJson(sources)
         )
         db.reportDao().insertReport(entity)
-        return reportId
+        return id
     }
 
     suspend fun search(query: String, type: String): String {
@@ -2395,6 +2538,11 @@ class OsintRepository(context: Context) {
             metadata["search_phase"] = searchPhase.name
             metadata["investigation_mode"] = "deep"
             metadata["subject_locked"] = subjectProfile.locked.toString()
+            val activeCategories = SearchPresetManager.getActiveCategories(appCtx)
+            metadata["search_preset"] = SearchPresetManager.getPresetDisplayName(appCtx)
+            metadata["search_preset_categories"] = activeCategories.joinToString(",")
+            fun allowSource(name: String): Boolean =
+                SubjectSearchOrchestrator.shouldRunForPreset(name, activeCategories)
             val subjectIntent = SubjectSearchOrchestrator.normalizeIntent(subjectProfile.intent)
             if (subjectProfile.intent.isNotBlank()) metadata["subject_intent"] = subjectIntent
             val isPhoneOnly = fields["phone"]?.isNotBlank() == true &&
@@ -2463,7 +2611,7 @@ class OsintRepository(context: Context) {
                         val personEmail = fields["email"] ?: ""
                         val personUsername = fields["username"] ?: ""
                         val personQueries = buildPersonQueries(
-                            primaryQuery, city, state, personPhone, personEmail, personUsername, searchPhase
+                            primaryQuery, city, state, personPhone, personEmail, personUsername, searchPhase, activeCategories
                         )
                         val nameTokens = primaryQuery.lowercase().split(" ").filter { it.length > 1 }
                         for ((label, q) in personQueries) {
@@ -2473,7 +2621,7 @@ class OsintRepository(context: Context) {
                                     try {
                                         withTimeout(SubjectSearchOrchestrator.SOURCE_TIMEOUT_MS) {
                                             val results = ddgHtmlSearch(q)
-                                            val extracted = extractDataFromDdgResults(results, nameTokens)
+                                            val extracted = extractDataFromDdgResults(results, subjectProfile)
                                             if (results.isNotEmpty()) {
                                                 sources.add(DataSource("DDG:$label", "https://html.duckduckgo.com/html/?q=${encode(q)}", Date(), 0.6))
                                                 send(SearchProgressEvent.Found("DDG: $label", (extracted.snippets.firstOrNull() ?: results.firstOrNull()?.snippet ?: "").take(120)))
@@ -2546,7 +2694,9 @@ class OsintRepository(context: Context) {
                                 handleScrapeOut("CallTracer", "https://calltracer.io/api/lookup/${primaryQuery.replace(Regex("[^0-9]"), "")}", out, sources, metadata, this@channelFlow)
                             }
                         }
-                        if (deepPhase && SubjectSearchOrchestrator.shouldRunDarkWeb(searchPhase, subjectIntent)) {
+                        if (deepPhase && allowSource("DarkSearch") &&
+                            SubjectSearchOrchestrator.shouldRunDarkWeb(searchPhase, subjectIntent)
+                        ) {
                             launch {
                                 runDarkWebSearches(subjectProfile, primaryQuery, sources, metadata, this@channelFlow)
                             }
@@ -2648,9 +2798,7 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("pipl")
-                                if (key.isNullOrBlank()) {
-                                    send(SearchProgressEvent.NotFound("Pipl (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("Pipl"))
                                     try {
                                         val nameParts = primaryQuery.trim().split("\\s+".toRegex())
@@ -2668,7 +2816,7 @@ class OsintRepository(context: Context) {
                                         if (person == null) {
                                             send(SearchProgressEvent.NotFound("Pipl"))
                                         } else {
-                                            applyPiplPersonToMetadata(person, metadata)
+                                            applyPiplPersonToMetadata(person, metadata, subjectProfile)
                                             sources.add(DataSource("Pipl", "https://pipl.com/search/?q=${encode(primaryQuery)}", Date(), 0.9))
                                             send(SearchProgressEvent.Found("Pipl", person.names?.firstOrNull()?.display ?: "Person profile found"))
                                             apiKeys.recordUsage("pipl")
@@ -2676,15 +2824,13 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Pipl"))
                                     }
-                                }
+
                             }
                         }
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("pdl")
-                                if (key.isNullOrBlank()) {
-                                    send(SearchProgressEvent.NotFound("People Data Labs (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("People Data Labs"))
                                     try {
                                         val nameParts = primaryQuery.trim().split("\\s+".toRegex())
@@ -2699,7 +2845,7 @@ class OsintRepository(context: Context) {
                                         if (person == null) {
                                             send(SearchProgressEvent.NotFound("People Data Labs"))
                                         } else {
-                                            applyPdlPersonToMetadata(person, metadata)
+                                            applyPdlPersonToMetadata(person, metadata, subjectProfile)
                                             sources.add(DataSource("People Data Labs", "https://peopledatalabs.com/", Date(), 0.9))
                                             send(SearchProgressEvent.Found("People Data Labs", person.fullName ?: "Profile enriched"))
                                             apiKeys.recordUsage("pdl")
@@ -2707,15 +2853,13 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("People Data Labs"))
                                     }
-                                }
+
                             }
                         }
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.clearbitKey.ifBlank { apiKeys.getKey("clearbit") ?: "" }
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("Clearbit Person (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("Clearbit Person"))
                                     try {
                                         val nameParts = primaryQuery.trim().split("\\s+".toRegex())
@@ -2747,15 +2891,13 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Clearbit Person"))
                                     }
-                                }
+
                             }
                         }
                         if (deepPhase) {
                             launch {
                                 val key = apiKeys.opensanctionsKey.ifBlank { apiKeys.getKey("opensanctions") ?: "" }
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("OpenSanctions (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("OpenSanctions"))
                                     val out = scrapeOpenSanctions(primaryQuery, key)
                                     if (out.found) {
@@ -2770,9 +2912,7 @@ class OsintRepository(context: Context) {
                             }
                             launch {
                                 val key = apiKeys.opencorporatesKey.ifBlank { apiKeys.getKey("opencorporates") ?: "" }
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("OpenCorporates (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("OpenCorporates Officers"))
                                     val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
                                     if (out.found) {
@@ -2900,9 +3040,7 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("hibp")
-                                if (key.isNullOrBlank()) {
-                                    send(SearchProgressEvent.NotFound("HaveIBeenPwned (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("HaveIBeenPwned"))
                                     try {
                                         val breaches = RetrofitClient.hibpService.getBreaches(primaryQuery, key)
@@ -2933,15 +3071,13 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("HaveIBeenPwned"))
                                     }
-                                }
+
                             }
                         }
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("hunter")
-                                if (key.isNullOrBlank()) {
-                                    send(SearchProgressEvent.NotFound("Hunter.io verify (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("Hunter.io Verify"))
                                     try {
                                         val result = RetrofitClient.hunterService.verifyEmail(primaryQuery, key)
@@ -2959,7 +3095,7 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Hunter.io Verify"))
                                     }
-                                }
+
                             }
                         }
                         launch {
@@ -2992,9 +3128,7 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("hunter")
-                                if (key.isNullOrBlank()) {
-                                    send(SearchProgressEvent.NotFound("Hunter.io (no key)"))
-                                } else {
+                                if (key.isNullOrBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("Hunter.io"))
                                     try {
                                         val result = RetrofitClient.hunterService.domainSearch(primaryQuery, key)
@@ -3020,7 +3154,7 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Hunter.io"))
                                     }
-                                }
+
                             }
                         }
                         launch {
@@ -3119,9 +3253,6 @@ class OsintRepository(context: Context) {
                             if (ipTarget != null) {
                                 send(SearchProgressEvent.Checking("AbuseIPDB"))
                                 val key = apiKeys.abuseIpDbKey
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("AbuseIPDB (no key)"))
-                                } else {
                                     val out = scrapeAbuseIpDb(ipTarget, key)
                                     if (out.found) {
                                         out.fields["score"]?.let { metadata["abuseipdb_score"] = it }
@@ -3134,9 +3265,6 @@ class OsintRepository(context: Context) {
                             if (vtTarget != null) {
                                 send(SearchProgressEvent.Checking("VirusTotal"))
                                 val key = apiKeys.virusTotalKey
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("VirusTotal (no key)"))
-                                } else {
                                     val out = scrapeVirusTotal(vtTarget, key)
                                     if (out.found) {
                                         out.fields["malicious"]?.let { metadata["vt_malicious"] = it }
@@ -3152,9 +3280,6 @@ class OsintRepository(context: Context) {
                             if (domainTarget != null) {
                                 send(SearchProgressEvent.Checking("URLScan"))
                                 val key = apiKeys.urlScanKey
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("URLScan (no key)"))
-                                } else {
                                     val out = scrapeUrlScan(domainTarget, key)
                                     if (out.found) {
                                         out.fields["total_scans"]?.let { metadata["urlscan_total_scans"] = it }
@@ -3164,9 +3289,7 @@ class OsintRepository(context: Context) {
                                     handleScrapeOut("URLScan", "https://urlscan.io/search/#domain:$domainTarget", out, sources, metadata, this@channelFlow)
                                 }
                                 val urlhausKey = apiKeys.urlhausKey
-                                if (urlhausKey.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("URLhaus (no key — get free Auth-Key at auth.abuse.ch)"))
-                                } else {
+                                if (urlhausKey.isBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("URLhaus"))
                                     val out = scrapeUrlhaus(domainTarget, urlhausKey)
                                     if (out.found) {
@@ -3243,9 +3366,7 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.numverifyKey
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("Numverify (no key)"))
-                                } else {
+                                if (key.isBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("Numverify"))
                                     val out = scrapeNumverify(primaryQuery, key)
                                     if (out.blocked) {
@@ -3386,9 +3507,7 @@ class OsintRepository(context: Context) {
                             }
                             launch {
                                 val urlhausKey = apiKeys.urlhausKey
-                                if (urlhausKey.isBlank()) {
-                                    send(SearchProgressEvent.NotFound("URLhaus (no key — get free Auth-Key at auth.abuse.ch)"))
-                                } else {
+                                if (urlhausKey.isBlank()) return@withPermit
                                     send(SearchProgressEvent.Checking("URLhaus"))
                                     val out = scrapeUrlhaus(companyDomain, urlhausKey)
                                     if (out.found) {
@@ -3401,9 +3520,7 @@ class OsintRepository(context: Context) {
                             launch {
                                 semaphore.withPermit {
                                     val key = apiKeys.getKey("clearbit")
-                                    if (key.isNullOrBlank()) {
-                                        send(SearchProgressEvent.NotFound("Clearbit (no key)"))
-                                    } else {
+                                    if (key.isNullOrBlank()) return@withPermit
                                         send(SearchProgressEvent.Checking("Clearbit"))
                                         try {
                                             val token = if (key.startsWith("Bearer ", ignoreCase = true)) key else "Bearer $key"
@@ -3432,9 +3549,7 @@ class OsintRepository(context: Context) {
                             launch {
                                 semaphore.withPermit {
                                     val key = apiKeys.getKey("builtwith")
-                                    if (key.isNullOrBlank()) {
-                                        send(SearchProgressEvent.NotFound("BuiltWith (no key)"))
-                                    } else {
+                                    if (key.isNullOrBlank()) return@withPermit
                                         send(SearchProgressEvent.Checking("BuiltWith"))
                                         try {
                                             val resp = RetrofitClient.builtWithService.lookup(key, companyDomain)
@@ -3455,9 +3570,7 @@ class OsintRepository(context: Context) {
                             launch {
                                 semaphore.withPermit {
                                     val key = apiKeys.getKey("hunter")
-                                    if (key.isNullOrBlank()) {
-                                        send(SearchProgressEvent.NotFound("Hunter.io (no key)"))
-                                    } else {
+                                    if (key.isNullOrBlank()) return@withPermit
                                         send(SearchProgressEvent.Checking("Hunter.io"))
                                         try {
                                             val result = RetrofitClient.hunterService.domainSearch(companyDomain, key)
@@ -3510,10 +3623,8 @@ class OsintRepository(context: Context) {
                         targetedScraperNames += setOf("WiGLE", "DDG WiFi")
                         launch {
                             val key = apiKeys.wigleKey
-                            if (key.isBlank()) {
-                                send(SearchProgressEvent.NotFound("WiGLE (no key — register at wigle.net)"))
-                            } else {
-                                send(SearchProgressEvent.Checking("WiGLE"))
+                            if (key.isBlank()) return@launch
+                            send(SearchProgressEvent.Checking("WiGLE"))
                                 val out = scrapeWigle(primaryQuery, effectiveType, key)
                                 if (out.found) {
                                     out.fields["ssid"]?.let { metadata["wifi_ssid"] = it }
@@ -3700,7 +3811,12 @@ class OsintRepository(context: Context) {
             }
 
             if (effectiveType == "person" || effectiveType == "comprehensive") {
-                val distinctPhones = ddgPhones.distinct().take(10)
+                val queryPhone = fields["phone"] ?: ""
+                val distinctPhones = ddgPhones.distinct().filter { phone ->
+                    SubjectFilter.shouldAcceptPersonPhone(
+                        phone, ddgSnippets.joinToString(" "), queryPhone, primaryQuery, city, state
+                    )
+                }.take(10)
                 val distinctEmails = ddgEmails.distinct().take(5)
                 val distinctRelatives = ddgRelatives.distinct().take(15)
                 val distinctAges = ddgAges.distinct()
@@ -3708,7 +3824,11 @@ class OsintRepository(context: Context) {
                 val stateFilteredAddresses = SubjectFilter.filterByGeo(allAddresses, city, state).take(8)
                 val distinctSocial = ddgSocial.distinct().take(10)
                 val distinctProfiles = ddgProfiles.distinct().take(10)
-                if (distinctPhones.isNotEmpty()) metadata["search_phones"] = distinctPhones.joinToString(", ")
+                if (distinctPhones.isNotEmpty()) {
+                    metadata["search_phones"] = distinctPhones.joinToString(", ")
+                    metadata["search_phones_source_url"] = "https://html.duckduckgo.com/html/?q=${encode(primaryQuery)}"
+                    metadata["search_phones_verified"] = "true"
+                }
                 if (distinctEmails.isNotEmpty()) metadata["search_emails"] = distinctEmails.joinToString(", ")
                 if (distinctRelatives.isNotEmpty()) metadata["search_relatives"] = distinctRelatives.joinToString(", ")
                 if (distinctAges.isNotEmpty()) metadata["search_age"] = distinctAges.first()
@@ -3768,6 +3888,7 @@ class OsintRepository(context: Context) {
             }
             if (aiReport != null) {
                 aiReport.toMetadataMap().forEach { (k, v) -> metadata[k] = v }
+                metadata["ai_facts_only"] = "true"
                 val preview = aiReport.executiveSummary.take(100)
                 val providerLabel = when (aiReport.provider) {
                     "openrouter" -> "OpenRouter"
@@ -3776,6 +3897,22 @@ class OsintRepository(context: Context) {
                 send(SearchProgressEvent.Found("AI Brief ($providerLabel)", preview))
             } else {
                 send(SearchProgressEvent.NotFound("AI Brief"))
+            }
+
+            if (AppSettings.isAiAgentAssist(appCtx)) {
+                send(SearchProgressEvent.Checking("AI Search Suggestions"))
+                val suggestedLinks = withContext(Dispatchers.IO) {
+                    generateAiSuggestedSearchLinks(
+                        primaryQuery, effectiveType, metadata.toMap(), sources.toList()
+                    )
+                }
+                if (!suggestedLinks.isNullOrBlank()) {
+                    metadata["ai_suggested_searches"] = suggestedLinks
+                    val count = suggestedLinks.lines().count { it.isNotBlank() }
+                    send(SearchProgressEvent.Found("AI Search Suggestions", "$count follow-up searches ready"))
+                } else {
+                    send(SearchProgressEvent.NotFound("AI Search Suggestions"))
+                }
             }
 
             val personId = if (effectiveType == "person" || effectiveType == "comprehensive") {
@@ -3833,6 +3970,8 @@ class OsintRepository(context: Context) {
                         }
                     }
                     metadata["candidate_count"] = candidates.size.toString()
+                    candidates.first().allPhotoUrls().firstOrNull()?.let { metadata["profile_photo_url"] = it }
+                    saveReport(query, personId, sources.toList(), metadata.toMap(), reportId)
                     val autoSelect = SubjectSearchOrchestrator.autoSelectAllowed(primaryQuery, candidates.size)
                     val primary = candidates.first()
                     val lockedProfile = SubjectProfile.fromCandidate(primary, subjectProfile)
@@ -3882,17 +4021,56 @@ class OsintRepository(context: Context) {
         reliability: Double = 0.6
     ) {
         when {
-            out.blocked -> channel.send(SearchProgressEvent.Blocked(name))
+            out.skippedBlocked -> channel.send(SearchProgressEvent.Skipped(name, "blocked"))
+            out.blocked -> {
+                if (!blockedSourceCache.isUrlBlocked(url)) {
+                    blockedSourceCache.markUrlBlocked(url)
+                }
+                channel.send(SearchProgressEvent.Blocked(name))
+            }
             out.found -> {
                 val detail = out.fields["snippet"]?.take(120) ?: out.fields["title"] ?: ""
                 channel.send(SearchProgressEvent.Found(name, detail))
                 sources.add(DataSource(name, url, Date(), reliability))
                 val key = SOURCE_ABBREVS[name.lowercase()] ?: name.lowercase().replace(" ", "_")
                 val confidence = SubjectSearchOrchestrator.formatConfidence(reliability)
+                val structuredApi = SubjectFilter.isStructuredApiSource(key)
+                val companySource = SubjectFilter.isCompanySource(key, url)
                 metadata["${key}_confidence"] = confidence
+                metadata["${key}_source_url"] = url
                 out.fields.forEach { (k, v) ->
-                    metadata["${key}_$k"] = v
-                    metadata["${key}_${k}_confidence"] = confidence
+                    if (v.isBlank()) return@forEach
+                    val fieldKey = "${key}_$k"
+                    when {
+                        k == "phones" && companySource -> {
+                            metadata["company_phone"] = v
+                            metadata["company_phone_source_url"] = url
+                            metadata["company_phone_verified"] = structuredApi.toString()
+                        }
+                        k == "phones" -> {
+                            val queryPhone = metadata["person_phone"] ?: metadata["field_phone"] ?: ""
+                            val subjectName = metadata["person_name"] ?: ""
+                            val city = metadata["person_city"] ?: ""
+                            val state = metadata["person_state"] ?: ""
+                            val context = out.fields["snippet"] ?: out.fields["title"] ?: v
+                            val accepted = v.split(",").map { it.trim() }.filter { phone ->
+                                SubjectFilter.shouldAcceptPersonPhone(
+                                    phone, context, queryPhone, subjectName, city, state, key, url, structuredApi
+                                )
+                            }
+                            if (accepted.isNotEmpty()) {
+                                metadata[fieldKey] = accepted.joinToString(", ")
+                                metadata["${fieldKey}_source_url"] = url
+                                metadata["${fieldKey}_verified"] = structuredApi.toString()
+                            }
+                        }
+                        else -> {
+                            metadata[fieldKey] = v
+                            metadata["${fieldKey}_source_url"] = url
+                            metadata["${fieldKey}_verified"] = structuredApi.toString()
+                        }
+                    }
+                    metadata["${fieldKey}_confidence"] = confidence
                 }
                 normalizeScraperFieldAliases(key, metadata)
             }

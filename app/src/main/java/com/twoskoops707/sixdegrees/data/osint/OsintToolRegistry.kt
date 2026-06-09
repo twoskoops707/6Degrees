@@ -1,8 +1,15 @@
 package com.twoskoops707.sixdegrees.data.osint
 
+import android.content.Context
 import android.net.Uri
+import com.twoskoops707.sixdegrees.data.BlockedSourceCache
 
 object OsintToolRegistry {
+
+    fun domainFromUrl(url: String): String = BlockedSourceCache.domainFromUrl(url)
+
+    fun isUrlBlocked(context: Context, url: String): Boolean =
+        BlockedSourceCache(context).isUrlBlocked(url)
 
     data class OsintTool(
         val name: String,

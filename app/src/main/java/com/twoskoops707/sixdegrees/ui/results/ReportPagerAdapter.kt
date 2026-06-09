@@ -21,7 +21,8 @@ import com.twoskoops707.sixdegrees.databinding.FragmentDossierSectionBinding
 
 class ReportPagerAdapter(
     private val fragment: Fragment,
-    private val sections: List<DossierSection>
+    private val sections: List<DossierSection>,
+    private val meta: Map<String, String> = emptyMap()
 ) : RecyclerView.Adapter<ReportPagerAdapter.TabPageViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TabPageViewHolder {
@@ -117,20 +118,7 @@ class ReportPagerAdapter(
         })
 
         card.addView(inner)
-        if (finding.isLink) {
-            card.setOnClickListener {
-                fragment.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(finding.value)))
-            }
-        } else if (finding.isPivot) {
-            val parts = finding.value.removePrefix("pivot://").split("/", limit = 2)
-            card.setOnClickListener {
-                val bundle = Bundle().apply {
-                    putString("query", parts.getOrNull(1).orEmpty())
-                    putString("type", parts.getOrNull(0) ?: "person")
-                }
-                fragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
-            }
-        }
+        FindingClickBinder.bind(card, fragment, finding, meta)
         return card
     }
 

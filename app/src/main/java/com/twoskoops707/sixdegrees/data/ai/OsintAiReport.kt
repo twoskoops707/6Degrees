@@ -101,5 +101,53 @@ data class OsintAiReport(
                 nextSteps = emptyList(),
                 provider = provider
             )
+
+        /**
+         * Strip unsourced claims when ai_facts_only=true — phones, emails, addresses
+         * must appear in allowed metadata values.
+         */
+        fun enforceFactsOnly(report: OsintAiReport, allowedValues: Set<String>): OsintAiReport {
+            val allowedLower = allowedValues.map { it.lowercase() }.toSet()
+            fun isSourced(fragment: String): Boolean {
+                val f = fragment.lowercase()
+                if (f.isBlank()) return true
+                return allowedLower.any { av -> av.length > 3 && (f.contains(av) || av.contains(f.take(20))) }
+            }
+            fun scrub(text: String): String {
+                if (text.isBlank()) return text
+                val phoneRx = Regex("""\+?1?[\s.\-]?\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}""")
+                val emailRx = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""")
+                var out = text
+                phoneRx.findAll(text).forEach { m ->
+                    if (!isSourced(m.value)) out = out.replace(m.value, "[redacted — unsourced]")
+                }
+                emailRx.findAll(text).forEach { m ->
+                    if (!isSourced(m.value)) out = out.replace(m.value, "[redacted — unsourced]")
+                }
+                return out.replace(Regex("""\[redacted — unsourced\][\s,;]*"""), "").trim()
+            }
+            return report.copy(
+                executiveSummary = scrub(report.executiveSummary),
+                keyFindings = report.keyFindings.map { scrub(it) }.filter { it.isNotBlank() },
+                confidenceRationale = scrub(report.confidenceRationale),
+                falsePositiveNotes = report.falsePositiveNotes.map { scrub(it) }.filter { it.isNotBlank() },
+                nextSteps = report.nextSteps.map { scrub(it) }.filter { it.isNotBlank() }
+            )
+        }
+
+        fun collectAllowedFactValues(metadata: Map<String, String>): Set<String> {
+            val keys = listOf(
+                "search_phones", "pipl_phones", "pdl_phones", "person_phone", "tps_phones",
+                "search_emails", "pipl_emails", "pdl_emails", "person_email",
+                "search_addresses", "pipl_addresses", "pdl_address", "person_entered_address",
+                "person_name", "pipl_name", "pdl_name", "search_relatives", "pipl_relatives",
+                "search_age", "person_location", "pdl_company", "clearbit_person_company"
+            )
+            val values = mutableSetOf<String>()
+            keys.forEach { k -> metadata[k]?.let { raw ->
+                raw.split(",", "\n", "|").map { it.trim() }.filter { it.length > 2 }.forEach { values.add(it) }
+            }}
+            return values
+        }
     }
 }

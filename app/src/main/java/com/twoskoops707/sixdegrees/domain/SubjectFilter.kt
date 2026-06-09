@@ -103,6 +103,47 @@ object SubjectFilter {
         return texts.filter { matchesLocation(it, city, state) }
     }
 
+    fun phoneDigits(phone: String): String = phone.filter { it.isDigit() }.takeLast(10)
+
+    fun phoneMatchesQuery(phone: String, queryPhone: String): Boolean {
+        if (queryPhone.isBlank()) return false
+        val pd = phoneDigits(phone)
+        val qd = phoneDigits(queryPhone)
+        return pd.length >= 10 && qd.length >= 10 && pd == qd
+    }
+
+    fun emailMatchesQuery(email: String, queryEmail: String): Boolean {
+        if (queryEmail.isBlank()) return false
+        return email.trim().equals(queryEmail.trim(), ignoreCase = true)
+    }
+
+    /**
+     * Keep a phone when it matches the query phone OR co-occurs with subject name+geo in [contextText].
+     */
+    fun validatePhone(phone: String, contextText: String, profile: SubjectProfile): Boolean {
+        if (phone.isBlank()) return false
+        if (phoneMatchesQuery(phone, profile.phone)) return true
+        return matchesSubject(contextText, profile)
+    }
+
+    fun validateEmail(email: String, contextText: String, profile: SubjectProfile): Boolean {
+        if (email.isBlank() || !email.contains("@")) return false
+        if (emailMatchesQuery(email, profile.email)) return true
+        return matchesSubject(contextText, profile)
+    }
+
+    fun validateAddress(address: String, profile: SubjectProfile): Boolean =
+        matchesSubject(address, profile)
+
+    fun filterPhones(phones: List<String>, contextText: String, profile: SubjectProfile): List<String> =
+        phones.filter { validatePhone(it, contextText, profile) }.distinct()
+
+    fun filterEmails(emails: List<String>, contextText: String, profile: SubjectProfile): List<String> =
+        emails.filter { validateEmail(it, contextText, profile) }.distinct()
+
+    fun filterAddresses(addresses: List<String>, profile: SubjectProfile): List<String> =
+        addresses.filter { validateAddress(it, profile) }.distinct()
+
     fun filterCandidatesByGeo(
         candidates: List<CandidateProfile>,
         city: String,

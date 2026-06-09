@@ -27,8 +27,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- ── API KEYS SECTION ── -->
+            <!-- ── API KEYS SECTION (investigator mode only) ── -->
             <TextView
+                android:id="@+id/wizard_api_keys_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/wizard_section_api_keys"
@@ -39,6 +40,7 @@
                 android:layout_marginBottom="8dp" />
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/wizard_api_keys_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"

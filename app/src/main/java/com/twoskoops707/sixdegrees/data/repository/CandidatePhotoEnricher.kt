@@ -1,5 +1,6 @@
 package com.twoskoops707.sixdegrees.data.repository
 
+import android.util.Log
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.SocialHint
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +59,9 @@ class CandidatePhotoEnricher(
         val quotedName = "\"$name\""
         val ddgResults = ddgSearch("$quotedName ${if (loc.isNotBlank()) loc else ""} linkedin OR facebook OR instagram")
         for (r in ddgResults) {
-            val url = normalizeUrl(r.url)
+            val resultText = "${r.first} ${r.second}"
+            if (!matchesCandidateName(resultText, name)) continue
+            val url = normalizeUrl(r.third)
             when {
                 url.contains("linkedin.com/in/") -> {
                     val photo = extractOgImage(url) ?: unavatarUrl("linkedin", linkedinUsername(url))
@@ -118,7 +121,10 @@ class CandidatePhotoEnricher(
                 val url = extractDdgRedirect(href) ?: el.selectFirst(".result__url, .result-url")?.text()?.trim() ?: ""
                 if (title.isBlank()) null else Triple(title, snippet, url)
             }
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) {
+            Log.w(TAG, "DDG web search failed for '$query': ${e.message}")
+            emptyList()
+        }
     }
 
     private fun ddgImageSearch(query: String): List<String> {
@@ -150,7 +156,10 @@ class CandidatePhotoEnricher(
                 }
             }
             urls.filter { !it.contains("placeholder") && !it.contains("default_avatar") }.distinct()
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) {
+            Log.w(TAG, "DDG image search failed for '$query': ${e.message}")
+            emptyList()
+        }
     }
 
     private fun extractOgImage(url: String): String? {
@@ -168,7 +177,10 @@ class CandidatePhotoEnricher(
             (doc.selectFirst("meta[property=og:image]")?.attr("content")
                 ?: doc.selectFirst("meta[name=twitter:image]")?.attr("content"))
                 ?.takeIf { it.startsWith("http") && !it.contains("placeholder") && !it.contains("default") }
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w(TAG, "OG image fetch failed for '$url': ${e.message}")
+            null
+        }
     }
 
     private fun gravatarUrl(email: String): String? {
@@ -187,7 +199,18 @@ class CandidatePhotoEnricher(
             val ok = resp.code == 200 || resp.code == 302
             resp.close()
             if (ok) url else null
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w(TAG, "Unavatar HEAD failed for $platform/$username: ${e.message}")
+            null
+        }
+    }
+
+    private fun matchesCandidateName(text: String, candidateName: String): Boolean {
+        val tokens = candidateName.trim().lowercase().split(Regex("\\s+")).filter { it.length > 1 }
+        if (tokens.isEmpty()) return true
+        val lower = text.lowercase()
+        val required = if (tokens.size >= 2) 2 else 1
+        return tokens.count { lower.contains(it) } >= required
     }
 
     private fun linkedinUsername(url: String): String? =
@@ -208,6 +231,7 @@ class CandidatePhotoEnricher(
     }
 
     companion object {
+        private const val TAG = "CandidatePhotoEnricher"
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     }

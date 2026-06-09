@@ -239,7 +239,7 @@ object SubjectSearchOrchestrator {
         return scraperCategory(scraperName) in activeCategories
     }
 
-    fun ddgLabelsForPhase(phase: SearchPhase, activeCategories: Set<String>? = null): Set<String> {
+    fun ddgLabelsFiltered(phase: SearchPhase, activeCategories: Set<String>?): Set<String> {
         val base = ddgLabelsForPhase(phase)
         if (activeCategories == null) return base
         return base.filter { label -> shouldRunForPreset("DDG: $label", activeCategories) }.toSet()

@@ -16,6 +16,7 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
+import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.data.UserProfileManager
 import com.twoskoops707.sixdegrees.databinding.FragmentApiSettingsBinding
 import androidx.core.os.bundleOf
@@ -84,6 +85,20 @@ class ApiSettingsFragment : Fragment() {
         setupQuickApplyButtons()
         setupAutoApplyAll()
         populateUsageCounters()
+        applyInvestigatorModeUi()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (_binding != null) applyInvestigatorModeUi()
+    }
+
+    private fun applyInvestigatorModeUi() {
+        val investigator = AppSettings.isInvestigatorMode(requireContext())
+        binding.powerUserKeysSection.visibility = if (investigator) View.VISIBLE else View.GONE
+        binding.settingsToolbar.title = getString(
+            if (investigator) R.string.api_settings_title else R.string.api_settings_zero_config_title
+        )
     }
 
     private fun applyImportedKeys(keyMap: Map<String, String>) {

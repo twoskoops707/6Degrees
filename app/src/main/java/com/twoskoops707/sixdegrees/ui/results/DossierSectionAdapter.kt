@@ -1,10 +1,7 @@
 package com.twoskoops707.sixdegrees.ui.results
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Typeface
-import android.net.Uri
-import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -13,7 +10,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.twoskoops707.sixdegrees.R
@@ -22,7 +18,8 @@ import com.twoskoops707.sixdegrees.databinding.FragmentDossierSectionBinding
 class DossierSectionAdapter(
     private val fragment: Fragment,
     private val sections: List<DossierSection>,
-    private val showTechnicalDetails: Boolean = true
+    private val showTechnicalDetails: Boolean = true,
+    private val meta: Map<String, String> = emptyMap()
 ) : RecyclerView.Adapter<DossierSectionAdapter.SectionViewHolder>() {
 
     class SectionViewHolder(val binding: FragmentDossierSectionBinding) :
@@ -169,7 +166,7 @@ class DossierSectionAdapter(
         }
 
         card.addView(inner)
-        bindFindingClick(card, ctx, finding)
+        FindingClickBinder.bind(card, fragment, finding, meta)
         return card
     }
 
@@ -228,49 +225,4 @@ class DossierSectionAdapter(
         }
     }
 
-    private fun bindFindingClick(card: MaterialCardView, ctx: Context, finding: DossierFinding) {
-        when {
-            finding.isPivot -> {
-                val parts = finding.value.removePrefix("pivot://").split("/", limit = 2)
-                val pivotType = parts.getOrNull(0) ?: "person"
-                val pivotQuery = parts.getOrNull(1) ?: ""
-                card.setOnClickListener {
-                    val bundle = Bundle().apply {
-                        putString("query", pivotQuery)
-                        putString("type", pivotType)
-                    }
-                    fragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
-                }
-            }
-            finding.isLink -> {
-                card.setOnClickListener {
-                    val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-                    val pkg = when (prefs.getString("pref_browser", "firefox")) {
-                        "ddg" -> "com.duckduckgo.mobile.android"
-                        "chrome" -> "com.android.chrome"
-                        "default" -> null
-                        else -> "org.mozilla.firefox"
-                    }
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(finding.value))
-                    if (pkg != null) intent.setPackage(pkg)
-                    try { fragment.startActivity(intent) }
-                    catch (_: Exception) { fragment.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(finding.value))) }
-                }
-            }
-            finding.value.matches(Regex("\\+?1?[\\s.\\-]?\\(?\\d{3}\\)?[\\s.\\-]\\d{3}[\\s.\\-]\\d{4}.*")) -> {
-                val digits = finding.value.replace(Regex("[^\\d+]"), "")
-                card.setOnClickListener {
-                    try { fragment.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$digits"))) }
-                    catch (_: Exception) {}
-                }
-            }
-            finding.value.contains("@") && finding.value.contains(".") -> {
-                card.setOnClickListener {
-                    try { fragment.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${finding.value}"))) }
-                    catch (_: Exception) {}
-                }
-            }
-            else -> card.setOnClickListener(null)
-        }
-    }
 }
