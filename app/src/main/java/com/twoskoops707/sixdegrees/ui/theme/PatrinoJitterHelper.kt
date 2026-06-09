@@ -93,7 +93,7 @@ class PatrinoJitterHelper(
             val cr = context.contentResolver
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 try {
-                    if (Settings.Global.getInt(cr, Settings.Global.ACCESSIBILITY_REDUCE_MOTION, 0) == 1) {
+                    if (Settings.Global.getInt(cr, "reduce_motion", 0) == 1) {
                         return true
                     }
                 } catch (_: Exception) { }
