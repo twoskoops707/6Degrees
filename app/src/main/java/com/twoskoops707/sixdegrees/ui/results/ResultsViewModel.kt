@@ -5,10 +5,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
 import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
 import com.twoskoops707.sixdegrees.data.repository.OsintRepository
+import com.twoskoops707.sixdegrees.domain.model.Address
+import com.twoskoops707.sixdegrees.domain.model.Employment
+import com.twoskoops707.sixdegrees.domain.model.SocialProfile
 import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
 import com.twoskoops707.sixdegrees.domain.GoogleDorkLibrary
 import com.twoskoops707.sixdegrees.domain.SubjectFilter
@@ -49,6 +55,7 @@ data class ResultsUiState(
     val report: OsintReportEntity? = null,
     val person: PersonEntity? = null,
     val error: String? = null,
+    val enrichedMeta: Map<String, String> = emptyMap(),
     val dossierSections: List<DossierSection> = emptyList(),
     val shadyScore: ShadyScore? = null
 )
@@ -56,6 +63,7 @@ data class ResultsUiState(
 class ResultsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repository = OsintRepository(app)
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
 
     private val _state = MutableLiveData<ResultsUiState>(ResultsUiState(isLoading = true))
     val state: LiveData<ResultsUiState> = _state
@@ -70,7 +78,7 @@ class ResultsViewModel(app: Application) : AndroidViewModel(app) {
             }
             val person = report.personId?.let { repository.getPersonById(it) }
             val meta = DossierBuilder.parseMetadata(report.companiesJson)
-            val enriched = DossierBuilder.enrichFromPerson(meta, person)
+            val enriched = PersonDossierEnricher.enrich(meta, person, moshi)
             val searchType = enriched["search_type"] ?: "person"
             val investigator = AppSettings.isInvestigatorMode(getApplication())
             val sections = DossierBuilder.buildSectionsForMode(enriched, searchType, investigator)
@@ -79,19 +87,87 @@ class ResultsViewModel(app: Application) : AndroidViewModel(app) {
                 isLoading = false,
                 report = report,
                 person = person,
+                enrichedMeta = enriched,
                 dossierSections = sections,
                 shadyScore = shady
             )
         }
     }
+}
 
-    fun updateDossier(meta: Map<String, String>, searchType: String) {
-        val current = _state.value ?: return
-        val investigator = AppSettings.isInvestigatorMode(getApplication())
-        _state.value = current.copy(
-            dossierSections = DossierBuilder.buildSectionsForMode(meta, searchType, investigator),
-            shadyScore = DossierBuilder.computeShadyScore(meta, searchType)
-        )
+private object PersonDossierEnricher {
+
+    fun enrich(
+        meta: MutableMap<String, String>,
+        person: PersonEntity?,
+        moshi: Moshi
+    ): Map<String, String> {
+        DossierBuilder.enrichFromPerson(meta, person)
+        if (person == null) return meta
+
+        parseAllJobs(person.employmentHistoryJson, moshi).takeIf { it.isNotEmpty() }
+            ?.let { meta["pipl_employment"] = it.joinToString("\n") }
+        parseAllAddresses(person.addressesJson, moshi).takeIf { it.isNotEmpty() }
+            ?.let { meta["pipl_addresses"] = it.joinToString(" | ") }
+        parseAllSocials(person.socialProfilesJson, moshi).takeIf { it.isNotEmpty() }
+            ?.let { meta["pipl_socials"] = it.joinToString("\n") }
+        parseStringList(person.aliasesJson, moshi).takeIf { it.isNotEmpty() }
+            ?.let { meta["pipl_aliases"] = it.joinToString(", ") }
+        parseStringList(person.nationalitiesJson, moshi).takeIf { it.isNotEmpty() }
+            ?.let { meta["pipl_nationalities"] = it.joinToString(", ") }
+        return meta
+    }
+
+    private fun parseAllJobs(json: String, moshi: Moshi): List<String> = try {
+        val type = Types.newParameterizedType(List::class.java, Employment::class.java)
+        moshi.adapter<List<Employment>>(type).fromJson(json)
+            ?.filter { it.companyName.isNotBlank() || it.jobTitle.isNotBlank() }
+            ?.map { employment ->
+                buildString {
+                    if (employment.jobTitle.isNotBlank()) append(employment.jobTitle)
+                    if (employment.companyName.isNotBlank()) {
+                        if (isNotEmpty()) append(" at ") else append("Employee at ")
+                        append(employment.companyName)
+                    }
+                    if (employment.isCurrent) append(" (Current)")
+                    else if (employment.endDate != null) append(" (until ${employment.endDate})")
+                }
+            }.orEmpty()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private fun parseAllAddresses(json: String, moshi: Moshi): List<String> = try {
+        val type = Types.newParameterizedType(List::class.java, Address::class.java)
+        moshi.adapter<List<Address>>(type).fromJson(json)
+            ?.filter { it.city.isNotBlank() || it.state.isNotBlank() }
+            ?.map { address ->
+                listOfNotNull(
+                    address.street.takeIf { it.isNotBlank() },
+                    address.city.takeIf { it.isNotBlank() },
+                    address.state.takeIf { it.isNotBlank() },
+                    address.postalCode.takeIf { it.isNotBlank() }
+                ).joinToString(", ")
+            }?.filter { it.isNotBlank() }.orEmpty()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private fun parseAllSocials(json: String, moshi: Moshi): List<String> = try {
+        val type = Types.newParameterizedType(List::class.java, SocialProfile::class.java)
+        moshi.adapter<List<SocialProfile>>(type).fromJson(json)
+            ?.filter { !it.url.isNullOrBlank() }
+            ?.map { social -> "${social.platform}: ${social.url}" }
+            .orEmpty()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private fun parseStringList(json: String, moshi: Moshi): List<String> = try {
+        val type = Types.newParameterizedType(List::class.java, String::class.java)
+        moshi.adapter<List<String>>(type).fromJson(json)?.filter { it.isNotBlank() }.orEmpty()
+    } catch (_: Exception) {
+        emptyList()
     }
 }
 

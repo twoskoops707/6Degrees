@@ -105,21 +105,23 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Add more clues -->
+        <!-- Optional details — all visible; no chip toggles -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
             android:layout_marginBottom="10dp"
-            android:text="@string/intake_add_clues_label"
+            android:text="@string/intake_optional_details_label"
             android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium" />
 
         <HorizontalScrollView
+            android:id="@+id/field_chip_scroll"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:clipToPadding="false"
             android:paddingHorizontal="@dimen/screen_padding_horizontal"
-            android:scrollbars="none">
+            android:scrollbars="none"
+            android:visibility="gone">
 
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/chip_group_fields"
@@ -170,7 +172,7 @@
 
         </HorizontalScrollView>
 
-        <!-- Expandable field cards -->
+        <!-- Subject detail fields -->
         <LinearLayout
             android:id="@+id/field_cards_container"
             android:layout_width="match_parent"
@@ -185,7 +187,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="@dimen/field_gap"
-                android:visibility="gone">
+                android:visibility="visible">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -250,7 +252,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="@dimen/field_gap"
-                android:visibility="gone">
+                android:visibility="visible">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -321,7 +323,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="@dimen/field_gap"
-                android:visibility="gone">
+                android:visibility="visible">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -354,7 +356,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="@dimen/field_gap"
-                android:visibility="gone">
+                android:visibility="visible">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -387,7 +389,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="@dimen/field_gap"
-                android:visibility="gone">
+                android:visibility="visible">
 
                 <LinearLayout
                     android:layout_width="match_parent"

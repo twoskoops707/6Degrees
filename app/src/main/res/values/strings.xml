@@ -60,6 +60,7 @@
     <string name="progress_sources_checked">%1$d / %2$d sources checked</string>
     <string name="progress_findings">%1$d finding%2$s</string>
     <string name="intake_add_clues_label">Add more clues</string>
+    <string name="intake_optional_details_label">Optional details (fill in what you know)</string>
     <string name="intake_chip_name">Name</string>
     <string name="intake_chip_photo">Photo</string>
     <string name="intake_chip_email">Email</string>

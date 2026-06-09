@@ -408,7 +408,7 @@ class SearchProgressFragment : Fragment() {
             val minMs = SubjectSearchOrchestrator.minimumDurationMs(
                 if (currentRound > 1 || currentType == "comprehensive") SearchPhase.DEEP_INVESTIGATION
                 else SearchPhase.CANDIDATE_DISCOVERY,
-                fastMode = false
+                fastMode = !investigatorMode
             )
             if (checkedCount > 0 && checkedCount < total && elapsedMs < minMs) {
                 val remainingMs = (minMs - elapsedMs).coerceAtLeast(0)

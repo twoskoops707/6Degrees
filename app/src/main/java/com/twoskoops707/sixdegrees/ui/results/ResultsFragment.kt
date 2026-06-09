@@ -39,6 +39,8 @@ class ResultsFragment : Fragment() {
 
     private val viewModel: ResultsViewModel by viewModels()
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private var tabMediator: TabLayoutMediator? = null
+    private var displayedReportId: String? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentResultsBinding.inflate(inflater, container, false)
@@ -56,7 +58,10 @@ class ResultsFragment : Fragment() {
                 state.error != null -> showEmptyState(state.error)
                 state.report != null -> {
                     showResults()
-                    populateReport(state)
+                    if (displayedReportId != state.report.id) {
+                        displayedReportId = state.report.id
+                        populateReport(state)
+                    }
                 }
                 else -> showEmptyState()
             }
@@ -143,40 +148,13 @@ class ResultsFragment : Fragment() {
         } catch (_: Exception) { 0 }
         binding.tvSourcesCount.text = "$sourceCount\nsources"
 
-        val enrichedMeta = meta.toMutableMap()
-        if (person != null) {
-            val allJobs = parseAllJobs(person.employmentHistoryJson)
-            if (allJobs.isNotEmpty()) enrichedMeta["pipl_employment"] = allJobs.joinToString("\n")
-            val allAddrs = parseAllAddresses(person.addressesJson)
-            if (allAddrs.isNotEmpty()) enrichedMeta["pipl_addresses"] = allAddrs.joinToString(" | ")
-            val allSocials = parseAllSocials(person.socialProfilesJson)
-            if (allSocials.isNotEmpty()) enrichedMeta["pipl_socials"] = allSocials.joinToString("\n")
-            person.emailAddress?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_email"] = it }
-            person.phoneNumber?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_phone"] = it }
-            person.gender?.takeIf { it.isNotBlank() }?.let { enrichedMeta.getOrPut("pipl_gender") { it } }
-            person.dateOfBirth?.takeIf { it.isNotBlank() }?.let { enrichedMeta["pipl_dob"] = it }
-            try {
-                val aliasType = com.squareup.moshi.Types.newParameterizedType(List::class.java, String::class.java)
-                moshi.adapter<List<String>>(aliasType).fromJson(person.aliasesJson)
-                    ?.filter { it.isNotBlank() }?.let { aliases ->
-                        if (aliases.isNotEmpty()) enrichedMeta["pipl_aliases"] = aliases.joinToString(", ")
-                    }
-            } catch (_: Exception) {}
-            try {
-                val natType = com.squareup.moshi.Types.newParameterizedType(List::class.java, String::class.java)
-                moshi.adapter<List<String>>(natType).fromJson(person.nationalitiesJson)
-                    ?.filter { it.isNotBlank() }?.let { nats ->
-                        if (nats.isNotEmpty()) enrichedMeta["pipl_nationalities"] = nats.joinToString(", ")
-                    }
-            } catch (_: Exception) {}
-        }
+        val enrichedMeta = state.enrichedMeta.ifEmpty { meta }
 
         val investigatorMode = AppSettings.isInvestigatorMode(requireContext())
         applyResultsModeUi(investigatorMode)
 
-        viewModel.updateDossier(enrichedMeta, searchType)
-        applyShadyScore(viewModel.state.value?.shadyScore, enrichedMeta, searchType, investigatorMode)
-        setupDossierTabs(viewModel.state.value?.dossierSections.orEmpty(), investigatorMode, enrichedMeta)
+        applyShadyScore(state.shadyScore, enrichedMeta, searchType, investigatorMode)
+        setupDossierTabs(state.dossierSections, investigatorMode, enrichedMeta)
         buildCandidateDisambiguation(enrichedMeta)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
@@ -2014,18 +1992,19 @@ class ResultsFragment : Fragment() {
     ) {
         if (sections.isEmpty()) return
 
+        tabMediator?.detach()
         val adapter = DossierSectionAdapter(this, sections, showTechnicalDetails = investigatorMode, meta = meta)
         binding.dossierPager.adapter = adapter
         binding.dossierPager.offscreenPageLimit = 2
 
-        TabLayoutMediator(binding.dossierTabs, binding.dossierPager) { tab, position ->
+        tabMediator = TabLayoutMediator(binding.dossierTabs, binding.dossierPager) { tab, position ->
             val section = sections[position]
             tab.text = section.title
             val count = section.findings.count { finding ->
                 !finding.value.lowercase().startsWith("no ") || !finding.value.lowercase().contains("found")
             }
             tab.contentDescription = "${section.title}, $count findings"
-        }.attach()
+        }.also { it.attach() }
     }
 
     private fun populateSectionContent(container: LinearLayout, rows: List<Pair<String, String>>) {
@@ -2062,6 +2041,9 @@ class ResultsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        tabMediator?.detach()
+        tabMediator = null
+        displayedReportId = null
         super.onDestroyView()
         _binding = null
     }
