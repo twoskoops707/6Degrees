@@ -338,31 +338,60 @@
     </style>
 
     <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- THE PLUG — black/green tint, money green, dirty gold, 0dp  -->
+    <!-- THE PLUG — white brick, cannabis green, cheeky & readable   -->
     <!-- ════════════════════════════════════════════════════════════ -->
     <style name="Theme.SixDegrees.ThePlug" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="themeFamily">theplug</item>
         <item name="colorPrimary">@color/plug_green</item>
-        <item name="colorPrimaryVariant">@color/plug_green_dim</item>
-        <item name="colorOnPrimary">@color/black</item>
-        <item name="colorSecondary">@color/plug_red</item>
+        <item name="colorPrimaryVariant">@color/plug_green_bright</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/plug_green_bright</item>
         <item name="colorSecondaryVariant">@color/plug_green_dim</item>
-        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorOnSecondary">@color/plug_text</item>
         <item name="android:colorBackground">@color/plug_bg</item>
         <item name="colorSurface">@color/plug_surface</item>
-        <item name="colorOnSurface">@color/plug_yellow</item>
-        <item name="colorError">@color/error</item>
-        <item name="colorOnError">@color/black</item>
+        <item name="colorOnSurface">@color/plug_text</item>
+        <item name="colorError">@color/plug_red</item>
+        <item name="colorOnError">@color/white</item>
         <item name="android:statusBarColor">@color/plug_bg</item>
         <item name="android:navigationBarColor">@color/plug_bg</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowBackground">@drawable/bg_plug_brick</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Hacker</item>
-        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Hacker</item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Hacker</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Plug.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Plug.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Plug.Medium</item>
         <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.ThePlug</item>
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.ThePlug</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- el/la Patrino/a — Colombian tricolor, festive patron vibe  -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.Patrino" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="themeFamily">patrino</item>
+        <item name="colorPrimary">@color/patrino_yellow</item>
+        <item name="colorPrimaryVariant">@color/patrino_yellow_dim</item>
+        <item name="colorOnPrimary">@color/patrino_blue</item>
+        <item name="colorSecondary">@color/patrino_red</item>
+        <item name="colorSecondaryVariant">@color/patrino_red_dim</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:colorBackground">@color/patrino_bg</item>
+        <item name="colorSurface">@color/patrino_surface</item>
+        <item name="colorOnSurface">@color/patrino_text</item>
+        <item name="colorError">@color/patrino_red</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/patrino_bg</item>
+        <item name="android:navigationBarColor">@color/patrino_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Tactical.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Tactical.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Tactical.Medium</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Patrino</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Patrino</item>
     </style>
 
     <!-- ════════════════════ SHAPE APPEARANCES ════════════════════ -->
@@ -397,6 +426,13 @@
     </style>
     <style name="ShapeAppearance.Tactical.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
         <item name="cornerSize">4dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Plug.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">8dp</item>
+    </style>
+    <style name="ShapeAppearance.Plug.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">12dp</item>
     </style>
 
     <!-- ════════════════════ CARD STYLES ════════════════════ -->
@@ -486,9 +522,17 @@
 
     <style name="Widget.SixDegrees.CardView.ThePlug" parent="Widget.MaterialComponents.CardView">
         <item name="cardBackgroundColor">@color/plug_surface</item>
-        <item name="cardCornerRadius">0dp</item>
+        <item name="cardCornerRadius">12dp</item>
+        <item name="cardElevation">2dp</item>
+        <item name="strokeColor">@color/plug_green</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.SixDegrees.CardView.Patrino" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/patrino_surface</item>
+        <item name="cardCornerRadius">4dp</item>
         <item name="cardElevation">0dp</item>
-        <item name="strokeColor">@color/plug_border</item>
+        <item name="strokeColor">@color/patrino_yellow</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
@@ -527,7 +571,12 @@
         <item name="android:background">@color/hi_bg</item>
     </style>
     <style name="Widget.SixDegrees.BottomNav.ThePlug" parent="Widget.SixDegrees.BottomNav">
-        <item name="android:background">@color/plug_bg</item>
+        <item name="android:background">@color/plug_surface</item>
+        <item name="itemIconTint">@color/plug_bottom_nav_color</item>
+        <item name="itemTextColor">@color/plug_bottom_nav_color</item>
+    </style>
+    <style name="Widget.SixDegrees.BottomNav.Patrino" parent="Widget.SixDegrees.BottomNav">
+        <item name="android:background">@color/patrino_bg</item>
     </style>
 
     <!-- ════════════════════ FORM FIELD STYLES ════════════════════ -->

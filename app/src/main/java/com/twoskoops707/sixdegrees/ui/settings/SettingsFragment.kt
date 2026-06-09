@@ -12,6 +12,7 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.card.MaterialCardView
 import com.twoskoops707.sixdegrees.BuildConfig
 import com.twoskoops707.sixdegrees.R
+import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner
 import com.twoskoops707.sixdegrees.databinding.FragmentSettingsBinding
 import com.twoskoops707.sixdegrees.tor.TorBootstrapManager
@@ -21,10 +22,12 @@ class SettingsFragment : Fragment() {
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
     private var isInitializing = true
+    private var advancedExpanded = false
 
     override fun onResume() {
         super.onResume()
         refreshInfrastructureStatus()
+        if (_binding != null) applyInvestigatorModeUi()
     }
 
     private fun refreshInfrastructureStatus() {
@@ -69,6 +72,19 @@ class SettingsFragment : Fragment() {
             findNavController().navigate(R.id.action_settings_to_tool_installer)
         }
 
+        binding.switchInvestigatorMode.isChecked =
+            prefs.getBoolean(AppSettings.KEY_INVESTIGATOR_MODE, false)
+        advancedExpanded = prefs.getBoolean(AppSettings.KEY_INVESTIGATOR_MODE, false)
+        binding.advancedHeaderRow.setOnClickListener { toggleAdvancedSection() }
+        binding.switchInvestigatorMode.setOnCheckedChangeListener { _, enabled ->
+            if (isInitializing) return@setOnCheckedChangeListener
+            prefs.edit().putBoolean(AppSettings.KEY_INVESTIGATOR_MODE, enabled).apply()
+            if (enabled) advancedExpanded = true
+            applyInvestigatorModeUi()
+            activity?.invalidateOptionsMenu()
+        }
+        applyInvestigatorModeUi()
+
         refreshInfrastructureStatus()
 
         binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME}"
@@ -82,10 +98,11 @@ class SettingsFragment : Fragment() {
         binding.cardThemeColdwar.setOnClickListener { selectThemeBase("coldwar", prefs) }
         binding.cardThemeHumint.setOnClickListener { selectThemeBase("humint", prefs) }
         binding.cardThemeTheplug.setOnClickListener { selectThemeBase("theplug", prefs) }
+        binding.cardThemePatrino.setOnClickListener { selectThemeBase("patrino", prefs) }
 
         binding.plugBgSection.visibility = if (currentBase == "theplug") View.VISIBLE else View.GONE
 
-        val currentPlugBg = prefs.getString("pref_plug_bg", "rasta") ?: "rasta"
+        val currentPlugBg = prefs.getString("pref_plug_bg", "bricks") ?: "bricks"
         updatePlugBgSelection(currentPlugBg)
 
         binding.cardPlugBgRasta.setOnClickListener { selectPlugBg("rasta", prefs) }
@@ -184,7 +201,7 @@ class SettingsFragment : Fragment() {
     }
 
     private fun selectPlugBg(variant: String, prefs: android.content.SharedPreferences) {
-        val current = prefs.getString("pref_plug_bg", "rasta")
+        val current = prefs.getString("pref_plug_bg", "bricks")
         prefs.edit().putString("pref_plug_bg", variant).apply()
         if (_binding != null) updatePlugBgSelection(variant)
         if (variant != current) {
@@ -210,6 +227,22 @@ class SettingsFragment : Fragment() {
         style(b.cardPlugBgMedellin, selected == "medellin")
     }
 
+    private fun toggleAdvancedSection() {
+        advancedExpanded = !advancedExpanded
+        applyInvestigatorModeUi()
+    }
+
+    private fun applyInvestigatorModeUi() {
+        val b = _binding ?: return
+        val investigator = AppSettings.isInvestigatorMode(requireContext())
+        b.advancedBody.visibility = if (advancedExpanded) View.VISIBLE else View.GONE
+        b.ivAdvancedChevron.rotation = if (advancedExpanded) 180f else 270f
+        val toolsVisibility = if (investigator) View.VISIBLE else View.GONE
+        b.tvSearchToolsHeader.visibility = toolsVisibility
+        b.searchToolsContainer.visibility = toolsVisibility
+        if (investigator) refreshInfrastructureStatus()
+    }
+
     private fun updateThemeCardSelection(selectedBase: String) {
         val b = _binding ?: return
         val ctx = context ?: return
@@ -230,6 +263,7 @@ class SettingsFragment : Fragment() {
         style(b.cardThemeColdwar, selectedBase == "coldwar")
         style(b.cardThemeHumint, selectedBase == "humint")
         style(b.cardThemeTheplug, selectedBase == "theplug")
+        style(b.cardThemePatrino, selectedBase == "patrino")
     }
 
     override fun onDestroyView() {

@@ -143,17 +143,35 @@
     <color name="hi_text">#CFD8DC</color>
     <color name="hi_ash">#546E7A</color>
 
-    <!-- ── The Plug Theme ───────────────────────────── -->
-    <color name="plug_bg">#0A0F0A</color>
-    <color name="plug_surface">#121A12</color>
-    <color name="plug_border">#1E2B1E</color>
-    <color name="plug_green">#39FF14</color>
-    <color name="plug_green_dim">#061A03</color>
-    <color name="plug_gold">#C8A84B</color>
-    <color name="plug_gold_dim">#261E0A</color>
-    <color name="plug_text">#FFD700</color>
-    <color name="plug_ash">#7A8A7A</color>
+    <!-- ── The Plug Theme — white brick, green vibes ── -->
+    <color name="plug_bg">#F4F1EC</color>
+    <color name="plug_surface">#FFFFFF</color>
+    <color name="plug_surface_elevated">#FAF8F4</color>
+    <color name="plug_brick">#F0EBE3</color>
+    <color name="plug_brick_alt">#E8E3DB</color>
+    <color name="plug_grout">#3A3A3A</color>
+    <color name="plug_border">#C8C0B4</color>
+    <color name="plug_green">#2D5016</color>
+    <color name="plug_green_bright">#4CAF50</color>
+    <color name="plug_green_dim">#E8F5E9</color>
+    <color name="plug_gold">#7CB342</color>
+    <color name="plug_gold_dim">#E8F5E9</color>
+    <color name="plug_text">#1A2614</color>
+    <color name="plug_ash">#5C6B57</color>
     <color name="plug_money">#2E7D32</color>
-    <color name="plug_red">#E53935</color>
-    <color name="plug_yellow">#FFD700</color>
+    <color name="plug_red">#C62828</color>
+    <color name="plug_yellow">#8BC34A</color>
+
+    <!-- ── el/la Patrino/a Theme — Colombian tricolor ── -->
+    <color name="patrino_yellow">#FCD116</color>
+    <color name="patrino_blue">#003893</color>
+    <color name="patrino_red">#CE1126</color>
+    <color name="patrino_bg">#001428</color>
+    <color name="patrino_surface">#002D6B</color>
+    <color name="patrino_surface_elevated">#003893</color>
+    <color name="patrino_border">#1A4FA8</color>
+    <color name="patrino_text">#FCD116</color>
+    <color name="patrino_ash">#7A9EC8</color>
+    <color name="patrino_yellow_dim">#3D3208</color>
+    <color name="patrino_red_dim">#3D0A12</color>
 </resources>

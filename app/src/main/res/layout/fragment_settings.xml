@@ -20,18 +20,9 @@
             android:textStyle="bold"
             android:layout_marginBottom="20dp" />
 
-        <!-- ── SEARCH ── -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="SEARCH"
-            android:textColor="@color/text_secondary"
-            android:textSize="11sp"
-            android:textAllCaps="true"
-            android:letterSpacing="0.1"
-            android:layout_marginBottom="8dp" />
-
+        <!-- ── ADVANCED (collapsed by default) ── -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_advanced"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
@@ -40,130 +31,15 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:padding="16dp">
 
                 <LinearLayout
-                    android:id="@+id/api_keys_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="API Keys"
-                        android:textColor="@color/text_primary"
-                        android:textSize="15sp" />
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_back"
-                        android:rotation="180"
-                        app:tint="@color/text_secondary" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/border"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp" />
-
-                <LinearLayout
-                    android:id="@+id/profile_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="My Profile"
-                        android:textColor="@color/text_primary"
-                        android:textSize="15sp" />
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_back"
-                        android:rotation="180"
-                        app:tint="@color/text_secondary" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/border"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp" />
-
-                <LinearLayout
-                    android:id="@+id/wizard_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Setup / API Status"
-                        android:textColor="@color/text_primary"
-                        android:textSize="15sp" />
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_back"
-                        android:rotation="180"
-                        app:tint="@color/text_secondary" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tv_infra_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="10dp"
-                    android:textSize="11sp"
-                    android:textColor="@color/text_secondary"
-                    android:fontFamily="monospace"
-                    android:visibility="gone" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/border"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp" />
-
-                <LinearLayout
-                    android:id="@+id/tool_installer_row"
+                    android:id="@+id/advanced_header_row"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackground">
@@ -172,21 +48,207 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Tool Installer"
+                        android:text="@string/settings_advanced_header"
+                        android:textColor="@color/text_primary"
                         android:textSize="15sp"
-                        android:textColor="@color/text_primary"
-                        android:fontFamily="sans-serif-condensed" />
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/iv_advanced_chevron"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_arrow_back"
+                        android:rotation="270"
+                        app:tint="@color/text_secondary"
+                        android:contentDescription="@string/settings_advanced_header" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/advanced_body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/settings_investigator_mode"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/settings_investigator_mode_hint"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switch_investigator_mode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
 
                     <TextView
+                        android:id="@+id/tv_search_tools_header"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="APK download ›"
+                        android:text="@string/settings_search_tools_header"
+                        android:textColor="@color/text_secondary"
                         android:textSize="11sp"
-                        android:textColor="?attr/colorPrimary"
-                        android:fontFamily="monospace" />
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.1"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="gone" />
 
+                    <LinearLayout
+                        android:id="@+id/search_tools_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:id="@+id/api_keys_row"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="API Keys"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp" />
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_arrow_back"
+                                android:rotation="180"
+                                app:tint="@color/text_secondary" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/border" />
+
+                        <LinearLayout
+                            android:id="@+id/profile_row"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="My Profile"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp" />
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_arrow_back"
+                                android:rotation="180"
+                                app:tint="@color/text_secondary" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/border" />
+
+                        <LinearLayout
+                            android:id="@+id/wizard_row"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Setup / API Status"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp" />
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_arrow_back"
+                                android:rotation="180"
+                                app:tint="@color/text_secondary" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tv_infra_status"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="6dp"
+                            android:paddingBottom="10dp"
+                            android:textSize="11sp"
+                            android:textColor="@color/text_secondary"
+                            android:fontFamily="monospace"
+                            android:visibility="gone" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/border" />
+
+                        <LinearLayout
+                            android:id="@+id/tool_installer_row"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingTop="14dp"
+                            android:paddingBottom="14dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Tool Installer"
+                                android:textSize="15sp"
+                                android:textColor="@color/text_primary"
+                                android:fontFamily="sans-serif-condensed" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="APK download ›"
+                                android:textSize="11sp"
+                                android:textColor="?attr/colorPrimary"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                    </LinearLayout>
                 </LinearLayout>
-
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -365,7 +427,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="8dp">
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_theme_coldwar"
@@ -472,11 +534,69 @@
                 android:layout_marginStart="4dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardBackgroundColor="@color/plug_bg"
+                app:cardBackgroundColor="@color/plug_surface"
                 app:cardElevation="0dp"
-                app:cardCornerRadius="0dp"
+                app:cardCornerRadius="8dp"
                 app:strokeWidth="1dp"
-                app:strokeColor="@color/plug_border">
+                app:strokeColor="@color/plug_green">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:gravity="center">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_plug_leaf"
+                        android:contentDescription="@string/theme_theplug_title"
+                        android:layout_marginBottom="6dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_theplug_title"
+                        android:textColor="@color/plug_text"
+                        android:textSize="9sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_theplug_subtitle"
+                        android:textColor="@color/plug_ash"
+                        android:textSize="8sp"
+                        android:fontFamily="sans-serif"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+        <!-- Row 3: el/la Patrino/a -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="20dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_theme_patrino"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/patrino_bg"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="4dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/patrino_border">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -488,26 +608,26 @@
                     <View
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:background="@color/plug_green"
+                        android:background="@drawable/bg_patrino_flag_preview"
                         android:layout_marginBottom="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="THE PLUG"
-                        android:textColor="@color/plug_text"
+                        android:text="el/la Patrino/a"
+                        android:textColor="@color/patrino_yellow"
                         android:textSize="9sp"
-                        android:fontFamily="monospace"
+                        android:fontFamily="sans-serif"
                         android:textStyle="bold"
-                        android:letterSpacing="0.05" />
+                        android:letterSpacing="0.02" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Street · Gold"
-                        android:textColor="@color/plug_ash"
+                        android:text="Colombia · Jitter"
+                        android:textColor="@color/patrino_ash"
                         android:textSize="8sp"
-                        android:fontFamily="monospace"
+                        android:fontFamily="sans-serif"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -548,9 +668,9 @@
                     android:focusable="true"
                     app:cardBackgroundColor="@color/plug_bg"
                     app:cardElevation="0dp"
-                    app:cardCornerRadius="0dp"
+                    app:cardCornerRadius="6dp"
                     app:strokeWidth="1dp"
-                    app:strokeColor="@color/plug_green">
+                    app:strokeColor="@color/plug_border">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -562,16 +682,16 @@
                         <View
                             android:layout_width="20dp"
                             android:layout_height="12dp"
-                            android:background="@color/plug_green"
+                            android:background="@color/plug_bg"
                             android:layout_marginBottom="5dp" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="RASTA"
-                            android:textColor="@color/plug_yellow"
+                            android:text="PLAIN"
+                            android:textColor="@color/plug_text"
                             android:textSize="8sp"
-                            android:fontFamily="monospace"
+                            android:fontFamily="sans-serif-medium"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -585,9 +705,9 @@
                     android:layout_marginEnd="3dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="#0D1A0D"
+                    app:cardBackgroundColor="@color/plug_bg"
                     app:cardElevation="0dp"
-                    app:cardCornerRadius="0dp"
+                    app:cardCornerRadius="6dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/plug_border">
 
@@ -598,10 +718,12 @@
                         android:padding="8dp"
                         android:gravity="center">
 
-                        <View
+                        <ImageView
                             android:layout_width="20dp"
                             android:layout_height="12dp"
-                            android:background="#1A3A12"
+                            android:src="@drawable/ic_plug_leaf"
+                            android:contentDescription="@string/theme_theplug_title"
+                            android:scaleType="fitCenter"
                             android:layout_marginBottom="5dp" />
 
                         <TextView
@@ -610,7 +732,7 @@
                             android:text="LEAVES"
                             android:textColor="@color/plug_green"
                             android:textSize="8sp"
-                            android:fontFamily="monospace"
+                            android:fontFamily="sans-serif-medium"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -624,11 +746,11 @@
                     android:layout_marginEnd="3dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardBackgroundColor="#0F0F0F"
+                    app:cardBackgroundColor="@color/plug_brick"
                     app:cardElevation="0dp"
-                    app:cardCornerRadius="0dp"
+                    app:cardCornerRadius="6dp"
                     app:strokeWidth="1dp"
-                    app:strokeColor="@color/plug_border">
+                    app:strokeColor="@color/plug_grout">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -640,16 +762,16 @@
                         <View
                             android:layout_width="20dp"
                             android:layout_height="12dp"
-                            android:background="#2A2A2A"
+                            android:background="@drawable/bg_plug_brick_tile"
                             android:layout_marginBottom="5dp" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="BRICKS"
-                            android:textColor="@color/plug_ash"
+                            android:textColor="@color/plug_text"
                             android:textSize="8sp"
-                            android:fontFamily="monospace"
+                            android:fontFamily="sans-serif-medium"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>

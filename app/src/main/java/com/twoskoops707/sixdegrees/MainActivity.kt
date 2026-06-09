@@ -22,6 +22,7 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.twoskoops707.sixdegrees.databinding.ActivityMainBinding
 import com.twoskoops707.sixdegrees.ui.settings.PlugBgFactory
+import com.twoskoops707.sixdegrees.ui.theme.PatrinoJitterHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -31,6 +32,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+    private var patrinoJitter: PatrinoJitterHelper? = null
 
     private val permissionLauncher: ActivityResultLauncher<Array<String>> =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -59,6 +61,7 @@ class MainActivity : AppCompatActivity() {
             "coldwar"    -> R.style.Theme_SixDegrees_ColdWar
             "humint"     -> R.style.Theme_SixDegrees_Humint
             "theplug"    -> R.style.Theme_SixDegrees_ThePlug
+            "patrino"    -> R.style.Theme_SixDegrees_Patrino
             "fieldintel" -> R.style.Theme_SixDegrees_FieldIntel
             "hacker"     -> when (accent) {
                 "amber"  -> R.style.Theme_SixDegrees_Hacker_Amber
@@ -87,10 +90,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         if (base == "theplug") {
-            val plugBg = prefs.getString("pref_plug_bg", "rasta") ?: "rasta"
-            if (plugBg != "rasta") {
-                window.setBackgroundDrawable(PlugBgFactory.createBg(this, plugBg))
+            val plugBg = prefs.getString("pref_plug_bg", "bricks") ?: "bricks"
+            window.setBackgroundDrawable(PlugBgFactory.createBg(this, plugBg))
+        }
+
+        if (base == "patrino") {
+            patrinoJitter = PatrinoJitterHelper(binding.root) {
+                prefs.getBoolean("pref_animations", true) &&
+                    !PatrinoJitterHelper.isReduceMotionEnabled(this)
             }
+            patrinoJitter?.start()
         }
 
         com.twoskoops707.sixdegrees.tor.TorBootstrapManager.start(this)
@@ -207,6 +216,12 @@ class MainActivity : AppCompatActivity() {
                     .show()
             }
         }
+    }
+
+    override fun onDestroy() {
+        patrinoJitter?.stop()
+        patrinoJitter = null
+        super.onDestroy()
     }
 
     override fun onSupportNavigateUp(): Boolean {
