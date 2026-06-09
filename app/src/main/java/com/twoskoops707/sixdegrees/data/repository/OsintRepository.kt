@@ -6,6 +6,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.data.SearchPresetManager
 import com.twoskoops707.sixdegrees.data.BlockedSourceCache
 import com.twoskoops707.sixdegrees.data.ai.OpenRouterAiClient
@@ -18,6 +19,8 @@ import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
 import com.twoskoops707.sixdegrees.data.remote.dto.peopledatalabs.PdlPerson
 import com.twoskoops707.sixdegrees.data.remote.dto.pipl.PiplPerson
 import com.twoskoops707.sixdegrees.data.remote.RetrofitClient
+import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
+import com.twoskoops707.sixdegrees.domain.GoogleDorkLibrary
 import com.twoskoops707.sixdegrees.domain.SearchPhase
 import com.twoskoops707.sixdegrees.domain.SubjectFilter
 import com.twoskoops707.sixdegrees.domain.SubjectIntakeParser
@@ -536,6 +539,13 @@ class OsintRepository(context: Context) {
         }
     }
 
+    private fun extractDdgRedirect(href: String): String? {
+        if (href.isBlank()) return null
+        if (!href.contains("uddg=")) return href.takeIf { it.startsWith("http") }
+        return Regex("""uddg=([^&]+)""").find(href)?.groupValues?.get(1)
+            ?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+    }
+
     private fun ddgHtmlSearch(query: String): List<DdgResult> {
         return try {
             val encoded = URLEncoder.encode(query, "UTF-8")
@@ -551,9 +561,12 @@ class OsintRepository(context: Context) {
             if (body.isBlank()) return emptyList()
             val doc = Jsoup.parse(body)
             doc.select(".result:not(.result--more), .result--web").take(12).mapNotNull { el ->
-                val title = el.selectFirst(".result__a, .result__title a")?.text()?.trim() ?: return@mapNotNull null
+                val linkEl = el.selectFirst(".result__a, .result__title a")
+                val title = linkEl?.text()?.trim() ?: return@mapNotNull null
                 val snippet = el.selectFirst(".result__snippet, .result-snippet")?.text()?.trim() ?: ""
-                val url = el.selectFirst(".result__url, .result-url")?.text()?.trim() ?: ""
+                val href = linkEl.attr("href")
+                val url = extractDdgRedirect(href)
+                    ?: el.selectFirst(".result__url, .result-url")?.text()?.trim().orEmpty()
                 if (title.isBlank()) null else DdgResult(title, snippet, url)
             }
         } catch (_: Exception) { emptyList() }
@@ -2005,64 +2018,226 @@ class OsintRepository(context: Context) {
         }.take(8).joinToString("\n---\n") { "${it.title}: ${it.snippet}".trim().take(220) }
     }
 
-    private suspend fun runPersonAutoDorks(
-        name: String,
-        city: String,
-        state: String,
-        nameTokens: List<String>,
+    private fun googleCseSearch(query: String, maxResults: Int = 3): List<DdgResult> {
+        val key = apiKeys.googleCseApiKey
+        val cx = apiKeys.googleCseId
+        if (key.isBlank() || cx.isBlank()) return emptyList()
+        return try {
+            val url = "https://www.googleapis.com/customsearch/v1?key=${encode(key)}&cx=${encode(cx)}&q=${encode(query)}&num=${maxResults.coerceIn(1, 10)}"
+            val req = Request.Builder()
+                .url(url)
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code != 200 || body.isBlank()) return emptyList()
+            val json = JSONObject(body)
+            val items = json.optJSONArray("items") ?: return emptyList()
+            (0 until items.length()).mapNotNull { i ->
+                val item = items.optJSONObject(i) ?: return@mapNotNull null
+                val title = item.optString("title", "").trim()
+                val snippet = item.optString("snippet", "").trim()
+                val link = item.optString("link", "").trim()
+                if (title.isBlank()) null else DdgResult(title, snippet, link)
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun dorkSearch(query: String, maxResults: Int = 8): Pair<List<DdgResult>, String> {
+        val cse = googleCseSearch(query, maxResults)
+        if (cse.isNotEmpty()) return cse to "Google CSE"
+        return ddgHtmlSearch(query).take(maxResults) to "DuckDuckGo"
+    }
+
+    private fun filterDorkHits(
+        results: List<DdgResult>,
+        profile: SubjectProfile,
+        maxHits: Int = 8
+    ): List<DorkMetadataStore.DorkHit> {
+        return results
+            .filter { r ->
+                val text = "${r.title} ${r.snippet} ${r.url}"
+                when {
+                    profile.phone.isNotBlank() && profile.name.isBlank() -> {
+                        val digits = SubjectFilter.phoneDigits(profile.phone)
+                        digits.length >= 7 && text.filter { it.isDigit() }.contains(digits)
+                    }
+                    profile.email.isNotBlank() && profile.name.isBlank() ->
+                        text.contains(profile.email, ignoreCase = true)
+                    else -> SubjectFilter.matchesSubject(text, profile)
+                }
+            }
+            .take(maxHits)
+            .map { r ->
+                DorkMetadataStore.DorkHit(
+                    title = r.title,
+                    url = r.url.ifBlank { "https://html.duckduckgo.com/html/?q=${encode(r.title)}" },
+                    snippet = r.snippet,
+                    query = ""
+                )
+            }
+    }
+
+    private fun extractPiiFromDdgResults(
+        results: List<DdgResult>,
+        profile: SubjectProfile
+    ): DorkMetadataStore.ExtractedPii {
+        val data = extractDataFromDdgResults(results, profile)
+        val employers = mutableListOf<String>()
+        val employerRegex = Regex(
+            """(?i)(?:works?\s+at|employed\s+(?:by|at)|CEO\s+of|founder\s+of|VP\s+at|director\s+at)\s+([A-Z][A-Za-z0-9&\s.'-]{2,45})"""
+        )
+        for (r in results) {
+            employerRegex.find("${r.title} ${r.snippet}")?.groupValues?.get(1)?.trim()
+                ?.takeIf { it.length in 3..45 }
+                ?.let { employers.add(it) }
+        }
+        return DorkMetadataStore.ExtractedPii(
+            phones = data.phones,
+            emails = data.emails,
+            addresses = data.addresses,
+            relatives = data.relatives,
+            ages = data.ages,
+            employers = employers.distinct().take(5),
+            socialUrls = data.socialUrls,
+            profileUrls = data.profileUrls
+        )
+    }
+
+    private val DORK_FOLLOW_DOMAINS = setOf(
+        "linkedin.com", "fastpeoplesearch.com", "truepeoplesearch.com", "whitepages.com",
+        "spokeo.com", "radaris.com", "beenverified.com", "thatsthem.com", "zabasearch.com",
+        "411.com", "intelius.com", "familytreenow.com", "usphonebook.com"
+    )
+
+    private fun isFollowableDorkUrl(url: String, profile: SubjectProfile): Boolean {
+        if (!url.startsWith("http")) return false
+        val lower = url.lowercase()
+        if (!DORK_FOLLOW_DOMAINS.any { lower.contains(it) }) return false
+        if (blockedSourceCache.isUrlBlocked(url)) return false
+        if (lower.contains("linkedin.com") && !lower.contains("/in/")) return false
+        return SubjectFilter.matchesSubject(url, profile) || profile.name.isBlank()
+    }
+
+    private fun followDorkResultUrl(
+        hit: DorkMetadataStore.DorkHit,
+        profile: SubjectProfile,
+        metadata: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>
+    ) {
+        if (!isFollowableDorkUrl(hit.url, profile)) return
+        val out = tryScrapeUrl(hit.url, profile.name, profile)
+        if (out.skippedBlocked || out.blocked || !out.found) return
+        val domain = BlockedSourceCache.domainFromUrl(hit.url)
+        sources.add(DataSource("DorkFollow:$domain", hit.url, Date(), 0.72))
+        out.fields["phones"]?.let { phones ->
+            val validated = filterScrapeContactFields(
+                mapOf("phones" to phones, "snippet" to out.fields["snippet"].orEmpty()), profile
+            )
+            validated["phones"]?.let { metadata.merge("dork_follow_phones", it) { old, new -> "$old, $new" } }
+        }
+        out.fields["emails"]?.let { emails ->
+            val validated = filterScrapeContactFields(
+                mapOf("emails" to emails, "snippet" to out.fields["snippet"].orEmpty()), profile
+            )
+            validated["emails"]?.let { metadata.merge("dork_follow_emails", it) { old, new -> "$old, $new" } }
+        }
+        out.fields["snippet"]?.takeIf { it.isNotBlank() }?.let { snippet ->
+            metadata.merge("dork_follow_snippets", "${hit.title}: ${snippet.take(180)}") { old, new -> "$old\n---\n$new" }
+        }
+    }
+
+    private data class DorkAggregateBuffers(
+        val phones: MutableList<String>? = null,
+        val emails: MutableList<String>? = null,
+        val addresses: MutableList<String>? = null,
+        val relatives: MutableList<String>? = null,
+        val ages: MutableList<String>? = null,
+        val social: MutableList<String>? = null,
+        val profiles: MutableList<String>? = null,
+        val snippets: MutableList<String>? = null
+    )
+
+    private suspend fun runAutoDorks(
+        profile: SubjectProfile,
+        searchType: GoogleDorkLibrary.DorkSearchType,
         metadata: ConcurrentHashMap<String, String>,
         sources: MutableList<DataSource>,
         channel: SendChannel<SearchProgressEvent>,
-        semaphore: Semaphore,
-        phase: SearchPhase = SearchPhase.DEEP_INVESTIGATION
+        @Suppress("UNUSED_PARAMETER") semaphore: Semaphore,
+        phase: SearchPhase,
+        aggregate: DorkAggregateBuffers? = null
     ) {
-        val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
-        val q = "\"$name\""
-        val allowedKeys = SubjectSearchOrchestrator.dorkKeysForPhase(phase)
-        val dorks = listOf(
-            "dork_address_results" to "$q address${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_address_full_results" to "$q street address${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_relatives_results" to "$q relatives family${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_phone_results" to "$q phone number${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_voter_results" to "$q voter registration${if (state.isNotBlank()) " $state" else ""}",
-            "dork_criminal_results" to "$q criminal arrest record",
-            "dork_court_results" to "$q site:courtlistener.com OR site:judyrecords.com",
-            "dork_property_results" to "$q property deed records${if (state.isNotBlank()) " $state" else ""}",
-            "dork_financial_results" to "$q site:sec.gov OR site:opencorporates.com officer director",
-            "dork_bio_results" to "$q linkedin bio resume${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_linkedin_results" to "site:linkedin.com $q${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_news_results" to "$q news article${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_social_results" to "$q site:facebook.com OR site:instagram.com",
-            "dork_identity_results" to "$q profile contact${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_tps_results" to "site:truepeoplesearch.com $q${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_fps_results" to "site:fastpeoplesearch.com $q${if (loc.isNotBlank()) " $loc" else ""}",
-            "dork_wp_results" to "site:whitepages.com $q",
-            "dork_rad_results" to "site:radaris.com $q"
-        ).filter { (metaKey, _) -> metaKey in allowedKeys }
+        val dorks = GoogleDorkLibrary.dorksFor(searchType, profile, phase)
+        if (dorks.isEmpty()) return
+        metadata["dork_query_count"] = dorks.size.toString()
+        metadata["dork_phase"] = phase.name
+        val dorkSemaphore = Semaphore(SubjectSearchOrchestrator.DORK_PARALLEL_WORKERS)
+        val phoneCorroboration = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
+        val emailCorroboration = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
+        val addressCorroboration = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
         coroutineScope {
-            for ((metaKey, query) in dorks) {
+            for (resolved in dorks) {
                 launch {
-                    semaphore.withPermit {
-                        channel.send(SearchProgressEvent.Checking("Dork: $metaKey"))
+                    dorkSemaphore.withPermit {
+                        val label = "Dork: ${resolved.template.label}"
+                        channel.send(SearchProgressEvent.Checking(label))
                         try {
                             withTimeout(SubjectSearchOrchestrator.SOURCE_TIMEOUT_MS) {
-                                val results = ddgHtmlSearch(query)
-                                val formatted = formatDdgDorkResults(results, nameTokens)
-                                if (formatted.isNotBlank()) {
-                                    metadata[metaKey] = formatted
-                                    sources.add(DataSource("Dork:$metaKey", "https://html.duckduckgo.com/html/?q=${encode(query)}", Date(), 0.55))
-                                    channel.send(SearchProgressEvent.Found("Dork: $metaKey", formatted.lines().firstOrNull()?.take(100) ?: ""))
+                                val (results, engine) = dorkSearch(resolved.query, 8)
+                                val hits = filterDorkHits(results, profile, 8)
+                                    .map { it.copy(query = resolved.query) }
+                                val pii = extractPiiFromDdgResults(results, profile)
+                                if (hits.isNotEmpty() || pii.phones.isNotEmpty() || pii.emails.isNotEmpty()) {
+                                    if (hits.isNotEmpty()) {
+                                        DorkMetadataStore.storeHits(metadata, resolved.template.category, resolved.query, hits)
+                                    }
+                                    DorkMetadataStore.storeExtractedPii(metadata, resolved.template.category, pii)
+                                    DorkMetadataStore.recordCorroboration(
+                                        phoneCorroboration, emailCorroboration, addressCorroboration, pii
+                                    )
+                                    aggregate?.phones?.addAll(pii.phones)
+                                    aggregate?.emails?.addAll(pii.emails)
+                                    aggregate?.addresses?.addAll(pii.addresses)
+                                    aggregate?.relatives?.addAll(pii.relatives)
+                                    aggregate?.ages?.addAll(pii.ages)
+                                    aggregate?.social?.addAll(pii.socialUrls)
+                                    aggregate?.profiles?.addAll(pii.profileUrls)
+                                    aggregate?.snippets?.addAll(
+                                        hits.map { "${it.title}: ${it.snippet}".take(200) }
+                                    )
+                                    hits.firstOrNull { isFollowableDorkUrl(it.url, profile) }?.let { topHit ->
+                                        followDorkResultUrl(topHit, profile, metadata, sources)
+                                    }
+                                    val sourceUrl = if (engine == "Google CSE") {
+                                        "https://www.googleapis.com/customsearch/v1?q=${encode(resolved.query)}"
+                                    } else {
+                                        "https://html.duckduckgo.com/html/?q=${encode(resolved.query)}"
+                                    }
+                                    sources.add(DataSource("$engine:${resolved.template.id}", sourceUrl, Date(), 0.58))
+                                    val preview = hits.firstOrNull()?.title?.take(100)
+                                        ?: pii.phones.firstOrNull()
+                                        ?: pii.emails.firstOrNull()
+                                        ?: ""
+                                    channel.send(SearchProgressEvent.Found(label, preview))
                                 } else {
-                                    channel.send(SearchProgressEvent.NotFound("Dork: $metaKey"))
+                                    channel.send(SearchProgressEvent.NotFound(label))
                                 }
                             }
                         } catch (_: Exception) {
-                            channel.send(SearchProgressEvent.Failed("Dork: $metaKey", "timeout"))
+                            channel.send(SearchProgressEvent.Failed(label, "timeout"))
                         }
                     }
                 }
             }
         }
+        DorkMetadataStore.finalizeNeedleFindings(
+            metadata, phoneCorroboration, emailCorroboration, addressCorroboration, profile.phone
+        )
+        metadata["dork_total_hits"] = DorkMetadataStore.totalHitCount(metadata).toString()
+        metadata["dork_execution"] = "in_app"
     }
 
     private suspend fun runSecondaryPassesUntilMinimum(
@@ -2125,6 +2300,7 @@ class OsintRepository(context: Context) {
         if (profile.phone.isNotBlank()) m["phone"] = profile.phone
         if (profile.email.isNotBlank()) m["email"] = profile.email
         if (profile.username.isNotBlank()) m["username"] = profile.username
+        if (profile.employer.isNotBlank()) m["employer"] = profile.employer
         if (profile.address.isNotBlank()) m["address"] = profile.address
         if (profile.age.isNotBlank()) m["age"] = profile.age
         if (profile.dob.isNotBlank()) m["dob"] = profile.dob
@@ -2881,8 +3057,8 @@ class OsintRepository(context: Context) {
                                                 emp.name?.let { metadata["clearbit_person_company"] = it }
                                                 emp.title?.let { metadata["clearbit_person_title"] = it }
                                             }
-                                            cbPerson.linkedin?.handle?.let {
-                                                metadata.merge("found_urls", "LinkedIn: https://linkedin.com/in/$it") { o, n -> "$o\n$n" }
+                                            cbPerson.linkedin?.handle?.let { handle ->
+                                                appendMetadata(metadata, "found_urls", "LinkedIn: https://linkedin.com/in/$handle")
                                             }
                                             sources.add(DataSource("Clearbit Person", "https://clearbit.com/", Date(), 0.88))
                                             send(SearchProgressEvent.Found("Clearbit Person", cbPerson.name?.fullName ?: "Profile found"))
@@ -2897,7 +3073,7 @@ class OsintRepository(context: Context) {
                         if (deepPhase) {
                             launch {
                                 val key = apiKeys.opensanctionsKey.ifBlank { apiKeys.getKey("opensanctions") ?: "" }
-                                if (key.isNullOrBlank()) return@withPermit
+                                if (!key.isBlank()) {
                                     send(SearchProgressEvent.Checking("OpenSanctions"))
                                     val out = scrapeOpenSanctions(primaryQuery, key)
                                     if (out.found) {
@@ -2912,7 +3088,7 @@ class OsintRepository(context: Context) {
                             }
                             launch {
                                 val key = apiKeys.opencorporatesKey.ifBlank { apiKeys.getKey("opencorporates") ?: "" }
-                                if (key.isNullOrBlank()) return@withPermit
+                                if (!key.isBlank()) {
                                     send(SearchProgressEvent.Checking("OpenCorporates Officers"))
                                     val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
                                     if (out.found) {
@@ -2983,7 +3159,25 @@ class OsintRepository(context: Context) {
                             }
                         }
                         launch {
-                            runPersonAutoDorks(primaryQuery, city, state, nameTokens, metadata, sources, this@channelFlow, semaphore, searchPhase)
+                            runAutoDorks(
+                                subjectProfile,
+                                GoogleDorkLibrary.DorkSearchType.PERSON,
+                                metadata,
+                                sources,
+                                this@channelFlow,
+                                semaphore,
+                                searchPhase,
+                                aggregate = DorkAggregateBuffers(
+                                    phones = ddgPhones,
+                                    emails = ddgEmails,
+                                    addresses = ddgAddresses,
+                                    relatives = ddgRelatives,
+                                    ages = ddgAges,
+                                    social = ddgSocial,
+                                    profiles = ddgProfiles,
+                                    snippets = ddgSnippets
+                                )
+                            )
                         }
                     }
                     "email", "breach" -> {
@@ -3036,6 +3230,13 @@ class OsintRepository(context: Context) {
                                 out.fields["about"]?.let { metadata["gravatar_about"] = it }
                             }
                             handleScrapeOut("Gravatar", "https://gravatar.com/profile/avatars", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            runAutoDorks(
+                                subjectProfile.copy(email = primaryQuery),
+                                GoogleDorkLibrary.DorkSearchType.EMAIL,
+                                metadata, sources, this@channelFlow, semaphore, searchPhase
+                            )
                         }
                         launch {
                             semaphore.withPermit {
@@ -3251,8 +3452,9 @@ class OsintRepository(context: Context) {
                             val domainTarget = fields["domain"]?.takeIf { isLikelyDomain(it) }
                                 ?: primaryQuery.takeIf { isLikelyDomain(it) }
                             if (ipTarget != null) {
-                                send(SearchProgressEvent.Checking("AbuseIPDB"))
                                 val key = apiKeys.abuseIpDbKey
+                                if (key.isNotBlank()) {
+                                    send(SearchProgressEvent.Checking("AbuseIPDB"))
                                     val out = scrapeAbuseIpDb(ipTarget, key)
                                     if (out.found) {
                                         out.fields["score"]?.let { metadata["abuseipdb_score"] = it }
@@ -3263,8 +3465,9 @@ class OsintRepository(context: Context) {
                             }
                             val vtTarget = ipTarget ?: domainTarget
                             if (vtTarget != null) {
-                                send(SearchProgressEvent.Checking("VirusTotal"))
                                 val key = apiKeys.virusTotalKey
+                                if (key.isNotBlank()) {
+                                    send(SearchProgressEvent.Checking("VirusTotal"))
                                     val out = scrapeVirusTotal(vtTarget, key)
                                     if (out.found) {
                                         out.fields["malicious"]?.let { metadata["vt_malicious"] = it }
@@ -3278,9 +3481,10 @@ class OsintRepository(context: Context) {
                                 }
                             }
                             if (domainTarget != null) {
-                                send(SearchProgressEvent.Checking("URLScan"))
-                                val key = apiKeys.urlScanKey
-                                    val out = scrapeUrlScan(domainTarget, key)
+                                val urlScanKey = apiKeys.urlScanKey
+                                if (urlScanKey.isNotBlank()) {
+                                    send(SearchProgressEvent.Checking("URLScan"))
+                                    val out = scrapeUrlScan(domainTarget, urlScanKey)
                                     if (out.found) {
                                         out.fields["total_scans"]?.let { metadata["urlscan_total_scans"] = it }
                                         out.fields["malicious_scans"]?.let { metadata["urlscan_malicious_scans"] = it }
@@ -3289,7 +3493,7 @@ class OsintRepository(context: Context) {
                                     handleScrapeOut("URLScan", "https://urlscan.io/search/#domain:$domainTarget", out, sources, metadata, this@channelFlow)
                                 }
                                 val urlhausKey = apiKeys.urlhausKey
-                                if (urlhausKey.isBlank()) return@withPermit
+                                if (urlhausKey.isNotBlank()) {
                                     send(SearchProgressEvent.Checking("URLhaus"))
                                     val out = scrapeUrlhaus(domainTarget, urlhausKey)
                                     if (out.found) {
@@ -3331,7 +3535,7 @@ class OsintRepository(context: Context) {
                                             val results = ddgHtmlSearch(q)
                                             if (results.isNotEmpty()) {
                                                 sources.add(DataSource("DDG:$label", "https://html.duckduckgo.com/html/?q=${encode(q)}", Date(), 0.6))
-                                                metadata.merge("phone_search_snippets", results.take(3).joinToString("\n") { "${it.title}: ${it.snippet}".take(120) }) { o, n -> "$o\n$n" }
+                                                appendMetadata(metadata, "phone_search_snippets", results.take(3).joinToString("\n") { "${it.title}: ${it.snippet}".take(120) })
                                                 send(SearchProgressEvent.Found("DDG: $label", results.firstOrNull()?.snippet?.take(100) ?: ""))
                                             } else {
                                                 send(SearchProgressEvent.NotFound("DDG: $label"))
@@ -3426,7 +3630,11 @@ class OsintRepository(context: Context) {
                             handleScrapeOut("Ahmia", "https://ahmia.fi/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.55)
                         }
                         launch {
-                            runPersonAutoDorks(phoneFmt, city, state, phoneDigits.chunked(3).map { it }, metadata, sources, this@channelFlow, semaphore, SearchPhase.DEEP_INVESTIGATION)
+                            runAutoDorks(
+                                subjectProfile.copy(phone = phoneFmt, name = ""),
+                                GoogleDorkLibrary.DorkSearchType.PHONE,
+                                metadata, sources, this@channelFlow, semaphore, searchPhase
+                            )
                         }
                     }
                     "company" -> {
@@ -3463,6 +3671,13 @@ class OsintRepository(context: Context) {
                                 out.fields["link"]?.let { metadata["wikidata_link"] = it }
                             }
                             handleScrapeOut("Wikidata", "https://www.wikidata.org/w/index.php?search=${encode(companyName)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            runAutoDorks(
+                                SubjectProfile(name = companyName, city = city, state = state),
+                                GoogleDorkLibrary.DorkSearchType.COMPANY,
+                                metadata, sources, this@channelFlow, semaphore, searchPhase
+                            )
                         }
                         if (companyDomain != null) {
                             targetedScraperNames += setOf("VirusTotal", "URLScan", "URLhaus", "RDAP")
@@ -3507,7 +3722,7 @@ class OsintRepository(context: Context) {
                             }
                             launch {
                                 val urlhausKey = apiKeys.urlhausKey
-                                if (urlhausKey.isBlank()) return@withPermit
+                                if (urlhausKey.isNotBlank()) {
                                     send(SearchProgressEvent.Checking("URLhaus"))
                                     val out = scrapeUrlhaus(companyDomain, urlhausKey)
                                     if (out.found) {
@@ -3543,7 +3758,6 @@ class OsintRepository(context: Context) {
                                         } catch (_: Exception) {
                                             send(SearchProgressEvent.Blocked("Clearbit"))
                                         }
-                                    }
                                 }
                             }
                             launch {
@@ -3564,7 +3778,6 @@ class OsintRepository(context: Context) {
                                         } catch (_: Exception) {
                                             send(SearchProgressEvent.Blocked("BuiltWith"))
                                         }
-                                    }
                                 }
                             }
                             launch {
@@ -3592,7 +3805,6 @@ class OsintRepository(context: Context) {
                                         } catch (_: Exception) {
                                             send(SearchProgressEvent.Blocked("Hunter.io"))
                                         }
-                                    }
                                 }
                             }
                         }
@@ -3635,7 +3847,6 @@ class OsintRepository(context: Context) {
                                 }
                                 handleScrapeOut("WiGLE", "https://api.wigle.net/api/v2/network/search", out, sources, metadata, this@channelFlow)
                                 apiKeys.recordUsage("wigle")
-                            }
                         }
                         launch {
                             semaphore.withPermit {
@@ -3702,7 +3913,7 @@ class OsintRepository(context: Context) {
                                 metadata["github_stats"] = out.fields["stats"] ?: ""
                                 val ghUrl = out.fields["profile_url"] ?: "https://github.com/$primaryQuery"
                                 metadata["github_url"] = ghUrl
-                                metadata.merge("found_urls", "GitHub: $ghUrl") { old, new -> "$old\n$new" }
+                                appendMetadata(metadata, "found_urls", "GitHub: $ghUrl")
                             }
                             handleScrapeOut("GitHub", "https://github.com/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
@@ -3713,7 +3924,7 @@ class OsintRepository(context: Context) {
                                 if (metadata["profile_photo_url"].isNullOrBlank()) out.fields["image_url"]?.let { metadata["profile_photo_url"] = it }
                                 val rdUrl = out.fields["profile_url"] ?: "https://www.reddit.com/user/$primaryQuery"
                                 metadata["reddit_url"] = rdUrl
-                                metadata.merge("found_urls", "Reddit: $rdUrl") { old, new -> "$old\n$new" }
+                                appendMetadata(metadata, "found_urls", "Reddit: $rdUrl")
                             }
                             handleScrapeOut("Reddit", "https://www.reddit.com/user/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
@@ -3730,7 +3941,7 @@ class OsintRepository(context: Context) {
                                 if (sherlockHits.isNotEmpty()) {
                                     metadata["sherlock_found"] = sherlockHits.joinToString("\n")
                                     sherlockHits.forEach { hit ->
-                                        metadata.merge("found_urls", hit) { old, new -> "$old\n$new" }
+                                        appendMetadata(metadata, "found_urls", hit)
                                     }
                                 }
                             }
@@ -3748,7 +3959,7 @@ class OsintRepository(context: Context) {
                                 if (maigretHits.isNotEmpty()) {
                                     metadata["maigret_found"] = maigretHits.joinToString("\n")
                                     maigretHits.forEach { hit ->
-                                        metadata.merge("found_urls", hit) { old, new -> "$old\n$new" }
+                                        appendMetadata(metadata, "found_urls", hit)
                                     }
                                 }
                             }
@@ -3856,19 +4067,14 @@ class OsintRepository(context: Context) {
                 val locQ = listOf(city, state).filter { it.isNotBlank() }.joinToString("+")
                 val locEncoded = if (locQ.isNotBlank()) "+$locQ" else ""
                 val nameEnc = enc(primaryQuery)
-                val dorkLinks = listOf(
+                val verifyLinks = listOf(
                     "DDG: Name + Location" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22$locEncoded",
                     "DDG: Phone Lookup" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+phone+number$locEncoded",
-                    "DDG: Address" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+address$locEncoded",
-                    "DDG: Criminal" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+criminal+arrest+record$locEncoded",
-                    "DDG: Relatives" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+relatives+family$locEncoded",
-                    "DDG: Employment" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+employer+job$locEncoded",
                     "FastPeopleSearch" to "https://www.fastpeoplesearch.com/name/${enc(primaryQuery.replace(" ", "-"))}${if (state.isNotBlank()) "/${enc(state.lowercase())}" else ""}",
                     "TruePeopleSearch" to "https://www.truepeoplesearch.com/results?name=$nameEnc&citystatezip=${enc(locationStr)}",
-                    "Whitepages" to "https://www.whitepages.com/name/${enc(primaryQuery.replace(" ", "-"))}",
                     "CourtListener" to "https://www.courtlistener.com/?q=$nameEnc&type=p&order_by=score+desc"
                 ).joinToString("\n") { (label, url) -> "$label: $url" }
-                metadata["dork_search_links"] = dorkLinks
+                metadata["dork_browser_verify_links"] = verifyLinks
             }
 
             val partialPersonId = if (effectiveType == "person" || effectiveType == "comprehensive") {
@@ -3996,6 +4202,15 @@ class OsintRepository(context: Context) {
                         confidence = SubjectSearchOrchestrator.candidateConfidence(sources.size, 0, SubjectFilter.hasGeoConstraint(city, state))
                     )
                     val enriched = enrichCandidatesWithPhotos(listOf(fallbackCandidate), city, state, this@channelFlow)
+                    enriched.forEachIndexed { i, c ->
+                        metadata["candidate_${i}_id"] = c.id
+                        if (c.allPhotoUrls().isNotEmpty()) {
+                            metadata["candidate_${i}_photo_urls"] = c.allPhotoUrls().joinToString("|")
+                        }
+                    }
+                    metadata["candidate_count"] = enriched.size.toString()
+                    enriched.first().allPhotoUrls().firstOrNull()?.let { metadata["profile_photo_url"] = it }
+                    saveReport(query, personId, sources.toList(), metadata.toMap(), reportId)
                     val autoSelect = SubjectSearchOrchestrator.autoSelectAllowed(fallbackName, enriched.size)
                     val lockedProfile = SubjectProfile.fromCandidate(enriched.first(), subjectProfile)
                     send(SearchProgressEvent.CandidatesReady(

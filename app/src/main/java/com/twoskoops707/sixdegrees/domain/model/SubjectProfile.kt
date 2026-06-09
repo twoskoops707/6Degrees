@@ -12,6 +12,7 @@ data class SubjectProfile(
     val phone: String = "",
     val email: String = "",
     val username: String = "",
+    val employer: String = "",
     val address: String = "",
     val age: String = "",
     val dob: String = "",
@@ -56,6 +57,13 @@ data class SubjectProfile(
         fun fromFields(fields: Map<String, String>): SubjectProfile {
             val name = fields["name"]?.trim().orEmpty()
             val parts = name.split("\\s+".toRegex()).filter { it.isNotBlank() }
+            val intent = fields["intent"]?.trim().orEmpty()
+            val employer = fields["employer"]?.trim().orEmpty()
+                .ifBlank {
+                    if (intent.startsWith("employer=", ignoreCase = true)) {
+                        intent.removePrefix("employer=").trim()
+                    } else ""
+                }
             return SubjectProfile(
                 name = name,
                 firstName = parts.firstOrNull().orEmpty(),
@@ -65,6 +73,7 @@ data class SubjectProfile(
                 phone = fields["phone"]?.trim().orEmpty(),
                 email = fields["email"]?.trim().orEmpty(),
                 username = fields["username"]?.trim().orEmpty(),
+                employer = employer,
                 address = fields["address"]?.trim().orEmpty(),
                 age = fields["age"]?.trim().orEmpty(),
                 dob = fields["dob"]?.trim().orEmpty(),

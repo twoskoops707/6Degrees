@@ -23,6 +23,8 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.tabs.TabLayoutMediator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.AppSettings
+import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
+import com.twoskoops707.sixdegrees.domain.GoogleDorkLibrary
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
 import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView

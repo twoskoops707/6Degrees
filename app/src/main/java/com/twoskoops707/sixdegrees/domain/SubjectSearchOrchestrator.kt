@@ -44,6 +44,10 @@ object SubjectSearchOrchestrator {
         isDeepPhase(phase)
 
     const val PARALLEL_WORKERS = 9
+
+    /** Parallel in-app dork execution via DDG HTML / optional Google CSE. */
+    const val DORK_PARALLEL_WORKERS = 8
+
     const val SOURCE_TIMEOUT_MS = 25_000L
 
     /** Phase 1 target: 2–3 minutes of discovery work. */
@@ -109,24 +113,10 @@ object SubjectSearchOrchestrator {
         SearchPhase.DEEP_INVESTIGATION -> DISCOVERY_DDG_LABELS + DEEP_DDG_LABELS
     }
 
-    /** Round-1 auto-dork metadata keys. */
-    val DISCOVERY_DORK_KEYS = setOf(
-        "dork_address_results", "dork_address_full_results", "dork_phone_results",
-        "dork_bio_results", "dork_linkedin_results", "dork_social_results",
-        "dork_identity_results", "dork_tps_results", "dork_fps_results",
-        "dork_wp_results", "dork_rad_results"
-    )
-
-    /** Round-2 auto-dork metadata keys — family, courts, companies, property. */
-    val DEEP_DORK_KEYS = setOf(
-        "dork_relatives_results", "dork_voter_results", "dork_criminal_results",
-        "dork_court_results", "dork_property_results", "dork_financial_results",
-        "dork_news_results"
-    )
-
-    fun dorkKeysForPhase(phase: SearchPhase): Set<String> = when (phase) {
-        SearchPhase.CANDIDATE_DISCOVERY -> DISCOVERY_DORK_KEYS
-        SearchPhase.DEEP_INVESTIGATION -> DISCOVERY_DORK_KEYS + DEEP_DORK_KEYS
+    /** Estimated auto-dork queries per phase (from [GoogleDorkLibrary]). */
+    fun estimatedDorkCount(phase: SearchPhase): Int = when (phase) {
+        SearchPhase.CANDIDATE_DISCOVERY -> 26
+        SearchPhase.DEEP_INVESTIGATION -> 40
     }
 
     /** Extra DDG passes when primary sweep finishes too quickly. */
@@ -245,21 +235,21 @@ object SubjectSearchOrchestrator {
         return base.filter { label -> shouldRunForPreset("DDG: $label", activeCategories) }.toSet()
     }
 
-    /** Registry bulk HTML scrape is disabled — browser links only. */
+    /** People-finder registry URLs are followed in-app during dork execution; bulk registry scrape stays off. */
     fun shouldAutoScrapeRegistry(): Boolean = false
 
     fun estimatedSourceCount(type: String, phase: SearchPhase, profile: SubjectProfile): Int {
         val effectiveType = if (type == "scan") "person" else type
         val base = when (effectiveType) {
             "person", "comprehensive" -> when (phase) {
-                SearchPhase.CANDIDATE_DISCOVERY -> 42
-                SearchPhase.DEEP_INVESTIGATION -> 78
+                SearchPhase.CANDIDATE_DISCOVERY -> 68
+                SearchPhase.DEEP_INVESTIGATION -> 118
             }
-            "phone" -> 35
-            "email", "breach" -> 22
+            "phone" -> 41
+            "email", "breach" -> 27
             "username" -> 80
             "domain", "ip" -> 28
-            "company" -> 18
+            "company" -> 23
             else -> 12
         }
         var extra = 0

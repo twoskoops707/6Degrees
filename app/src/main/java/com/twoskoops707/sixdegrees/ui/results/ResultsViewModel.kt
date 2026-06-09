@@ -9,6 +9,8 @@ import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
 import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
 import com.twoskoops707.sixdegrees.data.repository.OsintRepository
+import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
+import com.twoskoops707.sixdegrees.domain.GoogleDorkLibrary
 import com.twoskoops707.sixdegrees.domain.SubjectFilter
 import kotlinx.coroutines.launch
 
@@ -169,6 +171,7 @@ object DossierBuilder {
             buildEmploymentSection(meta),
             buildLegalSection(meta),
             buildDigitalSection(meta),
+            buildGoogleIntelligenceSection(meta, investigatorMode = true),
             buildVehiclesSection(meta),
             buildDarkWebSection(meta),
             buildAiSection(meta)
@@ -186,7 +189,9 @@ object DossierBuilder {
             ids.flatMap { id -> byId[id]?.findings.orEmpty() }
                 .filter { f -> !isEmptyPlaceholder(f) }
 
-        val who = findings("identity", "employment", "contact", "family")
+        val googleIntel = buildGoogleIntelligenceSection(meta, investigatorMode = false).findings
+            .filter { !isEmptyPlaceholder(it) && it.label != "Summary" }
+        val who = findings("identity", "employment", "contact", "family") + googleIntel
         val where = byId["locations"]?.findings.orEmpty().filter { !isEmptyPlaceholder(it) }
         val flags = findings("legal", "darkweb").filter { it.isWarning || isRedFlagFinding(it) }
         val shady = computeShadyScore(meta, searchType)
@@ -538,6 +543,50 @@ object DossierBuilder {
             findings.add(finding("No digital footprint found", "SixDegrees", DossierConfidence.LOW))
         }
         return DossierSection("digital", "Digital Footprint", "◎", findings)
+    }
+
+    private fun buildGoogleIntelligenceSection(
+        meta: Map<String, String>,
+        investigatorMode: Boolean
+    ): DossierSection {
+        val findings = mutableListOf<DossierFinding>()
+        val categories = DorkMetadataStore.allCategories(meta).ifEmpty {
+            GoogleDorkLibrary.DorkCategory.entries.filter {
+                DorkMetadataStore.hitsForCategory(meta, it).isNotEmpty()
+            }
+        }
+        for (category in categories) {
+            val hits = DorkMetadataStore.hitsForCategory(meta, category)
+            hits.forEach { hit ->
+                val displayLabel = if (investigatorMode && hit.query.isNotBlank()) {
+                    "${category.displayName} · ${hit.query.take(72)}"
+                } else {
+                    category.displayName
+                }
+                val summary = buildString {
+                    append(hit.title)
+                    if (hit.snippet.isNotBlank()) append(" — ").append(hit.snippet.take(180))
+                }.trim()
+                val link = hit.url.takeIf { it.startsWith("http") }
+                findings.add(
+                    finding(
+                        value = link ?: summary,
+                        source = "Google Dork",
+                        confidence = DossierConfidence.LOW,
+                        label = displayLabel,
+                        isLink = link != null,
+                        sourceUrl = link
+                    )
+                )
+            }
+        }
+        meta["dork_total_hits"]?.toIntOrNull()?.takeIf { it > 0 }?.let { total ->
+            findings.add(0, finding("$total validated hit${if (total != 1) "s" else ""} across ${categories.size} categories", "Google Dork", DossierConfidence.MEDIUM, "Summary"))
+        }
+        if (findings.isEmpty()) {
+            findings.add(finding("No Google dork hits matched this subject", "Google Dork", DossierConfidence.LOW))
+        }
+        return DossierSection("google_intel", "Google Intelligence", "🔍", findings)
     }
 
     private fun buildVehiclesSection(meta: Map<String, String>): DossierSection {
