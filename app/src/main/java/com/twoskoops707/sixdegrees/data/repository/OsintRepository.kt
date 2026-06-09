@@ -2709,7 +2709,7 @@ class OsintRepository(context: Context) {
             val minPhaseMs = SubjectSearchOrchestrator.minimumDurationMs(searchPhase, fastMode)
             send(SearchProgressEvent.PhaseUpdate(
                 SubjectSearchOrchestrator.phaseLabel(searchPhase),
-                SubjectSearchOrchestrator.phaseDurationHint(searchPhase)
+                SubjectSearchOrchestrator.phaseDurationHint(searchPhase, fastMode)
             ))
             metadata["search_type"] = effectiveType
             metadata["search_phase"] = searchPhase.name

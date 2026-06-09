@@ -92,9 +92,10 @@ object SubjectSearchOrchestrator {
         SearchPhase.DEEP_INVESTIGATION -> "Deep scan"
     }
 
-    fun phaseDurationHint(phase: SearchPhase): String = when (phase) {
-        SearchPhase.CANDIDATE_DISCOVERY -> "Discovery — typically 2–3 minutes"
-        SearchPhase.DEEP_INVESTIGATION -> "Deep investigation — typically 5–10 minutes"
+    fun phaseDurationHint(phase: SearchPhase, fastMode: Boolean = false): String = when {
+        fastMode -> "Checking public records…"
+        phase == SearchPhase.CANDIDATE_DISCOVERY -> "Discovery — typically 2–3 minutes"
+        else -> "Deep investigation — typically 5–10 minutes"
     }
 
     fun isDeepPhase(phase: SearchPhase): Boolean = phase == SearchPhase.DEEP_INVESTIGATION
