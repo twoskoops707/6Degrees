@@ -2708,7 +2708,7 @@ class OsintRepository(context: Context) {
             val minPhaseMs = SubjectSearchOrchestrator.minimumDurationMs(searchPhase)
             send(SearchProgressEvent.PhaseUpdate(
                 SubjectSearchOrchestrator.phaseLabel(searchPhase),
-                "Deep investigation — typically 5–10 minutes"
+                SubjectSearchOrchestrator.phaseDurationHint(searchPhase)
             ))
             metadata["search_type"] = effectiveType
             metadata["search_phase"] = searchPhase.name
@@ -3587,7 +3587,6 @@ class OsintRepository(context: Context) {
                                     } else {
                                         send(SearchProgressEvent.NotFound("Numverify"))
                                     }
-                                }
                             }
                         }
                         launch {

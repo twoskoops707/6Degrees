@@ -318,23 +318,13 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
             val parsed = SubjectIntakeParser.parseFreeformText(form.phone)
 
             return SubjectIntakeParser.mergeWithForm(parsed, mapOf(
-
                 "name" to fromForm.name,
-
                 "firstName" to fromForm.firstName,
-
                 "lastName" to fromForm.lastName,
-
                 "city" to fromForm.city,
-
                 "state" to fromForm.state,
-
-                "phone" to fromForm.phone,
-
                 "email" to fromForm.email,
-
                 "username" to fromForm.username
-
             ))
 
         }
@@ -350,13 +340,10 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         val hasName = profile.name.isNotBlank() || form.firstName.isNotBlank() || form.lastName.isNotBlank()
 
         return when {
-
             profile.phone.isNotBlank() && !hasName && profile.email.isBlank() && profile.username.isBlank() -> "phone"
-
             profile.email.isNotBlank() && !hasName && profile.phone.isBlank() && profile.username.isBlank() -> "email"
-
+            profile.username.isNotBlank() && !hasName && profile.phone.isBlank() && profile.email.isBlank() -> "username"
             else -> "scan"
-
         }
 
     }
