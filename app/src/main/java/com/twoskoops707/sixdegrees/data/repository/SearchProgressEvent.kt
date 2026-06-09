@@ -3,6 +3,7 @@ package com.twoskoops707.sixdegrees.data.repository
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 
 sealed class SearchProgressEvent {
+    data class PhaseUpdate(val phase: String, val detail: String = "") : SearchProgressEvent()
     data class Checking(val source: String) : SearchProgressEvent()
     data class Found(val source: String, val detail: String) : SearchProgressEvent()
     data class NotFound(val source: String) : SearchProgressEvent()
@@ -18,5 +19,6 @@ sealed class SearchProgressEvent {
     data class BrowserToolsReady(
         val categories: LinkedHashMap<String, List<Pair<String, String>>>
     ) : SearchProgressEvent()
+    data class PartialResultsReady(val reportId: String, val hitCount: Int) : SearchProgressEvent()
     data class Complete(val reportId: String, val hitCount: Int) : SearchProgressEvent()
 }

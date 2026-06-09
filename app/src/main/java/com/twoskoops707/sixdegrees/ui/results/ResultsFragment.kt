@@ -22,6 +22,7 @@ import coil.load
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.tabs.TabLayoutMediator
 import com.twoskoops707.sixdegrees.R
+import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
 import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
@@ -75,8 +76,6 @@ class ResultsFragment : Fragment() {
 
         val searchType = arguments?.getString("searchType")?.takeIf { it.isNotBlank() }
             ?: meta["search_type"] ?: "person"
-
-        computeAndShowShadyScore(meta, searchType)
 
         val subjectName = person?.fullName?.ifBlank { "${person.firstName} ${person.lastName}".trim() }
             ?: run {
@@ -171,8 +170,12 @@ class ResultsFragment : Fragment() {
             } catch (_: Exception) {}
         }
 
-        val sections = buildTabs(enrichedMeta, searchType)
-        setupDossierTabs(sections)
+        val investigatorMode = AppSettings.isInvestigatorMode(requireContext())
+        applyResultsModeUi(investigatorMode)
+
+        viewModel.updateDossier(enrichedMeta, searchType)
+        applyShadyScore(viewModel.state.value?.shadyScore, enrichedMeta, searchType, investigatorMode)
+        setupDossierTabs(viewModel.state.value?.dossierSections.orEmpty(), investigatorMode)
         buildCandidateDisambiguation(enrichedMeta)
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
@@ -1043,6 +1046,10 @@ class ResultsFragment : Fragment() {
         meta["eva_disposable"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Disposable" to "Temporary/throwaway email service") }
         meta["eva_spam_trap"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Spam Trap" to "Address is a spam trap") }
         meta["eva_mx_record"]?.let { rows.add("MX Record" to it) }
+        meta["kickbox_disposable"]?.toBooleanStrictOrNull()?.let { disposable ->
+            rows.add("Disposable (Kickbox)" to if (disposable) "Yes — temporary provider" else "No")
+        }
+        meta["kickbox_did_you_mean"]?.takeIf { it.isNotBlank() }?.let { rows.add("Did You Mean (Kickbox)" to it) }
         val hibpCount = meta["hibp_breach_count"]?.toIntOrNull() ?: 0
         val proxyCount = meta["proxynova_breach_count"]?.toIntOrNull() ?: 0
         if (hibpCount > 0 || proxyCount > 0) {
@@ -1451,6 +1458,16 @@ class ResultsFragment : Fragment() {
         meta["numverify_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type" to it) }
         meta["numverify_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
         meta["numverify_intl"]?.takeIf { it.isNotBlank() }?.let { rows.add("Intl Format" to it) }
+        meta["libphone_valid"]?.let { rows.add("Valid (libphonenumber)" to if (it == "true") "Yes ✓" else "No ✗") }
+        meta["libphone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (libphonenumber)" to it) }
+        meta["libphone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier (libphonenumber)" to it) }
+        meta["libphone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (libphonenumber)" to it) }
+        meta["libphone_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location (libphonenumber)" to it) }
+        meta["libphone_timezone"]?.takeIf { it.isNotBlank() }?.let { rows.add("Timezone (libphonenumber)" to it) }
+        meta["calltracer_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location (CallTracer)" to it) }
+        meta["calltracer_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (CallTracer)" to it) }
+        meta["calltracer_spam_score"]?.takeIf { it.isNotBlank() }?.let { rows.add("Spam Score (CallTracer)" to it) }
+        meta["calltracer_spam_reports"]?.takeIf { it.isNotBlank() }?.let { rows.add("Spam Reports (CallTracer)" to it) }
         meta["veriphone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier (Veriphone)" to it) }
         meta["veriphone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (Veriphone)" to it) }
         meta["veriphone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (Veriphone)" to it) }
@@ -1640,52 +1657,41 @@ class ResultsFragment : Fragment() {
         return set
     }
 
-    private fun computeAndShowShadyScore(meta: Map<String, String>, type: String) {
-        var score = 0
-        val flags = mutableListOf<String>()
+    private fun applyResultsModeUi(investigatorMode: Boolean) {
+        binding.btnWebHub.visibility = if (investigatorMode) View.VISIBLE else View.GONE
+        binding.btnExport.visibility = if (investigatorMode) View.VISIBLE else View.GONE
+        binding.tvSourcesCount.visibility = if (investigatorMode) View.VISIBLE else View.GONE
+    }
 
-        val breachCount = meta["hibp_breach_count"]?.toIntOrNull() ?: 0
-        if (breachCount > 0) { score += minOf(breachCount * 10, 30); flags.add("$breachCount breach${if (breachCount != 1) "es" else ""}") }
-
-        val arrested = meta["arrest_count"]?.toIntOrNull() ?: 0
-        if (arrested > 0) { score += minOf(arrested * 15, 40); flags.add("$arrested arrest record${if (arrested != 1) "s" else ""}") }
-
-        val suspicious = meta["emailrep_suspicious"]?.toBooleanStrictOrNull() ?: false
-        if (suspicious) { score += 20; flags.add("suspicious email") }
-
-        val otxPulses = meta["otx_pulse_count"]?.toIntOrNull() ?: 0
-        if (otxPulses > 0) { score += minOf(otxPulses * 5, 25); flags.add("$otxPulses threat intel hit${if (otxPulses != 1) "s" else ""}") }
-
-        val ipqueryRisk = meta["ipquery_risk_score"]?.toIntOrNull() ?: 0
-        if (ipqueryRisk > 30) { score += minOf(ipqueryRisk / 2, 30); flags.add("risk score $ipqueryRisk") }
-
-        val ipqsIpFraud = meta["ipqs_ip_fraud_score"]?.toIntOrNull() ?: 0
-        if (ipqsIpFraud > 30) { score += minOf(ipqsIpFraud / 2, 30); flags.add("IP fraud $ipqsIpFraud") }
-
-        val ipqsEmailFraud = meta["ipqs_email_fraud_score"]?.toIntOrNull() ?: 0
-        if (ipqsEmailFraud > 50) { score += minOf(ipqsEmailFraud / 3, 20); flags.add("email fraud $ipqsEmailFraud") }
-
-        val ipqsPhoneFraud = meta["ipqs_phone_fraud_score"]?.toIntOrNull() ?: 0
-        if (ipqsPhoneFraud > 50) { score += minOf(ipqsPhoneFraud / 3, 20); flags.add("phone fraud $ipqsPhoneFraud") }
-
-        val sanctionsHits = meta["opensanctions_total"]?.toIntOrNull() ?: 0
-        if (sanctionsHits > 0) { score += minOf(sanctionsHits * 20, 40); flags.add("$sanctionsHits sanctions hit${if (sanctionsHits != 1) "s" else ""}") }
-
-        score = minOf(score, 100)
-
-        val (color, verdict, detail) = when {
-            score == 0 -> Triple(ContextCompat.getColor(requireContext(), R.color.score_green), "CLEAR", "No significant indicators found")
-            score < 30 -> Triple(ContextCompat.getColor(requireContext(), R.color.score_green), "LOW", flags.joinToString(" · ").ifBlank { "Minor indicators" })
-            score < 60 -> Triple(ContextCompat.getColor(requireContext(), R.color.score_yellow), "MODERATE", flags.joinToString(" · "))
-            else -> Triple(ContextCompat.getColor(requireContext(), R.color.score_red), "HIGH RISK", flags.joinToString(" · "))
+    private fun applyShadyScore(shady: ShadyScore?, meta: Map<String, String>, type: String, investigatorMode: Boolean) {
+        val score = shady ?: DossierBuilder.computeShadyScore(meta, type)
+        val color = when {
+            score.score == 0 -> ContextCompat.getColor(requireContext(), R.color.score_green)
+            score.score < 30 -> ContextCompat.getColor(requireContext(), R.color.score_green)
+            score.score < 60 -> ContextCompat.getColor(requireContext(), R.color.score_yellow)
+            else -> ContextCompat.getColor(requireContext(), R.color.score_red)
         }
-
-        binding.tvScoreNumber.text = if (score == 0) "✓" else score.toString()
+        binding.tvScoreNumber.text = score.displayValue
         binding.tvScoreNumber.setTextColor(color)
-        binding.tvScoreVerdict.text = "[ $verdict ]"
+        if (investigatorMode) {
+            binding.tvScoreVerdict.text = "[ ${score.verdict} ]"
+            binding.tvScoreDetail.text = score.detail
+        } else {
+            binding.tvScoreVerdict.text = when {
+                score.score == 0 -> "Looks okay"
+                score.score < 30 -> "Minor concerns"
+                score.score < 60 -> "Proceed carefully"
+                else -> "Serious concerns"
+            }
+            binding.tvScoreDetail.text = if (score.score > 0) score.detail else getString(R.string.results_risk_disclaimer)
+        }
         binding.tvScoreVerdict.setTextColor(color)
-        binding.tvScoreDetail.text = detail
         binding.scoreAccentBar.setBackgroundColor(color)
+    }
+
+    private fun computeAndShowShadyScore(meta: Map<String, String>, type: String) {
+        val investigatorMode = AppSettings.isInvestigatorMode(requireContext())
+        applyShadyScore(DossierBuilder.computeShadyScore(meta, type), meta, type, investigatorMode)
     }
 
     private fun shareReport(query: String, type: String, meta: Map<String, String>) {
@@ -1906,22 +1912,20 @@ class ResultsFragment : Fragment() {
         }
     }
 
-    private fun setupDossierTabs(sections: List<Pair<String, List<Pair<String, String>>>>) {
-        val nonEmptySections = sections.filter { (_, rows) ->
-            rows.any { it.second.isNotBlank() } || rows.any { it.second.isEmpty() && it.first.isNotBlank() }
-        }.ifEmpty { sections }
+    private fun setupDossierTabs(sections: List<DossierSection>, investigatorMode: Boolean) {
+        if (sections.isEmpty()) return
 
-        val adapter = DossierSectionAdapter(nonEmptySections) { container, rows ->
-            populateSectionContent(container, rows)
-        }
+        val adapter = DossierSectionAdapter(this, sections, showTechnicalDetails = investigatorMode)
         binding.dossierPager.adapter = adapter
-        binding.dossierPager.offscreenPageLimit = 1
+        binding.dossierPager.offscreenPageLimit = 2
 
         TabLayoutMediator(binding.dossierTabs, binding.dossierPager) { tab, position ->
-            val (title, rows) = nonEmptySections[position]
-            tab.text = title
-            val count = rows.count { it.second.isNotBlank() }
-            if (count > 0) tab.contentDescription = "$title, $count data points"
+            val section = sections[position]
+            tab.text = section.title
+            val count = section.findings.count { finding ->
+                !finding.value.lowercase().startsWith("no ") || !finding.value.lowercase().contains("found")
+            }
+            tab.contentDescription = "${section.title}, $count findings"
         }.attach()
     }
 

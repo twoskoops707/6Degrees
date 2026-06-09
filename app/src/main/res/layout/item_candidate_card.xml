@@ -2,251 +2,163 @@
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
-    android:layout_marginBottom="10dp"
-    android:clickable="true"
-    android:focusable="true"
+    android:layout_marginBottom="12dp"
     app:cardBackgroundColor="?attr/colorSurface"
-    app:cardCornerRadius="2dp"
-    app:cardElevation="0dp"
-    app:strokeColor="?attr/colorOutline"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="2dp"
+    app:strokeColor="?attr/colorOutlineVariant"
     app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="16dp">
 
+        <!-- Photo row: primary + up to 2 thumbnails -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <FrameLayout
-                android:layout_width="56dp"
-                android:layout_height="72dp"
-                android:layout_marginEnd="14dp">
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/iv_candidate_photo_primary"
+                android:layout_width="96dp"
+                android:layout_height="112dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/bg_candidate_photo_placeholder"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small"
+                app:strokeColor="?attr/colorOutline"
+                app:strokeWidth="1dp" />
+
+            <LinearLayout
+                android:id="@+id/photo_thumbnails_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <com.google.android.material.imageview.ShapeableImageView
-                    android:id="@+id/iv_candidate_photo"
-                    android:layout_width="56dp"
-                    android:layout_height="72dp"
+                    android:id="@+id/iv_photo_thumb_2"
+                    android:layout_width="48dp"
+                    android:layout_height="52dp"
+                    android:layout_marginBottom="6dp"
                     android:scaleType="centerCrop"
-                    android:src="@drawable/ic_person_placeholder"
+                    android:src="@drawable/bg_candidate_photo_placeholder"
                     app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small"
                     app:strokeColor="?attr/colorOutline"
                     app:strokeWidth="1dp" />
 
-                <FrameLayout
-                    android:id="@+id/iv_selected_overlay"
-                    android:layout_width="56dp"
-                    android:layout_height="72dp"
-                    android:background="#CC0E0C0A"
-                    android:visibility="gone">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_check"
-                        android:tint="?attr/colorPrimary" />
-                </FrameLayout>
-            </FrameLayout>
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/iv_photo_thumb_3"
+                    android:layout_width="48dp"
+                    android:layout_height="52dp"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_candidate_photo_placeholder"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small"
+                    app:strokeColor="?attr/colorOutline"
+                    app:strokeWidth="1dp" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_marginStart="12dp"
                 android:orientation="vertical">
 
                 <TextView
                     android:id="@+id/tv_candidate_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="15sp"
-                    android:fontFamily="monospace"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.05"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
+                    android:textAppearance="@style/TextAppearance.SixDegrees.TitleMedium"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    tools:text="John Smith" />
 
                 <TextView
                     android:id="@+id/tv_candidate_age_location"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="11sp"
-                    android:fontFamily="monospace"
-                    android:layout_marginTop="3dp"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
+                    tools:text="Age 42 · Austin, TX" />
 
                 <TextView
-                    android:id="@+id/tv_candidate_phone"
+                    android:id="@+id/tv_candidate_employer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="?attr/colorSecondary"
-                    android:textSize="11sp"
-                    android:fontFamily="monospace"
                     android:layout_marginTop="2dp"
-                    android:visibility="gone" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:layout_marginStart="8dp">
-
-                <TextView
-                    android:id="@+id/tv_confidence_pct"
-                    android:layout_width="44dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="?attr/colorSecondary"
-                    android:textSize="13sp"
-                    android:fontFamily="monospace"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="44dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="MATCH"
-                    android:textColor="?attr/colorOutline"
-                    android:textSize="7sp"
-                    android:fontFamily="monospace"
-                    android:letterSpacing="0.2" />
-
-                <ProgressBar
-                    android:id="@+id/progress_confidence"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="44dp"
-                    android:layout_height="2dp"
-                    android:max="100"
-                    android:layout_marginTop="3dp"
-                    android:progressTint="?attr/colorPrimary"
-                    android:progressBackgroundTint="?attr/colorOutline" />
+                    android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:visibility="gone"
+                    tools:text="Software engineer" />
 
                 <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_candidate_source"
+                    android:id="@+id/chip_match_score"
+                    style="@style/Widget.Material3.Chip.Assist"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:visibility="gone"
-                    android:textSize="9sp" />
-
+                    android:layout_marginTop="8dp"
+                    android:textSize="11sp"
+                    app:chipMinHeight="28dp"
+                    tools:text="72% match" />
             </LinearLayout>
         </LinearLayout>
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?attr/colorOutline"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="6dp" />
-
-        <TextView
-            android:id="@+id/tv_candidate_address"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="3dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_candidate_relatives"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorOutline"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="3dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_candidate_dob"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorSecondary"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="3dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_candidate_akas"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorOutline"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="3dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_candidate_email"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorPrimary"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="3dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_candidate_political"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="?attr/colorOutline"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="3dp"
-            android:visibility="gone" />
-
+        <!-- Social profile links -->
         <LinearLayout
-            android:id="@+id/company_info_row"
+            android:id="@+id/social_icons_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal"
-            android:visibility="gone"
-            android:layout_marginTop="6dp">
+            android:visibility="gone">
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_company_domain"
-                style="@style/Widget.Material3.Chip.Assist"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="10sp"
-                app:chipBackgroundColor="?attr/colorSurfaceVariant"
-                android:textColor="?attr/colorPrimary"
-                app:chipMinHeight="24dp"
-                app:chipIcon="@drawable/ic_link"
-                app:chipIconSize="14dp"
-                app:chipIconTint="?attr/colorPrimary"
-                app:closeIconVisible="false" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_social_linkedin"
+                style="@style/Widget.SixDegrees.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:text="@string/social_linkedin"
+                android:textSize="11sp" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_company_industry"
-                style="@style/Widget.Material3.Chip.Assist"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:textSize="10sp"
-                app:chipBackgroundColor="?attr/colorSurfaceVariant"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                app:chipMinHeight="24dp"
-                app:chipIcon="@drawable/ic_business"
-                app:chipIconSize="14dp"
-                app:chipIconTint="?attr/colorOnSurfaceVariant"
-                app:closeIconVisible="false" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_social_facebook"
+                style="@style/Widget.SixDegrees.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:text="@string/social_facebook"
+                android:textSize="11sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_social_instagram"
+                style="@style/Widget.SixDegrees.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="@string/social_instagram"
+                android:textSize="11sp" />
         </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_thats_them"
+            style="@style/Widget.SixDegrees.Button.Filled"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="14dp"
+            android:text="@string/candidate_thats_them" />
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -199,7 +199,29 @@ object OsintToolRegistry {
         OsintTool("ThreatMiner", "IOC and threat data mining", "https://www.threatminer.org/host.php?q={q-encoded}", setOf("threat")),
         OsintTool("Shodan CVE", "CVE exploit and vulnerable host search", "https://www.shodan.io/search?query=vuln:{q-raw}", setOf("threat")),
         OsintTool("Sploitus", "Exploit and vulnerability search", "https://sploitus.com/?query={q-encoded}", setOf("threat")),
-        OsintTool("CheckPhish", "Phishing URL and site detection", "https://checkphish.ai/scan/{q-encoded}", setOf("threat"))
+        OsintTool("CheckPhish", "Phishing URL and site detection", "https://checkphish.ai/scan/{q-encoded}", setOf("threat")),
+        OsintTool("UserSearch", "Multi-platform username and people search", "https://usersearch.org/results_normal/?q={q-encoded}", setOf("username", "person")),
+        OsintTool("ZLookup", "Free reverse phone lookup", "https://www.zlookup.com/phone-lookup/{q-digits}", setOf("phone")),
+        OsintTool("Verify Email", "Free email address validation", "https://verify-email.org/email/{q-encoded}", setOf("email")),
+        OsintTool("CentralOps Email Dossier", "MX, DNS, and reverse DNS email analysis", "https://centralops.net/co/emaildossier.aspx", setOf("email", "domain")),
+        OsintTool("AllPeople", "US people search and contact records", "https://allpeople.com/search?ss={q-encoded}", setOf("person")),
+        OsintTool("Yasni", "International people search aggregator", "https://www.yasni.com/{first}/check+{last}", setOf("person")),
+        OsintTool("Nuwber", "US background and contact records", "https://nuwber.com/name/{q-hyphen}", setOf("person")),
+        OsintTool("192.com", "UK people and business directory", "https://www.192.com/atoz/people/{q-hyphen}/", setOf("person")),
+        OsintTool("Canada411", "Canadian phone and people lookup", "https://www.canada411.ca/search/?stype=si&what={q-encoded}", setOf("person", "phone")),
+        OsintTool("Namechk", "Username availability checker", "https://namechk.com/{q-raw}", setOf("username")),
+        OsintTool("AnalyzeID", "Username checker across platforms", "https://analyzeid.com/username/?u={q-raw}", setOf("username")),
+        OsintTool("Archive.today", "Web page archive and snapshot search", "https://archive.ph/?run=1&url={q-encoded}", setOf("domain", "tools")),
+        OsintTool("Infobel", "International telephone and business directory", "https://www.infobel.com/en/world/search?q={q-encoded}", setOf("person", "phone", "company")),
+        OsintTool("xlek", "Free people search database", "https://www.xlek.com/result.php?fname={first}&lname={last}", setOf("person")),
+        OsintTool("Ufind.name", "People search by name", "https://ufind.name/search?q={q-encoded}", setOf("person")),
+        OsintTool("GofindWho", "People search with social links", "https://gofindwho.com/people/{q-hyphen}", setOf("person")),
+        OsintTool("ValidNumber", "International phone number validator", "https://validnumber.com/phone/{q-digits}", setOf("phone")),
+        OsintTool("ReversePhoneCheck", "Reverse phone lookup", "https://www.reversephonecheck.com/{q-digits}", setOf("phone")),
+        OsintTool("CallTracer", "Free carrier, location, and spam lookup", "https://calltracer.io/search?q={q-digits}", setOf("phone")),
+        OsintTool("OldPhoneBook", "Historical US phone listings", "http://www.oldphonebook.com/search.php?name={q-encoded}", setOf("phone", "person")),
+        OsintTool("OSINT4ALL Hub", "Curated OSINT tool directory (start.me)", "https://start.me/p/L1rEYQ/osint4all", setOf("person", "domain")),
+        OsintTool("Osiris Dashboard", "Real-time global OSINT situational awareness", "https://osirisai.live", setOf("geo"))
     )
 
     private val categoryLabels = mapOf(

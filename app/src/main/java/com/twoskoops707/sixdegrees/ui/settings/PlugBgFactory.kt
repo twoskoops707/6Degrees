@@ -16,7 +16,8 @@ object PlugBgFactory {
 
     fun createBg(context: Context, variant: String): Drawable = when (variant) {
         "leaves"   -> createLeavesBg(context)
-        "bricks"   -> createBricksBg(context)
+        "bricks"   -> ContextCompat.getDrawable(context, R.drawable.bg_plug_brick)
+            ?: createBricksBg(context)
         "medellin" -> createMedellinBg(context)
         else       -> ColorDrawable(ContextCompat.getColor(context, R.color.plug_bg))
     }
@@ -26,17 +27,21 @@ object PlugBgFactory {
         val size = (56 * dp).toInt()
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        val bg = Paint().apply { color = 0xFF0A0F0A.toInt() }
+        val bg = Paint().apply {
+            color = ContextCompat.getColor(context, R.color.plug_bg)
+        }
         c.drawRect(0f, 0f, size.toFloat(), size.toFloat(), bg)
 
         val leafPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF1A3A12.toInt()
+            color = ContextCompat.getColor(context, R.color.plug_green)
             style = Paint.Style.FILL
+            alpha = 48
         }
         val stemPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF1A3A12.toInt()
+            color = ContextCompat.getColor(context, R.color.plug_green_bright)
             strokeWidth = dp * 1.2f
             style = Paint.Style.STROKE
+            alpha = 64
         }
 
         val cx = size / 2f
@@ -70,19 +75,23 @@ object PlugBgFactory {
         val totalH = bh * 2
         val bmp = Bitmap.createBitmap(bw, totalH, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        val bg = Paint().apply { color = 0xFF0F0F0F.toInt() }
+        val grout = ContextCompat.getColor(context, R.color.plug_grout)
+        val brick = ContextCompat.getColor(context, R.color.plug_brick)
+        val brickAlt = ContextCompat.getColor(context, R.color.plug_brick_alt)
+        val bg = Paint().apply { color = grout }
         c.drawRect(0f, 0f, bw.toFloat(), totalH.toFloat(), bg)
 
-        val mortarPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF282828.toInt()
-            strokeWidth = dp
-            style = Paint.Style.STROKE
-        }
+        val brickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        val mortar = dp * 2f
         val half = bw / 2f
-        c.drawRect(dp, dp, bw - dp, bh - dp, mortarPaint)
-        c.drawLine(half, dp, half, bh - dp, mortarPaint)
-        c.drawRect(dp, bh + dp, half - dp, totalH - dp, mortarPaint)
-        c.drawRect(half + dp, bh + dp, bw - dp, totalH - dp, mortarPaint)
+        brickPaint.color = brick
+        c.drawRect(mortar, mortar, half - mortar, bh - mortar, brickPaint)
+        brickPaint.color = brickAlt
+        c.drawRect(half + mortar, mortar, bw - mortar, bh - mortar, brickPaint)
+        brickPaint.color = brickAlt
+        c.drawRect(mortar, bh + mortar, half - mortar, totalH - mortar, brickPaint)
+        brickPaint.color = brick
+        c.drawRect(half + mortar, bh + mortar, bw - mortar, totalH - mortar, brickPaint)
 
         return BitmapDrawable(context.resources, bmp).apply {
             setTileModeXY(Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)

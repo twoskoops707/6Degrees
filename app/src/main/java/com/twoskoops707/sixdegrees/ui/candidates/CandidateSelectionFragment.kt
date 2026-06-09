@@ -1,13 +1,14 @@
 package com.twoskoops707.sixdegrees.ui.candidates
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.google.android.material.color.MaterialColors
+import androidx.core.net.toUri
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -18,10 +19,9 @@ import coil.load
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentCandidateSelectionBinding
 import com.twoskoops707.sixdegrees.databinding.ItemCandidateCardBinding
+import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
 import com.twoskoops707.sixdegrees.ui.common.InvestigationStep
-import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
-import kotlinx.coroutines.launch
 
 class CandidateSelectionFragment : Fragment() {
 
@@ -34,6 +34,7 @@ class CandidateSelectionFragment : Fragment() {
     private var candidates = listOf<CandidateProfile>()
     private var reportId = ""
     private var round = 1
+    private var searchQuery = ""
     private lateinit var adapter: CandidateAdapter
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -45,12 +46,12 @@ class CandidateSelectionFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         InvestigationPipelineView.bind(binding.root, InvestigationStep.RESOLVE)
-
         binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 
         val candidatesJson = arguments?.getString("candidatesJson") ?: "[]"
         reportId = arguments?.getString("reportId") ?: ""
         round = arguments?.getInt("round") ?: 1
+        searchQuery = arguments?.getString("searchQuery") ?: ""
 
         val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
         candidates = try {
@@ -59,76 +60,47 @@ class CandidateSelectionFragment : Fragment() {
             emptyList()
         }
 
-        val maxSelect = when (round) { 1 -> 4; 2 -> 2; else -> 1 }
-        val roundTotal = 3
+        binding.tvCandidateQuery.text = viewModel.formatDisplayQuery(searchQuery).ifBlank { searchQuery }
+        binding.tvCandidateCount.text = resources.getQuantityString(
+            R.plurals.candidate_match_count,
+            candidates.size,
+            candidates.size
+        )
 
-        binding.tvRoundLabel.text = "ROUND $round OF $roundTotal"
-        val rawSq = arguments?.getString("searchQuery") ?: ""
-        binding.tvCandidateQuery.text = if (rawSq.contains("=")) {
-            rawSq.split("|").joinToString(", ") { part ->
-                val eq = part.indexOf('=')
-                if (eq != -1) part.substring(eq + 1).trim() else part.trim()
-            }.replace(Regex(",\\s*,"), ",").trim().trimEnd(',')
-        } else rawSq
-        binding.tvSelectInstructions.text = when (round) {
-            1 -> "Select up to 4 people who could be your subject"
-            2 -> "Select 1-2 best matches for a full investigation"
-            else -> "Select the single best match for a deep-dive report"
-        }
-
-        adapter = CandidateAdapter(candidates) { index ->
-            viewModel.toggleSelection(index, maxSelect)
-        }
+        adapter = CandidateAdapter(candidates) { index -> confirmCandidate(index) }
         binding.rvCandidates.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@CandidateSelectionFragment.adapter
             itemAnimator = null
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.selected.collect { selected ->
-                if (_binding == null) return@collect
-                adapter.updateSelection(selected)
-                binding.btnInvestigate.isEnabled = selected.isNotEmpty()
-                binding.btnInvestigate.alpha = if (selected.isNotEmpty()) 1f else 0.4f
-            }
-        }
-
-        binding.btnInvestigate.setOnClickListener {
+        binding.btnNotAny.setOnClickListener {
             if (!isAdded || !isResumed) return@setOnClickListener
-            val nav = findNavController()
-            if (nav.currentDestination?.id != R.id.nav_candidate_selection) return@setOnClickListener
-            val refinedQuery = viewModel.buildRefinedQuery(candidates)
-            if (refinedQuery.isBlank()) return@setOnClickListener
-            val nextRound = round + 1
-            try {
-                nav.navigate(
-                    R.id.action_candidates_to_progress,
-                    Bundle().apply {
-                        putString("query", refinedQuery)
-                        putString("type", "comprehensive")
-                        putInt("round", nextRound)
-                        putString("searchQuery", arguments?.getString("searchQuery") ?: "")
-                    }
-                )
-            } catch (_: Exception) {}
+            findNavController().popBackStack(R.id.nav_search, false)
         }
+    }
 
-        binding.btnSkipToResults.setOnClickListener {
-            if (!isAdded || !isResumed) return@setOnClickListener
-            val nav = findNavController()
-            if (nav.currentDestination?.id != R.id.nav_candidate_selection) return@setOnClickListener
-            try {
-                nav.navigate(
-                    R.id.action_candidates_to_results,
-                    Bundle().apply {
-                        putString("searchQuery", arguments?.getString("searchQuery") ?: "")
-                        putString("searchType", "comprehensive")
-                        putString("reportId", reportId)
-                    }
-                )
-            } catch (_: Exception) {}
-        }
+    private fun confirmCandidate(index: Int) {
+        if (!isAdded || !isResumed) return
+        val candidate = candidates.getOrNull(index) ?: return
+        val nav = findNavController()
+        if (nav.currentDestination?.id != R.id.nav_candidate_selection) return
+
+        val lockedQuery = viewModel.buildLockedQuery(candidate)
+        if (lockedQuery.isBlank()) return
+
+        try {
+            nav.navigate(
+                R.id.action_candidates_to_progress,
+                Bundle().apply {
+                    putString("query", lockedQuery)
+                    putString("type", "comprehensive")
+                    putInt("round", round + 1)
+                    putString("searchQuery", searchQuery)
+                    putString("reportId", reportId)
+                }
+            )
+        } catch (_: Exception) {}
     }
 
     override fun onDestroyView() {
@@ -136,12 +108,10 @@ class CandidateSelectionFragment : Fragment() {
         _binding = null
     }
 
-    inner class CandidateAdapter(
+    private inner class CandidateAdapter(
         private val items: List<CandidateProfile>,
-        private val onToggle: (Int) -> Unit
+        private val onConfirm: (Int) -> Unit
     ) : RecyclerView.Adapter<CandidateAdapter.VH>() {
-
-        private var selectedIndices = setOf<Int>()
 
         inner class VH(val b: ItemCandidateCardBinding) : RecyclerView.ViewHolder(b.root)
 
@@ -150,153 +120,107 @@ class CandidateSelectionFragment : Fragment() {
 
         override fun getItemCount() = items.size
 
-        fun updateSelection(indices: Set<Int>) {
-            val old = selectedIndices
-            selectedIndices = indices
-            (old + indices).forEach { notifyItemChanged(it) }
-        }
-
         override fun onBindViewHolder(holder: VH, position: Int) {
             val c = items[position]
-            val isSelected = selectedIndices.contains(position)
-            val isCompany = c.isCompany
+            val b = holder.b
 
-            // Show photo or company logo
-            if (isCompany) {
-                if (!c.logoUrl.isNullOrBlank()) {
-                    holder.b.ivCandidatePhoto.visibility = View.VISIBLE
-                    holder.b.ivCandidatePhoto.load(c.logoUrl) {
-                        crossfade(true)
-                        placeholder(R.drawable.ic_business)
-                        error(R.drawable.ic_business)
-                    }
-                } else {
-                    holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_business)
+            bindPhotos(b, c)
+            bindIdentity(b, c)
+            bindSocial(b, c)
+            bindMatchScore(b, c)
+
+            b.btnThatsThem.setOnClickListener { onConfirm(position) }
+        }
+
+        private fun bindPhotos(b: ItemCandidateCardBinding, c: CandidateProfile) {
+            val photos = c.allPhotoUrls()
+            val primaryUrl = photos.firstOrNull()
+
+            if (c.isCompany && !c.logoUrl.isNullOrBlank()) {
+                b.ivCandidatePhotoPrimary.load(c.logoUrl) {
+                    crossfade(true)
+                    placeholder(R.drawable.bg_candidate_photo_placeholder)
+                    error(R.drawable.ic_business)
+                }
+            } else if (primaryUrl != null) {
+                b.ivCandidatePhotoPrimary.load(primaryUrl) {
+                    crossfade(true)
+                    placeholder(R.drawable.bg_candidate_photo_placeholder)
+                    error(R.drawable.bg_candidate_photo_placeholder)
                 }
             } else {
-                holder.b.ivCandidatePhoto.visibility = View.VISIBLE
-                if (!c.photoUrl.isNullOrBlank()) {
-                    holder.b.ivCandidatePhoto.load(c.photoUrl) {
-                        crossfade(true)
-                        placeholder(R.drawable.ic_person_placeholder)
-                        error(R.drawable.ic_person_placeholder)
-                    }
-                } else {
-                    holder.b.ivCandidatePhoto.setImageResource(R.drawable.ic_person_placeholder)
-                }
+                b.ivCandidatePhotoPrimary.setImageResource(R.drawable.bg_candidate_photo_placeholder)
             }
 
-            holder.b.tvCandidateName.text = if (isCompany) c.name.ifBlank { "Unknown Company" } else c.name.ifBlank { "Unknown" }
+            val extraPhotos = photos.drop(1).take(2)
+            b.photoThumbnailsRow.isVisible = extraPhotos.isNotEmpty()
+            bindThumb(b.ivPhotoThumb2, extraPhotos.getOrNull(0))
+            bindThumb(b.ivPhotoThumb3, extraPhotos.getOrNull(1))
+        }
 
-            if (isCompany) {
-                // Company mode — show domain and industry
-                holder.b.tvCandidateAgeLocation.visibility = View.GONE
-                holder.b.tvCandidatePhone.visibility = View.GONE
+        private fun bindThumb(view: com.google.android.material.imageview.ShapeableImageView, url: String?) {
+            if (url.isNullOrBlank()) {
+                view.isVisible = false
+                return
+            }
+            view.isVisible = true
+            view.load(url) {
+                crossfade(true)
+                placeholder(R.drawable.bg_candidate_photo_placeholder)
+                error(R.drawable.bg_candidate_photo_placeholder)
+            }
+        }
+
+        private fun bindIdentity(b: ItemCandidateCardBinding, c: CandidateProfile) {
+            b.tvCandidateName.text = when {
+                c.isCompany -> c.name.ifBlank { "Unknown company" }
+                else -> c.name.ifBlank { "Unknown" }
+            }
+
+            val ageLoc = listOfNotNull(
+                c.age.takeIf { it.isNotBlank() && !c.isCompany }?.let { "Age $it" },
+                c.location.takeIf { it.isNotBlank() }
+            )
+            if (ageLoc.isNotEmpty()) {
+                b.tvCandidateAgeLocation.text = ageLoc.joinToString(" · ")
+                b.tvCandidateAgeLocation.isVisible = true
             } else {
-                // Person mode — show age, location, phone
-                holder.b.tvCandidateAgeLocation.visibility = View.GONE
-                holder.b.companyInfoRow.visibility = View.GONE
-                val ageLocParts = listOfNotNull(
-                    c.age.takeIf { it.isNotBlank() }?.let { "Age $it" },
-                    c.location.takeIf { it.isNotBlank() }
-                )
-                if (ageLocParts.isNotEmpty()) {
-                    holder.b.tvCandidateAgeLocation.text = ageLocParts.joinToString(" · ")
-                    holder.b.tvCandidateAgeLocation.visibility = View.VISIBLE
-                }
-                val phones = c.phones.take(2)
-                if (phones.isNotEmpty()) {
-                    holder.b.tvCandidatePhone.text = phones.joinToString(" · ")
-                    holder.b.tvCandidatePhone.visibility = View.VISIBLE
-                } else {
-                    holder.b.tvCandidatePhone.visibility = View.GONE
-                }
+                b.tvCandidateAgeLocation.isVisible = false
             }
 
-            if (c.address.isNotBlank()) {
-                holder.b.tvCandidateAddress.text = if (isCompany) "🏢 ${c.address}" else "📍 ${c.address}"
-                holder.b.tvCandidateAddress.visibility = View.VISIBLE
+            val employer = c.employerSnippet()
+            if (employer != null) {
+                b.tvCandidateEmployer.text = employer
+                b.tvCandidateEmployer.isVisible = true
             } else {
-                holder.b.tvCandidateAddress.visibility = View.GONE
+                b.tvCandidateEmployer.isVisible = false
             }
+        }
 
-            if (c.relatives.isNotEmpty() && !isCompany) {
-                holder.b.tvCandidateRelatives.text = "👥 ${c.relatives.take(3).joinToString(", ")}"
-                holder.b.tvCandidateRelatives.visibility = View.VISIBLE
-            } else {
-                holder.b.tvCandidateRelatives.visibility = View.GONE
+        private fun bindSocial(b: ItemCandidateCardBinding, c: CandidateProfile) {
+            val hasSocial = !c.linkedinUrl.isNullOrBlank()
+                || !c.facebookUrl.isNullOrBlank()
+                || !c.instagramUrl.isNullOrBlank()
+
+            b.socialIconsRow.isVisible = hasSocial
+            bindSocialButton(b.btnSocialLinkedin, c.linkedinUrl)
+            bindSocialButton(b.btnSocialFacebook, c.facebookUrl)
+            bindSocialButton(b.btnSocialInstagram, c.instagramUrl)
+        }
+
+        private fun bindSocialButton(button: View, url: String?) {
+            button.isVisible = !url.isNullOrBlank()
+            if (url.isNullOrBlank()) return
+            button.setOnClickListener {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                } catch (_: Exception) {}
             }
+        }
 
-            // DOB
-            if (c.dob.isNullOrBlank()) {
-                holder.b.tvCandidateDob.visibility = View.GONE
-            } else {
-                holder.b.tvCandidateDob.text = "🎂 ${c.dob}"
-                holder.b.tvCandidateDob.visibility = View.VISIBLE
-            }
-
-            // AKAs
-            if (c.akas.isEmpty()) {
-                holder.b.tvCandidateAkas.visibility = View.GONE
-            } else {
-                holder.b.tvCandidateAkas.text = "↔ ${c.akas.joinToString(", ")}"
-                holder.b.tvCandidateAkas.visibility = View.VISIBLE
-            }
-
-            // Email
-            if (c.email.isNullOrBlank()) {
-                holder.b.tvCandidateEmail.visibility = View.GONE
-            } else {
-                holder.b.tvCandidateEmail.text = "✉ ${c.email}"
-                holder.b.tvCandidateEmail.visibility = View.VISIBLE
-            }
-
-            // Political affiliation
-            if (c.politicalAffiliation.isNullOrBlank()) {
-                holder.b.tvCandidatePolitical.visibility = View.GONE
-            } else {
-                holder.b.tvCandidatePolitical.text = "🗳 ${c.politicalAffiliation}"
-                holder.b.tvCandidatePolitical.visibility = View.VISIBLE
-            }
-
-            // Company domain/industry chips
-            if (isCompany) {
-                holder.b.companyInfoRow.visibility = View.VISIBLE
-                if (!c.domain.isNullOrBlank()) {
-                    holder.b.chipCompanyDomain.text = c.domain
-                    holder.b.chipCompanyDomain.visibility = View.VISIBLE
-                } else {
-                    holder.b.chipCompanyDomain.visibility = View.GONE
-                }
-                if (!c.industry.isNullOrBlank()) {
-                    holder.b.chipCompanyIndustry.text = c.industry
-                    holder.b.chipCompanyIndustry.visibility = View.VISIBLE
-                } else {
-                    holder.b.chipCompanyIndustry.visibility = View.GONE
-                }
-            } else {
-                holder.b.companyInfoRow.visibility = View.GONE
-            }
-
-            val confidencePct = (c.confidence * 100).toInt().coerceIn(0, 100)
-            holder.b.progressConfidence.progress = confidencePct
-            holder.b.tvConfidencePct.text = "$confidencePct%"
-
-            holder.b.chipCandidateSource.text = c.source.take(12)
-
-            holder.b.ivSelectedOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
-
-            val card = holder.itemView as? com.google.android.material.card.MaterialCardView
-            val ctx = requireContext()
-            if (isSelected) {
-                card?.strokeColor = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorPrimary, "CandidateSelection")
-                card?.strokeWidth = 3
-            } else {
-                card?.strokeColor = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOutline, "CandidateSelection")
-                card?.strokeWidth = 1
-            }
-
-            holder.itemView.setOnClickListener { onToggle(position) }
+        private fun bindMatchScore(b: ItemCandidateCardBinding, c: CandidateProfile) {
+            val pct = (c.confidence * 100).toInt().coerceIn(0, 100)
+            b.chipMatchScore.text = getString(R.string.candidate_match_pct, pct)
         }
     }
 }

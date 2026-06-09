@@ -15,12 +15,19 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.R
+import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.data.repository.SearchProgressEvent
 import com.twoskoops707.sixdegrees.databinding.FragmentSearchProgressBinding
 import com.twoskoops707.sixdegrees.databinding.ItemSearchSourceBinding
 import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
 import com.twoskoops707.sixdegrees.ui.common.InvestigationStep
+import com.twoskoops707.sixdegrees.domain.SearchPhase
+import com.twoskoops707.sixdegrees.domain.SubjectSearchOrchestrator
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
+import com.twoskoops707.sixdegrees.domain.model.SubjectProfile
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class SearchProgressFragment : Fragment() {
@@ -39,9 +46,14 @@ class SearchProgressFragment : Fragment() {
     private var pendingCandidatesRound: Int = 1
     private var searchStartMs = 0L
     private var estimatedTotal = 0
+    private var elapsedJob: Job? = null
+    private var partialReportId: String? = null
+    private var searchComplete = false
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     private var currentType = "person"
     private var currentDisplayQuery = ""
+    private var investigatorMode = false
+    private var currentRound = 1
 
     private fun normalizedSearchType(): String = when (currentType) {
         "scan" -> "person"
@@ -64,7 +76,12 @@ class SearchProgressFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        InvestigationPipelineView.bind(binding.root, InvestigationStep.COLLECT)
+        investigatorMode = AppSettings.isInvestigatorMode(requireContext())
+        if (investigatorMode) {
+            InvestigationPipelineView.bind(binding.root, InvestigationStep.COLLECT)
+        } else {
+            binding.root.findViewById<View>(R.id.pipeline_include)?.visibility = View.GONE
+        }
 
         val rawQuery = arguments?.getString("query") ?: ""
         val type = arguments?.getString("type") ?: "person"
@@ -72,36 +89,31 @@ class SearchProgressFragment : Fragment() {
         val displayQuery = arguments?.getString("searchQuery")?.takeIf { it.isNotBlank() } ?: rawQuery
 
         searchStartMs = System.currentTimeMillis()
-        estimatedTotal = when (type) {
-            "scan" -> 40
-            "person" -> 29
-            "username" -> 80
-            "ip", "domain" -> 20
-            "email" -> 15
-            "company" -> 13
-            "phone" -> 7
-            "comprehensive" -> if (round >= 3) 65 else 35
-            "vehicle", "vin" -> 5
-            "wifi", "ssid", "mac" -> 4
-            "hash" -> 3
-            "cve" -> 3
-            "trademark" -> 3
-            else -> 10
-        }
+        currentRound = round
+        val profile = SubjectProfile.fromFields(parseDisplayFields(rawQuery))
+        val phase = SubjectSearchOrchestrator.resolvePhase(type, round, profile)
+        estimatedTotal = SubjectSearchOrchestrator.estimatedSourceCount(type, phase, profile)
 
         currentType = type
         currentDisplayQuery = displayQuery
+        binding.tvPhase.text = getString(R.string.progress_deep_investigation)
+        startElapsedTimer()
         val cleanDisplayQuery = displayQuery.split("|").joinToString(", ") { part ->
             val eqIdx = part.indexOf('=')
             if (eqIdx != -1) part.substring(eqIdx + 1).trim() else part.trim()
         }.replace(Regex(",\\s*,"), ",").trim().trimEnd(',')
         binding.tvSearchQuery.text = if (round > 1) "Round $round: $cleanDisplayQuery" else cleanDisplayQuery
-        binding.chipSearchType.text = when {
-            type == "scan" -> "STAGE 1 · DISCOVERY"
-            type == "comprehensive" && round == 2 -> "STAGE 2 · DEEP SEARCH"
-            type == "comprehensive" && round >= 3 -> "STAGE 3 · FULL DOSSIER"
-            round > 1 -> "ROUND $round"
-            else -> type.uppercase()
+        if (investigatorMode) {
+            binding.chipSearchType.visibility = View.VISIBLE
+            binding.chipSearchType.text = when {
+                type == "scan" && round == 1 -> "PHASE 1 · DISCOVERY"
+                type == "comprehensive" || round > 1 -> "PHASE 2 · DEEP INVESTIGATION"
+                type == "phone" || type == "email" -> "DEEP INVESTIGATION"
+                else -> type.uppercase()
+            }
+            binding.searchProgressToolbar.title = getString(R.string.progress_collect_title_pro)
+        } else {
+            applySimpleProgressUi()
         }
 
         viewModel = ViewModelProvider(
@@ -115,6 +127,10 @@ class SearchProgressFragment : Fragment() {
             adapter = this@SearchProgressFragment.adapter
             isNestedScrollingEnabled = false
             itemAnimator = null
+        }
+
+        binding.btnPartialResults.setOnClickListener {
+            navigateToResults(partialReportId ?: completedReportId)
         }
 
         binding.fabViewReport.setOnClickListener {
@@ -139,17 +155,7 @@ class SearchProgressFragment : Fragment() {
                     )
                 } catch (_: Exception) {}
             } else {
-                val reportId = completedReportId ?: return@setOnClickListener
-                try {
-                    nav.navigate(
-                        R.id.action_progress_to_results,
-                        Bundle().apply {
-                            putString("searchQuery", currentDisplayQuery)
-                            putString("searchType", normalizedSearchType())
-                            putString("reportId", reportId)
-                        }
-                    )
-                } catch (_: Exception) {}
+                navigateToResults(completedReportId)
             }
         }
 
@@ -162,41 +168,102 @@ class SearchProgressFragment : Fragment() {
         viewModel.startSearch()
     }
 
+    private fun parseDisplayFields(rawQuery: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        rawQuery.split("|").forEach { part ->
+            val eq = part.indexOf("=")
+            if (eq > 0) {
+                val k = part.substring(0, eq).trim()
+                val v = part.substring(eq + 1).trim()
+                if (v.isNotBlank()) result[k] = v
+            }
+        }
+        return result
+    }
+
+    private fun startElapsedTimer() {
+        elapsedJob?.cancel()
+        elapsedJob = viewLifecycleOwner.lifecycleScope.launch {
+            while (isActive) {
+                updateElapsed()
+                delay(1_000)
+            }
+        }
+    }
+
+    private fun updateElapsed() {
+        val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
+        val mins = elapsedSec / 60
+        val secs = elapsedSec % 60
+        binding.tvElapsed.text = getString(R.string.progress_elapsed, mins, secs)
+    }
+
+    private fun navigateToResults(reportId: String?) {
+        if (!isAdded || !isResumed) return
+        val id = reportId ?: return
+        val nav = findNavController()
+        if (nav.currentDestination?.id != R.id.nav_search_progress) return
+        try {
+            nav.navigate(
+                R.id.action_progress_to_results,
+                Bundle().apply {
+                    putString("searchQuery", currentDisplayQuery)
+                    putString("searchType", normalizedSearchType())
+                    putString("reportId", id)
+                }
+            )
+        } catch (_: Exception) {}
+    }
+
     private fun handleEvent(event: SearchProgressEvent) {
         if (_binding == null) return
         when (event) {
-            is SearchProgressEvent.Checking -> {
-                val existing = sourceRows.indexOfFirst { it.source == event.source }
-                if (existing == -1) {
-                    sourceRows.add(SourceRow(event.source, SourceRow.State.CHECKING))
-                    adapter.notifyItemInserted(sourceRows.lastIndex)
-                    binding.rvSources.smoothScrollToPosition(sourceRows.lastIndex)
+            is SearchProgressEvent.PhaseUpdate -> {
+                if (investigatorMode) {
+                    binding.tvPhase.text = when (event.phase.lowercase()) {
+                        "discovery" -> getString(R.string.progress_phase_discovery)
+                        "deep scan", "secondary sweep" -> getString(R.string.progress_phase_deep)
+                        "dark web" -> getString(R.string.progress_phase_dark)
+                        "ai brief" -> getString(R.string.progress_phase_ai)
+                        else -> event.detail.ifBlank { getString(R.string.progress_deep_investigation) }
+                    }
+                    if (event.detail.isNotBlank() && event.phase.lowercase() !in setOf("discovery", "deep scan")) {
+                        binding.tvStatus.text = event.detail
+                    }
+                } else {
+                    binding.tvStatus.text = getString(R.string.progress_simple_status)
                 }
-                binding.tvStatus.text = "Checking ${event.source}…"
+            }
+            is SearchProgressEvent.PartialResultsReady -> {
+                partialReportId = event.reportId
+                if (!searchComplete && investigatorMode) {
+                    binding.btnPartialResults.visibility = View.VISIBLE
+                }
+            }
+            is SearchProgressEvent.Checking -> {
+                if (investigatorMode) {
+                    val existing = sourceRows.indexOfFirst { it.source == event.source }
+                    if (existing == -1) {
+                        sourceRows.add(SourceRow(event.source, SourceRow.State.CHECKING))
+                        adapter.notifyItemInserted(sourceRows.lastIndex)
+                        binding.rvSources.smoothScrollToPosition(sourceRows.lastIndex)
+                    }
+                    binding.tvStatus.text = "Checking ${event.source}…"
+                } else {
+                    binding.tvStatus.text = getString(R.string.progress_simple_status)
+                }
             }
             is SearchProgressEvent.Found -> {
                 hitCount++
-                val idx = sourceRows.indexOfFirst { it.source == event.source }
-                if (idx != -1) {
-                    sourceRows[idx].state = SourceRow.State.FOUND
-                    sourceRows[idx].detail = event.detail
-                    adapter.notifyItemChanged(idx)
-                } else {
-                    sourceRows.add(SourceRow(event.source, SourceRow.State.FOUND, event.detail))
-                    adapter.notifyItemInserted(sourceRows.lastIndex)
-                }
+                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.FOUND, event.detail)
                 checkedCount++
                 updateCounts()
+                if (!investigatorMode && hitCount > 0) {
+                    binding.tvStatus.text = getString(R.string.progress_simple_found)
+                }
             }
             is SearchProgressEvent.NotFound -> {
-                val idx = sourceRows.indexOfFirst { it.source == event.source }
-                if (idx != -1) {
-                    sourceRows[idx].state = SourceRow.State.NOT_FOUND
-                    adapter.notifyItemChanged(idx)
-                } else {
-                    sourceRows.add(SourceRow(event.source, SourceRow.State.NOT_FOUND))
-                    adapter.notifyItemInserted(sourceRows.lastIndex)
-                }
+                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.NOT_FOUND)
                 checkedCount++
                 updateCounts()
             }
@@ -207,29 +274,13 @@ class SearchProgressFragment : Fragment() {
                     binding.tvStatus.text = "Search failed: ${event.reason}"
                     binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
                 } else {
-                    val idx = sourceRows.indexOfFirst { it.source == event.source }
-                    if (idx != -1) {
-                        sourceRows[idx].state = SourceRow.State.FAILED
-                        sourceRows[idx].detail = event.reason
-                        adapter.notifyItemChanged(idx)
-                    } else {
-                        sourceRows.add(SourceRow(event.source, SourceRow.State.FAILED, event.reason))
-                        adapter.notifyItemInserted(sourceRows.lastIndex)
-                    }
+                    if (investigatorMode) updateSourceRow(event.source, SourceRow.State.FAILED, event.reason)
                     checkedCount++
                     updateCounts()
                 }
             }
             is SearchProgressEvent.Blocked -> {
-                val idx = sourceRows.indexOfFirst { it.source == event.source }
-                if (idx != -1) {
-                    sourceRows[idx].state = SourceRow.State.BLOCKED
-                    sourceRows[idx].detail = event.reason
-                    adapter.notifyItemChanged(idx)
-                } else {
-                    sourceRows.add(SourceRow(event.source, SourceRow.State.BLOCKED, event.reason))
-                    adapter.notifyItemInserted(sourceRows.lastIndex)
-                }
+                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.BLOCKED, event.reason)
                 checkedCount++
                 updateCounts()
             }
@@ -258,10 +309,19 @@ class SearchProgressFragment : Fragment() {
                     } catch (_: Exception) {}
                 } else {
                     pendingCandidates = event.candidates
-                    binding.tvStatus.text = "${event.candidates.size} candidate${if (event.candidates.size != 1) "s" else ""} identified · ${elapsedSec}s"
+                    val withPhotos = event.candidates.count { it.allPhotoUrls().isNotEmpty() }
+                    binding.tvStatus.text = if (investigatorMode) {
+                        "${event.candidates.size} people in your area · ${withPhotos} with photos · ${elapsedSec}s"
+                    } else {
+                        getString(R.string.progress_simple_complete) + " — ${event.candidates.size} possible match${if (event.candidates.size != 1) "es" else ""}"
+                    }
                     binding.tvEta.text = ""
                     binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
-                    binding.fabViewReport.text = "Select Candidates (${event.candidates.size})"
+                    binding.fabViewReport.text = if (investigatorMode) {
+                        "Choose person (${event.candidates.size})"
+                    } else {
+                        getString(R.string.progress_simple_choose)
+                    }
                     binding.fabViewReport.apply {
                         visibility = View.VISIBLE
                         alpha = 0f
@@ -271,11 +331,16 @@ class SearchProgressFragment : Fragment() {
             }
             is SearchProgressEvent.BrowserToolsReady -> { /* in-app scraping handles these; no external browser */ }
             is SearchProgressEvent.Complete -> {
+                searchComplete = true
                 completedReportId = event.reportId
                 binding.progressBar.visibility = View.GONE
+                binding.btnPartialResults.visibility = View.GONE
                 val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
-                binding.tvStatus.text = "COMPLETE — ${event.hitCount} hit${if (event.hitCount != 1) "s" else ""} · ${elapsedSec}s"
+                val suffix = if (hitCount != 1) "s" else ""
+                binding.tvStatus.text = getString(R.string.progress_findings, hitCount, suffix) +
+                    " · ${elapsedSec / 60}m ${elapsedSec % 60}s"
                 binding.tvEta.text = ""
+                binding.tvPhase.text = getString(R.string.progress_phase_ai)
                 binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
                 binding.fabViewReport.text = "View Full Report"
                 binding.fabViewReport.apply {
@@ -288,19 +353,27 @@ class SearchProgressFragment : Fragment() {
     }
 
     private fun updateCounts() {
-        binding.tvFoundCount.text = "$hitCount HIT${if (hitCount != 1) "S" else ""}"
+        val suffix = if (hitCount != 1) "s" else ""
+        binding.tvFoundCount.text = getString(R.string.progress_findings, hitCount, suffix)
         val total = maxOf(estimatedTotal, sourceRows.size)
-        binding.tvCheckedCount.text = "$checkedCount / $total checked"
+        binding.tvCheckedCount.text = getString(R.string.progress_sources_checked, checkedCount, total)
         val elapsedMs = System.currentTimeMillis() - searchStartMs
-        if (checkedCount > 0 && checkedCount < total) {
-            val avgMsPerSource = elapsedMs / checkedCount
-            val remaining = total - checkedCount
-            val etaSec = (avgMsPerSource * remaining / 1000).toInt().coerceAtMost(300)
-            binding.tvEta.text = "ETA ~${etaSec}s remaining"
+        val minMs = SubjectSearchOrchestrator.minimumDurationMs(
+            if (currentRound > 1 || currentType == "comprehensive") SearchPhase.DEEP_INVESTIGATION
+            else SearchPhase.CANDIDATE_DISCOVERY
+        )
+        if (checkedCount > 0 && checkedCount < total && elapsedMs < minMs) {
+            val remainingMs = (minMs - elapsedMs).coerceAtLeast(0)
+            val etaMin = (remainingMs / 60_000).toInt()
+            val etaSec = ((remainingMs % 60_000) / 1000).toInt()
+            binding.tvEta.text = if (etaMin > 0) "~${etaMin}m ${etaSec}s left" else "~${etaSec}s left"
+        } else if (checkedCount < total) {
+            binding.tvEta.text = "Sweeping sources…"
         }
     }
 
     override fun onDestroyView() {
+        elapsedJob?.cancel()
         super.onDestroyView()
         _binding = null
     }

@@ -2,8 +2,8 @@
     <string name="app_name">6Degrees</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="nav_header_title">6Degrees OSINT</string>
-    <string name="nav_header_subtitle">Guided Investigation Platform</string>
+    <string name="nav_header_title">6Degrees</string>
+    <string name="nav_header_subtitle">Know who you\'re meeting</string>
     <string name="nav_header_desc">Navigation header</string>
     <string name="action_settings">Settings</string>
 
@@ -13,8 +13,8 @@
     <string name="menu_settings">Settings</string>
     <string name="menu_wizard">Setup Wizard</string>
 
-    <string name="search_title">6Degrees</string>
-    <string name="search_subtitle">Guided OSINT wizard · 80+ sources · 7 investigation types</string>
+    <string name="search_title">Verify before you meet</string>
+    <string name="search_subtitle">Safety-first OSINT · phone, name, photo, or any clue</string>
     <string name="search_hint">Name, email, phone, username, IP, domain…</string>
     <string name="search_person">Person</string>
     <string name="search_email">Email</string>
@@ -25,7 +25,7 @@
     <string name="search_image">Image</string>
     <string name="search_button">Investigate</string>
     <string name="recent_searches_title">Recent Investigations</string>
-    <string name="no_recent_searches">No recent investigations — pick a target type above to begin</string>
+    <string name="no_recent_searches">No recent investigations — add a detail above to get started</string>
     <string name="open_wizard">Setup Wizard</string>
 
     <!-- Investigation type descriptions shown as hints -->
@@ -39,14 +39,56 @@
     <string name="search_type_hint_wifi">Geolocates a WiFi network by SSID or BSSID using the WiGLE wardriving database.</string>
 
     <string name="results_title">INTELLIGENCE REPORT</string>
-    <string name="dossier_title">CASE DOSSIER</string>
-    <string name="pipeline_label">Investigation pipeline</string>
-    <string name="pipeline_step_intake">Intake</string>
-    <string name="pipeline_step_collect">Collect</string>
-    <string name="pipeline_step_resolve">Resolve</string>
-    <string name="pipeline_step_dossier">Dossier</string>
-    <string name="search_intake_title">Case intake</string>
-    <string name="search_intake_subtitle">Define your target — more identifiers reduce false positives</string>
+    <string name="dossier_title">SAFETY DOSSIER</string>
+    <string name="pipeline_label">Safety check pipeline</string>
+    <string name="pipeline_step_intake">Clues</string>
+    <string name="pipeline_step_collect">Scan</string>
+    <string name="pipeline_step_resolve">Confirm</string>
+    <string name="pipeline_step_dossier">Report</string>
+    <string name="search_intake_title">Know who you\'re meeting</string>
+    <string name="search_intake_subtitle">One detail is enough — we\'ll build a safety dossier before you walk in blind</string>
+    <string name="intake_phone_label">Phone number</string>
+    <string name="intake_phone_hint">(555) 123-4567 or paste everything you know</string>
+    <string name="intake_phone_helper">Phone only, or dump clues: John Smith, Austin TX, works at Dell, 512-555-0100</string>
+    <string name="progress_deep_investigation">Deep investigation in progress — typically 5–10 minutes</string>
+    <string name="progress_elapsed">Elapsed %1$02d:%2$02d</string>
+    <string name="progress_phase_discovery">Discovery — people finders &amp; social</string>
+    <string name="progress_phase_deep">Deep scan — courts, SEC, breaches</string>
+    <string name="progress_phase_dark">Dark web — Tor index sweep</string>
+    <string name="progress_phase_ai">AI brief — synthesizing dossier</string>
+    <string name="progress_partial_results">View partial results</string>
+    <string name="progress_sources_checked">%1$d / %2$d sources checked</string>
+    <string name="progress_findings">%1$d finding%2$s</string>
+    <string name="intake_add_clues_label">Add more clues</string>
+    <string name="intake_chip_name">Name</string>
+    <string name="intake_chip_photo">Photo</string>
+    <string name="intake_chip_email">Email</string>
+    <string name="intake_chip_username">Username</string>
+    <string name="intake_chip_location">City &amp; state</string>
+    <string name="intake_name_label">Their name</string>
+    <string name="intake_first_name_hint">First name</string>
+    <string name="intake_last_name_hint">Last name</string>
+    <string name="intake_photo_label">Add a photo</string>
+    <string name="intake_photo_helper">Snap a picture or pick one from your gallery</string>
+    <string name="intake_photo_attached">Photo captured</string>
+    <string name="intake_photo_selected">Photo selected</string>
+    <string name="intake_email_hint">Email address</string>
+    <string name="intake_username_hint">Username or handle</string>
+    <string name="intake_location_label">Last known area</string>
+    <string name="intake_city_hint">City</string>
+    <string name="intake_state_hint">State</string>
+    <string name="intake_intent_label">Why are you checking them?</string>
+    <string name="intake_intent_helper">Optional — tunes sources (people finders, courts, dark web on deep dive)</string>
+    <string name="intake_intent_first_date">First / blind date</string>
+    <string name="intake_intent_meeting">Meeting someone new</string>
+    <string name="intake_intent_verify">Verify identity</string>
+    <string name="intake_intent_fraud">Fraud check</string>
+    <string name="intake_sources_default">18 sources ready</string>
+    <string name="intake_sources_count">%1$d sources ready</string>
+    <string name="intake_start_investigation">Run safety check</string>
+    <string name="intake_clear_fields">Clear all fields</string>
+    <string name="intake_web_hub">Browse OSINT tools</string>
+    <string name="intake_camera_permission">Camera permission is needed to take a photo</string>
     <string name="dossier_tab_subject">Subject file</string>
     <string name="dossier_tab_contacts">Contact matrix</string>
     <string name="dossier_tab_digital">Digital trace</string>
@@ -80,15 +122,18 @@
     <string name="phone_label">Phone</string>
     <string name="no_results_title">No Intelligence Found</string>
     <string name="no_results_message">Try adding more details — city, employer, or age. More API keys in Settings unlock additional sources.</string>
-    <string name="shady_score_title">Threat Score</string>
+    <string name="shady_score_title">Safe to meet?</string>
+    <string name="results_score_badge">RISK</string>
+    <string name="results_risk_disclaimer">Informational only — not legal advice. Trust your instincts.</string>
+    <string name="dossier_tab_darkweb">Dark Web</string>
     <string name="export_report">Export Report</string>
     <string name="open_source">View Sources</string>
 
     <!-- Results screen -->
     <string name="results_empty_title">No Report Yet</string>
     <string name="results_empty_message">Choose an investigation type on the main screen, fill in what you know, and tap Investigate.</string>
-    <string name="results_risk_label">Threat Assessment</string>
-    <string name="results_risk_calculating">Calculating…</string>
+    <string name="results_risk_label">Safe to meet?</string>
+    <string name="results_risk_calculating">Assessing red flags…</string>
 
     <!-- Wizard screen -->
     <string name="wizard_toolbar_title">Investigation Wizard</string>
@@ -201,12 +246,48 @@
     <string name="dork_builder_subtitle">Craft advanced search queries using Google/Bing operators to surface hidden public records</string>
 
     <!-- Candidate selection -->
-    <string name="candidate_title">Select Your Target</string>
-    <string name="candidate_subtitle">Multiple people match your query. Pick the closest match to run a full deep-dive report.</string>
+    <string name="candidate_title">Is this who you\'re meeting?</string>
+    <string name="candidate_subtitle">We found several matches. Pick the right person — we\'ll lock their profile and run a deep safety check.</string>
+    <string name="candidate_photo_instructions">Tap the person that matches — we\'ll verify identity, check courts, and scan the dark web index.</string>
+    <string name="candidate_thats_them">That\'s them</string>
+    <string name="candidate_not_any">Not any of these</string>
+    <string name="candidate_match_pct">%1$d%% match</string>
+    <string name="candidate_no_photos">No photo found</string>
+    <string name="social_linkedin">LinkedIn profile</string>
+    <string name="social_facebook">Facebook profile</string>
+    <string name="social_instagram">Instagram profile</string>
+    <plurals name="candidate_match_count">
+        <item quantity="one">%d possible match</item>
+        <item quantity="other">%d possible matches</item>
+    </plurals>
+
+    <!-- Investigator / OSINT Pro mode -->
+    <string name="settings_advanced_header">Advanced</string>
+    <string name="settings_investigator_mode">OSINT Pro mode</string>
+    <string name="settings_investigator_mode_hint">Unlock source logs, full dossier tabs, Web Hub, and raw export</string>
+    <string name="settings_search_tools_header">Investigator tools</string>
+    <string name="progress_simple_status">Checking public records…</string>
+    <string name="progress_simple_found">Found something — still checking…</string>
+    <string name="progress_simple_complete">What we found</string>
+    <string name="progress_simple_choose">See matches</string>
+    <string name="progress_simple_open_dossier">See what we found</string>
+    <string name="progress_source_log">Source pipeline</string>
+    <string name="dossier_simple_who">Who they are</string>
+    <string name="dossier_simple_where">Where they\'ve been</string>
+    <string name="dossier_simple_flags">Red flags</string>
+    <string name="dossier_simple_safe">Safe to meet?</string>
+    <string name="results_score_badge_simple">SAFE?</string>
+    <string name="intake_sources_simple">We\'ll check public records</string>
 
     <!-- Search progress -->
-    <string name="progress_title">Investigating…</string>
-    <string name="progress_collect_title">Collecting intelligence</string>
-    <string name="progress_subtitle">Querying sources in parallel — this takes 10–30 seconds</string>
-    <string name="candidate_resolve_title">Resolve identity</string>
+    <string name="progress_title">Running safety check…</string>
+    <string name="progress_collect_title">Scanning public &amp; indexed sources</string>
+    <string name="progress_collect_title_pro">Source pipeline</string>
+    <string name="progress_subtitle">People finders, breach checks, courts — usually 10–30 seconds</string>
+    <string name="candidate_resolve_title">Confirm identity</string>
+    <string name="darkweb_section_disclaimer">Indexed search results only — .onion links are not fetched. Ahmia via Tor when available.</string>
+
+    <!-- Themes -->
+    <string name="theme_theplug_title">The Plug</string>
+    <string name="theme_theplug_subtitle">White brick · Green vibes</string>
 </resources>

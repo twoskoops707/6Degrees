@@ -98,16 +98,17 @@
 
         <include layout="@layout/include_investigation_pipeline" />
 
+        <!-- Pinned subject header -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/person_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="12dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
             app:cardBackgroundColor="?attr/colorSurface"
-            app:cardCornerRadius="0dp"
+            app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
             app:strokeColor="?attr/colorOutline"
             app:strokeWidth="1dp">
@@ -125,52 +126,19 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
 
-                    <LinearLayout
-                        android:layout_width="96dp"
-                        android:layout_height="match_parent"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:background="?android:colorBackground"
-                        android:paddingTop="16dp"
-                        android:paddingBottom="16dp">
-
-                        <com.google.android.material.imageview.ShapeableImageView
-                            android:id="@+id/profile_image"
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/ic_person_placeholder"
-                            app:strokeColor="?attr/colorOutline"
-                            app:strokeWidth="1dp"
-                            app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small" />
-
-                        <Space
-                            android:layout_width="match_parent"
-                            android:layout_height="8dp" />
-
-                        <TextView
-                            android:id="@+id/tv_score_number"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="—"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="28sp"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:fontFamily="sans-serif-condensed" />
-
-                        <TextView
-                            android:id="@+id/tv_sources_count"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="8sp"
-                            android:gravity="center"
-                            android:fontFamily="monospace" />
-
-                    </LinearLayout>
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/profile_image"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_person_placeholder"
+                        app:strokeColor="?attr/colorOutline"
+                        app:strokeWidth="1dp"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -178,50 +146,79 @@
                         android:layout_weight="1"
                         android:orientation="vertical"
                         android:paddingStart="12dp"
-                        android:paddingEnd="14dp"
-                        android:paddingTop="14dp"
-                        android:paddingBottom="14dp">
+                        android:paddingEnd="4dp">
 
                         <TextView
                             android:id="@+id/full_name"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:textColor="?attr/colorOnSurface"
-                            android:textSize="24sp"
+                            android:textSize="22sp"
                             android:textStyle="bold"
                             android:fontFamily="sans-serif-condensed"
-                            android:letterSpacing="0.01"
-                            android:maxLines="1"
+                            android:maxLines="2"
                             android:ellipsize="end"
                             android:textIsSelectable="true" />
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:background="?attr/colorOutline"
-                            android:layout_marginTop="8dp"
-                            android:layout_marginBottom="8dp" />
 
                         <TextView
                             android:id="@+id/job_title"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
                             android:textColor="?attr/colorPrimary"
                             android:textSize="12sp"
                             android:maxLines="1"
                             android:ellipsize="end"
-                            android:textIsSelectable="true"
-                            android:layout_marginBottom="4dp" />
+                            android:textIsSelectable="true" />
 
                         <TextView
                             android:id="@+id/location"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="12sp"
                             android:maxLines="1"
                             android:ellipsize="end"
+                            android:drawablePadding="4dp"
                             android:textIsSelectable="true" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <TextView
+                            android:id="@+id/tv_score_number"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="—"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="26sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/results_score_badge"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textSize="8sp"
+                            android:letterSpacing="0.12"
+                            android:fontFamily="monospace" />
+
+                        <TextView
+                            android:id="@+id/tv_sources_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textSize="8sp"
+                            android:gravity="center"
+                            android:fontFamily="monospace" />
 
                     </LinearLayout>
 
@@ -237,9 +234,9 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="12dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="6dp"
             app:cardBackgroundColor="?attr/colorSurface"
-            app:cardCornerRadius="0dp"
+            app:cardCornerRadius="10dp"
             app:cardElevation="0dp"
             app:strokeColor="?attr/colorOutline"
             app:strokeWidth="1dp">
@@ -250,14 +247,14 @@
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
-                android:paddingTop="12dp"
-                android:paddingBottom="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:gravity="center_vertical">
 
                 <View
                     android:id="@+id/score_accent_bar"
                     android:layout_width="3dp"
-                    android:layout_height="36dp"
+                    android:layout_height="32dp"
                     android:layout_marginEnd="12dp"
                     android:background="?attr/colorPrimary" />
 
@@ -276,7 +273,7 @@
                         android:letterSpacing="0.14"
                         android:textAllCaps="true"
                         android:fontFamily="sans-serif-condensed"
-                        android:layout_marginBottom="3dp" />
+                        android:layout_marginBottom="2dp" />
 
                     <TextView
                         android:id="@+id/tv_score_verdict"
@@ -284,10 +281,9 @@
                         android:layout_height="wrap_content"
                         android:text="@string/results_risk_calculating"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif-condensed"
-                        android:letterSpacing="0.04"
                         android:maxLines="1"
                         android:textIsSelectable="true" />
 
@@ -296,8 +292,10 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="12sp"
+                        android:textSize="11sp"
                         android:layout_marginTop="2dp"
+                        android:maxLines="2"
+                        android:ellipsize="end"
                         android:textIsSelectable="true" />
 
                 </LinearLayout>
@@ -312,19 +310,24 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingHorizontal="12dp"
-            android:paddingTop="4dp" />
+            android:paddingTop="2dp" />
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/dossier_tabs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="?attr/colorSurface"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             app:tabMode="scrollable"
             app:tabGravity="start"
+            app:tabIndicatorFullWidth="false"
+            app:tabIndicatorHeight="3dp"
             app:tabIndicatorColor="?attr/colorPrimary"
             app:tabSelectedTextColor="?attr/colorPrimary"
             app:tabTextColor="?attr/colorOnSurfaceVariant"
-            app:tabRippleColor="?attr/colorPrimary" />
+            app:tabRippleColor="?attr/colorPrimary"
+            app:tabTextAppearance="@style/TextAppearance.Material3.LabelLarge" />
 
         <androidx.viewpager2.widget.ViewPager2
             android:id="@+id/dossier_pager"

@@ -44,6 +44,10 @@
             android:name="searchQuery"
             app:argType="string"
             android:defaultValue="" />
+        <argument
+            android:name="subjectProfileJson"
+            app:argType="string"
+            android:defaultValue="" />
         <action
             android:id="@+id/action_progress_to_results"
             app:destination="@id/nav_results"
@@ -78,6 +82,10 @@
             android:defaultValue="1" />
         <argument
             android:name="searchQuery"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="subjectProfileJson"
             app:argType="string"
             android:defaultValue="" />
         <action

@@ -166,6 +166,11 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("openrouter_model", "") ?: ""
         set(v) { prefs.edit().putString("openrouter_model", v).apply() }
 
+    /** Optional — defaults to FEC DEMO_KEY when blank. https://api.open.fec.gov/developers/ */
+    var openFecKey: String
+        get() = prefs.getString("openfec", "") ?: ""
+        set(v) { prefs.edit().putString("openfec", v).apply() }
+
     fun getKey(service: String): String? =
         prefs.getString(service, null)?.takeIf { it.isNotBlank() }
 
@@ -232,6 +237,9 @@ class ApiKeyManager(context: Context) {
         ApiUsageSummary("ThreatFox", getMonthlyUsage("threatfox"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("MalwareBazaar", getMonthlyUsage("malwarebazaar"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("CourtListener", getMonthlyUsage("courtlistener"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("NPI Registry", getMonthlyUsage("npi"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("Zippopotam", getMonthlyUsage("zippopotam"), Int.MAX_VALUE, isUnlimited = true),
+        ApiUsageSummary("OpenFEC", getMonthlyUsage("openfec"), Int.MAX_VALUE, isUnlimited = openFecKey.isBlank()),
         ApiUsageSummary("OpenCorporates", getMonthlyUsage("opencorporates"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("FBI Wanted", getMonthlyUsage("fbi_wanted"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("Interpol", getMonthlyUsage("interpol"), Int.MAX_VALUE, isUnlimited = true),

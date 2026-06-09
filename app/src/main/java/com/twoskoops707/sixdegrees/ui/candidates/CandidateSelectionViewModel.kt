@@ -2,51 +2,47 @@ package com.twoskoops707.sixdegrees.ui.candidates
 
 import androidx.lifecycle.ViewModel
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.twoskoops707.sixdegrees.domain.model.SubjectProfile
 
 class CandidateSelectionViewModel : ViewModel() {
 
-    private val _selected = MutableStateFlow<Set<Int>>(emptySet())
-    val selected: StateFlow<Set<Int>> = _selected
+    /** Build a locked deep-dive query from the chosen candidate. */
+    fun buildLockedQuery(candidate: CandidateProfile): String =
+        SubjectProfile.fromCandidate(candidate).toQueryString()
 
-    fun toggleSelection(index: Int, maxAllowed: Int) {
-        val current = _selected.value.toMutableSet()
-        if (current.contains(index)) {
-            current.remove(index)
-        } else {
-            if (current.size < maxAllowed) {
-                current.add(index)
-            } else {
-                current.clear()
-                current.add(index)
-            }
-        }
-        _selected.value = current
+    /** @deprecated Use [buildLockedQuery] which returns SubjectProfile-based query */
+    fun buildRefinedQuery(candidates: List<CandidateProfile>, baseFields: Map<String, String> = emptyMap()): String {
+        val primary = candidates.firstOrNull() ?: return ""
+        return SubjectProfile.fromCandidate(primary, SubjectProfile.fromFields(baseFields)).toQueryString()
     }
 
-    fun buildRefinedQuery(candidates: List<CandidateProfile>): String {
-        val chosen = _selected.value.sorted().mapNotNull { candidates.getOrNull(it) }
-        if (chosen.isEmpty()) return ""
-        val primary = chosen.first()
-        val parts = mutableListOf<String>()
-        if (primary.name.isNotBlank()) parts.add("name=${primary.name}")
-        primary.phones.firstOrNull()?.let { parts.add("phone=$it") }
-        if (primary.location.isNotBlank()) {
-            val locParts = primary.location.split(",").map { it.trim() }
-            if (locParts.size >= 2) {
-                parts.add("city=${locParts[0]}")
-                parts.add("state=${locParts[1]}")
-            } else {
-                parts.add("city=${primary.location}")
-            }
+    fun buildLockedSubjectProfile(candidate: CandidateProfile, baseFields: Map<String, String> = emptyMap()) =
+        SubjectProfile.fromCandidate(candidate, SubjectProfile.fromFields(baseFields))
+
+    /** Format raw search query for display (e.g. name=John|city=Austin → John Smith · Austin, TX). */
+    fun formatDisplayQuery(raw: String): String {
+        if (raw.isBlank()) return ""
+        if (!raw.contains("=")) return raw.trim()
+        val fields = raw.split("|").mapNotNull { part ->
+            val eq = part.indexOf('=')
+            if (eq == -1) null else part.substring(0, eq).trim().lowercase() to part.substring(eq + 1).trim()
+        }.toMap()
+
+        val name = listOfNotNull(
+            fields["firstname"] ?: fields["first"],
+            fields["lastname"] ?: fields["last"]
+        ).joinToString(" ").ifBlank { fields["name"] ?: "" }
+
+        val city = fields["city"] ?: ""
+        val state = fields["state"] ?: ""
+        val location = when {
+            city.isNotBlank() && state.isNotBlank() -> "$city, $state"
+            city.isNotBlank() -> city
+            state.isNotBlank() -> state
+            fields["location"]?.isNotBlank() == true -> fields["location"]!!
+            else -> ""
         }
-        if (primary.address.isNotBlank()) parts.add("address=${primary.address}")
-        primary.dob?.takeIf { it.isNotBlank() }?.let { parts.add("dob=$it") }
-        if (chosen.size > 1) {
-            val alts = chosen.drop(1).filter { it.name.isNotBlank() && it.name != primary.name }
-            if (alts.isNotEmpty()) parts.add("context=also check: ${alts.joinToString(", ") { it.name }}")
-        }
-        return parts.joinToString("|")
+
+        return listOf(name, location).filter { it.isNotBlank() }.joinToString(" · ")
     }
 }

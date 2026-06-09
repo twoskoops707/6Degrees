@@ -2,6 +2,7 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:colorBackground">
@@ -21,66 +22,47 @@
             app:navigationIcon="@drawable/ic_arrow_back"
             app:title="@string/candidate_resolve_title" />
 
-        <com.google.android.material.card.MaterialCardView
+        <!-- Query context header -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="10dp"
-            style="@style/Widget.SixDegrees.Card">
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/screen_padding_horizontal"
+            android:paddingTop="8dp"
+            android:paddingBottom="12dp">
 
-            <LinearLayout
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:text="@string/candidate_title"
+                android:textAppearance="@style/TextAppearance.SixDegrees.HeadlineMedium" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
+            <TextView
+                android:id="@+id/tv_candidate_query"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textAppearance="@style/TextAppearance.SixDegrees.TitleLarge"
+                android:textColor="?attr/colorPrimary"
+                tools:text="John Smith · Austin, TX" />
 
-                    <TextView
-                        android:id="@+id/tv_round_label"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Round 1 of 3"
-                        android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
-                        android:textColor="?attr/colorPrimary" />
+            <TextView
+                android:id="@+id/tv_select_instructions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/candidate_subtitle"
+                android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
-                    <TextView
-                        android:id="@+id/chip_round_indicator"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Narrowing"
-                        android:textSize="11sp"
-                        android:textColor="?attr/colorOnSecondaryContainer"
-                        android:background="?attr/colorSecondaryContainer"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="4dp" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tv_candidate_query"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.SixDegrees.TitleMedium"
-                    android:ellipsize="end"
-                    android:maxLines="2"
-                    android:layout_marginBottom="6dp" />
-
-                <TextView
-                    android:id="@+id/tv_select_instructions"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Select the 1–2 best matches to investigate further"
-                    android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            <TextView
+                android:id="@+id/tv_candidate_count"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                tools:text="4 possible matches" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_candidates"
@@ -89,33 +71,27 @@
             android:layout_weight="1"
             android:clipToPadding="false"
             android:paddingTop="4dp"
-            android:paddingBottom="24dp" />
+            android:paddingBottom="96dp"
+            tools:listitem="@layout/item_candidate_card" />
     </LinearLayout>
 
-    <LinearLayout
+    <!-- Bottom refine action -->
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:orientation="horizontal"
-        android:padding="@dimen/screen_padding_horizontal"
-        android:background="?attr/colorSurfaceContainer">
+        app:cardBackgroundColor="?attr/colorSurfaceContainer"
+        app:cardCornerRadius="0dp"
+        app:cardElevation="8dp"
+        app:strokeWidth="0dp">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_skip_to_results"
+            android:id="@+id/btn_not_any"
             style="@style/Widget.SixDegrees.Button.Outlined"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:text="Skip"
-            android:layout_marginEnd="12dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_investigate"
-            style="@style/Widget.SixDegrees.Button.Filled"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_weight="1"
-            android:text="Confirm selection"
-            android:enabled="false" />
-    </LinearLayout>
+            android:layout_margin="@dimen/screen_padding_horizontal"
+            android:text="@string/candidate_not_any" />
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
