@@ -5,75 +5,44 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/fi_ink">
+    android:background="?android:colorBackground">
 
-    <LinearLayout
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/results_toolbar"
+        style="@style/Widget.SixDegrees.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@color/fi_charcoal">
+        android:layout_height="?attr/actionBarSize"
+        app:title="@string/results_title">
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:background="@color/fi_orange" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:orientation="horizontal"
+            android:layout_marginEnd="4dp">
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/results_toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:background="@color/fi_charcoal"
-            app:title="INTELLIGENCE DOSSIER"
-            app:titleTextColor="@color/fi_parchment"
-            app:navigationIcon="@drawable/ic_arrow_back"
-            app:navigationIconTint="@color/fi_ash">
-
-            <LinearLayout
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_web_hub"
+                style="@style/Widget.SixDegrees.Button.Outlined"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:orientation="horizontal"
-                android:layout_marginEnd="4dp">
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:text="Web Hub"
+                android:textSize="12sp"
+                app:icon="@drawable/ic_web_hub"
+                app:iconSize="16dp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_web_hub"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:layout_marginEnd="6dp"
-                    android:text="WEB HUB"
-                    android:textColor="@color/fi_amber"
-                    android:textSize="10sp"
-                    android:letterSpacing="0.1"
-                    android:fontFamily="sans-serif-condensed"
-                    app:strokeColor="@color/fi_amber"
-                    app:strokeWidth="1dp"
-                    app:cornerRadius="0dp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_export"
+                style="@style/Widget.SixDegrees.Button.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Export"
+                android:textSize="12sp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_export"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:text="EXPORT"
-                    android:textColor="@color/fi_orange"
-                    android:textSize="10sp"
-                    android:letterSpacing="0.1"
-                    android:fontFamily="sans-serif-condensed"
-                    app:strokeColor="@color/fi_orange"
-                    app:strokeWidth="1dp"
-                    app:cornerRadius="0dp" />
+        </LinearLayout>
 
-            </LinearLayout>
-
-        </com.google.android.material.appbar.MaterialToolbar>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/fi_border" />
-
-    </LinearLayout>
+    </com.google.android.material.appbar.MaterialToolbar>
 
     <ProgressBar
         android:id="@+id/loading_indicator"
@@ -81,7 +50,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="48dp"
-        android:indeterminateTint="@color/fi_orange"
+        android:indeterminateTint="?attr/colorPrimary"
         android:visibility="gone" />
 
     <LinearLayout
@@ -98,7 +67,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/results_empty_title"
-            android:textColor="@color/fi_smoke"
+            android:textColor="?attr/colorOutline"
             android:textSize="20sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
@@ -111,7 +80,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/results_empty_message"
-            android:textColor="@color/fi_smoke"
+            android:textColor="?attr/colorOutline"
             android:textSize="12sp"
             android:gravity="center"
             android:fontFamily="monospace" />
@@ -134,10 +103,10 @@
             android:layout_marginEnd="12dp"
             android:layout_marginTop="12dp"
             android:layout_marginBottom="4dp"
-            app:cardBackgroundColor="@color/fi_charcoal"
+            app:cardBackgroundColor="?attr/colorSurface"
             app:cardCornerRadius="0dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/fi_border"
+            app:strokeColor="?attr/colorOutline"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -148,7 +117,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="3dp"
-                    android:background="@color/fi_orange" />
+                    android:background="?attr/colorPrimary" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -160,7 +129,7 @@
                         android:layout_height="match_parent"
                         android:orientation="vertical"
                         android:gravity="center"
-                        android:background="@color/fi_ink"
+                        android:background="?android:colorBackground"
                         android:paddingTop="16dp"
                         android:paddingBottom="16dp">
 
@@ -170,7 +139,7 @@
                             android:layout_height="60dp"
                             android:scaleType="centerCrop"
                             android:src="@drawable/ic_person_placeholder"
-                            app:strokeColor="@color/fi_smoke"
+                            app:strokeColor="?attr/colorOutline"
                             app:strokeWidth="1dp"
                             app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small" />
 
@@ -183,7 +152,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="—"
-                            android:textColor="@color/fi_orange"
+                            android:textColor="?attr/colorPrimary"
                             android:textSize="28sp"
                             android:textStyle="bold"
                             android:gravity="center"
@@ -193,7 +162,7 @@
                             android:id="@+id/tv_sources_count"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/fi_ash"
+                            android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="8sp"
                             android:gravity="center"
                             android:fontFamily="monospace" />
@@ -214,7 +183,7 @@
                             android:id="@+id/full_name"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/fi_parchment"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="24sp"
                             android:textStyle="bold"
                             android:fontFamily="sans-serif-condensed"
@@ -226,7 +195,7 @@
                         <View
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
-                            android:background="@color/fi_smoke"
+                            android:background="?attr/colorOutline"
                             android:layout_marginTop="8dp"
                             android:layout_marginBottom="8dp" />
 
@@ -234,7 +203,7 @@
                             android:id="@+id/job_title"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/fi_orange"
+                            android:textColor="?attr/colorPrimary"
                             android:textSize="12sp"
                             android:maxLines="1"
                             android:ellipsize="end"
@@ -245,7 +214,7 @@
                             android:id="@+id/location"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/fi_ash"
+                            android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="12sp"
                             android:maxLines="1"
                             android:ellipsize="end"
@@ -266,10 +235,10 @@
             android:layout_marginStart="12dp"
             android:layout_marginEnd="12dp"
             android:layout_marginBottom="8dp"
-            app:cardBackgroundColor="@color/fi_charcoal"
+            app:cardBackgroundColor="?attr/colorSurface"
             app:cardCornerRadius="0dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/fi_border"
+            app:strokeColor="?attr/colorOutline"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -287,7 +256,7 @@
                     android:layout_width="3dp"
                     android:layout_height="36dp"
                     android:layout_marginEnd="12dp"
-                    android:background="@color/fi_orange" />
+                    android:background="?attr/colorPrimary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -299,7 +268,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/results_risk_label"
-                        android:textColor="@color/fi_smoke"
+                        android:textColor="?attr/colorOutline"
                         android:textSize="9sp"
                         android:letterSpacing="0.14"
                         android:textAllCaps="true"
@@ -311,7 +280,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/results_risk_calculating"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif-condensed"
@@ -323,7 +292,7 @@
                         android:id="@+id/tv_score_detail"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="12sp"
                         android:layout_marginTop="2dp"
                         android:textIsSelectable="true" />
@@ -339,7 +308,7 @@
             android:layout_height="1dp"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="12dp"
-            android:background="@color/fi_border" />
+            android:background="?attr/colorOutline" />
 
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"

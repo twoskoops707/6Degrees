@@ -5,138 +5,114 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/fi_ink">
+    android:background="?android:colorBackground">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/search_progress_toolbar"
+        style="@style/Widget.SixDegrees.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:title="Searching…" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@color/fi_charcoal">
+        android:paddingHorizontal="@dimen/screen_padding_horizontal"
+        android:paddingVertical="16dp"
+        android:background="?attr/colorSurfaceContainer">
+
+        <TextView
+            android:id="@+id/tv_search_query"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.SixDegrees.TitleLarge"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_search_type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:chipBackgroundColor="?attr/colorSecondaryContainer"
+            android:textColor="?attr/colorOnSecondaryContainer"
+            android:textSize="12sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="14dp"
-            android:paddingBottom="8dp">
+            android:layout_marginTop="20dp">
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="INTERCEPT ACTIVE"
-                    android:textColor="@color/fi_orange"
-                    android:textSize="8sp"
-                    android:fontFamily="monospace"
-                    android:letterSpacing="0.22" />
-
-                <TextView
-                    android:id="@+id/tv_search_query"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/fi_parchment"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.01"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:layout_marginTop="2dp" />
-
-            </LinearLayout>
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_search_type"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:chipBackgroundColor="@color/fi_surface"
-                android:textColor="@color/fi_orange"
-                android:textSize="9sp"
-                android:fontFamily="sans-serif-condensed" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="96dp"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:gravity="center"
-                android:background="@color/fi_ink">
+                android:gravity="center">
 
                 <TextView
                     android:id="@+id/tv_found_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="0 HITS"
-                    android:textColor="@color/fi_orange"
-                    android:textSize="40sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:gravity="center" />
+                    android:text="0"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.HeadlineLarge"
+                    android:textColor="?attr/colorPrimary" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Results found"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                    android:layout_marginTop="4dp" />
             </LinearLayout>
 
             <View
                 android:layout_width="1dp"
                 android:layout_height="match_parent"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="12dp"
-                android:background="@color/fi_smoke" />
+                android:layout_marginVertical="8dp"
+                android:background="?attr/colorOutlineVariant" />
 
             <LinearLayout
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:gravity="center"
-                android:background="@color/fi_ink">
+                android:gravity="center">
 
                 <TextView
                     android:id="@+id/tv_checked_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="0 / ? checked"
-                    android:textColor="@color/fi_parchment"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:gravity="center" />
+                    android:text="0 / ?"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.HeadlineMedium"
+                    android:textColor="?attr/colorOnSurface" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sources checked"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                    android:layout_marginTop="4dp" />
             </LinearLayout>
-
         </LinearLayout>
 
-        <ProgressBar
+        <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/progress_bar"
-            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="6dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:indeterminate="true"
-            android:indeterminateTint="@color/fi_orange"
-            android:progress="0" />
+            app:trackColor="?attr/colorSurfaceVariant"
+            app:indicatorColor="?attr/colorPrimary" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="12dp"
+            android:layout_marginTop="12dp"
             android:gravity="center_vertical">
 
             <TextView
@@ -144,26 +120,17 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Initializing sweep..."
-                android:textColor="@color/fi_ash"
-                android:textSize="11sp"
-                android:fontFamily="monospace" />
+                android:text="Initializing…"
+                android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
             <TextView
                 android:id="@+id/tv_eta"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/fi_smoke"
-                android:textSize="10sp"
-                android:fontFamily="monospace" />
-
+                android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                android:textColor="?attr/colorOnSurfaceVariant" />
         </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/fi_border" />
-
     </LinearLayout>
 
     <FrameLayout
@@ -174,40 +141,22 @@
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingBottom="80dp"
+            android:paddingBottom="@dimen/bottom_nav_padding"
             android:clipToPadding="false">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingHorizontal="@dimen/screen_padding_horizontal">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="6dp"
-                    android:gravity="center_vertical">
-
-                    <View
-                        android:layout_width="3dp"
-                        android:layout_height="12dp"
-                        android:background="@color/fi_orange"
-                        android:layout_marginEnd="8dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="INTERCEPT LOG"
-                        android:textColor="@color/fi_smoke"
-                        android:textSize="9sp"
-                        android:fontFamily="monospace"
-                        android:letterSpacing="0.22" />
-
-                </LinearLayout>
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Source log"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.SectionHeader" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rv_sources"
@@ -228,17 +177,13 @@
 
         <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
             android:id="@+id/fab_view_report"
+            style="@style/Widget.SixDegrees.Fab.Extended"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|center_horizontal"
             android:layout_margin="16dp"
-            android:text="VIEW DOSSIER"
-            android:textColor="@android:color/white"
-            android:fontFamily="sans-serif-condensed"
-            android:letterSpacing="0.12"
-            app:backgroundTint="@color/fi_orange"
+            android:text="View report"
             app:icon="@drawable/ic_check"
-            app:iconTint="@android:color/white"
             android:visibility="gone" />
 
     </FrameLayout>

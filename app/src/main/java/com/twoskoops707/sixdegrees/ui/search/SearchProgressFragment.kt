@@ -41,6 +41,11 @@ class SearchProgressFragment : Fragment() {
     private var currentType = "person"
     private var currentDisplayQuery = ""
 
+    private fun normalizedSearchType(): String = when (currentType) {
+        "scan" -> "person"
+        else -> currentType
+    }
+
     data class SourceRow(
         val source: String,
         var state: State,
@@ -136,7 +141,7 @@ class SearchProgressFragment : Fragment() {
                         R.id.action_progress_to_results,
                         Bundle().apply {
                             putString("searchQuery", currentDisplayQuery)
-                            putString("searchType", currentType)
+                            putString("searchType", normalizedSearchType())
                             putString("reportId", reportId)
                         }
                     )

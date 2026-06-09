@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import com.google.android.material.color.MaterialColors
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.card.MaterialCardView
@@ -49,10 +50,10 @@ class SettingsFragment : Fragment() {
 
         binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME}"
 
-        val currentBase = prefs.getString("pref_theme_base", "fieldintel") ?: "fieldintel"
+        val currentBase = prefs.getString("pref_theme_base", "modern") ?: "modern"
         updateThemeCardSelection(currentBase)
 
-        binding.cardThemeFieldintel.setOnClickListener { selectThemeBase("fieldintel", prefs) }
+        binding.cardThemeFieldintel.setOnClickListener { selectThemeBase("modern", prefs) }
         binding.cardThemeNightops.setOnClickListener { selectThemeBase("nightops", prefs) }
         binding.cardThemeRedacted.setOnClickListener { selectThemeBase("redacted", prefs) }
         binding.cardThemeColdwar.setOnClickListener { selectThemeBase("coldwar", prefs) }
@@ -148,7 +149,7 @@ class SettingsFragment : Fragment() {
     }
 
     private fun selectThemeBase(base: String, prefs: android.content.SharedPreferences) {
-        val current = prefs.getString("pref_theme_base", "fieldintel")
+        val current = prefs.getString("pref_theme_base", "modern")
         prefs.edit().putString("pref_theme_base", base).apply()
         if (_binding != null) {
             updateThemeCardSelection(base)
@@ -189,8 +190,8 @@ class SettingsFragment : Fragment() {
     private fun updateThemeCardSelection(selectedBase: String) {
         val b = _binding ?: return
         val ctx = context ?: return
-        val activeStroke = ContextCompat.getColor(ctx, R.color.fi_orange)
-        val inactiveStroke = ContextCompat.getColor(ctx, R.color.fi_border)
+        val activeStroke = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorPrimary, "SettingsFragment")
+        val inactiveStroke = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOutline, "SettingsFragment")
         val dp = resources.displayMetrics.density
         val activeWidth = (2 * dp).toInt()
         val inactiveWidth = (1 * dp).toInt()
@@ -200,7 +201,7 @@ class SettingsFragment : Fragment() {
             card.strokeWidth = if (active) activeWidth else inactiveWidth
         }
 
-        style(b.cardThemeFieldintel, selectedBase == "fieldintel")
+        style(b.cardThemeFieldintel, selectedBase == "modern" || selectedBase == "fieldintel")
         style(b.cardThemeNightops, selectedBase == "nightops")
         style(b.cardThemeRedacted, selectedBase == "redacted")
         style(b.cardThemeColdwar, selectedBase == "coldwar")

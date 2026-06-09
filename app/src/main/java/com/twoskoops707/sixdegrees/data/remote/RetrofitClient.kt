@@ -66,4 +66,12 @@ object RetrofitClient {
     val builtWithService: BuiltWithApiService by lazy {
         retrofit("https://api.builtwith.com/").create(BuiltWithApiService::class.java)
     }
+
+    val numverifyService: NumverifyApiService by lazy {
+        retrofit("http://apilayer.net/api/").create(NumverifyApiService::class.java)
+    }
+
+    val ipApiService: IpApiService by lazy {
+        retrofit("http://ip-api.com/").create(IpApiService::class.java)
+    }
 }

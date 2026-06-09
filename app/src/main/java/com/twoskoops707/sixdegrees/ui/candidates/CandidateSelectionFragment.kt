@@ -4,7 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
+import com.google.android.material.color.MaterialColors
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -41,6 +41,8 @@ class CandidateSelectionFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 
         val candidatesJson = arguments?.getString("candidatesJson") ?: "[]"
         reportId = arguments?.getString("reportId") ?: ""
@@ -157,10 +159,8 @@ class CandidateSelectionFragment : Fragment() {
 
             // Show photo or company logo
             if (isCompany) {
-                holder.b.ivCandidatePhoto.visibility = View.GONE
                 if (!c.logoUrl.isNullOrBlank()) {
-                    holder.b.ivCandidatePhoto.visibility = View.GONE
-                    // Use existing ImageView for company logo — will load via load()
+                    holder.b.ivCandidatePhoto.visibility = View.VISIBLE
                     holder.b.ivCandidatePhoto.load(c.logoUrl) {
                         crossfade(true)
                         placeholder(R.drawable.ic_business)
@@ -283,11 +283,12 @@ class CandidateSelectionFragment : Fragment() {
             holder.b.ivSelectedOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
 
             val card = holder.itemView as? com.google.android.material.card.MaterialCardView
+            val ctx = requireContext()
             if (isSelected) {
-                card?.strokeColor = ContextCompat.getColor(requireContext(), R.color.fi_orange)
+                card?.strokeColor = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorPrimary, "CandidateSelection")
                 card?.strokeWidth = 3
             } else {
-                card?.strokeColor = ContextCompat.getColor(requireContext(), R.color.fi_border)
+                card?.strokeColor = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOutline, "CandidateSelection")
                 card?.strokeWidth = 1
             }
 

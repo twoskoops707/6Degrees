@@ -14,8 +14,16 @@
     <dimen name="spacing_xlarge">24dp</dimen>
 
     <!-- Card Styles -->
-    <dimen name="card_corner_radius">12dp</dimen>
-    <dimen name="card_elevation">2dp</dimen>
+    <dimen name="card_corner_radius">16dp</dimen>
+    <dimen name="card_elevation">0dp</dimen>
     <dimen name="stroke_width">1dp</dimen>
     <dimen name="bottom_nav_padding">80dp</dimen>
+
+    <!-- M3 spacing -->
+    <dimen name="screen_padding_horizontal">20dp</dimen>
+    <dimen name="screen_padding_vertical">16dp</dimen>
+    <dimen name="section_gap">24dp</dimen>
+    <dimen name="field_gap">16dp</dimen>
+    <dimen name="toolbar_height">56dp</dimen>
+    <dimen name="bottom_nav_height">80dp</dimen>
 </resources>

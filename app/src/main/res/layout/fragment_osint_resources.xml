@@ -5,17 +5,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background_primary">
+    android:background="?android:colorBackground">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
+        style="@style/Widget.SixDegrees.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/background_primary"
         app:navigationIcon="@drawable/ic_arrow_back"
-        app:navigationIconTint="@color/text_primary"
-        app:title="OSINT Web Hub"
-        app:titleTextColor="@color/text_primary" />
+        app:title="OSINT Web Hub" />
 
     <View
         android:layout_width="match_parent"

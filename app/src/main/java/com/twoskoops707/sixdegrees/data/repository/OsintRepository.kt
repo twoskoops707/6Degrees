@@ -13,6 +13,10 @@ import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
 import com.twoskoops707.sixdegrees.data.remote.RetrofitClient
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.DataSource
+import com.twoskoops707.sixdegrees.scraper.ScrapeResult
+import com.twoskoops707.sixdegrees.scraper.scrapeFastPeopleSearch
+import com.twoskoops707.sixdegrees.scraper.scrapeProxyNova as scrapeProxyNovaWeb
+import com.twoskoops707.sixdegrees.scraper.scrapeThatsThem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +31,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import org.jsoup.Jsoup
+import retrofit2.HttpException
+import android.media.ExifInterface
+import android.net.Uri
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URLEncoder
@@ -62,8 +69,26 @@ private val SOURCE_ABBREVS = mapOf(
     "hackertarget host" to "hackertarget",
     "800notes" to "800notes",
     "wayback cdx" to "wayback",
-    "ahmia" to "ahmia"
+    "ahmia" to "ahmia",
+    "sec edgar" to "sec",
+    "wikidata" to "wikidata",
+    "urlhaus" to "urlhaus",
+    "abuseipdb" to "abuseipdb",
+    "virustotal" to "vt",
+    "urlscan" to "urlscan",
+    "numverify" to "numverify"
 )
+
+    private fun isIpAddress(value: String): Boolean =
+        value.trim().matches(Regex("""^(?:\d{1,3}\.){3}\d{1,3}$"""))
+
+    private fun isLikelyDomain(value: String): Boolean {
+        val v = value.trim().lowercase()
+        return v.contains(".") && !isIpAddress(v) && !v.contains("@") &&
+            v.matches(Regex("""^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$"""))
+    }
+
+    private const val SEC_USER_AGENT = "6Degrees/1.0 (Android OSINT; contact@6degrees.app)"
 
 class OsintRepository(context: Context) {
 
@@ -104,6 +129,134 @@ class OsintRepository(context: Context) {
         val profileUrl: String? = null,
         val source: String = ""
     )
+
+    private fun scrapeResultToOut(result: ScrapeResult, blocked: Boolean = false): ScrapeOut {
+        if (blocked) return ScrapeOut(false, true)
+        if (!result.found) return ScrapeOut(false, false)
+        val fields = result.fields.toMutableMap()
+        if (fields["snippet"].isNullOrBlank() && result.rawSnippets.isNotEmpty()) {
+            fields["snippet"] = result.rawSnippets.joinToString(" | ").take(600)
+        }
+        if (fields["title"].isNullOrBlank()) fields["title"] = result.source
+        return ScrapeOut(true, false, fields)
+    }
+
+    private suspend fun scrapeThatsThemPerson(query: String): ScrapeOut =
+        scrapeResultToOut(scrapeThatsThem(query, fastHttpClient))
+
+    private suspend fun scrapeFastPeopleSearchPerson(query: String): ScrapeOut {
+        val parts = query.trim().split("\\s+".toRegex())
+        val first = parts.firstOrNull().orEmpty()
+        val last = if (parts.size > 1) parts.last() else ""
+        if (first.isBlank() || last.isBlank()) return ScrapeOut(false, false)
+        return scrapeResultToOut(scrapeFastPeopleSearch(first, last, fastHttpClient))
+    }
+
+    private suspend fun scrapeUSPhoneBook(query: String, city: String, state: String): ScrapeOut {
+        return try {
+            val slug = query.trim().replace(Regex("\\s+"), "-").lowercase()
+            val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString("-").lowercase()
+            val path = if (loc.isNotBlank()) "$slug/$loc" else slug
+            val url = "https://www.usphonebook.com/name/$path"
+            tryScrapeUrl(url)
+        } catch (_: Exception) {
+            ScrapeOut(false, false)
+        }
+    }
+
+    private fun scrapeNameDemographics(firstName: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(firstName.trim(), "UTF-8")
+            val genderReq = Request.Builder()
+                .url("https://api.genderize.io/?name=$encoded")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val genderResp = fastHttpClient.newCall(genderReq).execute()
+            val genderBody = genderResp.body?.string() ?: ""
+            genderResp.close()
+
+            val agifyReq = Request.Builder()
+                .url("https://api.agify.io/?name=$encoded")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val agifyResp = fastHttpClient.newCall(agifyReq).execute()
+            val agifyBody = agifyResp.body?.string() ?: ""
+            agifyResp.close()
+
+            val natReq = Request.Builder()
+                .url("https://api.nationalize.io/?name=$encoded")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val natResp = fastHttpClient.newCall(natReq).execute()
+            val natBody = natResp.body?.string() ?: ""
+            natResp.close()
+
+            val fields = mutableMapOf<String, String>()
+            if (genderBody.startsWith("{")) {
+                val g = JSONObject(genderBody)
+                g.optString("gender").takeIf { it.isNotBlank() }?.let { gender ->
+                    val prob = g.optDouble("probability", 0.0)
+                    fields["gender"] = "$gender (${(prob * 100).toInt()}%)"
+                }
+            }
+            if (agifyBody.startsWith("{")) {
+                val a = JSONObject(agifyBody)
+                a.optInt("age", 0).takeIf { it in 1..120 }?.let { fields["estimated_age"] = it.toString() }
+            }
+            if (natBody.startsWith("{")) {
+                val n = JSONObject(natBody)
+                val countries = n.optJSONArray("country") ?: org.json.JSONArray()
+                val top = (0 until minOf(3, countries.length())).mapNotNull { i ->
+                    countries.optJSONObject(i)?.let { c ->
+                        val id = c.optString("country_id")
+                        val p = c.optDouble("probability", 0.0)
+                        if (id.isNotBlank()) "$id (${(p * 100).toInt()}%)" else null
+                    }
+                }
+                if (top.isNotEmpty()) fields["nationality"] = top.joinToString(", ")
+            }
+            if (fields.isEmpty()) ScrapeOut(false, false)
+            else ScrapeOut(true, false, fields + mapOf(
+                "title" to "Name demographics",
+                "snippet" to fields.entries.joinToString(" | ") { "${it.key}: ${it.value}" }
+            ))
+        } catch (_: Exception) {
+            ScrapeOut(false, false)
+        }
+    }
+
+    private fun scrapeIpWho(ip: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://ipwho.is/$ip")
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (!json.optBoolean("success", false)) return ScrapeOut(false, false)
+            val fields = mutableMapOf<String, String>()
+            json.optString("ip").takeIf { it.isNotBlank() }?.let { fields["ip"] = it }
+            json.optString("city").takeIf { it.isNotBlank() }?.let { fields["city"] = it }
+            json.optString("region").takeIf { it.isNotBlank() }?.let { fields["region"] = it }
+            json.optString("country").takeIf { it.isNotBlank() }?.let { fields["country"] = it }
+            json.optString("isp").takeIf { it.isNotBlank() }?.let { fields["isp"] = it }
+            json.optString("org").takeIf { it.isNotBlank() }?.let { fields["org"] = it }
+            json.optString("timezone").takeIf { it.isNotBlank() }?.let { fields["timezone"] = it }
+            json.optJSONObject("connection")?.optString("asn")?.takeIf { it.isNotBlank() }
+                ?.let { fields["asn"] = it }
+            ScrapeOut(true, false, fields + mapOf(
+                "title" to "ipwho.is",
+                "snippet" to listOfNotNull(fields["city"], fields["region"], fields["country"], fields["isp"])
+                    .joinToString(", ")
+            ))
+        } catch (_: Exception) {
+            ScrapeOut(false, false)
+        }
+    }
 
     private data class ScrapeOut(
         val found: Boolean,
@@ -575,13 +728,8 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
-    private fun scrapeProxyNova(email: String): ScrapeOut {
-        return try {
-            val encoded = URLEncoder.encode(email, "UTF-8")
-            val url = "https://www.proxynova.com/tools/comb-database-search/?q=$encoded"
-            tryScrapeUrl(url)
-        } catch (_: Exception) { ScrapeOut(false, false) }
-    }
+    private suspend fun scrapeProxyNova(email: String): ScrapeOut =
+        scrapeResultToOut(scrapeProxyNovaWeb(email, fastHttpClient))
 
     private fun scrapeHackerTarget(query: String, type: String): ScrapeOut {
         return try {
@@ -622,7 +770,7 @@ class OsintRepository(context: Context) {
     private fun scrapeWaybackCdx(domain: String): ScrapeOut {
         return try {
             val encoded = URLEncoder.encode(domain, "UTF-8")
-            val url = "http://web.archive.org/cdx/search/cdx?url=$encoded/*&output=text&limit=20&fl=original,timestamp&collapse=urlkey"
+            val url = "https://web.archive.org/cdx/search/cdx?url=$encoded/*&output=text&limit=20&fl=original,timestamp&collapse=urlkey"
             val req = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0")
                 .build()
@@ -995,6 +1143,248 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
+    private fun scrapeNumverify(phone: String, apiKey: String): ScrapeOut {
+        return try {
+            val digits = phone.replace(Regex("[^0-9+]"), "")
+            if (digits.length < 7) return ScrapeOut(false, false)
+            val req = Request.Builder()
+                .url("http://apilayer.net/api/validate?access_key=${encode(apiKey)}&number=${encode(digits)}")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 429) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.has("error")) return ScrapeOut(false, false)
+            val valid = json.optBoolean("valid", false)
+            val country = json.optString("country_name", "")
+            val carrier = json.optString("carrier", "")
+            val lineType = json.optString("line_type", "")
+            val location = json.optString("location", "")
+            val intl = json.optString("international_format", "")
+            val fields = mutableMapOf(
+                "title" to "Numverify: ${if (valid) "Valid" else "Invalid"}",
+                "snippet" to listOf(country, carrier, lineType).filter { it.isNotBlank() }.joinToString(" · "),
+                "valid" to valid.toString(),
+                "country" to country,
+                "carrier" to carrier,
+                "line_type" to lineType,
+                "location" to location,
+                "intl" to intl
+            )
+            apiKeys.recordUsage("numverify")
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeAbuseIpDb(ip: String, apiKey: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://api.abuseipdb.com/api/v2/check?ipAddress=${encode(ip.trim())}&maxAgeInDays=90&verbose")
+                .header("Key", apiKey)
+                .header("Accept", "application/json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 429) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val data = JSONObject(body).optJSONObject("data") ?: return ScrapeOut(false, false)
+            val score = data.optInt("abuseConfidenceScore", 0)
+            val reports = data.optInt("totalReports", 0)
+            val country = data.optString("countryCode", "")
+            ScrapeOut(true, false, mapOf(
+                "title" to "AbuseIPDB: $ip",
+                "snippet" to "Abuse score: $score% · Reports: $reports${if (country.isNotBlank()) " · $country" else ""}",
+                "score" to score.toString(),
+                "reports" to reports.toString(),
+                "country" to country
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeVirusTotal(target: String, apiKey: String): ScrapeOut {
+        return try {
+            val isIp = isIpAddress(target)
+            val path = if (isIp) "ip_addresses/${target.trim()}" else "domains/${target.trim().lowercase()}"
+            val req = Request.Builder()
+                .url("https://www.virustotal.com/api/v3/$path")
+                .header("x-apikey", apiKey)
+                .header("Accept", "application/json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 429) return ScrapeOut(false, true)
+            if (code == 404 || body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val attrs = JSONObject(body).optJSONObject("data")?.optJSONObject("attributes") ?: return ScrapeOut(false, false)
+            val stats = attrs.optJSONObject("last_analysis_stats")
+            val malicious = stats?.optInt("malicious", 0) ?: 0
+            val harmless = stats?.optInt("harmless", 0) ?: 0
+            val suspicious = stats?.optInt("suspicious", 0) ?: 0
+            val reputation = attrs.optInt("reputation", 0)
+            val country = attrs.optString("country", "")
+            val asOwner = attrs.optString("as_owner", "")
+            ScrapeOut(true, false, mapOf(
+                "title" to "VirusTotal: $target",
+                "snippet" to "Malicious: $malicious · Harmless: $harmless · Suspicious: $suspicious",
+                "malicious" to malicious.toString(),
+                "harmless" to harmless.toString(),
+                "suspicious" to suspicious.toString(),
+                "reputation" to reputation.toString(),
+                "country" to country,
+                "as_owner" to asOwner
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeUrlScan(domain: String, apiKey: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://urlscan.io/api/v1/search/?q=domain:${encode(domain.trim().lowercase())}&size=100")
+                .header("API-Key", apiKey)
+                .header("Accept", "application/json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 429) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val results = JSONObject(body).optJSONArray("results") ?: return ScrapeOut(false, false)
+            if (results.length() == 0) return ScrapeOut(false, false)
+            var malicious = 0
+            val ips = mutableSetOf<String>()
+            for (i in 0 until results.length()) {
+                val page = results.optJSONObject(i)?.optJSONObject("page") ?: continue
+                if (page.optBoolean("malicious", false)) malicious++
+                page.optString("ip").takeIf { it.isNotBlank() }?.let { ips.add(it) }
+            }
+            ScrapeOut(true, false, mapOf(
+                "title" to "URLScan: $domain",
+                "snippet" to "${results.length()} scans · $malicious flagged",
+                "total_scans" to results.length().toString(),
+                "malicious_scans" to malicious.toString(),
+                "ips" to ips.take(5).joinToString(", ")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeSecEdgar(query: String, forms: String? = null): ScrapeOut {
+        return try {
+            val phrase = URLEncoder.encode("\"${query.trim()}\"", "UTF-8")
+            val urlBuilder = StringBuilder("https://efts.sec.gov/LATEST/search-index?q=$phrase&from=0&size=10")
+            if (!forms.isNullOrBlank()) urlBuilder.append("&forms=${encode(forms)}")
+            val req = Request.Builder()
+                .url(urlBuilder.toString())
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 429) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val hitsObj = JSONObject(body).optJSONObject("hits") ?: return ScrapeOut(false, false)
+            val total = hitsObj.optJSONObject("total")?.optInt("value", 0) ?: 0
+            if (total == 0) return ScrapeOut(false, false)
+            val hits = hitsObj.optJSONArray("hits") ?: return ScrapeOut(false, false)
+            val entities = mutableListOf<String>()
+            val formTypes = mutableSetOf<String>()
+            for (i in 0 until minOf(10, hits.length())) {
+                val source = hits.optJSONObject(i)?.optJSONObject("_source") ?: continue
+                val name = source.optJSONArray("display_names")?.optString(0)
+                    ?: source.optString("entity_name", "")
+                if (name.isNotBlank()) entities.add(name)
+                source.optString("file_type").takeIf { it.isNotBlank() }?.let { formTypes.add(it) }
+            }
+            apiKeys.recordUsage("sec_edgar")
+            ScrapeOut(true, false, mapOf(
+                "title" to "SEC EDGAR: $total filing(s)",
+                "snippet" to entities.take(3).joinToString("; "),
+                "total_hits" to total.toString(),
+                "entities" to entities.distinct().take(5).joinToString(", "),
+                "form_types" to formTypes.joinToString(", ")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeWikidata(query: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encode(query.trim())}&language=en&format=json&limit=3")
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val search = JSONObject(body).optJSONArray("search") ?: return ScrapeOut(false, false)
+            if (search.length() == 0) return ScrapeOut(false, false)
+            val labels = mutableListOf<String>()
+            val descriptions = mutableListOf<String>()
+            val ids = mutableListOf<String>()
+            for (i in 0 until search.length()) {
+                val item = search.optJSONObject(i) ?: continue
+                item.optString("label").takeIf { it.isNotBlank() }?.let { labels.add(it) }
+                item.optString("description").takeIf { it.isNotBlank() }?.let { descriptions.add(it) }
+                item.optString("id").takeIf { it.isNotBlank() }?.let { ids.add(it) }
+            }
+            if (descriptions.isEmpty() && labels.isEmpty()) return ScrapeOut(false, false)
+            val link = ids.firstOrNull()?.let { "https://www.wikidata.org/wiki/$it" } ?: ""
+            val snippet: String = descriptions.firstOrNull() ?: labels.firstOrNull() ?: ""
+            ScrapeOut(true, false, mapOf(
+                "title" to "Wikidata: ${labels.firstOrNull() ?: query}",
+                "snippet" to snippet,
+                "descriptions" to descriptions.joinToString(" | "),
+                "labels" to labels.joinToString(", "),
+                "link" to link
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeUrlhaus(host: String, authKey: String): ScrapeOut {
+        return try {
+            if (authKey.isBlank()) return ScrapeOut(false, false)
+            val cleanHost = host.trim().lowercase().removePrefix("http://").removePrefix("https://").substringBefore("/")
+            val req = Request.Builder()
+                .url("https://urlhaus-api.abuse.ch/v1/host/${encode(cleanHost)}/")
+                .header("Auth-Key", authKey)
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 401 || code == 403) return ScrapeOut(false, true)
+            if (code == 429) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            if (body.contains("\"Unauthorized\"") || body.contains("unknown_auth_key")) return ScrapeOut(false, true)
+            val json = JSONObject(body)
+            if (json.optString("query_status") == "no_results") return ScrapeOut(false, false)
+            val urlCount = json.optInt("url_count", 0)
+            val blacklists = json.optJSONArray("blacklists")
+            val status = if (blacklists != null && blacklists.length() > 0) "blacklisted" else json.optString("urlhaus_status", "online")
+            ScrapeOut(true, false, mapOf(
+                "title" to "URLhaus: $cleanHost",
+                "snippet" to "$urlCount malicious URL(s) · Status: $status",
+                "status" to status,
+                "urls_count" to urlCount.toString()
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
     private fun extractOgImage(url: String): String? {
         return try {
             val fullUrl = if (!url.startsWith("http")) "https://$url" else url
@@ -1162,8 +1552,11 @@ class OsintRepository(context: Context) {
     fun searchWithProgress(query: String, type: String, round: Int = 1): Flow<SearchProgressEvent> = channelFlow {
         withContext(Dispatchers.IO) {
             val fields = parseFields(query)
-            val primaryQuery = fields["name"] ?: fields["email"] ?: fields["phone"]
-                ?: fields["username"] ?: fields["domain"] ?: fields["ip"] ?: query.trim()
+            val primaryQuery = when {
+                type == "image" -> query.trim()
+                else -> fields["name"] ?: fields["email"] ?: fields["phone"]
+                    ?: fields["username"] ?: fields["domain"] ?: fields["ip"] ?: query.trim()
+            }
 
             val metadata = ConcurrentHashMap<String, String>()
             val effectiveType = if (type == "scan") "person" else type
@@ -1212,7 +1605,7 @@ class OsintRepository(context: Context) {
             coroutineScope {
                 when (effectiveType) {
                     "person", "comprehensive" -> {
-                        targetedScraperNames += setOf("Wikipedia", "Google News", "DarkSearch", "Pipl", "CourtListener", "GLEIF")
+                        targetedScraperNames += setOf("Wikipedia", "Google News", "DarkSearch", "Pipl", "CourtListener", "GLEIF", "SEC EDGAR", "Wikidata", "ThatsThem", "FastPeopleSearch", "USPhoneBook", "Name Demographics")
                         launch { termuxRunner.ensureTorRunning().collect { send(it) } }
                         val personPhone = fields["phone"] ?: ""
                         val personEmail = fields["email"] ?: ""
@@ -1284,6 +1677,58 @@ class OsintRepository(context: Context) {
                             handleScrapeOut("GLEIF", "https://search.gleif.org/#/record/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
+                            send(SearchProgressEvent.Checking("SEC EDGAR Form-4"))
+                            val out = scrapeSecEdgar(primaryQuery, forms = "4")
+                            if (out.found) {
+                                out.fields["total_hits"]?.let { metadata["sec_person_hits"] = it }
+                                out.fields["entities"]?.let { metadata["sec_person_entities"] = it }
+                            }
+                            handleScrapeOut("SEC EDGAR Form-4", "https://www.sec.gov/edgar/search/#/q=${encode(primaryQuery)}&forms=4", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("SEC EDGAR"))
+                            val out = scrapeSecEdgar(primaryQuery)
+                            if (out.found) {
+                                out.fields["total_hits"]?.let { metadata["sec_fulltext_hits"] = it }
+                                out.fields["form_types"]?.let { metadata["sec_fulltext_forms"] = it }
+                                out.fields["entities"]?.let { metadata["sec_fulltext_entities"] = it }
+                            }
+                            handleScrapeOut("SEC EDGAR", "https://www.sec.gov/edgar/search/#/q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Wikidata"))
+                            val out = scrapeWikidata(primaryQuery)
+                            if (out.found) {
+                                out.fields["descriptions"]?.let { metadata["wikidata_descriptions"] = it }
+                                out.fields["link"]?.let { metadata["wikidata_link"] = it }
+                                metadata["wikipedia_hits"] = "1"
+                            }
+                            handleScrapeOut("Wikidata", "https://www.wikidata.org/w/index.php?search=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("ThatsThem"))
+                            val out = scrapeThatsThemPerson(primaryQuery)
+                            handleScrapeOut("ThatsThem", "https://thatsthem.com/name/${encode(primaryQuery.replace(" ", "-"))}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("FastPeopleSearch"))
+                            val out = scrapeFastPeopleSearchPerson(primaryQuery)
+                            handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/name/${encode(primaryQuery.replace(" ", "-"))}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("USPhoneBook"))
+                            val out = scrapeUSPhoneBook(primaryQuery, city, state)
+                            handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/name/${encode(primaryQuery.replace(" ", "-"))}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val firstName = primaryQuery.trim().split("\\s+".toRegex()).firstOrNull().orEmpty()
+                            if (firstName.isNotBlank()) {
+                                send(SearchProgressEvent.Checking("Name Demographics"))
+                                val out = scrapeNameDemographics(firstName)
+                                handleScrapeOut("Name Demographics", "https://genderize.io", out, sources, metadata, this@channelFlow)
+                            }
+                        }
+                        launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("pipl")
                                 if (key.isNullOrBlank()) {
@@ -1294,7 +1739,14 @@ class OsintRepository(context: Context) {
                                         val nameParts = primaryQuery.trim().split("\\s+".toRegex())
                                         val first = nameParts.firstOrNull()
                                         val last = if (nameParts.size > 1) nameParts.last() else null
-                                        val result = RetrofitClient.piplService.search(apiKey = key, firstName = first, lastName = last)
+                                        val result = RetrofitClient.piplService.search(
+                                            apiKey = key,
+                                            firstName = first,
+                                            lastName = last,
+                                            email = fields["email"],
+                                            phone = fields["phone"],
+                                            username = fields["username"]
+                                        )
                                         val person = result.person
                                         if (person == null) {
                                             send(SearchProgressEvent.NotFound("Pipl"))
@@ -1308,9 +1760,48 @@ class OsintRepository(context: Context) {
                                             if (!piplPhones.isNullOrEmpty()) metadata["pipl_phones"] = piplPhones.take(3).joinToString(", ")
                                             sources.add(DataSource("Pipl", "https://pipl.com/search/?q=${encode(primaryQuery)}", Date(), 0.9))
                                             send(SearchProgressEvent.Found("Pipl", displayName ?: "Person profile found"))
+                                            apiKeys.recordUsage("pipl")
                                         }
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Pipl"))
+                                    }
+                                }
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                val key = apiKeys.getKey("pdl")
+                                if (key.isNullOrBlank()) {
+                                    send(SearchProgressEvent.NotFound("People Data Labs (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("People Data Labs"))
+                                    try {
+                                        val nameParts = primaryQuery.trim().split("\\s+".toRegex())
+                                        val result = RetrofitClient.pdlService.enrichPerson(
+                                            email = fields["email"],
+                                            phone = fields["phone"],
+                                            firstName = nameParts.firstOrNull(),
+                                            lastName = if (nameParts.size > 1) nameParts.last() else null,
+                                            apiKey = key
+                                        )
+                                        val person = result.data
+                                        if (person == null) {
+                                            send(SearchProgressEvent.NotFound("People Data Labs"))
+                                        } else {
+                                            metadata["pdl_found"] = "true"
+                                            person.fullName?.let { metadata["pdl_name"] = it }
+                                            person.emails?.mapNotNull { it.address }?.take(3)?.joinToString(", ")
+                                                ?.let { metadata["pdl_emails"] = it }
+                                            person.phones?.mapNotNull { it.number }?.take(3)?.joinToString(", ")
+                                                ?.let { metadata["pdl_phones"] = it }
+                                            person.jobTitle?.let { metadata["pdl_job_title"] = it }
+                                            person.jobCompanyName?.let { metadata["pdl_company"] = it }
+                                            sources.add(DataSource("People Data Labs", "https://peopledatalabs.com/", Date(), 0.9))
+                                            send(SearchProgressEvent.Found("People Data Labs", person.fullName ?: "Profile enriched"))
+                                            apiKeys.recordUsage("pdl")
+                                        }
+                                    } catch (_: Exception) {
+                                        send(SearchProgressEvent.Blocked("People Data Labs"))
                                     }
                                 }
                             }
@@ -1372,11 +1863,53 @@ class OsintRepository(context: Context) {
                                         } else {
                                             metadata["hibp_found"] = "true"
                                             metadata["hibp_count"] = breaches.size.toString()
+                                            metadata["hibp_names"] = breaches.take(5).mapNotNull { it.title }.joinToString(", ")
                                             sources.add(DataSource("HaveIBeenPwned", "https://haveibeenpwned.com/account/${encode(primaryQuery)}", java.util.Date(), 0.9))
                                             send(SearchProgressEvent.Found("HaveIBeenPwned", "${breaches.size} breach(es) found"))
+                                            apiKeys.recordUsage("hibp")
+                                        }
+                                        try {
+                                            val pastes = RetrofitClient.hibpService.getPastes(primaryQuery, key)
+                                            if (pastes.isNotEmpty()) {
+                                                metadata["hibp_paste_count"] = pastes.size.toString()
+                                                metadata["hibp_pastes"] = pastes.take(5).mapNotNull { it.source }.joinToString(", ")
+                                                send(SearchProgressEvent.Found("HaveIBeenPwned Pastes", "${pastes.size} paste(s) found"))
+                                            }
+                                        } catch (_: Exception) { /* pastes optional */ }
+                                    } catch (e: HttpException) {
+                                        if (e.code() == 404) {
+                                            send(SearchProgressEvent.NotFound("HaveIBeenPwned"))
+                                        } else {
+                                            send(SearchProgressEvent.Blocked("HaveIBeenPwned"))
                                         }
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("HaveIBeenPwned"))
+                                    }
+                                }
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                val key = apiKeys.getKey("hunter")
+                                if (key.isNullOrBlank()) {
+                                    send(SearchProgressEvent.NotFound("Hunter.io verify (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("Hunter.io Verify"))
+                                    try {
+                                        val result = RetrofitClient.hunterService.verifyEmail(primaryQuery, key)
+                                        val data = result.data
+                                        if (data == null) {
+                                            send(SearchProgressEvent.NotFound("Hunter.io Verify"))
+                                        } else {
+                                            metadata["hunter_verify_score"] = data.score?.toString() ?: ""
+                                            metadata["hunter_verify_status"] = data.deliverability ?: ""
+                                            metadata["hunter_verify_result"] = data.result ?: ""
+                                            sources.add(DataSource("Hunter.io Verify", "https://hunter.io/email-verifier", Date(), 0.85))
+                                            send(SearchProgressEvent.Found("Hunter.io Verify", data.result ?: data.deliverability ?: "Verified"))
+                                            apiKeys.recordUsage("hunter")
+                                        }
+                                    } catch (_: Exception) {
+                                        send(SearchProgressEvent.Blocked("Hunter.io Verify"))
                                     }
                                 }
                             }
@@ -1396,7 +1929,7 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "domain", "ip" -> {
-                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX", "crt.sh", "DarkSearch", "Google News", "ip-api", "BGPView", "Shodan InternetDB", "RDAP")
+                        targetedScraperNames += setOf("HackerTarget Host", "Wayback CDX", "crt.sh", "DarkSearch", "Google News", "ip-api", "BGPView", "Shodan InternetDB", "RDAP", "AbuseIPDB", "VirusTotal", "URLScan", "URLhaus")
                         launch { termuxRunner.ensureTorRunning().collect { send(it) } }
                         launch {
                             send(SearchProgressEvent.Checking("HackerTarget Host"))
@@ -1406,7 +1939,7 @@ class OsintRepository(context: Context) {
                         launch {
                             send(SearchProgressEvent.Checking("Wayback CDX"))
                             val out = scrapeWaybackCdx(primaryQuery)
-                            handleScrapeOut("Wayback CDX", "http://web.archive.org/cdx/search/cdx?url=${encode(primaryQuery)}/*", out, sources, metadata, this@channelFlow)
+                            handleScrapeOut("Wayback CDX", "https://web.archive.org/cdx/search/cdx?url=${encode(primaryQuery)}/*", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             semaphore.withPermit {
@@ -1434,6 +1967,7 @@ class OsintRepository(context: Context) {
                                                 if (!emailList.isNullOrEmpty()) append(" — ${emailList.size} email(s)")
                                             }
                                             send(SearchProgressEvent.Found("Hunter.io", detail))
+                                            apiKeys.recordUsage("hunter")
                                         }
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Hunter.io"))
@@ -1485,6 +2019,11 @@ class OsintRepository(context: Context) {
                             handleScrapeOut("ip-api", "http://ip-api.com/json/$ipQuery", out, sources, metadata, this@channelFlow)
                         }
                         launch {
+                            send(SearchProgressEvent.Checking("ipwho.is"))
+                            val out = scrapeIpWho(primaryQuery)
+                            handleScrapeOut("ipwho.is", "https://ipwho.is/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
                             send(SearchProgressEvent.Checking("BGPView"))
                             val out = scrapeBgpView(primaryQuery)
                             if (out.found) {
@@ -1516,9 +2055,74 @@ class OsintRepository(context: Context) {
                             }
                             handleScrapeOut("RDAP", "https://rdap.org/domain/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
+                        launch {
+                            val ipTarget = if (isIpAddress(primaryQuery)) primaryQuery.trim() else null
+                            val domainTarget = fields["domain"]?.takeIf { isLikelyDomain(it) }
+                                ?: primaryQuery.takeIf { isLikelyDomain(it) }
+                            if (ipTarget != null) {
+                                send(SearchProgressEvent.Checking("AbuseIPDB"))
+                                val key = apiKeys.abuseIpDbKey
+                                if (key.isBlank()) {
+                                    send(SearchProgressEvent.NotFound("AbuseIPDB (no key)"))
+                                } else {
+                                    val out = scrapeAbuseIpDb(ipTarget, key)
+                                    if (out.found) {
+                                        out.fields["score"]?.let { metadata["abuseipdb_score"] = it }
+                                        out.fields["reports"]?.let { metadata["abuseipdb_reports"] = it }
+                                    }
+                                    handleScrapeOut("AbuseIPDB", "https://www.abuseipdb.com/check/$ipTarget", out, sources, metadata, this@channelFlow)
+                                }
+                            }
+                            val vtTarget = ipTarget ?: domainTarget
+                            if (vtTarget != null) {
+                                send(SearchProgressEvent.Checking("VirusTotal"))
+                                val key = apiKeys.virusTotalKey
+                                if (key.isBlank()) {
+                                    send(SearchProgressEvent.NotFound("VirusTotal (no key)"))
+                                } else {
+                                    val out = scrapeVirusTotal(vtTarget, key)
+                                    if (out.found) {
+                                        out.fields["malicious"]?.let { metadata["vt_malicious"] = it }
+                                        out.fields["harmless"]?.let { metadata["vt_harmless"] = it }
+                                        out.fields["suspicious"]?.let { metadata["vt_suspicious"] = it }
+                                        out.fields["reputation"]?.let { metadata["vt_reputation"] = it }
+                                        out.fields["country"]?.let { metadata["vt_country"] = it }
+                                        out.fields["as_owner"]?.let { metadata["vt_as_owner"] = it }
+                                    }
+                                    handleScrapeOut("VirusTotal", "https://www.virustotal.com/gui/search/$vtTarget", out, sources, metadata, this@channelFlow)
+                                }
+                            }
+                            if (domainTarget != null) {
+                                send(SearchProgressEvent.Checking("URLScan"))
+                                val key = apiKeys.urlScanKey
+                                if (key.isBlank()) {
+                                    send(SearchProgressEvent.NotFound("URLScan (no key)"))
+                                } else {
+                                    val out = scrapeUrlScan(domainTarget, key)
+                                    if (out.found) {
+                                        out.fields["total_scans"]?.let { metadata["urlscan_total_scans"] = it }
+                                        out.fields["malicious_scans"]?.let { metadata["urlscan_malicious_scans"] = it }
+                                        out.fields["ips"]?.let { metadata["urlscan_ips"] = it }
+                                    }
+                                    handleScrapeOut("URLScan", "https://urlscan.io/search/#domain:$domainTarget", out, sources, metadata, this@channelFlow)
+                                }
+                                val urlhausKey = apiKeys.urlhausKey
+                                if (urlhausKey.isBlank()) {
+                                    send(SearchProgressEvent.NotFound("URLhaus (no key — get free Auth-Key at auth.abuse.ch)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("URLhaus"))
+                                    val out = scrapeUrlhaus(domainTarget, urlhausKey)
+                                    if (out.found) {
+                                        out.fields["status"]?.let { metadata["urlhaus_status"] = it }
+                                        out.fields["urls_count"]?.let { metadata["urlhaus_urls_count"] = it }
+                                    }
+                                    handleScrapeOut("URLhaus", "https://urlhaus.abuse.ch/browse/host/$domainTarget/", out, sources, metadata, this@channelFlow)
+                                }
+                            }
+                        }
                     }
                     "phone" -> {
-                        targetedScraperNames += setOf("800notes", "DDG Phone")
+                        targetedScraperNames += setOf("800notes", "DDG Phone", "Numverify")
                         launch {
                             send(SearchProgressEvent.Checking("800notes"))
                             val out = scrape800Notes(primaryQuery)
@@ -1539,6 +2143,293 @@ class OsintRepository(context: Context) {
                                 } else {
                                     send(SearchProgressEvent.NotFound("DDG Phone"))
                                 }
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                val key = apiKeys.numverifyKey
+                                if (key.isBlank()) {
+                                    send(SearchProgressEvent.NotFound("Numverify (no key)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("Numverify"))
+                                    val out = scrapeNumverify(primaryQuery, key)
+                                    if (out.blocked) {
+                                        send(SearchProgressEvent.Blocked("Numverify"))
+                                    } else if (out.found) {
+                                        out.fields["valid"]?.let { metadata["numverify_valid"] = it }
+                                        out.fields["country"]?.let { metadata["numverify_country"] = it }
+                                        out.fields["carrier"]?.let { metadata["numverify_carrier"] = it }
+                                        out.fields["line_type"]?.let { metadata["numverify_line_type"] = it }
+                                        out.fields["location"]?.let { metadata["numverify_location"] = it }
+                                        out.fields["intl"]?.let { metadata["numverify_intl"] = it }
+                                        sources.add(DataSource("Numverify", "https://numverify.com/", Date(), 0.85))
+                                        send(SearchProgressEvent.Found("Numverify", out.fields["snippet"] ?: ""))
+                                    } else {
+                                        send(SearchProgressEvent.NotFound("Numverify"))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "company" -> {
+                        val companyName = fields["name"] ?: primaryQuery
+                        val companyDomain = fields["domain"]?.takeIf { isLikelyDomain(it) }
+                        targetedScraperNames += setOf("SEC EDGAR", "GLEIF", "Google News", "Wikidata", "RDAP")
+                        launch {
+                            send(SearchProgressEvent.Checking("SEC EDGAR"))
+                            val out = scrapeSecEdgar(companyName)
+                            if (out.found) {
+                                out.fields["total_hits"]?.let { metadata["sec_filings_count"] = it }
+                                out.fields["form_types"]?.let { metadata["sec_filing_types"] = it }
+                            }
+                            handleScrapeOut("SEC EDGAR", "https://www.sec.gov/edgar/search/#/q=${encode(companyName)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("GLEIF"))
+                            val out = scrapeGleif(companyName)
+                            if (out.found) {
+                                out.fields["legal_entities"]?.let { metadata["gleif_company_entities"] = it }
+                            }
+                            handleScrapeOut("GLEIF", "https://search.gleif.org/#/record/${encode(companyName)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Google News"))
+                            val out = scrapeGoogleNews(companyName)
+                            handleScrapeOut("Google News", "https://news.google.com/rss/search?q=${encode(companyName)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Wikidata"))
+                            val out = scrapeWikidata(companyName)
+                            if (out.found) {
+                                out.fields["descriptions"]?.let { metadata["wikidata_company_descriptions"] = it }
+                                out.fields["link"]?.let { metadata["wikidata_link"] = it }
+                            }
+                            handleScrapeOut("Wikidata", "https://www.wikidata.org/w/index.php?search=${encode(companyName)}", out, sources, metadata, this@channelFlow)
+                        }
+                        if (companyDomain != null) {
+                            targetedScraperNames += setOf("VirusTotal", "URLScan", "URLhaus", "RDAP")
+                            launch {
+                                send(SearchProgressEvent.Checking("RDAP"))
+                                val out = scrapeRdap(companyDomain)
+                                if (out.found) {
+                                    out.fields["registrant"]?.let { metadata["rdap_registrant"] = it }
+                                    out.fields["registrant_org"]?.let { metadata["rdap_org"] = it }
+                                    out.fields["registered"]?.let { metadata["rdap_registered"] = it }
+                                    out.fields["expires"]?.let { metadata["rdap_expires"] = it }
+                                    out.fields["nameservers"]?.let { metadata["rdap_nameservers"] = it }
+                                }
+                                handleScrapeOut("RDAP", "https://rdap.org/domain/$companyDomain", out, sources, metadata, this@channelFlow)
+                            }
+                            launch {
+                                val key = apiKeys.virusTotalKey
+                                if (key.isNotBlank()) {
+                                    send(SearchProgressEvent.Checking("VirusTotal"))
+                                    val out = scrapeVirusTotal(companyDomain, key)
+                                    if (out.found) {
+                                        out.fields["malicious"]?.let { metadata["vt_malicious"] = it }
+                                        out.fields["harmless"]?.let { metadata["vt_harmless"] = it }
+                                        out.fields["suspicious"]?.let { metadata["vt_suspicious"] = it }
+                                        out.fields["reputation"]?.let { metadata["vt_reputation"] = it }
+                                    }
+                                    handleScrapeOut("VirusTotal", "https://www.virustotal.com/gui/domain/$companyDomain", out, sources, metadata, this@channelFlow)
+                                }
+                            }
+                            launch {
+                                val key = apiKeys.urlScanKey
+                                if (key.isNotBlank()) {
+                                    send(SearchProgressEvent.Checking("URLScan"))
+                                    val out = scrapeUrlScan(companyDomain, key)
+                                    if (out.found) {
+                                        out.fields["total_scans"]?.let { metadata["urlscan_total_scans"] = it }
+                                        out.fields["malicious_scans"]?.let { metadata["urlscan_malicious_scans"] = it }
+                                        out.fields["ips"]?.let { metadata["urlscan_ips"] = it }
+                                    }
+                                    handleScrapeOut("URLScan", "https://urlscan.io/search/#domain:$companyDomain", out, sources, metadata, this@channelFlow)
+                                }
+                            }
+                            launch {
+                                val urlhausKey = apiKeys.urlhausKey
+                                if (urlhausKey.isBlank()) {
+                                    send(SearchProgressEvent.NotFound("URLhaus (no key — get free Auth-Key at auth.abuse.ch)"))
+                                } else {
+                                    send(SearchProgressEvent.Checking("URLhaus"))
+                                    val out = scrapeUrlhaus(companyDomain, urlhausKey)
+                                    if (out.found) {
+                                        out.fields["status"]?.let { metadata["urlhaus_status"] = it }
+                                        out.fields["urls_count"]?.let { metadata["urlhaus_urls_count"] = it }
+                                    }
+                                    handleScrapeOut("URLhaus", "https://urlhaus.abuse.ch/browse/host/$companyDomain/", out, sources, metadata, this@channelFlow)
+                                }
+                            }
+                            launch {
+                                semaphore.withPermit {
+                                    val key = apiKeys.getKey("clearbit")
+                                    if (key.isNullOrBlank()) {
+                                        send(SearchProgressEvent.NotFound("Clearbit (no key)"))
+                                    } else {
+                                        send(SearchProgressEvent.Checking("Clearbit"))
+                                        try {
+                                            val token = if (key.startsWith("Bearer ", ignoreCase = true)) key else "Bearer $key"
+                                            val resp = RetrofitClient.clearbitService.findCompany(companyDomain, token)
+                                            val company = resp.body()
+                                            if (resp.isSuccessful && company != null) {
+                                                metadata["clearbit_found"] = "true"
+                                                company.name?.let { metadata["clearbit_name"] = it }
+                                                company.description?.let { metadata["clearbit_description"] = it }
+                                                company.industry?.let { metadata["clearbit_industry"] = it }
+                                                company.location?.let { metadata["clearbit_location"] = it }
+                                                company.logo?.let { metadata["company_logo_url"] = it }
+                                                company.employees?.let { metadata["clearbit_employees"] = it.toString() }
+                                                sources.add(DataSource("Clearbit", "https://clearbit.com/", Date(), 0.9))
+                                                send(SearchProgressEvent.Found("Clearbit", company.name ?: companyDomain))
+                                                apiKeys.recordUsage("clearbit")
+                                            } else {
+                                                send(SearchProgressEvent.NotFound("Clearbit"))
+                                            }
+                                        } catch (_: Exception) {
+                                            send(SearchProgressEvent.Blocked("Clearbit"))
+                                        }
+                                    }
+                                }
+                            }
+                            launch {
+                                semaphore.withPermit {
+                                    val key = apiKeys.getKey("builtwith")
+                                    if (key.isNullOrBlank()) {
+                                        send(SearchProgressEvent.NotFound("BuiltWith (no key)"))
+                                    } else {
+                                        send(SearchProgressEvent.Checking("BuiltWith"))
+                                        try {
+                                            val resp = RetrofitClient.builtWithService.lookup(key, companyDomain)
+                                            if (resp.isSuccessful && resp.body() != null) {
+                                                metadata["builtwith_found"] = "true"
+                                                sources.add(DataSource("BuiltWith", "https://builtwith.com/$companyDomain", Date(), 0.85))
+                                                send(SearchProgressEvent.Found("BuiltWith", "Tech stack lookup complete"))
+                                                apiKeys.recordUsage("builtwith")
+                                            } else {
+                                                send(SearchProgressEvent.NotFound("BuiltWith"))
+                                            }
+                                        } catch (_: Exception) {
+                                            send(SearchProgressEvent.Blocked("BuiltWith"))
+                                        }
+                                    }
+                                }
+                            }
+                            launch {
+                                semaphore.withPermit {
+                                    val key = apiKeys.getKey("hunter")
+                                    if (key.isNullOrBlank()) {
+                                        send(SearchProgressEvent.NotFound("Hunter.io (no key)"))
+                                    } else {
+                                        send(SearchProgressEvent.Checking("Hunter.io"))
+                                        try {
+                                            val result = RetrofitClient.hunterService.domainSearch(companyDomain, key)
+                                            val emailList = result.data?.emails
+                                            val org = result.data?.organization
+                                            if (emailList.isNullOrEmpty() && org.isNullOrBlank()) {
+                                                send(SearchProgressEvent.NotFound("Hunter.io"))
+                                            } else {
+                                                metadata["hunter_found"] = "true"
+                                                if (!org.isNullOrBlank()) metadata["hunter_org"] = org
+                                                if (!emailList.isNullOrEmpty()) {
+                                                    metadata["hunter_email_count"] = emailList.size.toString()
+                                                    metadata["hunter_emails"] = emailList.mapNotNull { it.value }.take(5).joinToString(", ")
+                                                }
+                                                sources.add(DataSource("Hunter.io", "https://hunter.io/domain-search/${encode(companyDomain)}", Date(), 0.85))
+                                                send(SearchProgressEvent.Found("Hunter.io", org ?: "${emailList?.size ?: 0} email(s)"))
+                                                apiKeys.recordUsage("hunter")
+                                            }
+                                        } catch (_: Exception) {
+                                            send(SearchProgressEvent.Blocked("Hunter.io"))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "vehicle", "vin" -> {
+                        targetedScraperNames += setOf("NHTSA VIN")
+                        val vin = primaryQuery.trim().uppercase().filter { it.isLetterOrDigit() }
+                        launch {
+                            send(SearchProgressEvent.Checking("NHTSA VIN"))
+                            val out = scrapeNhtsaVin(vin)
+                            if (out.found) {
+                                out.fields["make"]?.let { metadata["vehicle_make"] = it }
+                                out.fields["model"]?.let { metadata["vehicle_model"] = it }
+                                out.fields["year"]?.let { metadata["vehicle_year"] = it }
+                                out.fields["body_class"]?.let { metadata["vehicle_body"] = it }
+                                out.fields["fuel_type"]?.let { metadata["vehicle_fuel"] = it }
+                                out.fields["manufacturer"]?.let { metadata["vehicle_manufacturer"] = it }
+                            }
+                            handleScrapeOut(
+                                "NHTSA VIN",
+                                "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/$vin?format=json",
+                                out, sources, metadata, this@channelFlow
+                            )
+                            apiKeys.recordUsage("nhtsa")
+                        }
+                    }
+                    "wifi", "mac", "ssid" -> {
+                        targetedScraperNames += setOf("WiGLE", "DDG WiFi")
+                        launch {
+                            val key = apiKeys.wigleKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.NotFound("WiGLE (no key — register at wigle.net)"))
+                            } else {
+                                send(SearchProgressEvent.Checking("WiGLE"))
+                                val out = scrapeWigle(primaryQuery, effectiveType, key)
+                                if (out.found) {
+                                    out.fields["ssid"]?.let { metadata["wifi_ssid"] = it }
+                                    out.fields["bssid"]?.let { metadata["wifi_bssid"] = it }
+                                    out.fields["location"]?.let { metadata["wifi_location"] = it }
+                                    out.fields["channel"]?.let { metadata["wifi_channel"] = it }
+                                    out.fields["encryption"]?.let { metadata["wifi_encryption"] = it }
+                                }
+                                handleScrapeOut("WiGLE", "https://api.wigle.net/api/v2/network/search", out, sources, metadata, this@channelFlow)
+                                apiKeys.recordUsage("wigle")
+                            }
+                        }
+                        launch {
+                            semaphore.withPermit {
+                                send(SearchProgressEvent.Checking("DDG WiFi"))
+                                val q = when (effectiveType) {
+                                    "mac" -> "\"$primaryQuery\" wifi bssid location"
+                                    "ssid" -> "\"$primaryQuery\" wifi network location"
+                                    else -> "\"$primaryQuery\" wifi network geolocation"
+                                }
+                                val results = ddgHtmlSearch(q)
+                                if (results.isNotEmpty()) {
+                                    metadata["wifi_ddg_snippets"] = results.take(5).joinToString("\n") { "${it.title}: ${it.snippet}".take(150) }
+                                    sources.add(DataSource("DDG WiFi", "https://html.duckduckgo.com/html/?q=${encode(q)}", Date(), 0.5))
+                                    send(SearchProgressEvent.Found("DDG WiFi", results.first().snippet.take(100)))
+                                } else {
+                                    send(SearchProgressEvent.NotFound("DDG WiFi"))
+                                }
+                            }
+                        }
+                    }
+                    "image" -> {
+                        targetedScraperNames += "Image EXIF"
+                        launch {
+                            send(SearchProgressEvent.Checking("Image EXIF"))
+                            val out = scrapeImageExif(primaryQuery)
+                            if (out.found) {
+                                out.fields.forEach { (k, v) -> metadata["image_$k"] = v }
+                                if (out.fields["gps"]?.isNotBlank() == true) {
+                                    metadata["image_search_note"] = "GPS coordinates extracted from photo metadata"
+                                }
+                            }
+                            handleScrapeOut("Image EXIF", primaryQuery, out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("DDG Reverse Image"))
+                            val results = ddgHtmlSearch("reverse image search metadata photo")
+                            if (results.isNotEmpty()) {
+                                metadata["image_ddg_snippets"] = results.take(3).joinToString("\n") { it.snippet.take(120) }
+                                sources.add(DataSource("DDG Reverse Image", "https://html.duckduckgo.com/html/", Date(), 0.5))
+                                send(SearchProgressEvent.Found("DDG Reverse Image", results.first().snippet.take(100)))
+                            } else {
+                                send(SearchProgressEvent.NotFound("DDG Reverse Image"))
                             }
                         }
                     }
@@ -1724,10 +2615,14 @@ class OsintRepository(context: Context) {
                 send(SearchProgressEvent.NotFound("AI Brief"))
             }
 
+            val personId = if (effectiveType == "person" || effectiveType == "comprehensive") {
+                buildPersonIdFromMetadata(metadata.toMap(), primaryQuery)
+            } else null
             val reportId = try {
-                saveReport(query, null, sources.toList(), metadata.toMap())
+                saveReport(query, personId, sources.toList(), metadata.toMap())
             } catch (_: Exception) {
-                UUID.randomUUID().toString()
+                send(SearchProgressEvent.Failed("Search", "Could not save report to database"))
+                return@withContext
             }
 
             if (effectiveType == "person" && round == 1) {
@@ -1827,5 +2722,150 @@ class OsintRepository(context: Context) {
             }
         }
         return result
+    }
+
+    private suspend fun buildPersonIdFromMetadata(metadata: Map<String, String>, primaryQuery: String): String? {
+        val name = metadata["pipl_name"]?.takeIf { it.isNotBlank() }
+            ?: metadata["pdl_name"]?.takeIf { it.isNotBlank() }
+            ?: metadata["person_name"]?.takeIf { it.isNotBlank() }
+            ?: primaryQuery.takeIf { it.isNotBlank() && !it.startsWith("content://") }
+            ?: return null
+        val parts = name.trim().split("\\s+".toRegex())
+        val first = parts.firstOrNull()?.takeIf { it.isNotBlank() } ?: return null
+        val last = if (parts.size > 1) parts.last() else ""
+        val id = UUID.randomUUID().toString()
+        val person = PersonEntity(
+            id = id,
+            firstName = first,
+            lastName = last,
+            fullName = name,
+            emailAddress = metadata["pipl_emails"]?.split(",")?.firstOrNull()?.trim()
+                ?: metadata["pdl_emails"]?.split(",")?.firstOrNull()?.trim()
+                ?: metadata["person_email"],
+            phoneNumber = metadata["pipl_phones"]?.split(",")?.firstOrNull()?.trim()
+                ?: metadata["pdl_phones"]?.split(",")?.firstOrNull()?.trim()
+                ?: metadata["person_phone"],
+            dateOfBirth = metadata["comp_dob"],
+            addressesJson = "[]",
+            employmentHistoryJson = "[]",
+            socialProfilesJson = "[]",
+            aliasesJson = "[]",
+            nationalitiesJson = "[]",
+            gender = null,
+            profileImageUrl = metadata["profile_photo_url"]
+        )
+        db.personDao().insertPerson(person)
+        return id
+    }
+
+    private fun scrapeNhtsaVin(vin: String): ScrapeOut {
+        return try {
+            if (vin.length != 17) return ScrapeOut(false, false)
+            val req = Request.Builder()
+                .url("https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/${encode(vin)}?format=json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val results = JSONObject(body).optJSONArray("Results") ?: return ScrapeOut(false, false)
+            val vars = mutableMapOf<String, String>()
+            for (i in 0 until results.length()) {
+                val item = results.optJSONObject(i) ?: continue
+                val variable = item.optString("Variable")
+                val value = item.optString("Value")
+                if (variable.isNotBlank() && value.isNotBlank() && value != "Not Applicable") {
+                    vars[variable] = value
+                }
+            }
+            val make = vars["Make"] ?: vars["Manufacturer Name"]
+            val model = vars["Model"]
+            if (make.isNullOrBlank() && model.isNullOrBlank()) return ScrapeOut(false, false)
+            val snippet = listOfNotNull(make, model, vars["Model Year"]).joinToString(" ")
+            ScrapeOut(true, false, mapOf(
+                "title" to "NHTSA: $vin",
+                "snippet" to snippet,
+                "make" to (make ?: ""),
+                "model" to (model ?: ""),
+                "year" to (vars["Model Year"] ?: ""),
+                "body_class" to (vars["Body Class"] ?: ""),
+                "fuel_type" to (vars["Fuel Type - Primary"] ?: ""),
+                "manufacturer" to (vars["Manufacturer Name"] ?: make ?: "")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeWigle(query: String, searchType: String, apiKey: String): ScrapeOut {
+        return try {
+            val parts = apiKey.split(":", limit = 2)
+            val auth = if (parts.size == 2) {
+                android.util.Base64.encodeToString("${parts[0]}:${parts[1]}".toByteArray(), android.util.Base64.NO_WRAP)
+            } else {
+                android.util.Base64.encodeToString(":$apiKey".toByteArray(), android.util.Base64.NO_WRAP)
+            }
+            val param = when (searchType) {
+                "mac" -> "netid=${encode(query.trim().lowercase())}"
+                "ssid" -> "ssid=${encode(query.trim())}"
+                else -> {
+                    val mac = query.trim().lowercase()
+                    if (mac.matches(Regex("[0-9a-f:]{17}"))) "netid=${encode(mac)}" else "ssid=${encode(query.trim())}"
+                }
+            }
+            val req = Request.Builder()
+                .url("https://api.wigle.net/api/v2/network/search?$param&resultsPerPage=5")
+                .header("Authorization", "Basic $auth")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 401 || code == 403) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val results = json.optJSONArray("results") ?: return ScrapeOut(false, false)
+            if (results.length() == 0) return ScrapeOut(false, false)
+            val first = results.optJSONObject(0) ?: return ScrapeOut(false, false)
+            val ssid = first.optString("ssid")
+            val netid = first.optString("netid")
+            val lat = first.optDouble("trilat", 0.0)
+            val lon = first.optDouble("trilong", 0.0)
+            val location = if (lat != 0.0 || lon != 0.0) "$lat, $lon" else ""
+            ScrapeOut(true, false, mapOf(
+                "title" to "WiGLE: ${ssid.ifBlank { netid }}",
+                "snippet" to listOfNotNull(ssid.takeIf { it.isNotBlank() }, netid.takeIf { it.isNotBlank() }, location.takeIf { it.isNotBlank() }).joinToString(" · "),
+                "ssid" to ssid,
+                "bssid" to netid,
+                "location" to location,
+                "channel" to first.optString("channel"),
+                "encryption" to first.optString("encryption")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeImageExif(imageUri: String): ScrapeOut {
+        return try {
+            val uri = Uri.parse(imageUri)
+            val fields = mutableMapOf<String, String>()
+            appCtx.contentResolver.openInputStream(uri)?.use { stream ->
+                val exif = ExifInterface(stream)
+                exif.getAttribute(ExifInterface.TAG_DATETIME)?.let { fields["datetime"] = it }
+                exif.getAttribute(ExifInterface.TAG_MAKE)?.let { fields["make"] = it }
+                exif.getAttribute(ExifInterface.TAG_MODEL)?.let { fields["model"] = it }
+                exif.getAttribute(ExifInterface.TAG_IMAGE_WIDTH)?.let { fields["width"] = it }
+                exif.getAttribute(ExifInterface.TAG_IMAGE_LENGTH)?.let { fields["height"] = it }
+                val latLong = FloatArray(2)
+                if (exif.getLatLong(latLong)) {
+                    fields["gps"] = "${latLong[0]}, ${latLong[1]}"
+                }
+            } ?: return ScrapeOut(false, false)
+            if (fields.isEmpty()) return ScrapeOut(false, false)
+            ScrapeOut(true, false, fields + mapOf(
+                "title" to "Image EXIF",
+                "snippet" to fields.entries.joinToString(" | ") { "${it.key}=${it.value}" }.take(600)
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
     }
 }

@@ -1,11 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ── Base Surfaces ─────────────────────────────── -->
-    <color name="background_primary">#0C1322</color>
-    <color name="background_secondary">#111B2E</color>
-    <color name="surface">#172035</color>
-    <color name="surface_elevated">#1E2B44</color>
-    <color name="border">#28395A</color>
+    <!-- ── Material 3 Modern palette ───────────────── -->
+    <color name="md_background">#0C1322</color>
+    <color name="md_on_background">#EDF2FF</color>
+    <color name="md_surface">#111B2E</color>
+    <color name="md_on_surface">#EDF2FF</color>
+    <color name="md_surface_variant">#172035</color>
+    <color name="md_on_surface_variant">#A8BCDC</color>
+    <color name="md_surface_container">#111B2E</color>
+    <color name="md_surface_container_high">#172035</color>
+    <color name="md_surface_container_highest">#1E2B44</color>
+    <color name="md_outline">#28395A</color>
+    <color name="md_outline_variant">#1E2B44</color>
+    <color name="md_primary_container">#0D1E3A</color>
+    <color name="md_on_primary_container">#93C5FD</color>
+    <color name="md_secondary_container">#041B2C</color>
+    <color name="md_on_secondary_container">#7DD3FC</color>
+    <color name="md_tertiary_container">#1A1040</color>
+    <color name="md_on_tertiary_container">#C4B5FD</color>
+
+    <!-- ── Base Surfaces (legacy aliases) ──────────── -->
+    <color name="background_primary">@color/md_background</color>
+    <color name="background_secondary">@color/md_surface_container</color>
+    <color name="surface">@color/md_surface_variant</color>
+    <color name="surface_elevated">@color/md_surface_container_highest</color>
+    <color name="border">@color/md_outline</color>
 
     <!-- ── Accent Colors ──────────────────────────────── -->
     <color name="accent_green">#22D3A0</color>

@@ -4,272 +4,265 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/fi_ink">
+    android:background="?android:colorBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="CLASSIFIED // SIGINT COLLECTION TERMINAL"
-            android:textColor="@color/fi_orange"
-            android:textSize="8sp"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.3"
-            android:gravity="center"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:background="@color/fi_orange_dim" />
-
+        <!-- Screen header -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:orientation="horizontal">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/screen_padding_horizontal"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/menu_search"
+                android:textAppearance="@style/TextAppearance.SixDegrees.HeadlineMedium"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Investigate people, companies, domains, and more"
+                android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+        </LinearLayout>
+
+        <!-- Search type selector -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:paddingHorizontal="12dp"
+            android:clipToPadding="false">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="8dp">
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_person"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_orange"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                app:cardBackgroundColor="?attr/colorPrimary"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="SUBJECT"
-                    android:textSize="8sp"
+                    android:paddingHorizontal="14dp"
+                    android:text="Person"
+                    android:textSize="13sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ink" />
+                    android:textColor="?attr/colorOnPrimary" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_company"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_charcoal"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/fi_border"
+                app:strokeColor="?attr/colorOutline"
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="ENTITY"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ash" />
+                    android:paddingHorizontal="14dp"
+                    android:text="Company"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_domain"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_charcoal"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/fi_border"
+                app:strokeColor="?attr/colorOutline"
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="DOMAIN"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ash" />
+                    android:paddingHorizontal="14dp"
+                    android:text="Domain"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_email"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_charcoal"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/fi_border"
+                app:strokeColor="?attr/colorOutline"
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="EMAIL"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ash" />
+                    android:paddingHorizontal="14dp"
+                    android:text="Email"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_phone"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_charcoal"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/fi_border"
+                app:strokeColor="?attr/colorOutline"
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="PHONE"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ash" />
+                    android:paddingHorizontal="14dp"
+                    android:text="Phone"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_username"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_charcoal"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/fi_border"
+                app:strokeColor="?attr/colorOutline"
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="HANDLE"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ash" />
+                    android:paddingHorizontal="14dp"
+                    android:text="Username"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_vehicle"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_charcoal"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/fi_border"
+                app:strokeColor="?attr/colorOutline"
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="VIN"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ash" />
+                    android:paddingHorizontal="14dp"
+                    android:text="Vehicle"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_type_wifi"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@color/fi_charcoal"
-                app:cardCornerRadius="0dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/fi_border"
+                app:strokeColor="?attr/colorOutline"
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="SIGNAL"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/fi_ash" />
+                    android:paddingHorizontal="14dp"
+                    android:text="WiFi"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </com.google.android.material.card.MaterialCardView>
 
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:background="@color/fi_orange" />
+            </LinearLayout>
+        </HorizontalScrollView>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="10dp"
+            android:paddingHorizontal="@dimen/screen_padding_horizontal"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
             android:gravity="center_vertical">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="CASE FILE"
-                android:textColor="@color/fi_ash"
-                android:textSize="9sp"
-                android:fontFamily="monospace"
-                android:letterSpacing="0.18" />
+                android:text="Search details"
+                android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium" />
 
             <TextView
                 android:id="@+id/tv_query_counter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="▶ 18 QUERIES ARMED"
-                android:textColor="@color/fi_amber"
-                android:textSize="9sp"
-                android:fontFamily="monospace"
-                android:letterSpacing="0.1"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="3dp"
-                android:paddingBottom="3dp"
-                android:background="@color/fi_amber_dim" />
+                android:text="18 sources"
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSecondaryContainer"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:background="?attr/colorSecondaryContainer" />
 
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginEnd="20dp"
-            android:background="@color/fi_smoke" />
+            android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
+            android:background="?attr/colorOutlineVariant" />
 
         <LinearLayout
             android:id="@+id/form_person"
@@ -285,7 +278,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="// IDENTITY"
-                android:textColor="@color/fi_smoke"
+                android:textColor="?attr/colorOutline"
                 android:textSize="7sp"
                 android:fontFamily="monospace"
                 android:letterSpacing="0.3"
@@ -309,7 +302,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="FORENAME"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="9sp"
                         android:fontFamily="monospace"
                         android:letterSpacing="0.18"
@@ -320,7 +313,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_field_line"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="17sp"
                         android:fontFamily="monospace"
                         android:paddingTop="6dp"
@@ -342,7 +335,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="MI"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="9sp"
                         android:fontFamily="monospace"
                         android:letterSpacing="0.18"
@@ -353,7 +346,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_field_line"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="17sp"
                         android:fontFamily="monospace"
                         android:paddingTop="6dp"
@@ -375,7 +368,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="SURNAME"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="9sp"
                         android:fontFamily="monospace"
                         android:letterSpacing="0.18"
@@ -386,7 +379,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_field_line"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="17sp"
                         android:fontFamily="monospace"
                         android:paddingTop="6dp"
@@ -403,7 +396,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="// KNOWN IDENTIFIERS"
-                android:textColor="@color/fi_smoke"
+                android:textColor="?attr/colorOutline"
                 android:textSize="7sp"
                 android:fontFamily="monospace"
                 android:letterSpacing="0.3"
@@ -421,7 +414,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="PRIMARY PHONE"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -432,7 +425,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -460,7 +453,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="ALT PHONE 1"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="9sp"
                         android:fontFamily="monospace"
                         android:letterSpacing="0.18"
@@ -471,7 +464,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_field_line"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="17sp"
                         android:fontFamily="monospace"
                         android:paddingTop="6dp"
@@ -492,7 +485,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="ALT PHONE 2"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="9sp"
                         android:fontFamily="monospace"
                         android:letterSpacing="0.18"
@@ -503,7 +496,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_field_line"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="17sp"
                         android:fontFamily="monospace"
                         android:paddingTop="6dp"
@@ -526,7 +519,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="EMAIL ADDRESS"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -537,7 +530,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -558,7 +551,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="USERNAME / HANDLE"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -569,7 +562,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -584,7 +577,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="// LAST KNOWN LOCATION"
-                android:textColor="@color/fi_smoke"
+                android:textColor="?attr/colorOutline"
                 android:textSize="7sp"
                 android:fontFamily="monospace"
                 android:letterSpacing="0.3"
@@ -609,7 +602,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="CITY"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="9sp"
                         android:fontFamily="monospace"
                         android:letterSpacing="0.18"
@@ -620,7 +613,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_field_line"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="17sp"
                         android:fontFamily="monospace"
                         android:paddingTop="6dp"
@@ -641,7 +634,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="STATE"
-                        android:textColor="@color/fi_ash"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="9sp"
                         android:fontFamily="monospace"
                         android:letterSpacing="0.18"
@@ -652,7 +645,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_field_line"
-                        android:textColor="@color/fi_parchment"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="17sp"
                         android:fontFamily="monospace"
                         android:paddingTop="6dp"
@@ -676,7 +669,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="DATE OF BIRTH / AGE"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -687,7 +680,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -708,7 +701,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="STREET ADDRESS"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -719,7 +712,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -740,7 +733,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="KNOWN ASSOCIATES"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -751,7 +744,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -766,7 +759,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:background="@color/fi_surface"
+                android:background="?attr/colorSurfaceVariant"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
                 android:paddingTop="12dp"
@@ -777,7 +770,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="INTEL CONTEXT"
-                    android:textColor="@color/fi_amber"
+                    android:textColor="?attr/colorSecondary"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -788,7 +781,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="14sp"
                     android:fontFamily="monospace"
                     android:paddingBottom="8dp"
@@ -799,7 +792,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Location or situation where you encountered this target"
-                    android:textColor="@color/fi_smoke"
+                    android:textColor="?attr/colorOutline"
                     android:textSize="10sp"
                     android:layout_marginTop="6dp" />
 
@@ -819,9 +812,9 @@
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
                     android:text="PHOTO"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:letterSpacing="0.1"
-                    app:strokeColor="@color/fi_smoke"
+                    app:strokeColor="?attr/colorOutline"
                     app:cornerRadius="0dp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -832,9 +825,9 @@
                     android:layout_weight="1"
                     android:layout_marginStart="6dp"
                     android:text="GALLERY"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:letterSpacing="0.1"
-                    app:strokeColor="@color/fi_smoke"
+                    app:strokeColor="?attr/colorOutline"
                     app:cornerRadius="0dp" />
 
             </LinearLayout>
@@ -843,7 +836,7 @@
                 android:id="@+id/tv_image_attached"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/fi_amber"
+                android:textColor="?attr/colorSecondary"
                 android:textSize="12sp"
                 android:layout_marginBottom="8dp"
                 android:visibility="gone" />
@@ -870,7 +863,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ORGANIZATION NAME"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -881,7 +874,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -902,7 +895,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="WEBSITE / DOMAIN"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -913,7 +906,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -934,7 +927,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="LOCATION"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -945,7 +938,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -978,7 +971,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="TARGET DOMAIN OR IP ADDRESS"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -989,7 +982,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -1023,7 +1016,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="EMAIL ADDRESS"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -1034,7 +1027,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -1068,7 +1061,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="PHONE NUMBER"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -1079,7 +1072,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -1113,7 +1106,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="USERNAME / HANDLE"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -1124,7 +1117,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -1158,7 +1151,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="VIN OR VEHICLE DESCRIPTION"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -1169,7 +1162,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -1203,7 +1196,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="WIFI SSID OR MAC ADDRESS"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.18"
@@ -1214,7 +1207,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_field_line"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="17sp"
                     android:fontFamily="monospace"
                     android:paddingTop="6dp"
@@ -1239,48 +1232,35 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/search_button"
+                style="@style/Widget.SixDegrees.Button.Filled"
                 android:layout_width="0dp"
-                android:layout_height="60dp"
+                android:layout_height="52dp"
                 android:layout_weight="1"
-                android:text="INITIATE INVESTIGATION ▶"
-                android:textColor="@android:color/white"
-                android:textSize="13sp"
-                android:letterSpacing="0.12"
-                android:fontFamily="sans-serif-condensed"
-                android:textAllCaps="true"
-                app:backgroundTint="@color/fi_orange"
-                app:cornerRadius="0dp" />
+                android:text="Start search"
+                app:icon="@drawable/ic_search"
+                app:iconGravity="textStart" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_clear_fields"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="56dp"
-                android:layout_height="60dp"
+                style="@style/Widget.SixDegrees.Button.Outlined"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
                 android:layout_marginStart="8dp"
                 android:text="✕"
-                android:textColor="@color/fi_smoke"
-                android:textSize="18sp"
-                app:strokeColor="@color/fi_smoke"
-                app:cornerRadius="0dp" />
+                android:textSize="18sp" />
 
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_web_hub"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/Widget.SixDegrees.Button.Outlined"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginEnd="20dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
             android:layout_marginBottom="8dp"
-            android:text="◈  OSINT WEB HUB  ·  184 TOOLS"
-            android:textColor="@color/fi_amber"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:fontFamily="sans-serif-condensed"
-            app:strokeColor="@color/fi_amber"
-            app:strokeWidth="1dp"
-            app:cornerRadius="0dp" />
+            android:text="OSINT Web Hub · 184 tools"
+            app:icon="@drawable/ic_web_hub"
+            app:iconGravity="textStart" />
 
         <View
             android:layout_width="match_parent"
@@ -1289,7 +1269,7 @@
             android:layout_marginEnd="20dp"
             android:layout_marginTop="4dp"
             android:layout_marginBottom="12dp"
-            android:background="@color/fi_smoke" />
+            android:background="?attr/colorOutline" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -1307,23 +1287,20 @@
                 <View
                     android:layout_width="20dp"
                     android:layout_height="1dp"
-                    android:background="@color/fi_orange"
+                    android:background="?attr/colorPrimary"
                     android:layout_marginEnd="8dp" />
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="PRIOR OPERATIONS"
-                    android:textColor="@color/fi_ash"
-                    android:textSize="9sp"
-                    android:fontFamily="monospace"
-                    android:letterSpacing="0.22" />
+                    android:text="Recent searches"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium" />
 
                 <View
                     android:layout_width="20dp"
                     android:layout_height="1dp"
-                    android:background="@color/fi_orange"
+                    android:background="?attr/colorPrimary"
                     android:layout_marginStart="8dp" />
 
             </LinearLayout>
@@ -1337,7 +1314,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/no_recent_searches"
-                android:textColor="@color/fi_smoke"
+                android:textColor="?attr/colorOutline"
                 android:textSize="13sp"
                 android:gravity="center"
                 android:padding="20dp"

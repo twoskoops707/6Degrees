@@ -40,28 +40,28 @@ class ApiKeyManager(context: Context) {
         set(v) { prefs.edit().putString("shodan", v).apply() }
 
     var virusTotalKey: String
-        get() = prefs.getString("virustotal", "")?.takeIf { it.isNotBlank() }
-            ?: "3458348328bb1d00d262f5d656bf950bf577c1e691b826f2a7945cf6635f0758"
+        get() = prefs.getString("virustotal", "") ?: ""
         set(v) { prefs.edit().putString("virustotal", v).apply() }
 
     var abuseIpDbKey: String
-        get() = prefs.getString("abuseipdb", "")?.takeIf { it.isNotBlank() }
-            ?: "3f1e420c88dbc5d63aa09806782040f6336b5fe01acab3f7f356ca38e631fde42c7cc1656cdc9dee"
+        get() = prefs.getString("abuseipdb", "") ?: ""
         set(v) { prefs.edit().putString("abuseipdb", v).apply() }
 
     var urlScanKey: String
-        get() = prefs.getString("urlscan", "")?.takeIf { it.isNotBlank() }
-            ?: "019cadfe-b7e1-77d9-82d9-8ac04c9c6cd5"
+        get() = prefs.getString("urlscan", "") ?: ""
         set(v) { prefs.edit().putString("urlscan", v).apply() }
 
+    /** Free Auth-Key from https://auth.abuse.ch/ — required for URLhaus API since mid-2025. */
+    var urlhausKey: String
+        get() = prefs.getString("urlhaus", "") ?: ""
+        set(v) { prefs.edit().putString("urlhaus", v).apply() }
+
     var googleCseApiKey: String
-        get() = prefs.getString("google_cse_key", "")?.takeIf { it.isNotBlank() }
-            ?: "AIzaSyDVFF-Z2NsKb2j6CupZEQ2m7KN40fS7VZc"
+        get() = prefs.getString("google_cse_key", "") ?: ""
         set(v) { prefs.edit().putString("google_cse_key", v).apply() }
 
     var googleCseId: String
-        get() = prefs.getString("google_cse_id", "")?.takeIf { it.isNotBlank() }
-            ?: "1444c6d9fd95f4dde"
+        get() = prefs.getString("google_cse_id", "") ?: ""
         set(v) { prefs.edit().putString("google_cse_id", v).apply() }
 
     var bingSearchKey: String
@@ -145,8 +145,7 @@ class ApiKeyManager(context: Context) {
         set(v) { prefs.edit().putString("tomba", v).apply() }
 
     var googleSafeBrowsingKey: String
-        get() = prefs.getString("google_safebrowsing", "")?.takeIf { it.isNotBlank() }
-            ?: "AIzaSyDVFF-Z2NsKb2j6CupZEQ2m7KN40fS7VZc"
+        get() = prefs.getString("google_safebrowsing", "") ?: ""
         set(v) { prefs.edit().putString("google_safebrowsing", v).apply() }
 
     fun getKey(service: String): String? =
@@ -154,7 +153,7 @@ class ApiKeyManager(context: Context) {
 
     fun getRawForDisplay(prefKey: String): String = prefs.getString(prefKey, "") ?: ""
 
-    fun hasAnyKey(): Boolean = true
+    fun hasAnyKey(): Boolean = activeKeyCount() > 0
 
     fun activeKeyCount(): Int = listOf(
         hibpKey, hunterKey, pdlKey, numverifyKey, shodanKey,
@@ -224,7 +223,6 @@ class ApiKeyManager(context: Context) {
         ApiUsageSummary("GeoJS", getMonthlyUsage("geojs"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("NHTSA", getMonthlyUsage("nhtsa"), Int.MAX_VALUE, isUnlimited = true),
         ApiUsageSummary("WiGLE", getMonthlyUsage("wigle"), 100, isUnlimited = wigleKey.isBlank()),
-        ApiUsageSummary("Censys", getMonthlyUsage("censys"), 250, isUnlimited = censysId.isBlank()),
         ApiUsageSummary("Pulsedive", getMonthlyUsage("pulsedive"), 30, isUnlimited = pulsediveKey.isBlank()),
         ApiUsageSummary("FullHunt", getMonthlyUsage("fullhunt"), 100, isUnlimited = fullHuntKey.isBlank()),
         ApiUsageSummary("Tomba", getMonthlyUsage("tomba"), 25, isUnlimited = tombaKey.isBlank()),

@@ -16,8 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Settings"
-            android:textColor="@color/text_primary"
-            android:textSize="26sp"
+            android:textAppearance="@style/TextAppearance.SixDegrees.HeadlineMedium"
             android:textStyle="bold"
             android:layout_marginBottom="20dp" />
 
@@ -170,7 +169,7 @@
                         android:layout_height="wrap_content"
                         android:text="APK download ›"
                         android:textSize="11sp"
-                        android:textColor="@color/fi_orange"
+                        android:textColor="?attr/colorPrimary"
                         android:fontFamily="monospace" />
 
                 </LinearLayout>
@@ -193,11 +192,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="// DISPLAY PROFILE"
-            android:textColor="@color/fi_smoke"
-            android:textSize="10sp"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.1"
+            android:text="THEME"
+            android:textAppearance="@style/TextAppearance.SixDegrees.SectionHeader"
             android:layout_marginBottom="10dp" />
 
         <!-- Row 1: Field Intel / Night Ops / Redacted -->
@@ -215,11 +211,11 @@
                 android:layout_marginEnd="4dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardBackgroundColor="@color/fi_charcoal"
+                app:cardBackgroundColor="?attr/colorSurface"
                 app:cardElevation="0dp"
                 app:cardCornerRadius="2dp"
                 app:strokeWidth="1dp"
-                app:strokeColor="@color/fi_border">
+                app:strokeColor="?attr/colorOutline">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -231,26 +227,23 @@
                     <View
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:background="@color/fi_orange"
+                        android:background="?attr/colorPrimary"
                         android:layout_marginBottom="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="FIELD INTEL"
-                        android:textColor="@color/fi_parchment"
-                        android:textSize="9sp"
-                        android:fontFamily="monospace"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.05" />
+                        android:text="Modern"
+                        android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Ink · Orange"
-                        android:textColor="@color/fi_ash"
-                        android:textSize="8sp"
-                        android:fontFamily="monospace"
+                        android:text="Material 3 · Blue"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="11sp"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

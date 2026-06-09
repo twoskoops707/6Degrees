@@ -8,10 +8,10 @@
     android:layout_marginBottom="10dp"
     android:clickable="true"
     android:focusable="true"
-    app:cardBackgroundColor="@color/fi_charcoal"
+    app:cardBackgroundColor="?attr/colorSurface"
     app:cardCornerRadius="2dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/fi_border"
+    app:strokeColor="?attr/colorOutline"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -38,7 +38,7 @@
                     android:scaleType="centerCrop"
                     android:src="@drawable/ic_person_placeholder"
                     app:shapeAppearanceOverlay="@style/ShapeAppearance.FieldIntel.Small"
-                    app:strokeColor="@color/fi_border"
+                    app:strokeColor="?attr/colorOutline"
                     app:strokeWidth="1dp" />
 
                 <FrameLayout
@@ -52,7 +52,7 @@
                         android:layout_height="24dp"
                         android:layout_gravity="center"
                         android:src="@drawable/ic_check"
-                        android:tint="@color/fi_orange" />
+                        android:tint="?attr/colorPrimary" />
                 </FrameLayout>
             </FrameLayout>
 
@@ -66,7 +66,7 @@
                     android:id="@+id/tv_candidate_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/fi_parchment"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="15sp"
                     android:fontFamily="monospace"
                     android:textStyle="bold"
@@ -78,7 +78,7 @@
                     android:id="@+id/tv_candidate_age_location"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/fi_ash"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="11sp"
                     android:fontFamily="monospace"
                     android:layout_marginTop="3dp"
@@ -89,7 +89,7 @@
                     android:id="@+id/tv_candidate_phone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/fi_amber"
+                    android:textColor="?attr/colorSecondary"
                     android:textSize="11sp"
                     android:fontFamily="monospace"
                     android:layout_marginTop="2dp"
@@ -108,7 +108,7 @@
                     android:layout_width="44dp"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:textColor="@color/fi_amber"
+                    android:textColor="?attr/colorSecondary"
                     android:textSize="13sp"
                     android:fontFamily="monospace"
                     android:textStyle="bold" />
@@ -118,7 +118,7 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:text="MATCH"
-                    android:textColor="@color/fi_smoke"
+                    android:textColor="?attr/colorOutline"
                     android:textSize="7sp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.2" />
@@ -130,8 +130,8 @@
                     android:layout_height="2dp"
                     android:max="100"
                     android:layout_marginTop="3dp"
-                    android:progressTint="@color/fi_orange"
-                    android:progressBackgroundTint="@color/fi_smoke" />
+                    android:progressTint="?attr/colorPrimary"
+                    android:progressBackgroundTint="?attr/colorOutline" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_candidate_source"
@@ -146,7 +146,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/fi_smoke"
+            android:background="?attr/colorOutline"
             android:layout_marginTop="10dp"
             android:layout_marginBottom="6dp" />
 
@@ -154,7 +154,7 @@
             android:id="@+id/tv_candidate_address"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/fi_ash"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="11sp"
             android:fontFamily="monospace"
             android:layout_marginTop="3dp"
@@ -164,7 +164,7 @@
             android:id="@+id/tv_candidate_relatives"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/fi_smoke"
+            android:textColor="?attr/colorOutline"
             android:textSize="11sp"
             android:fontFamily="monospace"
             android:layout_marginTop="3dp"
@@ -174,7 +174,7 @@
             android:id="@+id/tv_candidate_dob"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/fi_amber"
+            android:textColor="?attr/colorSecondary"
             android:textSize="11sp"
             android:fontFamily="monospace"
             android:layout_marginTop="3dp"
@@ -184,7 +184,7 @@
             android:id="@+id/tv_candidate_akas"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/fi_smoke"
+            android:textColor="?attr/colorOutline"
             android:textSize="11sp"
             android:fontFamily="monospace"
             android:layout_marginTop="3dp"
@@ -194,7 +194,7 @@
             android:id="@+id/tv_candidate_email"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/fi_orange"
+            android:textColor="?attr/colorPrimary"
             android:textSize="11sp"
             android:fontFamily="monospace"
             android:layout_marginTop="3dp"
@@ -204,7 +204,7 @@
             android:id="@+id/tv_candidate_political"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/fi_smoke"
+            android:textColor="?attr/colorOutline"
             android:textSize="11sp"
             android:fontFamily="monospace"
             android:layout_marginTop="3dp"
@@ -224,12 +224,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="10sp"
-                app:chipBackgroundColor="@color/fi_surface"
-                android:textColor="@color/fi_orange"
+                app:chipBackgroundColor="?attr/colorSurfaceVariant"
+                android:textColor="?attr/colorPrimary"
                 app:chipMinHeight="24dp"
                 app:chipIcon="@drawable/ic_link"
                 app:chipIconSize="14dp"
-                app:chipIconTint="@color/fi_orange"
+                app:chipIconTint="?attr/colorPrimary"
                 app:closeIconVisible="false" />
 
             <com.google.android.material.chip.Chip
@@ -239,12 +239,12 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
                 android:textSize="10sp"
-                app:chipBackgroundColor="@color/fi_surface"
-                android:textColor="@color/fi_ash"
+                app:chipBackgroundColor="?attr/colorSurfaceVariant"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 app:chipMinHeight="24dp"
                 app:chipIcon="@drawable/ic_business"
                 app:chipIconSize="14dp"
-                app:chipIconTint="@color/fi_ash"
+                app:chipIconTint="?attr/colorOnSurfaceVariant"
                 app:closeIconVisible="false" />
         </LinearLayout>
 

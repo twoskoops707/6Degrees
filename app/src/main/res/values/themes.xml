@@ -2,34 +2,82 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- ══════════════════════════════════════════════════ -->
-    <!-- DEFAULT — inherits Field Intelligence aesthetic   -->
+    <!-- DEFAULT — Material 3 modern dark                  -->
     <!-- ══════════════════════════════════════════════════ -->
-    <style name="Theme.SixDegrees" parent="Theme.SixDegrees.FieldIntel" />
+    <style name="Theme.SixDegrees" parent="Theme.SixDegrees.Modern" />
 
-    <style name="Theme.SixDegrees.Cyan" parent="Theme.SixDegrees.FieldIntel">
-        <item name="colorPrimary">@color/accent_cyan</item>
-        <item name="colorPrimaryVariant">@color/accent_cyan_dim</item>
-        <item name="colorSecondary">@color/accent_blue</item>
-        <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
-    </style>
-
-    <style name="Theme.SixDegrees.Green" parent="Theme.SixDegrees.FieldIntel">
-        <item name="colorPrimary">@color/accent_green</item>
-        <item name="colorPrimaryVariant">@color/accent_green_dim</item>
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- MODERN — Material 3 clean dark UI                 -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <style name="Theme.SixDegrees.Modern" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="themeFamily">modern</item>
+        <item name="colorPrimary">@color/accent_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/md_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/md_on_primary_container</item>
         <item name="colorSecondary">@color/accent_cyan</item>
-        <item name="colorSecondaryVariant">@color/accent_cyan_dim</item>
+        <item name="colorOnSecondary">@color/md_background</item>
+        <item name="colorSecondaryContainer">@color/md_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/md_on_secondary_container</item>
+        <item name="colorTertiary">@color/accent_violet</item>
+        <item name="colorOnTertiary">@color/white</item>
+        <item name="colorTertiaryContainer">@color/md_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/md_on_tertiary_container</item>
+        <item name="android:colorBackground">@color/md_background</item>
+        <item name="colorOnBackground">@color/md_on_background</item>
+        <item name="colorSurface">@color/md_surface</item>
+        <item name="colorOnSurface">@color/md_on_surface</item>
+        <item name="colorSurfaceVariant">@color/md_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/md_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/md_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/md_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/md_surface_container_highest</item>
+        <item name="colorOutline">@color/md_outline</item>
+        <item name="colorOutlineVariant">@color/md_outline_variant</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="android:statusBarColor">@color/md_background</item>
+        <item name="android:navigationBarColor">@color/md_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Modern.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Modern.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Modern.Large</item>
+        <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Modern</item>
+        <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Modern</item>
+        <item name="materialButtonStyle">@style/Widget.SixDegrees.Button.Filled</item>
+        <item name="textInputStyle">@style/Widget.SixDegrees.TextInputLayout</item>
     </style>
 
-    <style name="Theme.SixDegrees.Purple" parent="Theme.SixDegrees.FieldIntel">
-        <item name="colorPrimary">@color/accent_violet</item>
-        <item name="colorPrimaryVariant">@color/accent_violet_dim</item>
+    <style name="Theme.SixDegrees.Modern.Blue" parent="Theme.SixDegrees.Modern" />
+
+    <style name="Theme.SixDegrees.Cyan" parent="Theme.SixDegrees.Modern">
+        <item name="colorPrimary">@color/accent_cyan</item>
+        <item name="colorPrimaryContainer">@color/accent_cyan_dim</item>
+        <item name="colorOnPrimaryContainer">@color/accent_cyan</item>
         <item name="colorSecondary">@color/accent_blue</item>
-        <item name="colorSecondaryVariant">@color/accent_blue_dim</item>
+        <item name="colorSecondaryContainer">@color/accent_blue_dim</item>
+        <item name="colorOnSecondaryContainer">@color/accent_blue</item>
     </style>
 
-    <!-- Modern named aliases for theme picker -->
-    <style name="Theme.SixDegrees.Modern" parent="Theme.SixDegrees" />
-    <style name="Theme.SixDegrees.Modern.Blue" parent="Theme.SixDegrees" />
+    <style name="Theme.SixDegrees.Green" parent="Theme.SixDegrees.Modern">
+        <item name="colorPrimary">@color/accent_green</item>
+        <item name="colorPrimaryContainer">@color/accent_green_dim</item>
+        <item name="colorOnPrimaryContainer">@color/accent_green</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSecondaryContainer">@color/accent_cyan_dim</item>
+        <item name="colorOnSecondaryContainer">@color/accent_cyan</item>
+    </style>
+
+    <style name="Theme.SixDegrees.Purple" parent="Theme.SixDegrees.Modern">
+        <item name="colorPrimary">@color/accent_violet</item>
+        <item name="colorPrimaryContainer">@color/accent_violet_dim</item>
+        <item name="colorOnPrimaryContainer">@color/accent_violet</item>
+        <item name="colorSecondary">@color/accent_blue</item>
+        <item name="colorSecondaryContainer">@color/accent_blue_dim</item>
+        <item name="colorOnSecondaryContainer">@color/accent_blue</item>
+    </style>
+
     <style name="Theme.SixDegrees.Modern.Cyan" parent="Theme.SixDegrees.Cyan" />
     <style name="Theme.SixDegrees.Modern.Green" parent="Theme.SixDegrees.Green" />
     <style name="Theme.SixDegrees.Modern.Purple" parent="Theme.SixDegrees.Purple" />
@@ -353,11 +401,11 @@
 
     <!-- ════════════════════ CARD STYLES ════════════════════ -->
 
-    <style name="Widget.SixDegrees.CardView.Modern" parent="Widget.MaterialComponents.CardView">
-        <item name="cardBackgroundColor">@color/surface</item>
+    <style name="Widget.SixDegrees.CardView.Modern" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardBackgroundColor">?attr/colorSurfaceContainer</item>
         <item name="cardCornerRadius">16dp</item>
         <item name="cardElevation">0dp</item>
-        <item name="strokeColor">@color/border</item>
+        <item name="strokeColor">?attr/colorOutlineVariant</item>
         <item name="strokeWidth">1dp</item>
     </style>
 

@@ -9,6 +9,12 @@ data class PdlPersonSearchResponse(
     @Json(name = "total") val total: Int?
 )
 
+/** person/enrich returns a single object in `data`, not a list */
+data class PdlEnrichResponse(
+    @Json(name = "status") val status: Int?,
+    @Json(name = "data") val data: PdlPerson?
+)
+
 data class PdlPerson(
     @Json(name = "id") val id: String?,
     @Json(name = "full_name") val fullName: String?,

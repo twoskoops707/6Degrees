@@ -8,46 +8,24 @@
     android:background="?android:colorBackground"
     tools:context=".ui.history.HistoryFragment">
 
-    <!-- Header Bar -->
-    <FrameLayout
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/history_toolbar"
+        style="@style/Widget.SixDegrees.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_dossier_header">
+        android:layout_height="?attr/actionBarSize"
+        app:title="@string/menu_history">
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/history_toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            app:title="◈  OPERATIONS LOG"
-            app:titleTextColor="?attr/colorPrimary"
-            app:navigationIcon="@drawable/ic_arrow_back"
-            app:navigationIconTint="?attr/colorPrimary"
-            app:elevation="0dp">
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_clear_all"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:layout_gravity="end"
-                android:layout_marginEnd="8dp"
-                android:text="PURGE"
-                android:textColor="?attr/colorPrimary"
-                android:textSize="10sp"
-                android:letterSpacing="0.1"
-                app:strokeColor="?attr/colorPrimary"
-                app:strokeWidth="1dp"
-                app:cornerRadius="2dp" />
-        </com.google.android.material.appbar.MaterialToolbar>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_clear_all"
+            style="@style/Widget.SixDegrees.Button.Outlined"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_gravity="end"
+            android:layout_marginEnd="8dp"
+            android:text="Clear all"
+            android:textSize="12sp" />
+    </com.google.android.material.appbar.MaterialToolbar>
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_gravity="bottom"
-            android:background="?attr/colorPrimary"
-            android:alpha="0.4" />
-    </FrameLayout>
-
-    <!-- History Content -->
     <LinearLayout
         android:id="@+id/history_content"
         android:layout_width="match_parent"
@@ -60,11 +38,10 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:paddingTop="8dp"
-            android:paddingBottom="80dp"
+            android:paddingBottom="@dimen/bottom_nav_padding"
             android:clipToPadding="false" />
     </LinearLayout>
 
-    <!-- Empty State -->
     <LinearLayout
         android:id="@+id/empty_state"
         android:layout_width="match_parent"
@@ -74,31 +51,28 @@
         android:padding="32dp"
         android:visibility="visible">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="◎"
-            android:textColor="?attr/colorPrimary"
-            android:alpha="0.3"
-            android:textSize="72sp"
-            android:layout_marginBottom="20dp" />
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_history"
+            app:tint="?attr/colorPrimary"
+            android:alpha="0.35"
+            android:layout_marginBottom="20dp"
+            android:contentDescription="@null" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="NO PRIOR OPERATIONS"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.12"
+            android:text="No search history"
+            android:textAppearance="@style/TextAppearance.SixDegrees.TitleMedium"
             android:gravity="center" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Your search history will appear here"
-            android:textColor="?attr/colorControlNormal"
-            android:textSize="13sp"
+            android:text="Your past searches will appear here"
+            android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:gravity="center"
             android:layout_marginTop="8dp" />
     </LinearLayout>

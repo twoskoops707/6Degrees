@@ -58,7 +58,7 @@ class ResultsFragment : Fragment() {
         }
 
         val reportId = arguments?.getString("reportId")
-        if (reportId != null) viewModel.loadReport(reportId) else showEmptyState()
+        if (!reportId.isNullOrBlank()) viewModel.loadReport(reportId) else showEmptyState()
     }
 
     private fun populateReport(state: ResultsUiState) {
@@ -70,7 +70,8 @@ class ResultsFragment : Fragment() {
             moshi.adapter<Map<String, String>>(type).fromJson(report.companiesJson) ?: emptyMap()
         } catch (_: Exception) { emptyMap() }
 
-        val searchType = arguments?.getString("searchType") ?: "person"
+        val searchType = arguments?.getString("searchType")?.takeIf { it.isNotBlank() }
+            ?: meta["search_type"] ?: "person"
 
         computeAndShowShadyScore(meta, searchType)
 

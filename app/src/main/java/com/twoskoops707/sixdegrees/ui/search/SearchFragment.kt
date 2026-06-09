@@ -1,5 +1,7 @@
 package com.twoskoops707.sixdegrees.ui.search
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.google.android.material.color.MaterialColors
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -37,12 +40,12 @@ class SearchFragment : Fragment() {
         val b = _binding ?: return
         if (currentType != "person") {
             b.tvQueryCounter.text = when (currentType) {
-                "username" -> "▶ 3 QUERIES ARMED"
-                "domain", "ip" -> "▶ 5 QUERIES ARMED"
-                "email" -> "▶ 4 QUERIES ARMED"
-                "phone" -> "▶ 3 QUERIES ARMED"
-                "company" -> "▶ 6 QUERIES ARMED"
-                else -> "▶ 2 QUERIES ARMED"
+                "username" -> "3 sources"
+                "domain", "ip" -> "5 sources"
+                "email" -> "4 sources"
+                "phone" -> "3 sources"
+                "company" -> "6 sources"
+                else -> "2 sources"
             }
             return
         }
@@ -51,7 +54,7 @@ class SearchFragment : Fragment() {
         val hasEmail = b.inputEmail.text?.isNotBlank() == true
         val hasUsername = b.inputUsername.text?.isNotBlank() == true
         val total = baseCount + (if (hasPhone) 1 else 0) + (if (hasEmail) 1 else 0) + (if (hasUsername) 1 else 0)
-        b.tvQueryCounter.text = "▶ $total QUERIES ARMED"
+        b.tvQueryCounter.text = "$total sources"
     }
 
     private val cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
@@ -60,6 +63,11 @@ class SearchFragment : Fragment() {
             binding.tvImageAttached.text = "Photo captured"
             binding.tvImageAttached.visibility = View.VISIBLE
         }
+    }
+
+    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) launchCameraInternal()
+        else Toast.makeText(requireContext(), "Camera permission required for photo search", Toast.LENGTH_SHORT).show()
     }
 
     private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -137,8 +145,6 @@ class SearchFragment : Fragment() {
     }
 
     private fun setupEntityTypeSelector() {
-        val colorPrimary = com.google.android.material.R.attr.colorPrimary
-
         fun selectType(type: String) {
             currentType = type
             attachedImageUri = null
@@ -156,11 +162,12 @@ class SearchFragment : Fragment() {
             )
             forms.forEach { (t, form) -> form.visibility = if (t == type) View.VISIBLE else View.GONE }
 
-            val tv = android.util.TypedValue()
-            requireContext().theme.resolveAttribute(colorPrimary, tv, true)
-            val accentColor = tv.data
-            val strokeInactive = ContextCompat.getColor(requireContext(), R.color.fi_smoke)
-            val bgInactive = ContextCompat.getColor(requireContext(), R.color.fi_charcoal)
+            val ctx = requireContext()
+            val accentColor = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorPrimary, "SearchFragment")
+            val strokeInactive = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOutline, "SearchFragment")
+            val bgInactive = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorSurfaceVariant, "SearchFragment")
+            val textInactive = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOnSurfaceVariant, "SearchFragment")
+            val textOnPrimary = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOnPrimary, "SearchFragment")
 
             val cards = mapOf(
                 "person" to binding.cardTypePerson,
@@ -174,13 +181,12 @@ class SearchFragment : Fragment() {
             )
             cards.forEach { (t, card) ->
                 val active = t == type
+                card.radius = if (active) 20f * resources.displayMetrics.density else 20f * resources.displayMetrics.density
                 card.setCardBackgroundColor(if (active) accentColor else bgInactive)
                 card.strokeColor = if (active) android.graphics.Color.TRANSPARENT else strokeInactive
+                card.strokeWidth = if (active) 0 else (1 * resources.displayMetrics.density).toInt()
                 val textView = card.getChildAt(0) as? android.widget.TextView
-                textView?.setTextColor(
-                    if (active) ContextCompat.getColor(requireContext(), R.color.white)
-                    else ContextCompat.getColor(requireContext(), R.color.fi_ash)
-                )
+                textView?.setTextColor(if (active) textOnPrimary else textInactive)
             }
             updateQueryCounter()
         }
@@ -405,6 +411,14 @@ class SearchFragment : Fragment() {
     }
 
     private fun launchCamera() {
+        when {
+            ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED ->
+                launchCameraInternal()
+            else -> cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun launchCameraInternal() {
         val imgFile = File(requireContext().cacheDir, "sixdegrees_capture_${System.currentTimeMillis()}.jpg")
         val uri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.provider", imgFile)
         pendingImageUri = uri

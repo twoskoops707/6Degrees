@@ -9,12 +9,12 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.color.MaterialColors
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.databinding.FragmentToolInstallerBinding
 import kotlinx.coroutines.launch
@@ -36,9 +36,13 @@ class ToolInstallerFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         binding.toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
         buildCompanionSection()
+        buildFoundationSection()
         buildCliSection()
         observeStates()
     }
+
+    private fun themeColor(attr: Int): Int =
+        MaterialColors.getColor(requireContext(), attr, 0)
 
     private fun buildCompanionSection() {
         val ctx = requireContext()
@@ -51,10 +55,10 @@ class ToolInstallerFragment : Fragment() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).also { it.bottomMargin = dp(10f) }
-                setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.fi_charcoal))
+                setCardBackgroundColor(themeColor(com.google.android.material.R.attr.colorSurface))
                 radius = 0f
                 cardElevation = 0f
-                strokeColor = ContextCompat.getColor(ctx, R.color.fi_border)
+                strokeColor = themeColor(com.google.android.material.R.attr.colorOutline)
                 strokeWidth = dp(1f)
             }
             val inner = LinearLayout(ctx).apply {
@@ -69,13 +73,13 @@ class ToolInstallerFragment : Fragment() {
             textCol.addView(TextView(ctx).apply {
                 text = apk.displayName
                 textSize = 14f
-                setTextColor(ContextCompat.getColor(ctx, R.color.fi_parchment))
+                setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurface))
                 typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
             })
             textCol.addView(TextView(ctx).apply {
                 text = apk.description
                 textSize = 11f
-                setTextColor(ContextCompat.getColor(ctx, R.color.fi_ash))
+                setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
                 typeface = android.graphics.Typeface.MONOSPACE
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -89,10 +93,10 @@ class ToolInstallerFragment : Fragment() {
                 textSize = 10f
                 letterSpacing = 0.1f
                 cornerRadius = 0
-                strokeColor = android.content.res.ColorStateList.valueOf(
-                    ContextCompat.getColor(ctx, if (isInstalled) R.color.fi_ash else R.color.fi_orange)
-                )
-                setTextColor(ContextCompat.getColor(ctx, if (isInstalled) R.color.fi_ash else R.color.fi_orange))
+                val accent = themeColor(com.google.android.material.R.attr.colorPrimary)
+                val muted = themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
+                strokeColor = android.content.res.ColorStateList.valueOf(if (isInstalled) muted else accent)
+                setTextColor(if (isInstalled) muted else accent)
                 setOnClickListener {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apk.downloadUrl)))
                 }
@@ -115,10 +119,10 @@ class ToolInstallerFragment : Fragment() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).also { it.bottomMargin = dp(10f) }
-                setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.fi_charcoal))
+                setCardBackgroundColor(themeColor(com.google.android.material.R.attr.colorSurface))
                 radius = 0f
                 cardElevation = 0f
-                strokeColor = ContextCompat.getColor(ctx, R.color.fi_border)
+                strokeColor = themeColor(com.google.android.material.R.attr.colorOutline)
                 strokeWidth = dp(1f)
             }
 
@@ -130,7 +134,7 @@ class ToolInstallerFragment : Fragment() {
             val nameTv = TextView(ctx).apply {
                 text = apk.displayName
                 textSize = 15f
-                setTextColor(ContextCompat.getColor(ctx, R.color.fi_parchment))
+                setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurface))
                 typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
                 letterSpacing = 0.04f
             }
@@ -138,7 +142,7 @@ class ToolInstallerFragment : Fragment() {
             val descTv = TextView(ctx).apply {
                 text = apk.description
                 textSize = 11f
-                setTextColor(ContextCompat.getColor(ctx, R.color.fi_ash))
+                setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
                 typeface = android.graphics.Typeface.MONOSPACE
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -151,20 +155,25 @@ class ToolInstallerFragment : Fragment() {
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(4f)
                 ).also { it.bottomMargin = dp(8f) }
                 progressTintList = android.content.res.ColorStateList.valueOf(
-                    ContextCompat.getColor(ctx, R.color.fi_orange)
+                    themeColor(com.google.android.material.R.attr.colorPrimary)
                 )
                 max = 100
                 visibility = View.GONE
             }
 
+            val installed = viewModel.isInstalled(apk.packageName)
             val btn = MaterialButton(ctx).apply {
                 tag = apk.id
-                text = if (viewModel.isInstalled(apk.packageName)) "INSTALLED" else "DOWNLOAD"
-                isEnabled = !viewModel.isInstalled(apk.packageName)
-                setBackgroundColor(ContextCompat.getColor(ctx,
-                    if (viewModel.isInstalled(apk.packageName)) R.color.fi_charcoal else R.color.fi_orange))
-                setTextColor(ContextCompat.getColor(ctx,
-                    if (viewModel.isInstalled(apk.packageName)) R.color.fi_ash else R.color.fi_ink))
+                text = if (installed) "INSTALLED" else "DOWNLOAD"
+                isEnabled = !installed
+                setBackgroundColor(themeColor(
+                    if (installed) com.google.android.material.R.attr.colorSurface
+                    else com.google.android.material.R.attr.colorPrimary
+                ))
+                setTextColor(themeColor(
+                    if (installed) com.google.android.material.R.attr.colorOnSurfaceVariant
+                    else com.google.android.material.R.attr.colorOnPrimary
+                ))
                 textSize = 11f
                 letterSpacing = 0.1f
                 cornerRadius = 0
@@ -194,10 +203,10 @@ class ToolInstallerFragment : Fragment() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).also { it.bottomMargin = dp(10f) }
-                setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.fi_charcoal))
+                setCardBackgroundColor(themeColor(com.google.android.material.R.attr.colorSurface))
                 radius = 0f
                 cardElevation = 0f
-                strokeColor = ContextCompat.getColor(ctx, R.color.fi_border)
+                strokeColor = themeColor(com.google.android.material.R.attr.colorOutline)
                 strokeWidth = dp(1f)
             }
 
@@ -215,25 +224,24 @@ class ToolInstallerFragment : Fragment() {
             textCol.addView(TextView(ctx).apply {
                 text = apk.displayName
                 textSize = 14f
-                setTextColor(ContextCompat.getColor(ctx, R.color.fi_parchment))
+                setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurface))
                 typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
             })
             textCol.addView(TextView(ctx).apply {
                 text = apk.description
                 textSize = 11f
-                setTextColor(ContextCompat.getColor(ctx, R.color.fi_ash))
+                setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
                 typeface = android.graphics.Typeface.MONOSPACE
             })
 
+            val accent = themeColor(com.google.android.material.R.attr.colorPrimary)
             val btn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
                 text = "VIEW"
                 textSize = 10f
                 letterSpacing = 0.1f
                 cornerRadius = 0
-                strokeColor = android.content.res.ColorStateList.valueOf(
-                    ContextCompat.getColor(ctx, R.color.fi_orange)
-                )
-                setTextColor(ContextCompat.getColor(ctx, R.color.fi_orange))
+                strokeColor = android.content.res.ColorStateList.valueOf(accent)
+                setTextColor(accent)
                 setOnClickListener {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apk.downloadUrl)))
                 }
@@ -268,7 +276,7 @@ class ToolInstallerFragment : Fragment() {
                             pb.visibility = View.GONE
                             btn.text = "INSTALL"
                             btn.isEnabled = true
-                            btn.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.fi_orange))
+                            btn.setBackgroundColor(themeColor(com.google.android.material.R.attr.colorPrimary))
                             btn.setOnClickListener {
                                 startActivity(viewModel.installApk(apk, state.file))
                             }

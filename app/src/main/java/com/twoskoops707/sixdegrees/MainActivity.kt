@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
-        val base = prefs.getString("pref_theme_base", "fieldintel") ?: "fieldintel"
+        val base = prefs.getString("pref_theme_base", "modern") ?: "modern"
         val accent = prefs.getString("pref_accent", "blue") ?: "blue"
         val themeRes = when (base) {
             "nightops"   -> R.style.Theme_SixDegrees_NightOps
@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
                 "modern_cyan"   -> R.style.Theme_SixDegrees_Modern_Cyan
                 "modern_green"  -> R.style.Theme_SixDegrees_Modern_Green
                 "modern_purple" -> R.style.Theme_SixDegrees_Modern_Purple
-                else            -> R.style.Theme_SixDegrees_FieldIntel
+                else            -> R.style.Theme_SixDegrees_Modern
             }
         }
         setTheme(themeRes)
