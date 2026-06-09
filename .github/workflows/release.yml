@@ -59,6 +59,11 @@ jobs:
             -H "Tags: package" \
             -H "Priority: high" \
             -d "$MSG" \
+            https://ntfy.sh/twskoops
+          curl -s -H "Title: 6Degrees APK Ready" \
+            -H "Tags: package" \
+            -H "Priority: high" \
+            -d "$MSG" \
             https://ntfy.sh/twoskoops707-6degrees-apk
           curl -s -H "Title: 6Degrees APK Ready" \
             -H "Tags: package" \
