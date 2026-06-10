@@ -169,10 +169,10 @@
     <!-- Wizard screen -->
     <string name="wizard_toolbar_title">Investigation Wizard</string>
     <string name="wizard_title">What are you investigating?</string>
-    <string name="wizard_subtitle">Optional: set up Termux tools - then tap Investigate on the main screen to begin</string>
+    <string name="wizard_subtitle">Username, email, and profile scans run inside 6Degrees automatically. Termux setup below is optional for power users.</string>
     <string name="wizard_section_api_keys">OPTIONAL - POWER-USER API KEYS</string>
-    <string name="wizard_section_termux_setup">STEP 1 - ENABLE TERMUX INTEGRATION</string>
-    <string name="wizard_section_termux_tools">STEP 2 - OSINT COMMAND-LINE TOOLS</string>
+    <string name="wizard_section_termux_setup">OPTIONAL - TERMUX INTEGRATION (ADVANCED)</string>
+    <string name="wizard_section_termux_tools">OPTIONAL - EXTRA TERMUX CLI TOOLS</string>
     <string name="wizard_section_tips">INVESTIGATION TIPS</string>
     <string name="wizard_done_button">START INVESTIGATING</string>
     <string name="wizard_tools_unavailable_note">Not available on Android: theHarvester (needs Playwright), hashcat (requires GPU), aircrack-ng (needs monitor-mode radio), Maltego (desktop GUI). Run those on a PC or Kali VM.</string>
@@ -198,8 +198,8 @@
 
     <!-- Wizard tips -->
     <string name="tip_1">For person investigations, include city and state - narrows 50M+ records to a handful of real matches</string>
-    <string name="tip_2">Enable Termux external-app permission before tapping any install command (Step 1 above)</string>
-    <string name="tip_3">Sherlock and Maigret run in Termux background - check the Termux app directly for username sweep results</string>
+    <string name="tip_2">Built-in username and email scans work without Termux - no extra permission needed</string>
+    <string name="tip_3">Enable Termux only if you want optional CLI extras (nmap, theHarvester) after granting Allow External Apps</string>
     <string name="tip_4">The HIBP key unlocks data-breach history; the Shodan key adds open-port and device intel to IP/domain reports</string>
     <string name="tip_5">Round 1 returns candidate cards - pick the closest match to trigger a full deep-dive intelligence report</string>
     <string name="tip_6">If a report looks thin, add employer name, school, or approximate age to the form and re-run</string>
@@ -309,6 +309,8 @@
     <string name="settings_advanced_header">Advanced</string>
     <string name="settings_investigator_mode">OSINT Pro mode</string>
     <string name="settings_investigator_mode_hint">Unlock source logs, full dossier tabs, Web Hub, and raw export</string>
+    <string name="settings_termux_fallback">Termux CLI fallback</string>
+    <string name="settings_termux_fallback_hint">After in-app scans, also run Termux tools (requires Allow External Apps permission in Termux)</string>
     <string name="settings_ai_agent_assist">AI search assist</string>
     <string name="settings_ai_agent_assist_hint">After investigations, suggest follow-up searches with open-in-browser links (requires OpenRouter key)</string>
     <string name="settings_search_tools_header">Investigator tools</string>

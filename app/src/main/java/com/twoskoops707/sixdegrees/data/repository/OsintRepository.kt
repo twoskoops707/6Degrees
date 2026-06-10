@@ -148,6 +148,7 @@ class OsintRepository(context: Context) {
 
     private val termuxRunner by lazy { TermuxToolRunner(appCtx) }
     private val usernameDiscovery by lazy { UsernameDiscoveryService() }
+    private val inHouseRunner by lazy { InHouseOsintRunner(usernameDiscovery) }
 
     private suspend fun runUsernameDiscovery(
         usernames: Collection<String>,
@@ -158,14 +159,80 @@ class OsintRepository(context: Context) {
     ) {
         val primary = usernames.firstOrNull()?.trim()?.removePrefix("@").orEmpty()
         if (primary.isBlank() && socialUrls.isEmpty()) return
-        val hits = usernameDiscovery.discoverFromHints(usernames, socialUrls) { channel.send(it) }
-        if (hits.isEmpty()) return
-        usernameDiscovery.applyToMetadata(hits, metadata, primary.ifBlank { usernames.first() })
-        sources.add(DataSource("Username Scan", "in-app", Date(), 0.85))
-        hits.firstOrNull()?.let { first ->
-            if (metadata["profile_photo_url"].isNullOrBlank()) {
-                fetchAvatarUrl(first.username, first.platform.lowercase())?.let { metadata["profile_photo_url"] = it }
+        val user = primary.ifBlank { usernames.first() }
+        inHouseRunner.runUsernameScan(user, metadata, sources, channel, socialUrls)
+        maybeRunTermuxUsernameTools(user, metadata, sources, channel)
+        if (metadata["profile_photo_url"].isNullOrBlank()) {
+            fetchAvatarUrl(user, "github")?.let { metadata["profile_photo_url"] = it }
+        }
+    }
+
+    private suspend fun maybeRunTermuxUsernameTools(
+        username: String,
+        metadata: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        channel: SendChannel<SearchProgressEvent>
+    ) {
+        if (!AppSettings.isTermuxFallbackEnabled(appCtx) || !termuxRunner.isTermuxInstalled()) return
+        if (!termuxRunner.canRunCommands()) {
+            channel.send(SearchProgressEvent.Blocked(
+                "Termux",
+                "Permission not granted — open Termux, enable Allow External Apps, then allow 6Degrees"
+            ))
+            return
+        }
+        launchTermuxUsernameCollect(username, metadata, sources, channel)
+    }
+
+    private suspend fun launchTermuxUsernameCollect(
+        username: String,
+        metadata: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        channel: SendChannel<SearchProgressEvent>
+    ) {
+        val sherlockHits = mutableListOf<String>()
+        termuxRunner.runSherlock(username).collect { event ->
+            channel.send(event)
+            if (event is SearchProgressEvent.Found) {
+                sherlockHits.add("${event.source.removePrefix("sherlock/")}: ${event.detail}")
+                sources.add(DataSource(event.source, event.detail, Date(), 0.75))
             }
+        }
+        if (sherlockHits.isNotEmpty()) {
+            appendMetadata(metadata, "sherlock_found", sherlockHits.joinToString("\n"))
+        }
+        val maigretHits = mutableListOf<String>()
+        termuxRunner.runMaigret(username).collect { event ->
+            channel.send(event)
+            if (event is SearchProgressEvent.Found) {
+                maigretHits.add("${event.source.removePrefix("maigret/")}: ${event.detail}")
+                sources.add(DataSource(event.source, event.detail, Date(), 0.75))
+            }
+        }
+        if (maigretHits.isNotEmpty()) {
+            appendMetadata(metadata, "maigret_found", maigretHits.joinToString("\n"))
+        }
+    }
+
+    private suspend fun maybeRunTermuxHolehe(
+        email: String,
+        metadata: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        channel: SendChannel<SearchProgressEvent>
+    ) {
+        if (!AppSettings.isTermuxFallbackEnabled(appCtx) || !termuxRunner.isTermuxInstalled()) return
+        if (!termuxRunner.canRunCommands()) return
+        val holeheHits = mutableListOf<String>()
+        termuxRunner.runHolehe(email).collect { event ->
+            channel.send(event)
+            if (event is SearchProgressEvent.Found) {
+                holeheHits.add(event.source.removePrefix("holehe/"))
+                sources.add(DataSource(event.source, event.detail, Date(), 0.7))
+            }
+        }
+        if (holeheHits.isNotEmpty()) {
+            val merged = (metadata["holehe_services"]?.split(",")?.map { it.trim() }.orEmpty() + holeheHits).distinct()
+            metadata["holehe_services"] = merged.joinToString(", ")
         }
     }
 
@@ -3262,17 +3329,13 @@ class OsintRepository(context: Context) {
                             }
                         }
                         if (personUsername.isNotBlank()) {
-                            if (SubjectSearchOrchestrator.shouldRunScraper("sherlock", searchPhase, subjectIntent, activeCategories)) {
+                            if (SubjectSearchOrchestrator.shouldRunScraper("sherlock", searchPhase, subjectIntent, activeCategories) ||
+                                SubjectSearchOrchestrator.shouldRunScraper("maigret", searchPhase, subjectIntent, activeCategories)
+                            ) {
                                 launch {
                                     semaphore.withPermit {
-                                        termuxRunner.runSherlock(personUsername).collect { send(it) }
-                                    }
-                                }
-                            }
-                            if (SubjectSearchOrchestrator.shouldRunScraper("maigret", searchPhase, subjectIntent, activeCategories)) {
-                                launch {
-                                    semaphore.withPermit {
-                                        termuxRunner.runMaigret(personUsername).collect { send(it) }
+                                        inHouseRunner.runUsernameScan(personUsername, metadata, sources, this@channelFlow)
+                                        maybeRunTermuxUsernameTools(personUsername, metadata, sources, this@channelFlow)
                                     }
                                 }
                             }
@@ -3282,11 +3345,14 @@ class OsintRepository(context: Context) {
                         ) {
                             launch {
                                 semaphore.withPermit {
-                                    termuxRunner.runHolehe(personEmail).collect { send(it) }
+                                    inHouseRunner.runEmailRegistrationScan(personEmail, metadata, sources, this@channelFlow)
+                                    maybeRunTermuxHolehe(personEmail, metadata, sources, this@channelFlow)
                                 }
                             }
                         }
-                        if (SubjectSearchOrchestrator.shouldRunScraper("theHarvester", searchPhase, subjectIntent, activeCategories)) {
+                        if (AppSettings.isTermuxFallbackEnabled(appCtx) && termuxRunner.canRunCommands() &&
+                            SubjectSearchOrchestrator.shouldRunScraper("theHarvester", searchPhase, subjectIntent, activeCategories)
+                        ) {
                             launch {
                                 semaphore.withPermit {
                                     termuxRunner.runTheHarvester(primaryQuery).collect { send(it) }
@@ -3438,15 +3504,8 @@ class OsintRepository(context: Context) {
                         }
                         launch {
                             semaphore.withPermit {
-                                val holeheHits = mutableListOf<String>()
-                                termuxRunner.runHolehe(primaryQuery).collect { event ->
-                                    send(event)
-                                    if (event is SearchProgressEvent.Found) {
-                                        holeheHits.add(event.source.removePrefix("holehe/"))
-                                        sources.add(DataSource(event.source, event.detail, Date(), 0.7))
-                                    }
-                                }
-                                if (holeheHits.isNotEmpty()) metadata["holehe_services"] = holeheHits.joinToString(", ")
+                                inHouseRunner.runEmailRegistrationScan(primaryQuery, metadata, sources, this@channelFlow)
+                                maybeRunTermuxHolehe(primaryQuery, metadata, sources, this@channelFlow)
                             }
                         }
                     }
@@ -3495,14 +3554,16 @@ class OsintRepository(context: Context) {
 
                             }
                         }
-                        launch {
-                            semaphore.withPermit {
-                                termuxRunner.runTheHarvester(primaryQuery).collect { send(it) }
+                        if (AppSettings.isTermuxFallbackEnabled(appCtx) && termuxRunner.canRunCommands()) {
+                            launch {
+                                semaphore.withPermit {
+                                    termuxRunner.runTheHarvester(primaryQuery).collect { send(it) }
+                                }
                             }
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                termuxRunner.runNmap(primaryQuery).collect { send(it) }
+                            launch {
+                                semaphore.withPermit {
+                                    termuxRunner.runNmap(primaryQuery).collect { send(it) }
+                                }
                             }
                         }
                         launch {
@@ -4041,42 +4102,6 @@ class OsintRepository(context: Context) {
                                 appendMetadata(metadata, "found_urls", "Reddit: $rdUrl")
                             }
                             handleScrapeOut("Reddit", "https://www.reddit.com/user/$primaryQuery", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                val sherlockHits = mutableListOf<String>()
-                                termuxRunner.runSherlock(primaryQuery).collect { event ->
-                                    send(event)
-                                    if (event is SearchProgressEvent.Found) {
-                                        sherlockHits.add("${event.source.removePrefix("sherlock/")}: ${event.detail}")
-                                        sources.add(DataSource(event.source, event.detail, Date(), 0.75))
-                                    }
-                                }
-                                if (sherlockHits.isNotEmpty()) {
-                                    metadata["sherlock_found"] = sherlockHits.joinToString("\n")
-                                    sherlockHits.forEach { hit ->
-                                        appendMetadata(metadata, "found_urls", hit)
-                                    }
-                                }
-                            }
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                val maigretHits = mutableListOf<String>()
-                                termuxRunner.runMaigret(primaryQuery).collect { event ->
-                                    send(event)
-                                    if (event is SearchProgressEvent.Found) {
-                                        maigretHits.add("${event.source.removePrefix("maigret/")}: ${event.detail}")
-                                        sources.add(DataSource(event.source, event.detail, Date(), 0.75))
-                                    }
-                                }
-                                if (maigretHits.isNotEmpty()) {
-                                    metadata["maigret_found"] = maigretHits.joinToString("\n")
-                                    maigretHits.forEach { hit ->
-                                        appendMetadata(metadata, "found_urls", hit)
-                                    }
-                                }
-                            }
                         }
                         launch {
                             val platformsToTry = listOf(

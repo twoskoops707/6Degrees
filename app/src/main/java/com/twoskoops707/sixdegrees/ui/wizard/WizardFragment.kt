@@ -176,16 +176,14 @@ class WizardFragment : Fragment() {
                 "3", getString(R.string.wizard_step3_label), getString(R.string.wizard_step3_action)
             ) {
                 try {
-                    val intent = Intent().apply {
-                        setClassName("com.termux", "com.termux.app.RunCommandService")
-                        action = "com.termux.RUN_COMMAND"
-                        putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
-                        putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "echo ready"))
-                        putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-                        putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-                    }
-                    ctx.startForegroundService(intent)
+                    val runner = TermuxToolRunner(ctx)
+                    val probe = runner.buildRunCommandIntent("echo termux_ready")
+                    ctx.startForegroundService(probe)
+                    runner.markRunCommandSuccess()
                     Toast.makeText(ctx, getString(R.string.wizard_step3_toast), Toast.LENGTH_LONG).show()
+                } catch (_: SecurityException) {
+                    TermuxToolRunner(ctx).markRunCommandDenied()
+                    Toast.makeText(ctx, getString(R.string.wizard_step3_error), Toast.LENGTH_LONG).show()
                 } catch (_: Exception) {
                     Toast.makeText(ctx, getString(R.string.wizard_step3_error), Toast.LENGTH_SHORT).show()
                 }

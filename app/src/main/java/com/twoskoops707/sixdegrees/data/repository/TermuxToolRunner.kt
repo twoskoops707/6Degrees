@@ -38,6 +38,9 @@ class TermuxToolRunner(private val context: Context) {
 
         const val LEGACY_STATUS_FILE = "$SHARED_OUTPUT_DIR/.6d_tools_status.txt"
 
+        private const val PREFS = "app_settings"
+        private const val KEY_RUN_COMMAND_OK = "termux_run_command_ok"
+
         val SEARCH_TOOLS = listOf("sherlock", "maigret", "holehe", "tor", "theharvester", "nmap")
 
 
@@ -151,7 +154,7 @@ class TermuxToolRunner(private val context: Context) {
 
         }
 
-        return "Termux: $termux · CLI tools: $ready/${SEARCH_TOOLS.size} · $torLine"
+        return "In-app OSINT: ready · Termux: $termux · CLI tools: $ready/${SEARCH_TOOLS.size} · $torLine"
 
     }
 
@@ -207,28 +210,45 @@ class TermuxToolRunner(private val context: Context) {
 
 
 
-    private fun fireCommand(cmd: String) {
+    fun canRunCommands(): Boolean {
+        if (!isTermuxInstalled()) return false
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_RUN_COMMAND_OK, false)
+    }
 
-        val intent = Intent().apply {
+    fun markRunCommandSuccess() {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_RUN_COMMAND_OK, true).apply()
+    }
 
-            setClassName("com.termux", "com.termux.app.RunCommandService")
+    fun markRunCommandDenied() {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_RUN_COMMAND_OK, false).apply()
+    }
 
-            action = "com.termux.RUN_COMMAND"
-
-            putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
-
-            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
-
-            putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-
-            putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-
-            putExtra("com.termux.RUN_COMMAND_RESULT_DIRECTORY", outputDir.absolutePath)
-
+    private fun fireCommand(cmd: String): Boolean {
+        return try {
+            context.startForegroundService(buildRunCommandIntent(cmd))
+            true
+        } catch (_: SecurityException) {
+            markRunCommandDenied()
+            false
+        } catch (_: Exception) {
+            false
         }
+    }
 
-        context.startForegroundService(intent)
-
+    fun buildRunCommandIntent(cmd: String): Intent {
+        return Intent().apply {
+            setClassName("com.termux", "com.termux.app.RunCommandService")
+            action = "com.termux.RUN_COMMAND"
+            putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
+            putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+            putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            putExtra("com.termux.RUN_COMMAND_RESULT_DIRECTORY", outputDir.absolutePath)
+            putExtra("com.termux.RUN_COMMAND_PACKAGE", context.packageName)
+        }
     }
 
     private fun shellQuote(value: String): String =
@@ -293,13 +313,9 @@ class TermuxToolRunner(private val context: Context) {
             outFile
         )
 
-        try {
+        if (!fireCommand(cmd)) {
 
-            fireCommand(cmd)
-
-        } catch (_: Exception) {
-
-            emit(SearchProgressEvent.Blocked("sherlock", "Could not reach Termux RPC"))
+            emit(SearchProgressEvent.Blocked("sherlock", "Termux permission denied — enable Allow External Apps in Termux"))
 
             return@flow
 
@@ -308,6 +324,8 @@ class TermuxToolRunner(private val context: Context) {
         val content = pollFile(outFile)
 
         outFile.delete()
+
+        if (content != null) markRunCommandSuccess()
 
         if (content == null) {
 
@@ -374,13 +392,9 @@ class TermuxToolRunner(private val context: Context) {
             outFile
         )
 
-        try {
+        if (!fireCommand(cmd)) {
 
-            fireCommand(cmd)
-
-        } catch (_: Exception) {
-
-            emit(SearchProgressEvent.Blocked("maigret", "Could not reach Termux RPC"))
+            emit(SearchProgressEvent.Blocked("maigret", "Termux permission denied — enable Allow External Apps in Termux"))
 
             return@flow
 
@@ -465,13 +479,9 @@ class TermuxToolRunner(private val context: Context) {
             outFile
         )
 
-        try {
+        if (!fireCommand(cmd)) {
 
-            fireCommand(cmd)
-
-        } catch (_: Exception) {
-
-            emit(SearchProgressEvent.Blocked("holehe", "Could not reach Termux RPC"))
+            emit(SearchProgressEvent.Blocked("holehe", "Termux permission denied — enable Allow External Apps in Termux"))
 
             return@flow
 
@@ -550,13 +560,9 @@ class TermuxToolRunner(private val context: Context) {
             outFile
         )
 
-        try {
+        if (!fireCommand(cmd)) {
 
-            fireCommand(cmd)
-
-        } catch (_: Exception) {
-
-            emit(SearchProgressEvent.Blocked("theHarvester", "Could not reach Termux RPC"))
+            emit(SearchProgressEvent.Blocked("theHarvester", "Termux permission denied — enable Allow External Apps in Termux"))
 
             return@flow
 
@@ -634,13 +640,9 @@ class TermuxToolRunner(private val context: Context) {
 
         emit(SearchProgressEvent.Checking("Tor"))
 
-        try {
+        if (!fireCommand("tor --SocksPort 9050 --DataDirectory /data/data/com.termux/files/home/.tor &>/dev/null &")) {
 
-            fireCommand("tor --SocksPort 9050 --DataDirectory /data/data/com.termux/files/home/.tor &>/dev/null &")
-
-        } catch (_: Exception) {
-
-            emit(SearchProgressEvent.Blocked("Tor", "Could not start via Termux"))
+            emit(SearchProgressEvent.Blocked("Tor", "Termux permission denied — enable Allow External Apps in Termux"))
 
             return@flow
 
@@ -695,13 +697,9 @@ class TermuxToolRunner(private val context: Context) {
             outFile
         )
 
-        try {
+        if (!fireCommand(cmd)) {
 
-            fireCommand(cmd)
-
-        } catch (_: Exception) {
-
-            emit(SearchProgressEvent.Blocked("nmap", "Could not reach Termux RPC"))
+            emit(SearchProgressEvent.Blocked("nmap", "Termux permission denied — enable Allow External Apps in Termux"))
 
             return@flow
 
