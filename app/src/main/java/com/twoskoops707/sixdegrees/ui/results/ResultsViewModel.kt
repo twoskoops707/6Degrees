@@ -435,12 +435,16 @@ object DossierBuilder {
         }
         meta["800notes_snippet"]?.takeIf { it.isNotBlank() }
             ?.let { intel.add(finding(it, "800notes", DossierConfidence.MEDIUM, "Caller Reports")) }
-        meta["tt_names"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
-            intel.add(finding(name, "ThatsThem", DossierConfidence.MEDIUM, "Possible Owner"))
+        extractMatchedNames(meta).forEach { (name, source) ->
+            intel.add(finding(name, source, DossierConfidence.MEDIUM, "Possible Owner"))
         }
-        meta["fps_names"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
-            intel.add(finding(name, "FastPeopleSearch", DossierConfidence.MEDIUM, "Possible Owner"))
+        meta["uspb_addresses"]?.split(" | ", ",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { addr ->
+            intel.add(finding(addr, "USPhoneBook", DossierConfidence.MEDIUM, "Address"))
         }
+        meta["numverify_valid"]?.takeIf { it.isNotBlank() }
+            ?.let { intel.add(finding(if (it == "true") "Yes" else "No", "Numverify", DossierConfidence.HIGH, "Valid")) }
+        meta["numverify_country"]?.takeIf { it.isNotBlank() }
+            ?.let { intel.add(finding(it, "Numverify", DossierConfidence.MEDIUM, "Country")) }
         meta["ai_executive_summary"]?.lines()?.filter { it.isNotBlank() }?.take(3)?.forEach { line ->
             intel.add(finding(line.trim(), "AI Brief", DossierConfidence.MEDIUM, "Summary"))
         }
@@ -533,11 +537,8 @@ object DossierBuilder {
         meta["ftn_birth_year"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding("~$it", "FastPeopleSearch", DossierConfidence.MEDIUM, "Birth Year")) }
 
-        val nameSources = listOf("tps_names" to "TruePeopleSearch", "fps_names" to "FastPeopleSearch", "tt_names" to "ThatsThem")
-        nameSources.forEach { (key, source) ->
-            meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
-                findings.add(finding(name, source, DossierConfidence.MEDIUM, "Matched Name"))
-            }
+        extractMatchedNames(meta).forEach { (name, source) ->
+            findings.add(finding(name, source, DossierConfidence.MEDIUM, "Matched Name"))
         }
 
         meta["wikipedia_extract"]?.lines()?.filter { it.isNotBlank() }?.take(3)?.forEach { line ->
@@ -676,6 +677,15 @@ object DossierBuilder {
         }
         meta["sec_person_entities"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "SEC Affiliations")) }
+        meta["sec_fulltext_entities"]?.takeIf { it.isNotBlank() && meta["sec_person_entities"].isNullOrBlank() }
+            ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "SEC Filings")) }
+        meta["sec_affiliations"]?.takeIf { it.isNotBlank() }
+            ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "SEC Affiliations")) }
+        meta["sec_fulltext_forms"]?.takeIf { it.isNotBlank() }
+            ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.MEDIUM, "Filing Types")) }
+        meta["sec_filings_count"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
+            findings.add(finding("$count filing${if (count != 1) "s" else ""}", "SEC EDGAR", DossierConfidence.HIGH, "Filing Count"))
+        }
         if (findings.isEmpty()) {
             findings.add(finding("No employment or company records found", "SixDegrees", DossierConfidence.LOW))
         }
@@ -1155,6 +1165,26 @@ object DossierBuilder {
             k.contains("dork") || k.contains("snippet") || k.contains("search") -> DossierConfidence.LOW
             else -> DossierConfidence.MEDIUM
         }
+    }
+
+    private fun extractMatchedNames(meta: Map<String, String>): List<Pair<String, String>> {
+        val seen = linkedSetOf<String>()
+        val results = mutableListOf<Pair<String, String>>()
+        val keys = listOf(
+            "phone_owner_names" to "Web Search",
+            "search_names" to "Web Search",
+            "tps_names" to "TruePeopleSearch", "tps_name" to "TruePeopleSearch",
+            "fps_names" to "FastPeopleSearch", "fps_name" to "FastPeopleSearch",
+            "tt_names" to "ThatsThem", "tt_name" to "ThatsThem",
+            "uspb_names" to "USPhoneBook", "uspb_name" to "USPhoneBook"
+        )
+        keys.forEach { (key, source) ->
+            meta[key]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
+                val normalized = name.lowercase()
+                if (seen.add(normalized)) results.add(name to source)
+            }
+        }
+        return results
     }
 
     private fun extractBestAge(meta: Map<String, String>): String? =

@@ -1696,10 +1696,14 @@ class ResultsFragment : Fragment() {
 
     private fun buildCompanyFilings(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
-        val secFilings = meta["sec_filings_count"]?.toIntOrNull() ?: 0
+        val secFilings = meta["sec_filings_count"]?.toIntOrNull()
+            ?: meta["sec_fulltext_hits"]?.toIntOrNull() ?: 0
         if (secFilings > 0) {
             rows.add(sec("SEC EDGAR — $secFilings FILING${if (secFilings != 1) "S" else ""}"))
             meta["sec_filing_types"]?.let { rows.add("Filing Types" to it) }
+                ?: meta["sec_fulltext_forms"]?.let { rows.add("Filing Types" to it) }
+            meta["sec_affiliations"]?.let { rows.add("Entities" to it) }
+                ?: meta["sec_fulltext_entities"]?.let { rows.add("Entities" to it) }
         }
         meta["gleif_company_entities"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("GLEIF GLOBAL ENTITIES"))

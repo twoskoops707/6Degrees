@@ -106,7 +106,45 @@ data class OsintAiReport(
          * Strip unsourced claims when ai_facts_only=true — phones, emails, addresses
          * must appear in allowed metadata values.
          */
-        fun enforceFactsOnly(report: OsintAiReport, allowedValues: Set<String>): OsintAiReport = report
+        fun enforceFactsOnly(report: OsintAiReport, allowedValues: Set<String>): OsintAiReport {
+            if (allowedValues.isEmpty()) return report
+            val normalizedAllowed = allowedValues.map { it.lowercase() }.toSet()
+            val phoneDigitsAllowed = allowedValues.map { it.replace(Regex("[^0-9]"), "") }
+                .filter { it.length >= 7 }.toSet()
+
+            fun isAllowedToken(token: String): Boolean {
+                val t = token.trim()
+                if (t.length < 3) return true
+                val lower = t.lowercase()
+                if (lower in normalizedAllowed) return true
+                if (normalizedAllowed.any { lower.contains(it) || it.contains(lower) }) return true
+                val digits = t.replace(Regex("[^0-9]"), "")
+                if (digits.length >= 7 && phoneDigitsAllowed.any { digits.endsWith(it.takeLast(10)) || it.endsWith(digits.takeLast(10)) }) {
+                    return true
+                }
+                return false
+            }
+
+            fun scrubText(text: String): String {
+                val phoneRegex = Regex("""\(?\d{3}\)?[.\-\s]?\d{3}[.\-\s]?\d{4}""")
+                val emailRegex = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""")
+                var scrubbed = text
+                phoneRegex.findAll(text).forEach { m ->
+                    if (!isAllowedToken(m.value)) scrubbed = scrubbed.replace(m.value, "[redacted phone]")
+                }
+                emailRegex.findAll(text).forEach { m ->
+                    if (!isAllowedToken(m.value)) scrubbed = scrubbed.replace(m.value, "[redacted email]")
+                }
+                return scrubbed.replace(Regex("""\s{2,}"""), " ").trim()
+            }
+
+            return report.copy(
+                executiveSummary = scrubText(report.executiveSummary),
+                keyFindings = report.keyFindings.map { scrubText(it) }.filter { it.isNotBlank() },
+                falsePositiveNotes = report.falsePositiveNotes.map { scrubText(it) },
+                nextSteps = report.nextSteps.map { scrubText(it) }
+            )
+        }
 
         fun collectAllowedFactValues(metadata: Map<String, String>): Set<String> {
             val keys = listOf(
@@ -114,7 +152,10 @@ data class OsintAiReport(
                 "search_emails", "pipl_emails", "pdl_emails", "person_email",
                 "search_addresses", "pipl_addresses", "pdl_address", "person_entered_address",
                 "person_name", "pipl_name", "pdl_name", "search_relatives", "pipl_relatives",
-                "search_age", "person_location", "pdl_company", "clearbit_person_company"
+                "search_age", "person_location", "pdl_company", "clearbit_person_company",
+                "tt_names", "tt_name", "fps_names", "fps_name", "tps_names", "uspb_names", "uspb_name",
+                "phone_owner_names", "search_names", "sec_person_entities", "sec_fulltext_entities",
+                "sec_affiliations", "wikidata_employers", "corpwiki_person_companies"
             )
             val values = mutableSetOf<String>()
             keys.forEach { k -> metadata[k]?.let { raw ->

@@ -24,6 +24,7 @@ import com.twoskoops707.sixdegrees.domain.GoogleDorkLibrary
 import com.twoskoops707.sixdegrees.domain.SearchPhase
 import com.twoskoops707.sixdegrees.domain.SubjectFilter
 import com.twoskoops707.sixdegrees.domain.SubjectIntakeParser
+import com.twoskoops707.sixdegrees.domain.ReportMetadataSync
 import com.twoskoops707.sixdegrees.domain.SubjectSearchOrchestrator
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.DataSource
@@ -283,8 +284,16 @@ class OsintRepository(context: Context) {
         return scrapeResultToOut(scrapeFastPeopleSearch(first, last, fastHttpClient))
     }
 
-    private suspend fun scrapeUSPhoneBook(query: String, city: String, state: String): ScrapeOut {
+    private suspend fun scrapeUSPhoneBook(query: String, city: String, state: String, byPhone: Boolean = false): ScrapeOut {
         return try {
+            if (byPhone) {
+                val digits = query.replace(Regex("[^0-9]"), "").takeLast(10)
+                if (digits.length < 10) return ScrapeOut(false, false)
+                return scrapePhoneReversePage(
+                    "https://www.usphonebook.com/$digits",
+                    query
+                )
+            }
             val slug = query.trim().replace(Regex("\\s+"), "-").lowercase()
             val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString("-").lowercase()
             val path = if (loc.isNotBlank()) "$slug/$loc" else slug
@@ -296,6 +305,30 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) {
             ScrapeOut(false, false)
         }
+    }
+
+    private fun scrapePhoneReversePage(url: String, phone: String): ScrapeOut {
+        val digits = phone.replace(Regex("[^0-9]"), "").takeLast(10)
+        if (digits.length < 10) return ScrapeOut(false, false)
+        val profile = SubjectProfile(phone = phone)
+        val out = tryScrapeUrl(url, digits, profile)
+        if (!out.found) return out
+        val fields = out.fields.toMutableMap()
+        val text = buildString {
+            append(fields["title"].orEmpty())
+            append(" ")
+            append(fields["snippet"].orEmpty())
+        }
+        val names = ReportMetadataSync.extractPersonNames(text)
+        if (names.isNotEmpty()) {
+            fields["name"] = names.first()
+            fields["names"] = names.joinToString(", ")
+        }
+        Regex("""(?i)\d{1,5}\s+[A-Za-z0-9][A-Za-z0-9\s]{1,35}\s+(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Pkwy|Road|Street|Avenue|Boulevard|Drive|Lane|Court)[,\s]+(?:[A-Za-z\s]{2,25}[,\s]+)?[A-Z]{2}[\s,]+\d{5}(?:-\d{4})?""")
+            .find(text)?.value?.replace(Regex("\\s+"), " ")?.trim()
+            ?.takeIf { it.length in 15..120 }
+            ?.let { fields["addresses"] = it }
+        return ScrapeOut(true, false, fields)
     }
 
     private fun scrapeNameDemographics(firstName: String): ScrapeOut {
@@ -388,6 +421,7 @@ class OsintRepository(context: Context) {
         val addresses: List<String> = emptyList(),
         val ages: List<String> = emptyList(),
         val relatives: List<String> = emptyList(),
+        val names: List<String> = emptyList(),
         val socialUrls: List<String> = emptyList(),
         val profileUrls: List<String> = emptyList(),
         val snippets: List<String> = emptyList()
@@ -587,6 +621,7 @@ class OsintRepository(context: Context) {
         val emails = mutableListOf<String>()
         val ages = mutableListOf<String>()
         val relatives = mutableListOf<String>()
+        val names = mutableListOf<String>()
         val socialUrls = mutableListOf<String>()
         val profileUrls = mutableListOf<String>()
         val snippets = mutableListOf<String>()
@@ -594,6 +629,9 @@ class OsintRepository(context: Context) {
         for (r in results) {
             val text = "${r.title} ${r.snippet}"
             if (!SubjectFilter.matchesSubject(text, subject) && subject.phone.isBlank()) continue
+            if (subject.phone.isNotBlank() || peopleDomains.any { r.url.lowercase().contains(it) }) {
+                ReportMetadataSync.extractPersonNames(r.title).forEach { names.add(it) }
+            }
             phoneRegex.findAll(text).forEach { m ->
                 val area = m.groupValues[1]
                 val formatted = "(${area}) ${m.groupValues[2]}-${m.groupValues[3]}"
@@ -631,6 +669,7 @@ class OsintRepository(context: Context) {
             addresses = addresses.distinct().take(5),
             ages = ages.distinct().take(3),
             relatives = relatives.distinct().take(10),
+            names = names.distinct().take(8),
             socialUrls = socialUrls.distinct().take(8),
             profileUrls = profileUrls.distinct().take(8),
             snippets = snippets.take(15)
@@ -1742,6 +1781,12 @@ class OsintRepository(context: Context) {
 
     private fun normalizeScraperFieldAliases(sourceKey: String, metadata: ConcurrentHashMap<String, String>) {
         val prefix = "${sourceKey}_"
+        metadata["${prefix}name"]?.takeIf { it.isNotBlank() }?.let { name ->
+            val existing = metadata["${prefix}names"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }.orEmpty()
+            if (name !in existing) {
+                metadata["${prefix}names"] = (existing + name).joinToString(", ")
+            }
+        }
         metadata["${prefix}addresses"]?.takeIf { it.isNotBlank() }?.let { addrs ->
             if (metadata["${prefix}locations"].isNullOrBlank()) metadata["${prefix}locations"] = addrs
         }
@@ -2648,6 +2693,10 @@ class OsintRepository(context: Context) {
 
     private fun encode(s: String) = URLEncoder.encode(s, "UTF-8")
 
+    private fun finalizeMetadata(metadata: ConcurrentHashMap<String, String>) {
+        ReportMetadataSync.sync(metadata)
+    }
+
     suspend fun saveReport(
         query: String,
         personId: String?,
@@ -3550,6 +3599,14 @@ class OsintRepository(context: Context) {
                                             if (results.isNotEmpty()) {
                                                 sources.add(DataSource("DDG:$label", "https://html.duckduckgo.com/html/?q=${encode(q)}", Date(), 0.6))
                                                 appendMetadata(metadata, "phone_search_snippets", results.take(3).joinToString("\n") { "${it.title}: ${it.snippet}".take(120) })
+                                                val phoneSubject = subjectProfile.copy(phone = phoneFmt)
+                                                val extracted = extractDataFromDdgResults(results, phoneSubject)
+                                                if (extracted.names.isNotEmpty()) {
+                                                    appendMetadata(metadata, "phone_owner_names", extracted.names.joinToString(", "))
+                                                }
+                                                if (extracted.addresses.isNotEmpty()) {
+                                                    appendMetadata(metadata, "search_addresses", extracted.addresses.joinToString(" | "))
+                                                }
                                                 send(SearchProgressEvent.Found("DDG: $label", results.firstOrNull()?.snippet?.take(100) ?: ""))
                                             } else {
                                                 send(SearchProgressEvent.NotFound("DDG: $label"))
@@ -3568,18 +3625,24 @@ class OsintRepository(context: Context) {
                         }
                         launch {
                             send(SearchProgressEvent.Checking("ThatsThem"))
-                            val out = scrapeThatsThemPerson(phoneFmt)
+                            val out = scrapePhoneReversePage(
+                                "https://thatsthem.com/phone/$phoneFmt",
+                                phoneFmt
+                            )
                             handleScrapeOut("ThatsThem", "https://thatsthem.com/phone/$phoneFmt", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("FastPeopleSearch"))
-                            val out = scrapeFastPeopleSearchPerson(phoneFmt)
-                            handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/phone/$phoneFmt", out, sources, metadata, this@channelFlow)
+                            val out = scrapePhoneReversePage(
+                                "https://www.fastpeoplesearch.com/$phoneDigits",
+                                phoneFmt
+                            )
+                            handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/$phoneDigits", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("USPhoneBook"))
-                            val out = scrapeUSPhoneBook(phoneFmt, city, state)
-                            handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/phone/$phoneFmt", out, sources, metadata, this@channelFlow)
+                            val out = scrapeUSPhoneBook(phoneFmt, city, state, byPhone = true)
+                            handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/$phoneDigits", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             semaphore.withPermit {
@@ -4145,6 +4208,8 @@ class OsintRepository(context: Context) {
                 ).joinToString("\n") { (label, url) -> "$label: $url" }
                 metadata["dork_browser_verify_links"] = verifyLinks
             }
+
+            finalizeMetadata(metadata)
 
             val partialPersonId = if (effectiveType == "person" || effectiveType == "comprehensive") {
                 buildPersonIdFromMetadata(metadata.toMap(), primaryQuery)
