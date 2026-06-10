@@ -16,8 +16,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Keep legacy resource filtering enabled because AGP still merges extra locales on Windows.
-        resourceConfigurations += listOf("en")
+    }
+
+    androidResources {
+        localeFilters += listOf("en")
     }
 
     buildTypes {

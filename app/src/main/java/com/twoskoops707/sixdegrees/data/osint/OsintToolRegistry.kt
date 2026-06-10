@@ -1,8 +1,8 @@
 package com.twoskoops707.sixdegrees.data.osint
 
 import android.content.Context
-import android.net.Uri
 import com.twoskoops707.sixdegrees.data.BlockedSourceCache
+import java.net.URLEncoder
 
 object OsintToolRegistry {
 
@@ -19,10 +19,10 @@ object OsintToolRegistry {
     )
 
     fun buildUrl(template: String, query: String): String {
-        val first = Uri.encode(query.substringBefore(" ").trim())
-        val last = Uri.encode(query.substringAfterLast(" ").trim())
+        val first = urlEncode(query.substringBefore(" ").trim())
+        val last = urlEncode(query.substringAfterLast(" ").trim())
         return template
-            .replace("{q-encoded}", Uri.encode(query))
+            .replace("{q-encoded}", urlEncode(query))
             .replace("{q-hyphen}", query.replace(" ", "-"))
             .replace("{q-plus}", query.replace(" ", "+"))
             .replace("{q-underscore}", query.replace(" ", "_"))
@@ -31,6 +31,8 @@ object OsintToolRegistry {
             .replace("{first}", first)
             .replace("{last}", last)
     }
+
+    private fun urlEncode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
 
     val allTools: List<OsintTool> = listOf(
         OsintTool("FastPeopleSearch", "Free US people search", "https://www.fastpeoplesearch.com/name/{q-hyphen}", setOf("person")),

@@ -106,9 +106,10 @@ object SubjectIntakeParser {
             .orEmpty()
         if (company.isNotBlank()) {
             fields["company"] = company
-            remaining = remaining.replace(WORKS_AT_REGEX, " ")
-            remaining = remaining.replace(COMPANY_LABEL_REGEX, " ")
-            remaining = remaining.replace(company, " ")
+            remaining = remaining
+                .replace(Regex("(?i)\\b(?:works?\\s+at|employed\\s+(?:at|by)|job\\s+at)\\b"), " ")
+                .replace(Regex("(?i)\\b(?:company|business|employer|organization|organisation|org)\\b\\s*[:=-]?"), " ")
+                .replace(company, " ", ignoreCase = true)
         }
 
         val age = AGE_REGEX.find(remaining)?.groupValues?.getOrNull(1).orEmpty()
@@ -176,7 +177,6 @@ object SubjectIntakeParser {
         }
         val name = nameParts.joinToString(" ").trim().takeIf {
             it.isNotBlank() &&
-                fields["company"].isNullOrBlank() &&
                 !it.contains("@") &&
                 !it.contains(".") &&
                 nameParts.size in 1..4
