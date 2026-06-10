@@ -35,6 +35,7 @@ object ReportMetadataSync {
         aggregatePhoneOwnerNames(metadata)
         syncSecFilings(metadata)
         sync800NotesSnippet(metadata)
+        SubjectConnectionEngine.sync(metadata)
     }
 
     fun extractPersonNames(text: String, max: Int = 5): List<String> {

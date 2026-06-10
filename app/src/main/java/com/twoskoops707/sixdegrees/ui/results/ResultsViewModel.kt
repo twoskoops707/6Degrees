@@ -17,6 +17,7 @@ import com.twoskoops707.sixdegrees.domain.model.Employment
 import com.twoskoops707.sixdegrees.domain.model.SocialProfile
 import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
 import com.twoskoops707.sixdegrees.domain.GoogleDorkLibrary
+import com.twoskoops707.sixdegrees.domain.SubjectConnectionEngine
 import com.twoskoops707.sixdegrees.domain.SubjectFilter
 import kotlinx.coroutines.launch
 
@@ -246,6 +247,9 @@ object DossierBuilder {
 
         return listOf(
             buildIdentitySection(meta),
+            buildConnectionsSection(meta),
+            buildTimelineSection(meta),
+            buildImagerySection(meta),
             buildLocationsSection(meta, city, state, geoLabel),
             buildContactSection(meta),
             buildFamilySection(meta),
@@ -276,7 +280,7 @@ object DossierBuilder {
 
         val googleIntel = buildGoogleIntelligenceSection(meta, investigatorMode = false).findings
             .filter { !isEmptyPlaceholder(it) && it.label != "Summary" }
-        val who = findings("identity", "employment", "contact", "family") + googleIntel
+        val who = findings("identity", "connections", "timeline", "employment", "contact", "family") + googleIntel
         val where = byId["locations"]?.findings.orEmpty().filter { !isEmptyPlaceholder(it) }
         val ctx = FindingUrlHelper.subjectContext(meta)
         val flags = (findings("legal", "darkweb").filter { it.isWarning || isRedFlagFinding(it) } +
@@ -628,6 +632,94 @@ object DossierBuilder {
             findings.add(finding("No contact data found", "SixDegrees", DossierConfidence.LOW))
         }
         return DossierSection("contact", "Contact", "", findings)
+    }
+
+    private fun buildConnectionsSection(meta: Map<String, String>): DossierSection {
+        val findings = mutableListOf<DossierFinding>()
+        meta["career_transition"]?.takeIf { it.isNotBlank() }?.let { transition ->
+            findings.add(finding(transition, "SixDegrees", DossierConfidence.MEDIUM, "Career path"))
+        }
+        val edges = meta["connection_edges_json"]?.let { SubjectConnectionEngine.parseConnectionsFromJson(it) }
+            ?: SubjectConnectionEngine.buildConnections(meta, SubjectConnectionEngine.parseEmployment(meta))
+        edges.take(24).forEach { edge ->
+            if (edge.relation == "Career inference" && meta["career_transition"] != null) return@forEach
+            findings.add(
+                finding(
+                    value = "pivot://${edge.pivotType}/${edge.pivotQuery}",
+                    source = edge.source,
+                    confidence = if (edge.relation.contains("SEC") || edge.relation.contains("employer")) {
+                        DossierConfidence.HIGH
+                    } else {
+                        DossierConfidence.MEDIUM
+                    },
+                    label = "${edge.relation}: ${edge.target}",
+                    isPivot = true
+                )
+            )
+            if (edge.detail.isNotBlank() && edge.detail != edge.target) {
+                findings.add(finding(edge.detail, edge.source, DossierConfidence.LOW, "Context"))
+            }
+        }
+        if (findings.isEmpty()) {
+            findings.add(finding("No connection graph built yet — add employment or associate data", "SixDegrees", DossierConfidence.LOW))
+        }
+        return DossierSection("connections", "Connections", "", findings.distinctBy { it.value + (it.label ?: "") })
+    }
+
+    private fun buildTimelineSection(meta: Map<String, String>): DossierSection {
+        val findings = mutableListOf<DossierFinding>()
+        val events = meta["subject_timeline_json"]?.let { SubjectConnectionEngine.parseTimelineFromJson(it) }
+            ?: SubjectConnectionEngine.buildTimeline(meta, SubjectConnectionEngine.parseEmployment(meta))
+        events.take(16).forEach { event ->
+            val label = when (event.kind) {
+                "employment" -> if (event.detail.contains("Current")) "Current role" else "Past role"
+                "location" -> "Address"
+                "corporate" -> "Corporate"
+                else -> event.kind.replaceFirstChar { it.uppercase() }
+            }
+            findings.add(
+                finding(
+                    value = "${event.title} — ${event.detail}",
+                    source = event.source,
+                    confidence = if (event.kind == "employment") DossierConfidence.HIGH else DossierConfidence.MEDIUM,
+                    label = "${event.era} · $label"
+                )
+            )
+        }
+        if (findings.isEmpty()) {
+            findings.add(finding("No timeline events extracted from records", "SixDegrees", DossierConfidence.LOW))
+        }
+        return DossierSection("timeline", "Timeline", "", findings)
+    }
+
+    private fun buildImagerySection(meta: Map<String, String>): DossierSection {
+        val findings = mutableListOf<DossierFinding>()
+        val images = SubjectConnectionEngine.collectImages(meta)
+        images.forEach { img ->
+            findings.add(
+                finding(
+                    value = img.url,
+                    source = img.source,
+                    confidence = DossierConfidence.MEDIUM,
+                    label = img.label,
+                    isLink = true
+                )
+            )
+        }
+        val subjectName = meta["person_name"] ?: meta["search_query"] ?: ""
+        if (subjectName.isNotBlank()) {
+            listOf(
+                "FaceCheck.id" to "https://facecheck.id/en/search?q=${android.net.Uri.encode(subjectName)}",
+                "PimEyes" to "https://pimeyes.com/en",
+                "TinEye" to "https://tineye.com/"
+            ).forEach { (tool, url) ->
+                findings.add(finding(url, tool, DossierConfidence.LOW, "Reverse image search", isLink = true))
+            }
+        }
+        if (findings.isEmpty()) {
+            findings.add(finding("No photos found — try a face search with a saved image", "SixDegrees", DossierConfidence.LOW))
+        }
+        return DossierSection("imagery", "Photos & Imagery", "", findings)
     }
 
     private fun buildFamilySection(meta: Map<String, String>): DossierSection {

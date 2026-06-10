@@ -124,6 +124,9 @@
     <string name="dossier_tab_digital">Digital trace</string>
     <string name="dossier_tab_legal">Legal &amp; exposure</string>
     <string name="dossier_tab_intel">Field intel</string>
+    <string name="dossier_tab_connections">Connection map</string>
+    <string name="dossier_tab_timeline">Timeline</string>
+    <string name="dossier_tab_imagery">Photos &amp; imagery</string>
     <string name="dossier_tab_network">Network map</string>
     <string name="dossier_tab_threats">Threat intel</string>
     <string name="dossier_tab_domain">Domain registry</string>

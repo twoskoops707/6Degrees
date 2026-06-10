@@ -25,6 +25,7 @@ import com.twoskoops707.sixdegrees.domain.SearchPhase
 import com.twoskoops707.sixdegrees.domain.SubjectFilter
 import com.twoskoops707.sixdegrees.domain.SubjectIntakeParser
 import com.twoskoops707.sixdegrees.domain.ReportMetadataSync
+import com.twoskoops707.sixdegrees.domain.SubjectConnectionEngine
 import com.twoskoops707.sixdegrees.domain.SubjectSearchOrchestrator
 import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import com.twoskoops707.sixdegrees.domain.model.DataSource
@@ -2595,6 +2596,12 @@ class OsintRepository(context: Context) {
         metadata["reddit_url"]?.takeIf { it.isNotBlank() }?.let { appendLine("Reddit: $it") }
         listOfNotNull(metadata["pipl_employment"], metadata["pdl_employment"])
             .firstOrNull { it.isNotBlank() }?.let { appendLine("Employment:\n${it.take(300)}") }
+        metadata["career_transition"]?.takeIf { it.isNotBlank() }
+            ?.let { appendLine("Career inference: $it") }
+        metadata["connection_summary"]?.takeIf { it.isNotBlank() }
+            ?.let { appendLine("Connections & pivots:\n${it.take(500)}") }
+        metadata["subject_timeline"]?.takeIf { it.isNotBlank() }
+            ?.let { appendLine("Timeline:\n${it.take(400)}") }
         metadata["pdl_company"]?.takeIf { it.isNotBlank() }?.let { appendLine("Company (PDL): $it") }
         metadata["clearbit_person_company"]?.takeIf { it.isNotBlank() }?.let { appendLine("Company (Clearbit): $it") }
         metadata["corpwiki_person_companies"]?.takeIf { it.isNotBlank() }?.let { appendLine("Companies (OpenCorporates):\n${it.take(200)}") }
@@ -2696,6 +2703,42 @@ class OsintRepository(context: Context) {
 
     private fun finalizeMetadata(metadata: ConcurrentHashMap<String, String>) {
         ReportMetadataSync.sync(metadata)
+    }
+
+    private fun buildStructuredPersonFields(metadata: Map<String, String>): Triple<String, String, String> {
+        val employmentJson = metadata["structured_employment_json"]
+            ?: SubjectConnectionEngine.employmentToJson(SubjectConnectionEngine.parseEmployment(metadata))
+        val addressesJson = buildAddressesJson(metadata)
+        val socialJson = metadata["social_profiles_json"] ?: "[]"
+        return Triple(employmentJson, addressesJson, socialJson)
+    }
+
+    private fun buildAddressesJson(metadata: Map<String, String>): String {
+        val addresses = linkedSetOf<String>()
+        listOf("search_addresses", "pipl_addresses", "pdl_address", "voter_addresses")
+            .forEach { key ->
+                metadata[key]?.split(" | ", ",")?.map { it.trim() }?.filter { it.length > 8 }
+                    ?.forEach { addresses.add(it) }
+            }
+        if (addresses.isEmpty()) return "[]"
+        val arr = org.json.JSONArray()
+        addresses.take(12).forEach { full ->
+            val parts = full.split(",").map { it.trim() }
+            val obj = org.json.JSONObject()
+            when {
+                parts.size >= 3 -> {
+                    obj.put("street", parts[0])
+                    obj.put("city", parts[1])
+                    obj.put("state", parts.getOrNull(2)?.take(2) ?: "")
+                    obj.put("postalCode", parts.getOrNull(3) ?: "")
+                }
+                else -> obj.put("city", full)
+            }
+            obj.put("country", "US")
+            obj.put("type", "previous")
+            arr.put(obj)
+        }
+        return arr.toString()
     }
 
     private fun CoroutineScope.launchPhoneIntelScrapers(
@@ -4482,6 +4525,11 @@ class OsintRepository(context: Context) {
         val first = parts.firstOrNull()?.takeIf { it.isNotBlank() } ?: return null
         val last = if (parts.size > 1) parts.last() else ""
         val id = UUID.randomUUID().toString()
+        val (employmentJson, addressesJson, socialJson) = buildStructuredPersonFields(metadata)
+        val aliases = listOfNotNull(
+            metadata["pipl_aliases"]?.split(",")?.map { it.trim() },
+            metadata["search_aliases"]?.split(",")?.map { it.trim() }
+        ).flatten().filter { it.isNotBlank() }.distinct()
         val person = PersonEntity(
             id = id,
             firstName = first,
@@ -4493,13 +4541,16 @@ class OsintRepository(context: Context) {
             phoneNumber = metadata["pipl_phones"]?.split(",")?.firstOrNull()?.trim()
                 ?: metadata["pdl_phones"]?.split(",")?.firstOrNull()?.trim()
                 ?: metadata["person_phone"],
-            dateOfBirth = metadata["comp_dob"],
-            addressesJson = "[]",
-            employmentHistoryJson = "[]",
-            socialProfilesJson = "[]",
-            aliasesJson = "[]",
-            nationalitiesJson = "[]",
-            gender = null,
+            dateOfBirth = metadata["comp_dob"] ?: metadata["pipl_dob"] ?: metadata["person_dob"],
+            addressesJson = addressesJson,
+            employmentHistoryJson = employmentJson.ifBlank { "[]" },
+            socialProfilesJson = socialJson,
+            aliasesJson = if (aliases.isEmpty()) "[]" else org.json.JSONArray(aliases).toString(),
+            nationalitiesJson = metadata["pipl_nationalities"]?.let { nat ->
+                val list = nat.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                if (list.isEmpty()) "[]" else org.json.JSONArray(list).toString()
+            } ?: "[]",
+            gender = metadata["pipl_gender"] ?: metadata["demographics_gender"],
             profileImageUrl = metadata["profile_photo_url"]
         )
         db.personDao().insertPerson(person)

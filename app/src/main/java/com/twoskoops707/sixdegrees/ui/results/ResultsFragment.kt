@@ -26,6 +26,7 @@ import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.AppSettings
 import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
 import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
+import com.twoskoops707.sixdegrees.domain.SubjectConnectionEngine
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
 import com.twoskoops707.sixdegrees.ui.common.InvestigationPipelineView
@@ -217,8 +218,10 @@ class ResultsFragment : Fragment() {
     ): List<DossierSection> {
         val structuredTabTypes = setOf("company", "domain", "ip", "username", "image", "vehicle", "vin", "comprehensive")
         val isLegacyDump = dossierSections.size == 1 && dossierSections.firstOrNull()?.id == "data"
+        val useTabbedDossier = searchType in structuredTabTypes || isLegacyDump ||
+            (searchType in setOf("person", "scan") && investigatorMode)
         return when {
-            searchType in structuredTabTypes || isLegacyDump ->
+            useTabbedDossier ->
                 tabsToDossierSections(buildTabs(meta, searchType))
             searchType == "phone" && investigatorMode ->
                 dossierSections + tabsToDossierSections(buildTabs(meta, searchType))
@@ -245,6 +248,7 @@ class ResultsFragment : Fragment() {
                         value = value,
                         source = "SixDegrees",
                         confidence = DossierConfidence.MEDIUM,
+                        isPivot = value.startsWith("pivot://"),
                         isLink = value.startsWith("http://") || value.startsWith("https://")
                     )
                 }
@@ -271,6 +275,9 @@ class ResultsFragment : Fragment() {
         return when (type) {
             "person", "scan" -> listOf(
                 getString(R.string.dossier_tab_subject) to buildPersonOverview(meta),
+                getString(R.string.dossier_tab_connections) to buildConnectionsTab(meta),
+                getString(R.string.dossier_tab_timeline) to buildTimelineTab(meta),
+                getString(R.string.dossier_tab_imagery) to buildImageryTab(meta),
                 getString(R.string.dossier_tab_contacts) to buildPersonContacts(meta),
                 getString(R.string.dossier_tab_digital) to buildPersonDigitalTrace(meta),
                 getString(R.string.dossier_tab_legal) to buildPersonLegal(meta),
@@ -314,6 +321,9 @@ class ResultsFragment : Fragment() {
             "comprehensive" -> {
                 val tabs = mutableListOf(
                     getString(R.string.dossier_tab_subject) to buildPersonOverview(meta),
+                    getString(R.string.dossier_tab_connections) to buildConnectionsTab(meta),
+                    getString(R.string.dossier_tab_timeline) to buildTimelineTab(meta),
+                    getString(R.string.dossier_tab_imagery) to buildImageryTab(meta),
                     getString(R.string.dossier_tab_contacts) to buildPersonContacts(meta),
                     getString(R.string.dossier_tab_digital) to buildPersonDigitalTrace(meta),
                     getString(R.string.dossier_tab_legal) to buildPersonLegal(meta),
@@ -327,6 +337,56 @@ class ResultsFragment : Fragment() {
             }
             else -> listOf(getString(R.string.dossier_tab_data) to buildPersonOverview(meta))
         }
+    }
+
+    private fun buildConnectionsTab(meta: Map<String, String>): List<Pair<String, String>> {
+        val rows = mutableListOf<Pair<String, String>>()
+        rows.add(sec("CONNECTION MAP"))
+        meta["career_transition"]?.takeIf { it.isNotBlank() }?.let { rows.add("Career path" to it) }
+        val edges = meta["connection_edges_json"]?.let { SubjectConnectionEngine.parseConnectionsFromJson(it) }
+            ?: SubjectConnectionEngine.buildConnections(meta, SubjectConnectionEngine.parseEmployment(meta))
+        if (edges.isEmpty()) {
+            rows.add("Status" to "No connections extracted yet")
+            return rows
+        }
+        edges.take(24).forEach { edge ->
+            if (edge.relation == "Career inference" && meta["career_transition"] != null) return@forEach
+            rows.add("> ${edge.relation}" to "pivot://${edge.pivotType}/${edge.pivotQuery}")
+            if (edge.detail.isNotBlank()) rows.add("Context" to edge.detail)
+        }
+        return rows
+    }
+
+    private fun buildTimelineTab(meta: Map<String, String>): List<Pair<String, String>> {
+        val rows = mutableListOf<Pair<String, String>>()
+        rows.add(sec("SUBJECT TIMELINE"))
+        val events = meta["subject_timeline_json"]?.let { SubjectConnectionEngine.parseTimelineFromJson(it) }
+            ?: SubjectConnectionEngine.buildTimeline(meta, SubjectConnectionEngine.parseEmployment(meta))
+        if (events.isEmpty()) {
+            rows.add("Status" to "No timeline events from records")
+            return rows
+        }
+        events.take(16).forEach { event ->
+            val eraLabel = if (event.era.isNotBlank()) "${event.era} · " else ""
+            rows.add("${eraLabel}${event.kind}" to "${event.title} — ${event.detail}")
+        }
+        return rows
+    }
+
+    private fun buildImageryTab(meta: Map<String, String>): List<Pair<String, String>> {
+        val rows = mutableListOf<Pair<String, String>>()
+        rows.add(sec("PHOTOS & VISUAL INTEL"))
+        val images = SubjectConnectionEngine.collectImages(meta)
+        images.forEach { img -> rows.add(img.label to img.url) }
+        val subjectName = meta["person_name"] ?: meta["search_query"] ?: ""
+        if (subjectName.isNotBlank()) {
+            rows.add(sec("REVERSE IMAGE SEARCH"))
+            rows.add("FaceCheck.id" to "https://facecheck.id/en/search?q=${Uri.encode(subjectName)}")
+            rows.add("PimEyes" to "https://pimeyes.com/en")
+            rows.add("TinEye" to "https://tineye.com/")
+        }
+        if (rows.size <= 1) rows.add("Status" to "No imagery collected — upload a photo search or rerun with disambiguation")
+        return rows
     }
 
     private fun sec(label: String): Pair<String, String> {
