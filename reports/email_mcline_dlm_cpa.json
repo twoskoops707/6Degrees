@@ -1,0 +1,91 @@
+{
+  "generated_at": "2026-06-10T08:06:32.803010+00:00",
+  "app": "6Degrees OSINT Emulator v1.0",
+  "search_type": "email",
+  "query": "email=mcline@dlm-cpa.com",
+  "subject": {
+    "email": "mcline@dlm-cpa.com"
+  },
+  "results": [
+    {
+      "source": "EmailRep",
+      "url": "https://emailrep.io/mcline%40dlm-cpa.com",
+      "status": "not_found",
+      "detail": "",
+      "fields": {}
+    },
+    {
+      "source": "LeakCheck",
+      "url": "https://leakcheck.io/api/public?check=mcline%40dlm-cpa.com",
+      "status": "found",
+      "detail": "2 breach(es): AT&T, MGMResorts.com",
+      "fields": {
+        "success": true,
+        "found": 3,
+        "fields": [
+          "id",
+          "name",
+          "city",
+          "phone",
+          "password",
+          "state",
+          "zip",
+          "address"
+        ],
+        "sources": [
+          {
+            "name": "AT&T",
+            "date": "2021-01"
+          },
+          {
+            "name": "MGMResorts.com",
+            "date": "2019-07"
+          }
+        ]
+      }
+    },
+    {
+      "source": "Kickbox",
+      "url": "https://open.kickbox.com/v1/disposable/mcline%40dlm-cpa.com",
+      "status": "found",
+      "detail": "Disposable: False",
+      "fields": {
+        "disposable": false
+      }
+    },
+    {
+      "source": "Gravatar",
+      "url": "https://www.gravatar.com/6861300e5c817ce39abfed9209fdd923.json",
+      "status": "not_found",
+      "detail": "",
+      "fields": {}
+    },
+    {
+      "source": "HackerTarget",
+      "url": "https://api.hackertarget.com/findemail/?q=mcline%40dlm-cpa.com",
+      "status": "not_found",
+      "detail": "<!doctype html>\n<html lang=en>\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try agai",
+      "fields": {}
+    },
+    {
+      "source": "DDG HTML",
+      "url": "https://html.duckduckgo.com/html/?q=%22mcline%40dlm-cpa.com%22",
+      "status": "not_found",
+      "detail": "",
+      "fields": {}
+    },
+    {
+      "source": "DDG HTML",
+      "url": "https://html.duckduckgo.com/html/?q=site%3Alinkedin.com%20%22mcline%40dlm-cpa.com%22",
+      "status": "error",
+      "detail": "HTTP 202",
+      "fields": {}
+    }
+  ],
+  "summary": {
+    "total_sources": 7,
+    "found": 2,
+    "not_found": 4,
+    "errors": 1
+  }
+}

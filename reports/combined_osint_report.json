@@ -1,0 +1,534 @@
+{
+  "generated_at": "2026-06-10T08:06:32.803975+00:00",
+  "searches": {
+    "person_michael_r_cline": {
+      "generated_at": "2026-06-10T08:06:32.802950+00:00",
+      "app": "6Degrees OSINT Emulator v1.0",
+      "search_type": "person",
+      "query": "name=Michael r Cline|city=Arcata|state=CA|email=mcline@dlm-cpa.com",
+      "subject": {
+        "name": "Michael r Cline",
+        "city": "Arcata",
+        "state": "CA",
+        "email": "mcline@dlm-cpa.com"
+      },
+      "results": [
+        {
+          "source": "DuckDuckGo",
+          "url": "https://api.duckduckgo.com/?q=Michael%20r%20Cline%20Arcata%2C%20CA&format=json&no_html=1&skip_disambig=1",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "DDG:General",
+          "url": "https://html.duckduckgo.com/html/?q=%22Michael%20r%20Cline%22%20Arcata%20CA",
+          "status": "error",
+          "detail": "HTTP 202",
+          "fields": {}
+        },
+        {
+          "source": "DDG:LinkedIn",
+          "url": "https://html.duckduckgo.com/html/?q=site%3Alinkedin.com%20%22Michael%20r%20Cline%22%20Arcata%20CA",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "DDG:Employment",
+          "url": "https://html.duckduckgo.com/html/?q=%22Michael%20r%20Cline%22%20employer%20company%20job%20Arcata%20CA",
+          "status": "found",
+          "detail": "Michael R. Cline, CPA, Inc. - Company Profile - Corporation Wiki \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.corporationwiki.com%2FCalifornia%2FArcata%2Fmichael%2Dr%2Dcline%2Dcpa%2Dinc%2F45456226.aspx&amp;rut=f10d09adf8220f7de6c08be40e10f5c29494fb71f33ba589fd08b61903e63ea3\nMichael R Cline CPA Arcata CA, 95521 - Manta.com \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.manta.com%2Fc%2Fmtrbj00%2Fmichael%2Dr%2Dcline%2Dcpa%2Dinc&amp;rut=27e6833fdb581bbd1b30687a3427b9ed85b5cc547175115541afbb3b4f740d66\nMichael R Cline CPA - Accountant in Arcata CA 95521 - Call (707) 822 ... \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fyellow%2Dpages.us.com%2Fcalifornia%2Farcata%2Fmichael%2Dr%2Dcline%2Dcpa%2Db27482332&amp;rut=fe31cb18080ba78c59a4a24ff58c7e3dcd1e7cdb0a73a20755acd04c93924656",
+          "fields": {}
+        },
+        {
+          "source": "DDG:FPS",
+          "url": "https://html.duckduckgo.com/html/?q=site%3Afastpeoplesearch.com%20%22Michael%20r%20Cline%22%20Arcata%20CA",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "DDG:Whitepages",
+          "url": "https://html.duckduckgo.com/html/?q=site%3Awhitepages.com%20%22Michael%20r%20Cline%22%20Arcata%20CA",
+          "status": "found",
+          "detail": "Michael R Cline Address & Phone Number - Whitepages \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.whitepages.com%2Fname%2FMichael%2DR%2DCline&amp;rut=7fdae60b2ddd6208587eb8152eba95fdd84da1b76b9215c2ede5a732388dae1b\nMichael R Cline | 58 | NE Jan Rose Pkwy, Ankeny, IA - Whitepages \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.whitepages.com%2Fname%2FMichael%2DR%2DCline%2FAnkeny%2DIA%2FP59OQxmjQP3&amp;rut=70b4163fe5c8d3aa1f37c320ee1feaacb68e9649fc16142ab5eb04a0bdcfa337\n707-442-1737 Phone Number | Michael R Cline Jr - Arcata, CA ... \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.whitepages.com%2Fphone%2F1%2D707%2D442%2D1737&amp;rut=40f7bfca73dd4575166ad9f20a92bd89846511b405045661c2060a5c201b679e\nMichael Cline in CA - California Address & Phone Number - Whitepages \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.whitepages.com%2Fname%2FMichael%2DCline%2FCA&amp;rut=e7238be2903d3d924e0e76884955dd464178efe3b84ec3bf0a90ceab28ff6ca5\nMichael R Cline | 35 | Parker Blvd, Tonawanda, NY - Whitepages \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.whitepages.com%2Fname%2FMichael%2DR%2DCline%2FTonawanda%2DNY%2FPe9xR0PqX3a&amp;rut=66150926dac4ef3e1108034131bd6bc1444988e689c24578b56dc58430728835\nMike Cline in C",
+          "fields": {}
+        },
+        {
+          "source": "DDG:EmailCrossRef",
+          "url": "https://html.duckduckgo.com/html/?q=%22mcline%40dlm-cpa.com%22%20%22Michael%20r%20Cline%22",
+          "status": "error",
+          "detail": "HTTP 202",
+          "fields": {}
+        },
+        {
+          "source": "DDG:DLM CPA",
+          "url": "https://html.duckduckgo.com/html/?q=%22Michael%20r%20Cline%22%20dlm-cpa.com",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "Wikipedia",
+          "url": "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=Michael%20r%20Cline&format=json&srlimit=3",
+          "status": "found",
+          "detail": "Patsy Cline: Patsy Cline (born Virginia Patterson Hensley; September 8, 1932 \u2013 March 5, 1963) was an American singer. One of the most influential vocalists of the\nBen Cline: Benjamin Lee Cline (born February 29, 1972) is an American politician and lawyer serving as the U.S. representative for Virginia&#039;s 6th congressional district\nMichael Jackson: Michael Joseph Jackson (August 29, 1958 \u2013 June 25, 2009) was an American singer, songwriter, dancer, and philanthropist. Dubbed the &quot;King of Pop&quot;, he",
+          "fields": {}
+        },
+        {
+          "source": "Google News",
+          "url": "https://news.google.com/rss/search?q=Michael%20r%20Cline%20Arcata&hl=en-US&gl=US&ceid=US:en",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "CourtListener",
+          "url": "https://www.courtlistener.com/api/rest/v4/search/?q=%22Michael%20r%20Cline%22&type=r&order_by=score+desc&page_size=5",
+          "status": "found",
+          "detail": "13 case(s)\nMichael R. Cline (Bankr. S.D. Ohio) 2007-11-28\nMichael R. Cline and Linda J. Cline (Bankr. E.D.N.C.) 2012-10-30\nMichael R. Cline (Bankr. E.D. Va.) 1996-11-19\nUnited States v. King (S.D.W. Va) 2004-06-15\nUnited States v. Burress (S.D.W. Va) 2003-01-29",
+          "fields": {
+            "count": 13
+          }
+        },
+        {
+          "source": "OpenSanctions",
+          "url": "https://api.opensanctions.org/search/default?q=Michael%20r%20Cline&limit=5",
+          "status": "error",
+          "detail": "HTTP 401",
+          "fields": {}
+        },
+        {
+          "source": "DDG HTML",
+          "url": "https://html.duckduckgo.com/html/?q=%22mcline%40dlm-cpa.com%22%20%22Michael%20r%20Cline%22",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        }
+      ],
+      "summary": {
+        "total_sources": 13,
+        "found": 4,
+        "not_found": 6,
+        "errors": 3
+      }
+    },
+    "email_mcline_dlm_cpa": {
+      "generated_at": "2026-06-10T08:06:32.803010+00:00",
+      "app": "6Degrees OSINT Emulator v1.0",
+      "search_type": "email",
+      "query": "email=mcline@dlm-cpa.com",
+      "subject": {
+        "email": "mcline@dlm-cpa.com"
+      },
+      "results": [
+        {
+          "source": "EmailRep",
+          "url": "https://emailrep.io/mcline%40dlm-cpa.com",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "LeakCheck",
+          "url": "https://leakcheck.io/api/public?check=mcline%40dlm-cpa.com",
+          "status": "found",
+          "detail": "2 breach(es): AT&T, MGMResorts.com",
+          "fields": {
+            "success": true,
+            "found": 3,
+            "fields": [
+              "id",
+              "name",
+              "city",
+              "phone",
+              "password",
+              "state",
+              "zip",
+              "address"
+            ],
+            "sources": [
+              {
+                "name": "AT&T",
+                "date": "2021-01"
+              },
+              {
+                "name": "MGMResorts.com",
+                "date": "2019-07"
+              }
+            ]
+          }
+        },
+        {
+          "source": "Kickbox",
+          "url": "https://open.kickbox.com/v1/disposable/mcline%40dlm-cpa.com",
+          "status": "found",
+          "detail": "Disposable: False",
+          "fields": {
+            "disposable": false
+          }
+        },
+        {
+          "source": "Gravatar",
+          "url": "https://www.gravatar.com/6861300e5c817ce39abfed9209fdd923.json",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "HackerTarget",
+          "url": "https://api.hackertarget.com/findemail/?q=mcline%40dlm-cpa.com",
+          "status": "not_found",
+          "detail": "<!doctype html>\n<html lang=en>\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try agai",
+          "fields": {}
+        },
+        {
+          "source": "DDG HTML",
+          "url": "https://html.duckduckgo.com/html/?q=%22mcline%40dlm-cpa.com%22",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "DDG HTML",
+          "url": "https://html.duckduckgo.com/html/?q=site%3Alinkedin.com%20%22mcline%40dlm-cpa.com%22",
+          "status": "error",
+          "detail": "HTTP 202",
+          "fields": {}
+        }
+      ],
+      "summary": {
+        "total_sources": 7,
+        "found": 2,
+        "not_found": 4,
+        "errors": 1
+      }
+    },
+    "domain_dlm_cpa": {
+      "generated_at": "2026-06-10T08:06:32.803025+00:00",
+      "app": "6Degrees OSINT Emulator v1.0",
+      "search_type": "domain",
+      "query": "domain=dlm-cpa.com",
+      "subject": {
+        "domain": "dlm-cpa.com"
+      },
+      "results": [
+        {
+          "source": "HackerTarget",
+          "url": "https://api.hackertarget.com/hostsearch/?q=dlm-cpa.com",
+          "status": "found",
+          "detail": "dlm-cpa.com,185.230.63.107\nsecure.dlm-cpa.com,173.219.117.167\nvpn.dlm-cpa.com,208.180.37.141\nwww.dlm-cpa.com,34.149.87.45",
+          "fields": {
+            "lines": [
+              "dlm-cpa.com,185.230.63.107",
+              "secure.dlm-cpa.com,173.219.117.167",
+              "vpn.dlm-cpa.com,208.180.37.141",
+              "www.dlm-cpa.com,34.149.87.45"
+            ]
+          }
+        },
+        {
+          "source": "crt.sh",
+          "url": "https://crt.sh/?q=dlm-cpa.com&output=json",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "RDAP",
+          "url": "https://rdap.org/domain/dlm-cpa.com",
+          "status": "found",
+          "detail": "Created: 1999-10-20 | Expires: 2026-10-20 | Entities: registrar: GoDaddy.com, LLC",
+          "fields": {
+            "objectClassName": "domain",
+            "handle": "11529641_DOMAIN_COM-VRSN",
+            "ldhName": "DLM-CPA.COM",
+            "links": [
+              {
+                "value": "https://rdap.verisign.com/com/v1/domain/DLM-CPA.COM",
+                "rel": "self",
+                "href": "https://rdap.verisign.com/com/v1/domain/DLM-CPA.COM",
+                "type": "application/rdap+json"
+              },
+              {
+                "value": "https://rdap.godaddy.com/v1/domain/DLM-CPA.COM",
+                "rel": "related",
+                "href": "https://rdap.godaddy.com/v1/domain/DLM-CPA.COM",
+                "type": "application/rdap+json"
+              }
+            ],
+            "status": [
+              "client delete prohibited",
+              "client renew prohibited",
+              "client transfer prohibited",
+              "client update prohibited"
+            ],
+            "entities": [
+              {
+                "objectClassName": "entity",
+                "handle": "146",
+                "roles": [
+                  "registrar"
+                ],
+                "links": [
+                  {
+                    "href": "http://www.godaddy.com",
+                    "type": "text/html",
+                    "value": "https://rdap.godaddy.com/v1/",
+                    "rel": "about"
+                  }
+                ],
+                "publicIds": [
+                  {
+                    "type": "IANA Registrar ID",
+                    "identifier": "146"
+                  }
+                ],
+                "vcardArray": [
+                  "vcard",
+                  [
+                    [
+                      "version",
+                      {},
+                      "text",
+                      "4.0"
+                    ],
+                    [
+                      "fn",
+                      {},
+                      "text",
+                      "GoDaddy.com, LLC"
+                    ]
+                  ]
+                ],
+                "entities": [
+                  {
+                    "objectClassName": "entity",
+                    "roles": [
+                      "abuse"
+                    ],
+                    "vcardArray": [
+                      "vcard",
+                      [
+                        [
+                          "version",
+                          {},
+                          "text",
+                          "4.0"
+                        ],
+                        [
+                          "fn",
+                          {},
+                          "text",
+                          ""
+                        ],
+                        [
+                          "tel",
+                          {
+                            "type": "voice"
+                          },
+                          "uri",
+                          "tel:480-624-2505"
+                        ],
+                        [
+                          "email",
+                          {},
+                          "text",
+                          "abuse@godaddy.com"
+                        ]
+                      ]
+                    ]
+                  }
+                ]
+              }
+            ],
+            "events": [
+              {
+                "eventAction": "registration",
+                "eventDate": "1999-10-20T22:14:05Z"
+              },
+              {
+                "eventAction": "expiration",
+                "eventDate": "2026-10-20T22:14:05Z"
+              },
+              {
+                "eventAction": "last changed",
+                "eventDate": "2025-10-21T11:45:44Z"
+              },
+              {
+                "eventAction": "last update of RDAP database",
+                "eventDate": "2026-06-10T08:06:06Z"
+              }
+            ],
+            "secureDNS": {
+              "delegationSigned": false
+            },
+            "nameservers": [
+              {
+                "objectClassName": "nameserver",
+                "ldhName": "NS53.DOMAINCONTROL.COM"
+              },
+              {
+                "objectClassName": "nameserver",
+                "ldhName": "NS54.DOMAINCONTROL.COM"
+              }
+            ],
+            "rdapConformance": [
+              "rdap_level_0",
+              "icann_rdap_technical_implementation_guide_1",
+              "icann_rdap_response_profile_1"
+            ],
+            "notices": [
+              {
+                "title": "Terms of Service",
+                "description": [
+                  "Service subject to Terms of Use."
+                ],
+                "links": [
+                  {
+                    "href": "https://www.verisign.com/domain-names/registration-data-access-protocol/terms-service/index.xhtml",
+                    "type": "text/html",
+                    "value": "https://rdap.verisign.com/com/v1/domain/dlm-cpa.com",
+                    "rel": "terms-of-service"
+                  }
+                ]
+              },
+              {
+                "title": "Status Codes",
+                "description": [
+                  "For more information on domain status codes, please visit https://icann.org/epp"
+                ],
+                "links": [
+                  {
+                    "href": "https://icann.org/epp",
+                    "type": "text/html"
+                  }
+                ]
+              },
+              {
+                "title": "RDDS Inaccuracy Complaint Form",
+                "description": [
+                  "URL of the ICANN RDDS Inaccuracy Complaint Form: https://icann.org/wicf"
+                ],
+                "links": [
+                  {
+                    "href": "https://icann.org/wicf",
+                    "type": "text/html",
+                    "value": "https://rdap.verisign.com/com/v1/domain/dlm-cpa.com",
+                    "rel": "help"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "source": "Wayback CDX",
+          "url": "https://web.archive.org/cdx/search/cdx?url=dlm-cpa.com/*&output=json&limit=10",
+          "status": "found",
+          "detail": "10 snapshot(s)\n20010518093841 \u2014 https://web.archive.org/web/20010518093841/http://www.dlm-cpa.com:80/\n20010925191102 \u2014 https://web.archive.org/web/20010925191102/http://www.dlm-cpa.com:80/\n20011128195621 \u2014 https://web.archive.org/web/20011128195621/http://www.dlm-cpa.com:80/\n20020523135337 \u2014 https://web.archive.org/web/20020523135337/http://www.dlm-cpa.com:80/\n20020527001719 \u2014 https://web.archive.org/web/20020527001719/http://www.dlm-cpa.com:80/\n20120426013058 \u2014 https://web.archive.org/web/20120426013058/http://www.dlm-cpa.com:80/\n20120527174405 \u2014 https://web.archive.org/web/20120527174405/http://www.dlm-cpa.com:80/\n20120628051928 \u2014 https://web.archive.org/web/20120628051928/http://www.dlm-cpa.com:80/\n20130313132604 \u2014 https://web.archive.org/web/20130313132604/http://www.dlm-cpa.com:80/\n20130602001530 \u2014 https://web.archive.org/web/20130602001530/http://dlm-cpa.com/",
+          "fields": {}
+        },
+        {
+          "source": "ip-api",
+          "url": "http://ip-api.com/json/dlm-cpa.com?fields=status,message,country,regionName,city,isp,org,as,lat,lon,query",
+          "status": "found",
+          "detail": "185.230.63.107 \u2014 Ashburn, Virginia, United States | ISP: wix com inc | ASN: AS58182 Wix.com Ltd.",
+          "fields": {
+            "status": "success",
+            "country": "United States",
+            "regionName": "Virginia",
+            "city": "Ashburn",
+            "lat": 39.018,
+            "lon": -77.539,
+            "isp": "wix com inc",
+            "org": "Wix Com Inc",
+            "as": "AS58182 Wix.com Ltd.",
+            "query": "185.230.63.107"
+          }
+        },
+        {
+          "source": "Google News",
+          "url": "https://news.google.com/rss/search?q=dlm-cpa.com&hl=en-US&gl=US&ceid=US:en",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "DDG HTML",
+          "url": "https://html.duckduckgo.com/html/?q=site%3Adlm-cpa.com",
+          "status": "found",
+          "detail": "David L. Moonie & Co., LLP | CPA | 900 G Street ste 103, Arcata, CA, USA \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.dlm%2Dcpa.com%2F&amp;rut=9fe3b244f032c1ce736376b41ca4de181c2e2d3f4b32637ac5b46d772d3b9660\nDavid L. Moonie & Co., LLP / Eureka, CA CPA \u2014 //duckduckgo.com/l/?uddg=http%3A%2F%2Fwww.dlm%2Dcpa.com%2Farchive.php%3Farchive%3D112024&amp;rut=3e2797451ed8eeb7db8f554136c4c23425eff457ce1efa05e9adf3f0e76268e6\ndlm-cpa.com \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fdlm%2Dcpa.com%2Flinks.php&amp;rut=c09d88e99e00c372647224e47126f34f851087edd8b6b6ad18e9825c58ca0046\nPrivacy Policy | David L. Moonie & Co., LLP \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.dlm%2Dcpa.com%2Fblank&amp;rut=50fbd765fb0a476137c6d3bc952da195fcc3c7543c8784981d8c349e89b4891f\nDisclaimer | David L. Moonie & Co., LLP \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.dlm%2Dcpa.com%2Fdisclaimer&amp;rut=a0fa6c9bf29a260effe9e859d5e8f9127ed05d4e557eab038cfb4a6f246e3ec5\nvpn.dlm-cpa.com \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fvpn.dlm%2Dcpa.com%2Fapi%2Fv1%2Fvpnportal%2Flogin%2Dinformation%3F_%3D1735346686020&amp;rut=202c5f999a3f82cb7bb204b73f723240ceaa7142d3835a23772cca90a9d7b8cb\nVPN Portal \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%",
+          "fields": {}
+        }
+      ],
+      "summary": {
+        "total_sources": 7,
+        "found": 5,
+        "not_found": 2,
+        "errors": 0
+      }
+    },
+    "username_jsmiller31": {
+      "generated_at": "2026-06-10T08:06:32.803040+00:00",
+      "app": "6Degrees OSINT Emulator v1.0",
+      "search_type": "username",
+      "query": "username=jsmiller31",
+      "subject": {
+        "username": "jsmiller31"
+      },
+      "results": [
+        {
+          "source": "Username/Pinterest",
+          "url": "https://www.pinterest.com/jsmiller31/",
+          "status": "found",
+          "detail": "Profile exists (HTTP 200)",
+          "fields": {}
+        },
+        {
+          "source": "Username/Twitch",
+          "url": "https://www.twitch.tv/jsmiller31",
+          "status": "found",
+          "detail": "Profile exists (HTTP 200)",
+          "fields": {}
+        },
+        {
+          "source": "Username/Twitter/X",
+          "url": "https://x.com/jsmiller31",
+          "status": "found",
+          "detail": "Profile exists (HTTP 200)",
+          "fields": {}
+        },
+        {
+          "source": "Username/YouTube",
+          "url": "https://www.youtube.com/@jsmiller31",
+          "status": "found",
+          "detail": "Profile exists (HTTP 200)",
+          "fields": {}
+        },
+        {
+          "source": "DDG HTML",
+          "url": "https://html.duckduckgo.com/html/?q=%22jsmiller31%22",
+          "status": "not_found",
+          "detail": "",
+          "fields": {}
+        },
+        {
+          "source": "DDG HTML",
+          "url": "https://html.duckduckgo.com/html/?q=site%3Agithub.com%20%22jsmiller31%22",
+          "status": "error",
+          "detail": "HTTP 202",
+          "fields": {}
+        }
+      ],
+      "platforms_checked": 17,
+      "summary": {
+        "total_sources": 6,
+        "found": 4,
+        "not_found": 1,
+        "errors": 1
+      }
+    }
+  }
+}

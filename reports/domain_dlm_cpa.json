@@ -1,0 +1,265 @@
+{
+  "generated_at": "2026-06-10T08:06:32.803025+00:00",
+  "app": "6Degrees OSINT Emulator v1.0",
+  "search_type": "domain",
+  "query": "domain=dlm-cpa.com",
+  "subject": {
+    "domain": "dlm-cpa.com"
+  },
+  "results": [
+    {
+      "source": "HackerTarget",
+      "url": "https://api.hackertarget.com/hostsearch/?q=dlm-cpa.com",
+      "status": "found",
+      "detail": "dlm-cpa.com,185.230.63.107\nsecure.dlm-cpa.com,173.219.117.167\nvpn.dlm-cpa.com,208.180.37.141\nwww.dlm-cpa.com,34.149.87.45",
+      "fields": {
+        "lines": [
+          "dlm-cpa.com,185.230.63.107",
+          "secure.dlm-cpa.com,173.219.117.167",
+          "vpn.dlm-cpa.com,208.180.37.141",
+          "www.dlm-cpa.com,34.149.87.45"
+        ]
+      }
+    },
+    {
+      "source": "crt.sh",
+      "url": "https://crt.sh/?q=dlm-cpa.com&output=json",
+      "status": "not_found",
+      "detail": "",
+      "fields": {}
+    },
+    {
+      "source": "RDAP",
+      "url": "https://rdap.org/domain/dlm-cpa.com",
+      "status": "found",
+      "detail": "Created: 1999-10-20 | Expires: 2026-10-20 | Entities: registrar: GoDaddy.com, LLC",
+      "fields": {
+        "objectClassName": "domain",
+        "handle": "11529641_DOMAIN_COM-VRSN",
+        "ldhName": "DLM-CPA.COM",
+        "links": [
+          {
+            "value": "https://rdap.verisign.com/com/v1/domain/DLM-CPA.COM",
+            "rel": "self",
+            "href": "https://rdap.verisign.com/com/v1/domain/DLM-CPA.COM",
+            "type": "application/rdap+json"
+          },
+          {
+            "value": "https://rdap.godaddy.com/v1/domain/DLM-CPA.COM",
+            "rel": "related",
+            "href": "https://rdap.godaddy.com/v1/domain/DLM-CPA.COM",
+            "type": "application/rdap+json"
+          }
+        ],
+        "status": [
+          "client delete prohibited",
+          "client renew prohibited",
+          "client transfer prohibited",
+          "client update prohibited"
+        ],
+        "entities": [
+          {
+            "objectClassName": "entity",
+            "handle": "146",
+            "roles": [
+              "registrar"
+            ],
+            "links": [
+              {
+                "href": "http://www.godaddy.com",
+                "type": "text/html",
+                "value": "https://rdap.godaddy.com/v1/",
+                "rel": "about"
+              }
+            ],
+            "publicIds": [
+              {
+                "type": "IANA Registrar ID",
+                "identifier": "146"
+              }
+            ],
+            "vcardArray": [
+              "vcard",
+              [
+                [
+                  "version",
+                  {},
+                  "text",
+                  "4.0"
+                ],
+                [
+                  "fn",
+                  {},
+                  "text",
+                  "GoDaddy.com, LLC"
+                ]
+              ]
+            ],
+            "entities": [
+              {
+                "objectClassName": "entity",
+                "roles": [
+                  "abuse"
+                ],
+                "vcardArray": [
+                  "vcard",
+                  [
+                    [
+                      "version",
+                      {},
+                      "text",
+                      "4.0"
+                    ],
+                    [
+                      "fn",
+                      {},
+                      "text",
+                      ""
+                    ],
+                    [
+                      "tel",
+                      {
+                        "type": "voice"
+                      },
+                      "uri",
+                      "tel:480-624-2505"
+                    ],
+                    [
+                      "email",
+                      {},
+                      "text",
+                      "abuse@godaddy.com"
+                    ]
+                  ]
+                ]
+              }
+            ]
+          }
+        ],
+        "events": [
+          {
+            "eventAction": "registration",
+            "eventDate": "1999-10-20T22:14:05Z"
+          },
+          {
+            "eventAction": "expiration",
+            "eventDate": "2026-10-20T22:14:05Z"
+          },
+          {
+            "eventAction": "last changed",
+            "eventDate": "2025-10-21T11:45:44Z"
+          },
+          {
+            "eventAction": "last update of RDAP database",
+            "eventDate": "2026-06-10T08:06:06Z"
+          }
+        ],
+        "secureDNS": {
+          "delegationSigned": false
+        },
+        "nameservers": [
+          {
+            "objectClassName": "nameserver",
+            "ldhName": "NS53.DOMAINCONTROL.COM"
+          },
+          {
+            "objectClassName": "nameserver",
+            "ldhName": "NS54.DOMAINCONTROL.COM"
+          }
+        ],
+        "rdapConformance": [
+          "rdap_level_0",
+          "icann_rdap_technical_implementation_guide_1",
+          "icann_rdap_response_profile_1"
+        ],
+        "notices": [
+          {
+            "title": "Terms of Service",
+            "description": [
+              "Service subject to Terms of Use."
+            ],
+            "links": [
+              {
+                "href": "https://www.verisign.com/domain-names/registration-data-access-protocol/terms-service/index.xhtml",
+                "type": "text/html",
+                "value": "https://rdap.verisign.com/com/v1/domain/dlm-cpa.com",
+                "rel": "terms-of-service"
+              }
+            ]
+          },
+          {
+            "title": "Status Codes",
+            "description": [
+              "For more information on domain status codes, please visit https://icann.org/epp"
+            ],
+            "links": [
+              {
+                "href": "https://icann.org/epp",
+                "type": "text/html"
+              }
+            ]
+          },
+          {
+            "title": "RDDS Inaccuracy Complaint Form",
+            "description": [
+              "URL of the ICANN RDDS Inaccuracy Complaint Form: https://icann.org/wicf"
+            ],
+            "links": [
+              {
+                "href": "https://icann.org/wicf",
+                "type": "text/html",
+                "value": "https://rdap.verisign.com/com/v1/domain/dlm-cpa.com",
+                "rel": "help"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source": "Wayback CDX",
+      "url": "https://web.archive.org/cdx/search/cdx?url=dlm-cpa.com/*&output=json&limit=10",
+      "status": "found",
+      "detail": "10 snapshot(s)\n20010518093841 \u2014 https://web.archive.org/web/20010518093841/http://www.dlm-cpa.com:80/\n20010925191102 \u2014 https://web.archive.org/web/20010925191102/http://www.dlm-cpa.com:80/\n20011128195621 \u2014 https://web.archive.org/web/20011128195621/http://www.dlm-cpa.com:80/\n20020523135337 \u2014 https://web.archive.org/web/20020523135337/http://www.dlm-cpa.com:80/\n20020527001719 \u2014 https://web.archive.org/web/20020527001719/http://www.dlm-cpa.com:80/\n20120426013058 \u2014 https://web.archive.org/web/20120426013058/http://www.dlm-cpa.com:80/\n20120527174405 \u2014 https://web.archive.org/web/20120527174405/http://www.dlm-cpa.com:80/\n20120628051928 \u2014 https://web.archive.org/web/20120628051928/http://www.dlm-cpa.com:80/\n20130313132604 \u2014 https://web.archive.org/web/20130313132604/http://www.dlm-cpa.com:80/\n20130602001530 \u2014 https://web.archive.org/web/20130602001530/http://dlm-cpa.com/",
+      "fields": {}
+    },
+    {
+      "source": "ip-api",
+      "url": "http://ip-api.com/json/dlm-cpa.com?fields=status,message,country,regionName,city,isp,org,as,lat,lon,query",
+      "status": "found",
+      "detail": "185.230.63.107 \u2014 Ashburn, Virginia, United States | ISP: wix com inc | ASN: AS58182 Wix.com Ltd.",
+      "fields": {
+        "status": "success",
+        "country": "United States",
+        "regionName": "Virginia",
+        "city": "Ashburn",
+        "lat": 39.018,
+        "lon": -77.539,
+        "isp": "wix com inc",
+        "org": "Wix Com Inc",
+        "as": "AS58182 Wix.com Ltd.",
+        "query": "185.230.63.107"
+      }
+    },
+    {
+      "source": "Google News",
+      "url": "https://news.google.com/rss/search?q=dlm-cpa.com&hl=en-US&gl=US&ceid=US:en",
+      "status": "not_found",
+      "detail": "",
+      "fields": {}
+    },
+    {
+      "source": "DDG HTML",
+      "url": "https://html.duckduckgo.com/html/?q=site%3Adlm-cpa.com",
+      "status": "found",
+      "detail": "David L. Moonie & Co., LLP | CPA | 900 G Street ste 103, Arcata, CA, USA \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.dlm%2Dcpa.com%2F&amp;rut=9fe3b244f032c1ce736376b41ca4de181c2e2d3f4b32637ac5b46d772d3b9660\nDavid L. Moonie & Co., LLP / Eureka, CA CPA \u2014 //duckduckgo.com/l/?uddg=http%3A%2F%2Fwww.dlm%2Dcpa.com%2Farchive.php%3Farchive%3D112024&amp;rut=3e2797451ed8eeb7db8f554136c4c23425eff457ce1efa05e9adf3f0e76268e6\ndlm-cpa.com \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fdlm%2Dcpa.com%2Flinks.php&amp;rut=c09d88e99e00c372647224e47126f34f851087edd8b6b6ad18e9825c58ca0046\nPrivacy Policy | David L. Moonie & Co., LLP \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.dlm%2Dcpa.com%2Fblank&amp;rut=50fbd765fb0a476137c6d3bc952da195fcc3c7543c8784981d8c349e89b4891f\nDisclaimer | David L. Moonie & Co., LLP \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.dlm%2Dcpa.com%2Fdisclaimer&amp;rut=a0fa6c9bf29a260effe9e859d5e8f9127ed05d4e557eab038cfb4a6f246e3ec5\nvpn.dlm-cpa.com \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%2Fvpn.dlm%2Dcpa.com%2Fapi%2Fv1%2Fvpnportal%2Flogin%2Dinformation%3F_%3D1735346686020&amp;rut=202c5f999a3f82cb7bb204b73f723240ceaa7142d3835a23772cca90a9d7b8cb\nVPN Portal \u2014 //duckduckgo.com/l/?uddg=https%3A%2F%",
+      "fields": {}
+    }
+  ],
+  "summary": {
+    "total_sources": 7,
+    "found": 5,
+    "not_found": 2,
+    "errors": 0
+  }
+}

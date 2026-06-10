@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-06-10T08:06:32.803040+00:00",
+  "app": "6Degrees OSINT Emulator v1.0",
+  "search_type": "username",
+  "query": "username=jsmiller31",
+  "subject": {
+    "username": "jsmiller31"
+  },
+  "results": [
+    {
+      "source": "Username/Pinterest",
+      "url": "https://www.pinterest.com/jsmiller31/",
+      "status": "found",
+      "detail": "Profile exists (HTTP 200)",
+      "fields": {}
+    },
+    {
+      "source": "Username/Twitch",
+      "url": "https://www.twitch.tv/jsmiller31",
+      "status": "found",
+      "detail": "Profile exists (HTTP 200)",
+      "fields": {}
+    },
+    {
+      "source": "Username/Twitter/X",
+      "url": "https://x.com/jsmiller31",
+      "status": "found",
+      "detail": "Profile exists (HTTP 200)",
+      "fields": {}
+    },
+    {
+      "source": "Username/YouTube",
+      "url": "https://www.youtube.com/@jsmiller31",
+      "status": "found",
+      "detail": "Profile exists (HTTP 200)",
+      "fields": {}
+    },
+    {
+      "source": "DDG HTML",
+      "url": "https://html.duckduckgo.com/html/?q=%22jsmiller31%22",
+      "status": "not_found",
+      "detail": "",
+      "fields": {}
+    },
+    {
+      "source": "DDG HTML",
+      "url": "https://html.duckduckgo.com/html/?q=site%3Agithub.com%20%22jsmiller31%22",
+      "status": "error",
+      "detail": "HTTP 202",
+      "fields": {}
+    }
+  ],
+  "platforms_checked": 17,
+  "summary": {
+    "total_sources": 6,
+    "found": 4,
+    "not_found": 1,
+    "errors": 1
+  }
+}
