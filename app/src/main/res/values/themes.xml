@@ -51,6 +51,15 @@
 
     <style name="Theme.SixDegrees.Modern.Blue" parent="Theme.SixDegrees.Modern" />
 
+    <style name="Theme.SixDegrees.Modern.Amber" parent="Theme.SixDegrees.Modern">
+        <item name="colorPrimary">@color/accent_amber</item>
+        <item name="colorPrimaryContainer">@color/accent_amber_dim</item>
+        <item name="colorOnPrimaryContainer">@color/accent_amber</item>
+        <item name="colorSecondary">@color/accent_cyan</item>
+        <item name="colorSecondaryContainer">@color/accent_cyan_dim</item>
+        <item name="colorOnSecondaryContainer">@color/accent_cyan</item>
+    </style>
+
     <style name="Theme.SixDegrees.Cyan" parent="Theme.SixDegrees.Modern">
         <item name="colorPrimary">@color/accent_cyan</item>
         <item name="colorPrimaryContainer">@color/accent_cyan_dim</item>

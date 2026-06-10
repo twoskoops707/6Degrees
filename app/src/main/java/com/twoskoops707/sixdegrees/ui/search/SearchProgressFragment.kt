@@ -247,7 +247,7 @@ class SearchProgressFragment : Fragment() {
             }
             is SearchProgressEvent.PartialResultsReady -> {
                 partialReportId = event.reportId
-                if (!searchComplete && investigatorMode) {
+                if (!searchComplete) {
                     binding.btnPartialResults.visibility = View.VISIBLE
                 }
             }
@@ -405,21 +405,11 @@ class SearchProgressFragment : Fragment() {
     private fun navigateBackFromProgress() {
         if (!isAdded) return
         val nav = findNavController()
-        val json = candidatesJson
-        if (currentRound > 1 && !json.isNullOrBlank()) {
-            try {
-                nav.navigate(
-                    R.id.action_progress_to_candidates,
-                    Bundle().apply {
-                        putString("candidatesJson", json)
-                        putString("reportId", completedReportId ?: partialReportId ?: "")
-                        putInt("round", currentRound)
-                        putString("searchQuery", currentDisplayQuery)
-                    }
-                )
-            } catch (_: Exception) {
-                nav.popBackStack(R.id.nav_candidate_selection, false)
-            }
+        if (currentRound > 1) {
+            // Round 2+ was launched from candidates — pop back to the existing candidate
+            // selection entry on the stack instead of creating a new forward entry.
+            val popped = nav.popBackStack(R.id.nav_candidate_selection, false)
+            if (!popped) nav.popBackStack()
         } else {
             nav.popBackStack()
         }

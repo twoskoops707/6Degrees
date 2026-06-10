@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">6Degrees</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
@@ -15,7 +15,7 @@
 
     <string name="search_title">Background investigation</string>
     <string name="search_subtitle">Person, company, vehicle, domain, IP, phone, email, username, or photo</string>
-    <string name="search_hint">Name, email, phone, username, IP, domain…</string>
+    <string name="search_hint">Name, email, phone, username, IP, domainâ€¦</string>
     <string name="search_person">Person</string>
     <string name="search_email">Email</string>
     <string name="search_phone">Phone</string>
@@ -25,11 +25,11 @@
     <string name="search_image">Image</string>
     <string name="search_button">Investigate</string>
     <string name="recent_searches_title">Recent Investigations</string>
-    <string name="no_recent_searches">No recent investigations — add a detail above to get started</string>
+    <string name="no_recent_searches">No recent investigations â€” add a detail above to get started</string>
     <string name="open_wizard">Setup Wizard</string>
 
     <!-- Investigation type descriptions shown as hints -->
-    <string name="search_type_hint_person">Enter what you know — name, phone, email, city. More info = fewer false positives.</string>
+    <string name="search_type_hint_person">Enter what you know â€” name, phone, email, city. More info = fewer false positives.</string>
     <string name="search_type_hint_email">Checks breach databases, reputation scores, linked profiles, and email deliverability.</string>
     <string name="search_type_hint_phone">Identifies carrier, line type, owner name, and reverse-lookup records.</string>
     <string name="search_type_hint_username">Hunts the target handle across 74+ platforms: social media, forums, gaming, dating.</string>
@@ -58,7 +58,7 @@
     <string name="intake_type_photo">Photo</string>
     <string name="intake_freeform_label">Paste anything</string>
     <string name="intake_freeform_hint">John Smith, 123 Main St, Austin TX, 512-555-0100</string>
-    <string name="intake_freeform_helper">Optional freeform clues — we parse name, phone, address, and city automatically.</string>
+    <string name="intake_freeform_helper">Optional freeform clues â€” we parse name, phone, address, and city automatically.</string>
     <string name="intake_phone_label">Phone number</string>
     <string name="intake_phone_hint">(555) 123-4567</string>
     <string name="intake_phone_helper">Carrier lookup and reverse-phone records.</string>
@@ -69,17 +69,26 @@
     <string name="intake_vehicle_hint">17-character vehicle identification number</string>
     <string name="intake_domain_label">Domain or IP address</string>
     <string name="intake_domain_hint">example.com or 203.0.113.42</string>
-    <string name="progress_deep_investigation">Deep investigation in progress — typically 5–10 minutes</string>
+    <string name="progress_deep_investigation">Deep investigation in progress - typically 5-10 minutes</string>
     <string name="progress_elapsed">Elapsed %1$02d:%2$02d</string>
-    <string name="progress_phase_discovery">Discovery — people finders &amp; social</string>
-    <string name="progress_phase_deep">Deep scan — courts, SEC, breaches</string>
-    <string name="progress_phase_dark">Dark web — Tor index sweep</string>
-    <string name="progress_phase_ai">AI brief — synthesizing dossier</string>
+    <string name="progress_phase_discovery">Discovery - people finders &amp; social</string>
+    <string name="progress_phase_deep">Deep scan - courts, SEC, breaches</string>
+    <string name="progress_phase_dark">Dark web - Tor index sweep</string>
+    <string name="progress_phase_ai">AI brief - synthesizing dossier</string>
     <string name="progress_partial_results">View partial results</string>
     <string name="progress_sources_checked">%1$d / %2$d sources checked</string>
     <string name="progress_findings">%1$d finding%2$s</string>
+    <!-- Phase stepper labels for the 3-step progress header -->
+    <string name="progress_phase_analysis">Analysis</string>
+    <string name="progress_phase_report">Report</string>
+    <string name="progress_hits_label">hits</string>
+    <string name="progress_sources_label">sources</string>
+    <!-- Search section headers -->
+    <string name="intake_section_identity">Identity</string>
+    <string name="intake_section_digital">Digital</string>
+    <string name="intake_section_location">Location</string>
     <string name="intake_add_clues_label">Add more clues</string>
-    <string name="intake_optional_details_label">Subject details (optional — fill what you know)</string>
+    <string name="intake_optional_details_label">Subject details (optional - fill what you know)</string>
     <string name="intake_chip_name">Name</string>
     <string name="intake_chip_photo">Photo</string>
     <string name="intake_chip_email">Email</string>
@@ -99,7 +108,7 @@
     <string name="intake_city_hint">City</string>
     <string name="intake_state_hint">State</string>
     <string name="intake_intent_label">Report focus</string>
-    <string name="intake_intent_helper">Optional — tunes which sources run during the deep report</string>
+    <string name="intake_intent_helper">Optional â€” tunes which sources run during the deep report</string>
     <string name="intake_intent_first_date">Personal background</string>
     <string name="intake_intent_meeting">Pre-meeting dossier</string>
     <string name="intake_intent_verify">Identity verification</string>
@@ -142,10 +151,10 @@
     <string name="email_label">Email</string>
     <string name="phone_label">Phone</string>
     <string name="no_results_title">No Intelligence Found</string>
-    <string name="no_results_message">Try adding more details — city, employer, or age. Free sources run automatically with no setup.</string>
+    <string name="no_results_message">Try adding more details â€” city, employer, or age. Free sources run automatically with no setup.</string>
     <string name="shady_score_title">Risk assessment</string>
     <string name="results_score_badge">RISK</string>
-    <string name="results_risk_disclaimer">Informational only — not legal advice. Verify critical findings independently.</string>
+    <string name="results_risk_disclaimer">Informational only â€” not legal advice. Verify critical findings independently.</string>
     <string name="dossier_tab_darkweb">Dark Web</string>
     <string name="export_report">Export Report</string>
     <string name="open_source">View Sources</string>
@@ -153,17 +162,17 @@
     <!-- Results screen -->
     <string name="results_empty_title">No Report Yet</string>
     <string name="results_empty_message">Choose an investigation type on the main screen, fill in what you know, and tap Investigate.</string>
-    <string name="results_no_findings">No findings yet — try adding a city or full name.</string>
+    <string name="results_no_findings">No findings yet â€” try adding a city or full name.</string>
     <string name="results_risk_label">Risk assessment</string>
-    <string name="results_risk_calculating">Scoring public-record risk…</string>
+    <string name="results_risk_calculating">Scoring public-record riskâ€¦</string>
 
     <!-- Wizard screen -->
     <string name="wizard_toolbar_title">Investigation Wizard</string>
     <string name="wizard_title">What are you investigating?</string>
-    <string name="wizard_subtitle">Optional: set up Termux tools — then tap Investigate on the main screen to begin</string>
-    <string name="wizard_section_api_keys">OPTIONAL — POWER-USER API KEYS</string>
-    <string name="wizard_section_termux_setup">STEP 1 — ENABLE TERMUX INTEGRATION</string>
-    <string name="wizard_section_termux_tools">STEP 2 — OSINT COMMAND-LINE TOOLS</string>
+    <string name="wizard_subtitle">Optional: set up Termux tools â€” then tap Investigate on the main screen to begin</string>
+    <string name="wizard_section_api_keys">OPTIONAL â€” POWER-USER API KEYS</string>
+    <string name="wizard_section_termux_setup">STEP 1 â€” ENABLE TERMUX INTEGRATION</string>
+    <string name="wizard_section_termux_tools">STEP 2 â€” OSINT COMMAND-LINE TOOLS</string>
     <string name="wizard_section_tips">INVESTIGATION TIPS</string>
     <string name="wizard_done_button">START INVESTIGATING</string>
     <string name="wizard_tools_unavailable_note">Not available on Android: theHarvester (needs Playwright), hashcat (requires GPU), aircrack-ng (needs monitor-mode radio), Maltego (desktop GUI). Run those on a PC or Kali VM.</string>
@@ -171,63 +180,63 @@
     <!-- Wizard setup steps -->
     <string name="wizard_step1_label">Allow external app access in Termux</string>
     <string name="wizard_step1_action">RUN COMMAND</string>
-    <string name="wizard_step1_toast">Command copied — open Termux and paste it (long-press → Paste)</string>
+    <string name="wizard_step1_toast">Command copied â€” open Termux and paste it (long-press â†’ Paste)</string>
     <string name="wizard_step2_label">Restart Termux to apply the change</string>
     <string name="wizard_step2_action">OPEN TERMUX</string>
-    <string name="wizard_step2_error">Termux not found — install it from F-Droid first</string>
-    <string name="wizard_step3_label">Grant RunCommand permission — tap Allow when prompted</string>
+    <string name="wizard_step2_error">Termux not found â€” install it from F-Droid first</string>
+    <string name="wizard_step3_label">Grant RunCommand permission â€” tap Allow when prompted</string>
     <string name="wizard_step3_action">REQUEST PERMISSION</string>
-    <string name="wizard_step3_toast">If prompted, tap Allow — then reopen this wizard to scan your tools</string>
+    <string name="wizard_step3_toast">If prompted, tap Allow â€” then reopen this wizard to scan your tools</string>
     <string name="wizard_step3_error">Complete steps 1 and 2 before requesting permission</string>
 
     <!-- Wizard tool status labels -->
     <string name="tool_status_ready">READY</string>
     <string name="tool_status_not_installed">NOT INSTALLED</string>
-    <string name="tool_status_scanning">SCANNING…</string>
+    <string name="tool_status_scanning">SCANNINGâ€¦</string>
     <string name="tool_status_unknown">NEEDS SETUP</string>
-    <string name="tool_install_toast">Command copied — paste in Termux to install</string>
+    <string name="tool_install_toast">Command copied â€” paste in Termux to install</string>
 
     <!-- Wizard tips -->
-    <string name="tip_1">For person investigations, include city and state — narrows 50M+ records to a handful of real matches</string>
+    <string name="tip_1">For person investigations, include city and state â€” narrows 50M+ records to a handful of real matches</string>
     <string name="tip_2">Enable Termux external-app permission before tapping any install command (Step 1 above)</string>
-    <string name="tip_3">Sherlock and Maigret run in Termux background — check the Termux app directly for username sweep results</string>
+    <string name="tip_3">Sherlock and Maigret run in Termux background â€” check the Termux app directly for username sweep results</string>
     <string name="tip_4">The HIBP key unlocks data-breach history; the Shodan key adds open-port and device intel to IP/domain reports</string>
-    <string name="tip_5">Round 1 returns candidate cards — pick the closest match to trigger a full deep-dive intelligence report</string>
+    <string name="tip_5">Round 1 returns candidate cards â€” pick the closest match to trigger a full deep-dive intelligence report</string>
     <string name="tip_6">If a report looks thin, add employer name, school, or approximate age to the form and re-run</string>
-    <string name="tip_7">Email and username investigations work without any API keys — all free sources are queried automatically</string>
+    <string name="tip_7">Email and username investigations work without any API keys â€” all free sources are queried automatically</string>
     <string name="tip_8">Tap any phone number, email, or URL in a report to dial, open mail, or launch the browser directly</string>
 
     <!-- API settings screen -->
     <string name="api_settings_title">Optional Power-User Keys</string>
     <string name="api_settings_zero_config_title">Zero configuration</string>
-    <string name="api_settings_zero_config_body">Investigations use free public APIs automatically — SEC EDGAR, CourtListener, EmailRep, DuckDuckGo, crt.sh, ip-api, Shodan InternetDB, GitHub, and 40+ more. No keys required.</string>
+    <string name="api_settings_zero_config_body">Investigations use free public APIs automatically â€” SEC EDGAR, CourtListener, EmailRep, DuckDuckGo, crt.sh, ip-api, Shodan InternetDB, GitHub, and 40+ more. No keys required.</string>
     <string name="settings_api_keys_row">Optional power-user keys</string>
     <string name="api_keys_section_title">Paid / Key-Required Sources</string>
-    <string name="api_keys_section_description">Each key below unlocks a specific investigation category. Free tiers are available for most — tap the info icon for signup instructions.</string>
-    <string name="pdl_api_key_hint">People Data Labs — person identity graph</string>
-    <string name="clearbit_api_key_hint">Clearbit — person &amp; company enrichment</string>
-    <string name="pipl_api_key_hint">Pipl — deep person profile (paid)</string>
-    <string name="builtwith_api_key_hint">BuiltWith — website technology stack</string>
-    <string name="hunter_api_key_hint">Hunter.io — company email discovery</string>
-    <string name="hibp_api_key_hint">HaveIBeenPwned — data breach lookup</string>
-    <string name="numverify_api_key_hint">Numverify — phone carrier &amp; line type</string>
-    <string name="shodan_api_key_hint">Shodan — open ports &amp; device intel</string>
-    <string name="virustotal_api_key_hint">VirusTotal — malware &amp; URL scanning</string>
-    <string name="abuseipdb_api_key_hint">AbuseIPDB — IP reputation &amp; abuse reports</string>
-    <string name="urlscan_api_key_hint">URLScan.io — website screenshot &amp; analysis</string>
+    <string name="api_keys_section_description">Each key below unlocks a specific investigation category. Free tiers are available for most â€” tap the info icon for signup instructions.</string>
+    <string name="pdl_api_key_hint">People Data Labs â€” person identity graph</string>
+    <string name="clearbit_api_key_hint">Clearbit â€” person &amp; company enrichment</string>
+    <string name="pipl_api_key_hint">Pipl â€” deep person profile (paid)</string>
+    <string name="builtwith_api_key_hint">BuiltWith â€” website technology stack</string>
+    <string name="hunter_api_key_hint">Hunter.io â€” company email discovery</string>
+    <string name="hibp_api_key_hint">HaveIBeenPwned â€” data breach lookup</string>
+    <string name="numverify_api_key_hint">Numverify â€” phone carrier &amp; line type</string>
+    <string name="shodan_api_key_hint">Shodan â€” open ports &amp; device intel</string>
+    <string name="virustotal_api_key_hint">VirusTotal â€” malware &amp; URL scanning</string>
+    <string name="abuseipdb_api_key_hint">AbuseIPDB â€” IP reputation &amp; abuse reports</string>
+    <string name="urlscan_api_key_hint">URLScan.io â€” website screenshot &amp; analysis</string>
     <string name="save_api_keys_button">Save Keys</string>
-    <string name="openrouter_api_key_hint">OpenRouter — AI dossier synthesis (openrouter.ai/keys)</string>
-    <string name="openrouter_model_hint">OpenRouter model (optional — default: meta-llama/llama-3.3-70b-instruct:free)</string>
+    <string name="openrouter_api_key_hint">OpenRouter â€” AI dossier synthesis (openrouter.ai/keys)</string>
+    <string name="openrouter_model_hint">OpenRouter model (optional â€” default: meta-llama/llama-3.3-70b-instruct:free)</string>
     <string name="api_guides_section_title">How to Get Your Keys</string>
     <string name="api_status_active">active</string>
-    <string name="api_status_free">free — setup needed</string>
+    <string name="api_status_free">free â€” setup needed</string>
     <string name="api_status_paid">paid plan required</string>
     <string name="api_setup_wizard_title">API Setup Wizard</string>
     <string name="unlock_more">Unlock More Sources</string>
 
     <!-- Profile screen -->
     <string name="profile_title">My Profile</string>
-    <string name="profile_subtitle">Enter your details once — used to auto-fill API service signup forms so you don\'t have to retype them</string>
+    <string name="profile_subtitle">Enter your details once â€” used to auto-fill API service signup forms so you don\'t have to retype them</string>
     <string name="profile_section_personal">Personal</string>
     <string name="profile_section_contact">Contact</string>
     <string name="profile_section_address">Address</string>
@@ -250,7 +259,7 @@
     <string name="profile_cc_name_hint">Name on Card</string>
     <string name="profile_save_button">Save Profile</string>
     <string name="profile_saved_toast">Profile saved</string>
-    <string name="quick_apply_title">Quick Fill — %1$s</string>
+    <string name="quick_apply_title">Quick Fill â€” %1$s</string>
     <string name="quick_apply_subtitle">Tap any field below to copy it, then paste into the signup form.</string>
     <string name="open_signup_page">Open Signup Page</string>
     <string name="tap_to_copy">Tap to copy</string>
@@ -258,7 +267,7 @@
 
     <!-- History screen -->
     <string name="history_title">Investigation Reports</string>
-    <string name="no_history">No reports yet — run your first investigation to get started</string>
+    <string name="no_history">No reports yet â€” run your first investigation to get started</string>
 
     <!-- Misc -->
     <string name="fab_content_description">New Investigation</string>
@@ -272,8 +281,8 @@
 
     <!-- Candidate selection -->
     <string name="candidate_title">Confirm the subject</string>
-    <string name="candidate_subtitle">We found several matches. Pick the correct subject — we\'ll lock their profile and run a deep background report.</string>
-    <string name="candidate_photo_instructions">Tap the matching subject — we\'ll verify identity, check courts, and scan indexed sources.</string>
+    <string name="candidate_subtitle">We found several matches. Pick the correct subject â€” we\'ll lock their profile and run a deep background report.</string>
+    <string name="candidate_photo_instructions">Tap the matching subject â€” we\'ll verify identity, check courts, and scan indexed sources.</string>
     <string name="candidate_thats_them">That\'s them</string>
     <string name="candidate_not_any">Not any of these</string>
     <string name="candidate_match_pct">%1$d%% match</string>
@@ -303,8 +312,8 @@
     <string name="settings_ai_agent_assist">AI search assist</string>
     <string name="settings_ai_agent_assist_hint">After investigations, suggest follow-up searches with open-in-browser links (requires OpenRouter key)</string>
     <string name="settings_search_tools_header">Investigator tools</string>
-    <string name="progress_simple_status">Checking public records…</string>
-    <string name="progress_simple_found">Found something — still checking…</string>
+    <string name="progress_simple_status">Checking public recordsâ€¦</string>
+    <string name="progress_simple_found">Found something â€” still checkingâ€¦</string>
     <string name="progress_simple_complete">What we found</string>
     <string name="progress_simple_choose">See matches</string>
     <string name="progress_simple_open_dossier">See what we found</string>
@@ -319,19 +328,20 @@
     <string name="intake_sources_simple">We\'ll check public records</string>
 
     <!-- Search progress -->
-    <string name="progress_title">Running background report…</string>
+    <string name="progress_title">Running background report...</string>
     <string name="progress_back_to_candidates">Back to candidate list</string>
     <string name="progress_collect_title">Scanning public &amp; indexed sources</string>
     <string name="progress_collect_title_pro">Source pipeline</string>
-    <string name="progress_subtitle">People finders, breach checks, courts — usually 10–30 seconds</string>
+    <string name="progress_subtitle">People finders, breach checks, courts - usually 10-30 seconds</string>
     <string name="candidate_resolve_title">Confirm identity</string>
-    <string name="darkweb_section_disclaimer">Indexed search results only — .onion links are not fetched. Ahmia via Tor when available.</string>
+    <string name="darkweb_section_disclaimer">Indexed search results only - .onion links are not fetched. Ahmia via Tor when available.</string>
 
     <!-- Themes -->
-    <string name="theme_modern_subtitle">Pro OSINT · Midnight blue</string>
+    <string name="theme_modern_subtitle">Pro OSINT - Midnight blue</string>
     <string name="theme_classified_title">CLASSIFIED</string>
-    <string name="theme_classified_subtitle">Dark dossier · Red stamp</string>
-    <string name="theme_humint_subtitle">Brass · Graphite dossier</string>
+    <string name="theme_classified_subtitle">Dark dossier - Red stamp</string>
+    <string name="theme_humint_subtitle">Brass - Graphite dossier</string>
     <string name="theme_theplug_title">The Plug</string>
-    <string name="theme_theplug_subtitle">Dark emerald · Street intel</string>
+    <string name="theme_theplug_subtitle">Dark emerald - Street intel</string>
 </resources>
+

@@ -43,15 +43,7 @@
 
         </LinearLayout>
 
-        <!-- Subject type selector — equal weight across person, company, vehicle, domain, etc. -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
-            android:layout_marginBottom="8dp"
-            android:text="@string/intake_type_label"
-            android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium" />
-
+        <!-- Subject type selector — larger pill chips with clear visual state -->
         <HorizontalScrollView
             android:id="@+id/type_chip_scroll"
             android:layout_width="match_parent"
@@ -71,7 +63,7 @@
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_person"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:checked="true"
@@ -79,49 +71,49 @@
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_company"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/intake_type_company" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_vehicle"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/intake_type_vehicle" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_domain"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/intake_type_domain" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_phone"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/intake_type_phone" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_email"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/intake_type_email" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_username"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/intake_type_username" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_type_photo"
-                    style="@style/Widget.Material3.Chip.Filter"
+                    style="@style/Widget.SixDegrees.Chip.TypeSelector"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/intake_type_photo" />
@@ -388,13 +380,15 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- IDENTITY section header -->
             <TextView
                 android:id="@+id/tv_person_details_label"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp"
-                android:text="@string/intake_optional_details_label"
-                android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium" />
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="12dp"
+                android:text="@string/intake_section_identity"
+                android:textAppearance="@style/TextAppearance.SixDegrees.SectionHeader" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_name"
@@ -532,6 +526,17 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- DIGITAL section header -->
+            <TextView
+                android:id="@+id/tv_section_digital"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="12dp"
+                android:text="@string/intake_section_digital"
+                android:textAppearance="@style/TextAppearance.SixDegrees.SectionHeader"
+                android:visibility="visible" />
+
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_email"
                 style="@style/Widget.SixDegrees.Card"
@@ -597,6 +602,17 @@
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- LOCATION section header -->
+            <TextView
+                android:id="@+id/tv_section_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="12dp"
+                android:text="@string/intake_section_location"
+                android:textAppearance="@style/TextAppearance.SixDegrees.SectionHeader"
+                android:visibility="visible" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_location"
@@ -747,28 +763,29 @@
 
         </LinearLayout>
 
-        <!-- Source counter + CTA -->
-        <LinearLayout
+        <!-- Source counter chip -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
             android:layout_marginTop="@dimen/section_gap"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingHorizontal="@dimen/screen_padding_horizontal">
+            app:cardBackgroundColor="?attr/colorSecondaryContainer"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
 
             <TextView
                 android:id="@+id/tv_query_counter"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="?attr/colorSecondaryContainer"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="6dp"
+                android:gravity="center"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="10dp"
                 android:text="@string/intake_sources_default"
                 android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
                 android:textColor="?attr/colorOnSecondaryContainer" />
 
-        </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
             android:layout_width="match_parent"

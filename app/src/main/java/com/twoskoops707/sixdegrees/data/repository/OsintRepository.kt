@@ -2699,11 +2699,7 @@ class OsintRepository(context: Context) {
             val searchStartMs = System.currentTimeMillis()
             val fields = parseFields(query)
             val subjectProfile = SubjectProfile.fromFields(fields)
-            val primaryQuery = when {
-                type == "image" -> query.trim()
-                else -> fields["name"] ?: fields["email"] ?: fields["phone"]
-                    ?: fields["username"] ?: fields["domain"] ?: fields["ip"] ?: query.trim()
-            }
+            val primaryQuery = resolvePrimaryQuery(type, fields, query)
 
             val metadata = ConcurrentHashMap<String, String>()
             val effectiveType = if (type == "scan") "person" else type
@@ -3266,7 +3262,8 @@ class OsintRepository(context: Context) {
                                         } else {
                                             metadata["hibp_found"] = "true"
                                             metadata["hibp_count"] = breaches.size.toString()
-                                            metadata["hibp_names"] = breaches.take(5).mapNotNull { it.title }.joinToString(", ")
+                                            metadata["hibp_breach_count"] = breaches.size.toString()
+                                            metadata["hibp_names"] = breaches.mapNotNull { it.title }.joinToString(", ")
                                             sources.add(DataSource("HaveIBeenPwned", "https://haveibeenpwned.com/account/${encode(primaryQuery)}", java.util.Date(), 0.9))
                                             send(SearchProgressEvent.Found("HaveIBeenPwned", "${breaches.size} breach(es) found"))
                                             apiKeys.recordUsage("hibp")
@@ -3275,7 +3272,8 @@ class OsintRepository(context: Context) {
                                             val pastes = RetrofitClient.hibpService.getPastes(primaryQuery, key)
                                             if (pastes.isNotEmpty()) {
                                                 metadata["hibp_paste_count"] = pastes.size.toString()
-                                                metadata["hibp_pastes"] = pastes.take(5).mapNotNull { it.source }.joinToString(", ")
+                                                metadata["paste_count"] = pastes.size.toString()
+                                                metadata["hibp_pastes"] = pastes.mapNotNull { it.source }.joinToString(", ")
                                                 send(SearchProgressEvent.Found("HaveIBeenPwned Pastes", "${pastes.size} paste(s) found"))
                                             }
                                         } catch (_: Exception) { /* pastes optional */ }
@@ -3653,8 +3651,10 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "company" -> {
-                        val companyName = fields["name"] ?: primaryQuery
+                        val companyName = fields["company"] ?: fields["name"] ?: primaryQuery
                         val companyDomain = fields["domain"]?.takeIf { isLikelyDomain(it) }
+                        metadata["company_name"] = companyName
+                        companyDomain?.let { metadata["company_domain"] = it }
                         targetedScraperNames += setOf("SEC EDGAR", "GLEIF", "Google News", "Wikidata", "RDAP")
                         launch {
                             send(SearchProgressEvent.Checking("SEC EDGAR"))
@@ -3825,25 +3825,48 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "vehicle", "vin" -> {
-                        targetedScraperNames += setOf("NHTSA VIN")
-                        val vin = primaryQuery.trim().uppercase().filter { it.isLetterOrDigit() }
-                        launch {
-                            send(SearchProgressEvent.Checking("NHTSA VIN"))
-                            val out = scrapeNhtsaVin(vin)
-                            if (out.found) {
-                                out.fields["make"]?.let { metadata["vehicle_make"] = it }
-                                out.fields["model"]?.let { metadata["vehicle_model"] = it }
-                                out.fields["year"]?.let { metadata["vehicle_year"] = it }
-                                out.fields["body_class"]?.let { metadata["vehicle_body"] = it }
-                                out.fields["fuel_type"]?.let { metadata["vehicle_fuel"] = it }
-                                out.fields["manufacturer"]?.let { metadata["vehicle_manufacturer"] = it }
+                        val vin = fields["vin"]?.trim()?.uppercase()?.filter { it.isLetterOrDigit() }
+                            ?: primaryQuery.trim().uppercase().filter { it.isLetterOrDigit() }
+                        val plate = fields["plate"]?.trim()?.uppercase()?.replace(Regex("\\s+"), " ")
+                        if (!vin.isNullOrBlank()) metadata["vehicle_vin"] = vin
+                        if (!plate.isNullOrBlank()) {
+                            metadata["vehicle_plate"] = plate
+                            metadata["vehicle_plates"] = plate
+                        }
+                        if (vin.length == 17) {
+                            targetedScraperNames += setOf("NHTSA VIN")
+                            launch {
+                                send(SearchProgressEvent.Checking("NHTSA VIN"))
+                                val out = scrapeNhtsaVin(vin)
+                                if (out.found) {
+                                    out.fields["make"]?.let {
+                                        metadata["vehicle_make"] = it
+                                        metadata["vehicle_makes"] = it
+                                    }
+                                    out.fields["model"]?.let {
+                                        metadata["vehicle_model"] = it
+                                        metadata["vehicle_models"] = it
+                                    }
+                                    out.fields["year"]?.let { metadata["vehicle_year"] = it }
+                                    out.fields["body_class"]?.let { metadata["vehicle_body"] = it }
+                                    out.fields["fuel_type"]?.let { metadata["vehicle_fuel"] = it }
+                                    out.fields["manufacturer"]?.let { metadata["vehicle_manufacturer"] = it }
+                                    metadata["vehicle_records"] = listOfNotNull(
+                                        out.fields["year"],
+                                        out.fields["make"],
+                                        out.fields["model"]
+                                    ).joinToString(" ").trim()
+                                }
+                                handleScrapeOut(
+                                    "NHTSA VIN",
+                                    "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/$vin?format=json",
+                                    out, sources, metadata, this@channelFlow
+                                )
+                                apiKeys.recordUsage("nhtsa")
                             }
-                            handleScrapeOut(
-                                "NHTSA VIN",
-                                "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/$vin?format=json",
-                                out, sources, metadata, this@channelFlow
-                            )
-                            apiKeys.recordUsage("nhtsa")
+                        } else if (!plate.isNullOrBlank()) {
+                            metadata["vehicle_search_note"] = "License plate detected. Browser tools are available, but no in-app plate decoder is configured."
+                            send(SearchProgressEvent.NotFound("NHTSA VIN"))
                         }
                     }
                     "wifi", "mac", "ssid" -> {
@@ -4126,6 +4149,7 @@ class OsintRepository(context: Context) {
             val partialPersonId = if (effectiveType == "person" || effectiveType == "comprehensive") {
                 buildPersonIdFromMetadata(metadata.toMap(), primaryQuery)
             } else null
+            metadata["report_status"] = "partial"
             val partialReportId = try {
                 saveReport(query, partialPersonId, sources.toList(), metadata.toMap())
             } catch (_: Exception) { null }
@@ -4170,6 +4194,7 @@ class OsintRepository(context: Context) {
             val personId = if (effectiveType == "person" || effectiveType == "comprehensive") {
                 buildPersonIdFromMetadata(metadata.toMap(), primaryQuery)
             } else null
+            metadata["report_status"] = "complete"
             val reportId = try {
                 saveReport(query, personId, sources.toList(), metadata.toMap())
             } catch (_: Exception) {
@@ -4355,10 +4380,29 @@ class OsintRepository(context: Context) {
             }
             return result
         }
-        if (SubjectIntakeParser.looksLikeFreeform(trimmed)) {
-            return subjectProfileToFields(SubjectIntakeParser.parseFreeformText(trimmed))
+        val parsed = SubjectIntakeParser.parseToFields(trimmed)
+        if (parsed.isNotEmpty()) {
+            return parsed
         }
         return mapOf("name" to trimmed)
+    }
+
+    private fun resolvePrimaryQuery(type: String, fields: Map<String, String>, rawQuery: String): String {
+        val effectiveType = if (type == "scan") "person" else type
+        val trimmed = rawQuery.trim()
+        return when (effectiveType) {
+            "image" -> trimmed
+            "phone" -> fields["phone"] ?: trimmed
+            "email", "breach" -> fields["email"] ?: trimmed
+            "username" -> fields["username"] ?: trimmed.removePrefix("@")
+            "domain" -> fields["domain"]
+                ?: trimmed.removePrefix("http://").removePrefix("https://").substringBefore("/")
+            "ip" -> fields["ip"] ?: trimmed
+            "company" -> fields["company"] ?: fields["name"] ?: fields["domain"] ?: trimmed
+            "vehicle", "vin" -> fields["vin"] ?: fields["plate"] ?: trimmed
+            else -> fields["name"] ?: fields["email"] ?: fields["phone"]
+                ?: fields["username"] ?: fields["domain"] ?: fields["ip"] ?: trimmed
+        }
     }
 
     private suspend fun buildPersonIdFromMetadata(metadata: Map<String, String>, primaryQuery: String): String? {

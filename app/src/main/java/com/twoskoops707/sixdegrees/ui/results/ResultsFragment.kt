@@ -159,6 +159,7 @@ class ResultsFragment : Fragment() {
         applyResultsModeUi(investigatorMode)
 
         applyShadyScore(state.shadyScore, enrichedMeta, searchType, investigatorMode)
+        showPartialReportBanner(enrichedMeta)
         setupDossierTabs(state.dossierSections, investigatorMode, enrichedMeta)
         buildCandidateDisambiguation(enrichedMeta)
         setupBackToCandidates()
@@ -419,7 +420,7 @@ class ResultsFragment : Fragment() {
         meta["ftn_birth_year"]?.takeIf { bestDob.isNullOrBlank() }?.let { rows.add("Birth Year" to "~$it") }
         meta["demographics_gender"]?.let { rows.add("Gender" to it) }
         meta["pipl_gender"]?.takeIf { meta["demographics_gender"].isNullOrBlank() }?.let { rows.add("Gender" to it) }
-        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() && meta["pipl_found"] == "true" }
+        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() }
             ?.let { rows.add("Nationalities (verify independently)" to it) }
         meta["pipl_aliases"]?.takeIf { it.isNotBlank() }?.let { rows.add("Known Aliases" to it) }
 
@@ -1769,6 +1770,38 @@ class ResultsFragment : Fragment() {
             }
         }
         return set
+    }
+
+    private fun showPartialReportBanner(meta: Map<String, String>) {
+        val container = binding.dossierAlertsContainer
+        val existing = container.findViewWithTag<View>("partial_report_banner")
+        if (meta["report_status"] != "partial") {
+            existing?.let { container.removeView(it) }
+            return
+        }
+        if (existing != null) return
+        val ctx = requireContext()
+        val density = ctx.resources.displayMetrics.density
+        fun dp(f: Float) = (f * density).toInt()
+        val card = MaterialCardView(ctx).apply {
+            tag = "partial_report_banner"
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = dp(12f) }
+            radius = dp(10f).toFloat()
+            strokeWidth = dp(1f)
+            strokeColor = ContextCompat.getColor(ctx, R.color.score_yellow)
+            cardElevation = 0f
+            setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.warning_dim))
+        }
+        card.addView(TextView(ctx).apply {
+            setPadding(dp(14f), dp(12f), dp(14f), dp(12f))
+            text = "Partial report — search may still be running. Re-open from progress when complete for full AI brief and sources."
+            textSize = 12f
+            setTextColor(ContextCompat.getColor(ctx, R.color.score_yellow))
+            setTextIsSelectable(true)
+        })
+        container.addView(card, 0)
     }
 
     private fun applyResultsModeUi(investigatorMode: Boolean) {

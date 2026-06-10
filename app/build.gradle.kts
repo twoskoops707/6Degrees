@@ -16,7 +16,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Avoid Windows aapt2 races compiling dozens of dependency locale buckets.
+        // Keep legacy resource filtering enabled because AGP still merges extra locales on Windows.
         resourceConfigurations += listOf("en")
     }
 

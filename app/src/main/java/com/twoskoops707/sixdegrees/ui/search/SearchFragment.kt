@@ -131,6 +131,8 @@ class SearchFragment : Fragment() {
     private fun applySearchTypeUi(type: IntakeSearchType) {
         val personExtras = listOf(
             binding.tvPersonDetailsLabel,
+            binding.tvSectionDigital,
+            binding.tvSectionLocation,
             binding.cardFreeform,
             binding.cardName,
             binding.cardPhoto,
@@ -339,6 +341,10 @@ class SearchFragment : Fragment() {
             binding.chipIntentVerify,
             binding.chipIntentFraud
         ).forEach { (it as Chip).isChecked = false }
+
+        selectedSearchType = IntakeSearchType.PERSON
+        binding.chipTypePerson.isChecked = true
+        applySearchTypeUi(IntakeSearchType.PERSON)
 
         updateQueryCounter()
     }

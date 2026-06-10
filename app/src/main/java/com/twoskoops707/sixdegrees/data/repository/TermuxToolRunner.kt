@@ -31,6 +31,7 @@ class TermuxToolRunner(private val context: Context) {
 
 
     companion object {
+        private const val DONE_SENTINEL = "__DONE__"
 
         /** Shared path Termux can write after `termux-setup-storage`. */
         const val SHARED_OUTPUT_DIR = "/storage/emulated/0/.6degrees"
@@ -109,7 +110,9 @@ class TermuxToolRunner(private val context: Context) {
 
     private fun readStatusText(file: File): String? {
         if (!file.exists()) return null
-        return try { file.readText() } catch (_: Exception) { null }
+        return try {
+            file.readText().takeIf { it.contains(DONE_SENTINEL) }
+        } catch (_: Exception) { null }
     }
 
 
@@ -183,7 +186,7 @@ class TermuxToolRunner(private val context: Context) {
 
         val appPath = statusFile.absolutePath
         val sharedPath = "$SHARED_OUTPUT_DIR/.6d_tools_status.txt"
-        return "mkdir -p ${outputDir.absolutePath} $SHARED_OUTPUT_DIR && { $checks ; } > '$appPath' 2>&1 ; cp '$appPath' '$sharedPath' 2>/dev/null ; echo __DONE__ >> '$appPath' ; echo __DONE__ >> '$sharedPath' 2>/dev/null"
+        return "mkdir -p ${shellQuote(outputDir.absolutePath)} ${shellQuote(SHARED_OUTPUT_DIR)} && { $checks ; } > ${shellQuote(appPath)} 2>&1 ; cp ${shellQuote(appPath)} ${shellQuote(sharedPath)} 2>/dev/null ; echo $DONE_SENTINEL >> ${shellQuote(appPath)} ; echo $DONE_SENTINEL >> ${shellQuote(sharedPath)} 2>/dev/null"
 
     }
 
@@ -228,6 +231,14 @@ class TermuxToolRunner(private val context: Context) {
 
     }
 
+    private fun shellQuote(value: String): String =
+        "'" + value.replace("'", "'\"'\"'") + "'"
+
+    private fun commandWithSentinel(command: String, outFile: File): String {
+        val outPath = shellQuote(outFile.absolutePath)
+        return "rm -f $outPath ; $command ; echo $DONE_SENTINEL >> $outPath"
+    }
+
 
 
     private suspend fun pollFile(file: File, maxMs: Long = 120_000L): String? {
@@ -246,7 +257,12 @@ class TermuxToolRunner(private val context: Context) {
 
             waited += delayMs
 
-            if (file.exists() && file.length() > 0) return file.readText()
+            if (file.exists() && file.length() > 0) {
+                val content = file.readText()
+                if (content.contains(DONE_SENTINEL)) {
+                    return content.replace(DONE_SENTINEL, "").trim()
+                }
+            }
 
         }
 
@@ -272,7 +288,10 @@ class TermuxToolRunner(private val context: Context) {
 
         val outFile = File(outputDir, "sherlock_${System.currentTimeMillis()}.txt")
 
-        val cmd = "sherlock ${username.trim()} --output ${outFile.absolutePath} --print-found 2>/dev/null"
+        val cmd = commandWithSentinel(
+            "sherlock ${shellQuote(username.trim())} --output ${shellQuote(outFile.absolutePath)} --print-found 2>/dev/null",
+            outFile
+        )
 
         try {
 
@@ -350,7 +369,10 @@ class TermuxToolRunner(private val context: Context) {
 
         val outFile = File(outputDir, "maigret_${System.currentTimeMillis()}.json")
 
-        val cmd = "maigret ${username.trim()} -J simple --no-pics -o ${outFile.absolutePath} 2>/dev/null"
+        val cmd = commandWithSentinel(
+            "maigret ${shellQuote(username.trim())} -J simple --no-pics -o ${shellQuote(outFile.absolutePath)} 2>/dev/null",
+            outFile
+        )
 
         try {
 
@@ -438,7 +460,10 @@ class TermuxToolRunner(private val context: Context) {
 
         val outFile = File(outputDir, "holehe_${System.currentTimeMillis()}.txt")
 
-        val cmd = "holehe ${email.trim()} > ${outFile.absolutePath} 2>&1"
+        val cmd = commandWithSentinel(
+            "holehe ${shellQuote(email.trim())} > ${shellQuote(outFile.absolutePath)} 2>&1",
+            outFile
+        )
 
         try {
 
@@ -520,7 +545,10 @@ class TermuxToolRunner(private val context: Context) {
 
         val harvester = "theHarvester"
 
-        val cmd = "$harvester -d ${domain.trim()} -b duckduckgo,bing,google -f ${outFile.absolutePath} 2>/dev/null"
+        val cmd = commandWithSentinel(
+            "$harvester -d ${shellQuote(domain.trim())} -b duckduckgo,bing,google > ${shellQuote(outFile.absolutePath)} 2>/dev/null",
+            outFile
+        )
 
         try {
 
@@ -662,7 +690,10 @@ class TermuxToolRunner(private val context: Context) {
 
         val outFile = File(outputDir, "nmap_${System.currentTimeMillis()}.txt")
 
-        val cmd = "nmap -sV --open -oN ${outFile.absolutePath} ${target.trim()} 2>/dev/null"
+        val cmd = commandWithSentinel(
+            "nmap -sV --open -oN ${shellQuote(outFile.absolutePath)} ${shellQuote(target.trim())} 2>/dev/null",
+            outFile
+        )
 
         try {
 

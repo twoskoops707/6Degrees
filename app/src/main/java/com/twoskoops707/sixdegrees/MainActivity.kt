@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
                 "modern_cyan"   -> R.style.Theme_SixDegrees_Modern_Cyan
                 "modern_green"  -> R.style.Theme_SixDegrees_Modern_Green
                 "modern_purple" -> R.style.Theme_SixDegrees_Modern_Purple
+                "modern_amber"  -> R.style.Theme_SixDegrees_Modern_Amber
                 else            -> R.style.Theme_SixDegrees_Modern
             }
         }

@@ -108,10 +108,10 @@ class UsernameDiscoveryService(
         metadata: ConcurrentHashMap<String, String>,
         username: String
     ) {
-        if (hits.isEmpty()) return
         metadata["username"] = username
         metadata["sites_checked"] = UsernamePlatformRegistry.PLATFORMS.size.toString()
         metadata["sites_found"] = hits.size.toString()
+        if (hits.isEmpty()) return
         hits.forEach { hit ->
             appendLine(metadata, "found_urls", hit.foundUrlLine())
             applyPlatformMetadata(hit, metadata)

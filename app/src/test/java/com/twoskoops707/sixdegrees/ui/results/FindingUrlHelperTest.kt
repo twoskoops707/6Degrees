@@ -1,5 +1,6 @@
 package com.twoskoops707.sixdegrees.ui.results
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -66,5 +67,26 @@ class FindingUrlHelperTest {
         val loc = FindingUrlHelper.bestDisplayLocation(meta)
         assertTrue(loc.contains("123 Main St"))
         assertTrue(loc.contains("Austin"))
+    }
+
+    @Test
+    fun subjectContext_readsUsernameAndCompName() {
+        val ctx = FindingUrlHelper.subjectContext(
+            mapOf("comp_name" to "Acme Corp", "username" to "janedoe", "comp_email" to "jane@corp.com")
+        )
+        assertEquals("Acme Corp", ctx.name)
+        assertEquals("janedoe", ctx.username)
+        assertEquals("jane@corp.com", ctx.email)
+    }
+
+    @Test
+    fun verificationUrl_genericCourtLabelUsesSubject() {
+        val url = FindingUrlHelper.verificationUrl(
+            DossierFinding(label = "Search Court Records", value = "CourtListener", source = "", confidence = DossierConfidence.LOW),
+            meta
+        )
+        assertTrue(url!!.contains("courtlistener.com"))
+        assertTrue(url.contains("Jane"))
+        assertFalse(url.contains("CourtListener"))
     }
 }

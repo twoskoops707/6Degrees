@@ -29,4 +29,24 @@ class SubjectIntakeParserTest {
         val dump = "John Smith, Austin TX, works at Dell, phone 512-555-0100"
         assertTrue(SubjectIntakeParser.looksLikeFreeform(dump))
     }
+
+    @Test
+    fun parseToFields_extractsUsernameCompanyAndDomainFromFreeform() {
+        val fields = SubjectIntakeParser.parseToFields(
+            "username @ghostrider works at Example Labs domain examplelabs.com"
+        )
+
+        assertEquals("ghostrider", fields["username"])
+        assertEquals("Example Labs", fields["company"])
+        assertEquals("examplelabs.com", fields["domain"])
+    }
+
+    @Test
+    fun parseToFields_normalizesStandaloneUsernameAndVin() {
+        val usernameFields = SubjectIntakeParser.parseToFields("@ghostrider")
+        assertEquals("ghostrider", usernameFields["username"])
+
+        val vehicleFields = SubjectIntakeParser.parseToFields("VIN 1HGCM82633A004352")
+        assertEquals("1HGCM82633A004352", vehicleFields["vin"])
+    }
 }

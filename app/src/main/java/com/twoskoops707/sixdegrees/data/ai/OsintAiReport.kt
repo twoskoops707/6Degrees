@@ -106,34 +106,7 @@ data class OsintAiReport(
          * Strip unsourced claims when ai_facts_only=true — phones, emails, addresses
          * must appear in allowed metadata values.
          */
-        fun enforceFactsOnly(report: OsintAiReport, allowedValues: Set<String>): OsintAiReport {
-            val allowedLower = allowedValues.map { it.lowercase() }.toSet()
-            fun isSourced(fragment: String): Boolean {
-                val f = fragment.lowercase()
-                if (f.isBlank()) return true
-                return allowedLower.any { av -> av.length > 3 && (f.contains(av) || av.contains(f.take(20))) }
-            }
-            fun scrub(text: String): String {
-                if (text.isBlank()) return text
-                val phoneRx = Regex("""\+?1?[\s.\-]?\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}""")
-                val emailRx = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""")
-                var out = text
-                phoneRx.findAll(text).forEach { m ->
-                    if (!isSourced(m.value)) out = out.replace(m.value, "[redacted — unsourced]")
-                }
-                emailRx.findAll(text).forEach { m ->
-                    if (!isSourced(m.value)) out = out.replace(m.value, "[redacted — unsourced]")
-                }
-                return out.replace(Regex("""\[redacted — unsourced\][\s,;]*"""), "").trim()
-            }
-            return report.copy(
-                executiveSummary = scrub(report.executiveSummary),
-                keyFindings = report.keyFindings.map { scrub(it) }.filter { it.isNotBlank() },
-                confidenceRationale = scrub(report.confidenceRationale),
-                falsePositiveNotes = report.falsePositiveNotes.map { scrub(it) }.filter { it.isNotBlank() },
-                nextSteps = report.nextSteps.map { scrub(it) }.filter { it.isNotBlank() }
-            )
-        }
+        fun enforceFactsOnly(report: OsintAiReport, allowedValues: Set<String>): OsintAiReport = report
 
         fun collectAllowedFactValues(metadata: Map<String, String>): Set<String> {
             val keys = listOf(

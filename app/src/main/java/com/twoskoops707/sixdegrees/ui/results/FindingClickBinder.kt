@@ -37,7 +37,11 @@ object FindingClickBinder {
                 }
                 else -> {
                     val url = FindingUrlHelper.resolveUrl(finding, meta)
-                    if (url != null) openUrl(ctx, url)
+                    if (url != null) {
+                        openUrl(ctx, url)
+                    } else {
+                        Toast.makeText(ctx, "No verification link for this finding", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }

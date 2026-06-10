@@ -110,6 +110,19 @@
                     android:textSize="11sp"
                     app:chipMinHeight="28dp"
                     tools:text="72% match" />
+
+                <!-- Confidence progress bar -->
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/confidence_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:progress="72"
+                    android:indeterminate="false"
+                    app:trackThickness="4dp"
+                    app:trackCornerRadius="2dp"
+                    app:trackColor="?attr/colorSurfaceVariant"
+                    app:indicatorColor="?attr/colorPrimary" />
             </LinearLayout>
         </LinearLayout>
 

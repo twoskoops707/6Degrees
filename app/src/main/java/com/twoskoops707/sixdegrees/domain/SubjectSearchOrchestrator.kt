@@ -196,9 +196,10 @@ object SubjectSearchOrchestrator {
         intent: String = "",
         activeCategories: Set<String>? = null
     ): Boolean {
-        if (!isDeepPhase(phase) && scraperName in DEEP_ONLY_SCRAPERS) return false
-        if (intent.isNotBlank() && isSafetyIntent(intent) && scraperName in DEEP_ONLY_SCRAPERS) return true
         if (activeCategories != null && !shouldRunForPreset(scraperName, activeCategories)) return false
+        val deepOnly = scraperName in DEEP_ONLY_SCRAPERS
+        val allowSafetyOverride = intent.isNotBlank() && isSafetyIntent(intent) && deepOnly
+        if (deepOnly && !isDeepPhase(phase) && !allowSafetyOverride) return false
         return true
     }
 

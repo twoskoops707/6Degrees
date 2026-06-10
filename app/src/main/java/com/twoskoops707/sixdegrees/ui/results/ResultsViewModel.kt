@@ -309,7 +309,7 @@ object DossierBuilder {
             DossierSection("flags", "Red flags", "⚠", flags.ifEmpty {
                 listOf(finding("Nothing alarming turned up in public or indexed sources", "SixDegrees", DossierConfidence.LOW))
             } + verifyLinks),
-            DossierSection("safe", "Safe to meet?", "✓", safe)
+            DossierSection("safe", "Risk assessment", "⚠", safe)
         )
     }
 
@@ -388,7 +388,8 @@ object DossierBuilder {
             ?.lines()?.count { it.isNotBlank() } ?: 0
         if (darkLinkCount > 0) { score += minOf(darkLinkCount * 8, 20); flags.add("$darkLinkCount dark web mention${if (darkLinkCount != 1) "s" else ""}") }
 
-        val courtCases = meta["court_case_count"]?.toIntOrNull() ?: meta["arrest_count"]?.toIntOrNull() ?: 0
+        val courtCases = meta["court_case_count"]?.toIntOrNull()
+            ?: meta["courtlistener_count"]?.toIntOrNull() ?: 0
         if (courtCases > 0 && arrested == 0) { score += minOf(courtCases * 12, 30); flags.add("court record${if (courtCases != 1) "s" else ""}") }
 
         score = minOf(score, 100)
@@ -516,6 +517,8 @@ object DossierBuilder {
 
     private fun buildIdentitySection(meta: Map<String, String>): DossierSection {
         val findings = mutableListOf<DossierFinding>()
+        (meta["username"] ?: meta["field_username"])?.takeIf { it.isNotBlank() }
+            ?.let { findings.add(finding(it, "Search Input", DossierConfidence.HIGH, "Username")) }
         extractBestAge(meta)?.let { findings.add(finding(it, "Demographics", DossierConfidence.MEDIUM, "Age")) }
         listOf("person_dob", "comp_dob", "pipl_dob").firstNotNullOfOrNull { meta[it]?.takeIf { d -> d.isNotBlank() } }
             ?.let { findings.add(finding(it, "Records", DossierConfidence.HIGH, "Date of Birth")) }
@@ -523,7 +526,7 @@ object DossierBuilder {
             ?.let { findings.add(finding(it, "Demographics", DossierConfidence.MEDIUM, "Gender")) }
         meta["pipl_gender"]?.takeIf { meta["demographics_gender"].isNullOrBlank() && it.isNotBlank() }
             ?.let { findings.add(finding(it, "Pipl", DossierConfidence.HIGH, "Gender")) }
-        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() && meta["pipl_found"] == "true" }
+        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "Pipl", DossierConfidence.MEDIUM, "Nationalities (verify independently)")) }
         meta["pipl_aliases"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "Pipl", DossierConfidence.HIGH, "Known Aliases")) }
@@ -697,11 +700,18 @@ object DossierBuilder {
         }
         val courtCount = meta["courtlistener_count"]?.toIntOrNull() ?: 0
         if (courtCount > 0) {
-            findings.add(finding("$courtCount case${if (courtCount != 1) "s" else ""}", "CourtListener", DossierConfidence.HIGH, "Court Cases"))
-            meta["courtlistener_link"]?.let { findings.add(finding(it, "CourtListener", DossierConfidence.HIGH, "View Cases", isLink = true)) }
+            val courtLink = meta["courtlistener_link"]?.takeIf { it.startsWith("http") }
+            findings.add(finding(
+                "$courtCount case${if (courtCount != 1) "s" else ""}", "CourtListener", DossierConfidence.HIGH, "Court Cases",
+                sourceUrl = courtLink ?: FindingUrlHelper.courtUrl(ctx)
+            ))
+            courtLink?.let { findings.add(finding(it, "CourtListener", DossierConfidence.HIGH, "View Cases", isLink = true, sourceUrl = it)) }
         }
         meta["judyrecords_cases"]?.lines()?.filter { it.isNotBlank() }?.forEach { case ->
-            findings.add(finding(case, "JudyRecords", DossierConfidence.HIGH, "Court Case"))
+            findings.add(finding(
+                case, "JudyRecords", DossierConfidence.HIGH, "Court Case",
+                sourceUrl = FindingUrlHelper.judyRecordsUrl(ctx)
+            ))
         }
         val sanctions = meta["opensanctions_total"]?.toIntOrNull() ?: 0
         if (sanctions > 0) {
@@ -717,7 +727,10 @@ object DossierBuilder {
             }
         }
         meta["dork_criminal_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(8)?.forEach { block ->
-            findings.add(finding(block.trim(), "Auto-Dork", DossierConfidence.LOW, "Criminal Intel", isWarning = true))
+            findings.add(finding(
+                block.trim(), "Auto-Dork", DossierConfidence.LOW, "Criminal Intel", isWarning = true,
+                sourceUrl = FindingUrlHelper.courtUrl(ctx, block.trim())
+            ))
         }
         meta["dork_court_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(8)?.forEach { block ->
             findings.add(
@@ -734,6 +747,16 @@ object DossierBuilder {
                     "CourtListener", DossierConfidence.MEDIUM,
                     "Search Court Records", isLink = true,
                     sourceUrl = FindingUrlHelper.courtUrl(ctx)
+                )
+            )
+        }
+        if (sanctions == 0) {
+            findings.add(
+                finding(
+                    "Search ${ctx.name.ifBlank { "subject" }} on OpenSanctions",
+                    "OpenSanctions", DossierConfidence.MEDIUM,
+                    "Search Sanctions Lists", isLink = true,
+                    sourceUrl = FindingUrlHelper.opensanctionsUrl(ctx)
                 )
             )
         }
@@ -790,7 +813,10 @@ object DossierBuilder {
             findings.add(finding(link, "Web Search", DossierConfidence.LOW, "Social Link", isLink = link.startsWith("http")))
         }
         meta["github_name"]?.takeIf { it.isNotBlank() }
-            ?.let { findings.add(finding(it, "GitHub", DossierConfidence.MEDIUM, "GitHub Profile")) }
+            ?.let { name ->
+                val ghUrl = if (name.startsWith("http")) name else "https://github.com/${name.removePrefix("@")}"
+                findings.add(finding(name, "GitHub", DossierConfidence.MEDIUM, "GitHub Profile", isLink = true, sourceUrl = ghUrl))
+            }
         meta["github_stats"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "GitHub", DossierConfidence.MEDIUM, "GitHub Activity")) }
         meta["sites_found"]?.toIntOrNull()?.takeIf { it > 0 }?.let { found ->
@@ -878,20 +904,34 @@ object DossierBuilder {
 
     private fun buildDarkWebSection(meta: Map<String, String>): DossierSection {
         val findings = mutableListOf<DossierFinding>()
+        val ctx = FindingUrlHelper.subjectContext(meta)
+
         meta["darkweb_search_terms"]?.takeIf { it.isNotBlank() }?.let { terms ->
             findings.add(finding(terms, "SixDegrees", DossierConfidence.MEDIUM, "Searched Terms"))
         }
+
+        // DarkSearch indexed mentions and links
         meta["darksearch_snippet"]?.lines()?.filter { it.isNotBlank() }?.take(6)?.forEach { line ->
-            findings.add(finding(line.trim(), "DarkSearch", DossierConfidence.MEDIUM, "Indexed Mention", isWarning = true))
+            findings.add(finding(
+                line.trim(), "DarkSearch", DossierConfidence.MEDIUM, "Indexed Mention", isWarning = true,
+                sourceUrl = FindingUrlHelper.darkWebUrl(ctx, line.trim())
+            ))
         }
         (meta["darksearch_links"] ?: meta["darksearch_dark_links"])?.lines()?.filter { it.isNotBlank() }?.take(8)?.forEach { link ->
             findings.add(finding(link, "DarkSearch", DossierConfidence.MEDIUM, ".onion / Index Link", isLink = true, isWarning = true))
         }
+        // Extract PII patterns from DarkSearch snippets
+        meta["darksearch_snippet"]?.takeIf { it.isNotBlank() }?.let { snippet ->
+            findings.addAll(extractPiiFromDarkSnippet(snippet, "DarkSearch"))
+        }
+
+        // Ahmia Tor index
         meta["ahmia_count"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
             val viaTor = meta["ahmia_via_tor"]?.toBooleanStrictOrNull() == true
             findings.add(finding(
                 "$count Ahmia hit${if (count != 1) "s" else ""}${if (viaTor) " (via Tor)" else ""}",
-                "Ahmia", DossierConfidence.MEDIUM, "Tor Index", isWarning = true
+                "Ahmia", DossierConfidence.MEDIUM, "Tor Index", isWarning = true,
+                sourceUrl = FindingUrlHelper.darkWebUrl(ctx)
             ))
         }
         meta["ahmia_titles"]?.lines()?.filter { it.isNotBlank() }?.take(6)?.zip(
@@ -899,31 +939,108 @@ object DossierBuilder {
         )?.forEach { (title, url) ->
             findings.add(finding(url.ifBlank { title }, "Ahmia", DossierConfidence.MEDIUM, title.take(80), isLink = url.isNotBlank(), isWarning = true))
         }
+        // Extract PII patterns from Ahmia snippets/titles
+        listOf(meta["ahmia_snippet"], meta["ahmia_titles"]).forEach { raw ->
+            raw?.takeIf { it.isNotBlank() }?.let { findings.addAll(extractPiiFromDarkSnippet(it, "Ahmia")) }
+        }
+
+        // Auto-dork dark/leak blocks
         meta["dork_dark_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(6)?.forEach { block ->
-            findings.add(finding(block.trim(), "Auto-Dork", DossierConfidence.LOW, "Dark Web Intel", isWarning = true))
+            findings.add(finding(
+                block.trim(), "Auto-Dork", DossierConfidence.LOW, "Dark Web Intel", isWarning = true,
+                sourceUrl = FindingUrlHelper.darkWebUrl(ctx, block.trim())
+            ))
         }
         meta["dork_leaks_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(6)?.forEach { block ->
-            findings.add(finding(block.trim(), "Auto-Dork", DossierConfidence.LOW, "Leaked Data", isWarning = true))
+            findings.add(finding(
+                block.trim(), "Auto-Dork", DossierConfidence.LOW, "Leaked Data", isWarning = true,
+                sourceUrl = FindingUrlHelper.pasteUrl(ctx)
+            ))
         }
+
+        // HIBP breaches — count + individual breach names
         val breachCount = meta["hibp_breach_count"]?.toIntOrNull() ?: 0
-        val ctx = FindingUrlHelper.subjectContext(meta)
         if (breachCount > 0) {
             findings.add(finding(
                 "$breachCount breach${if (breachCount != 1) "es" else ""}", "Have I Been Pwned", DossierConfidence.HIGH,
                 "Breach Exposure", isWarning = true, sourceUrl = FindingUrlHelper.hibpUrl(ctx.email)
             ))
+            meta["hibp_names"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { name ->
+                findings.add(finding(name, "Have I Been Pwned", DossierConfidence.HIGH, "Breach Name", isWarning = true,
+                    sourceUrl = FindingUrlHelper.hibpUrl(ctx.email)))
+            }
         }
-        val pasteCount = meta["paste_count"]?.toIntOrNull() ?: 0
-        if (pasteCount > 0) {
+
+        // HIBP pastes — count + individual paste sources
+        val hibpPasteCount = meta["hibp_paste_count"]?.toIntOrNull() ?: 0
+        if (hibpPasteCount > 0) {
             findings.add(finding(
-                "$pasteCount paste dump${if (pasteCount != 1) "s" else ""}", "Paste Sites", DossierConfidence.MEDIUM,
+                "$hibpPasteCount paste dump${if (hibpPasteCount != 1) "s" else ""}", "Have I Been Pwned", DossierConfidence.HIGH,
                 "Paste Exposure", isWarning = true, sourceUrl = FindingUrlHelper.pasteUrl(ctx)
             ))
+            meta["hibp_pastes"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { src ->
+                findings.add(finding(src, "Have I Been Pwned", DossierConfidence.HIGH, "Paste Source", isWarning = true,
+                    sourceUrl = FindingUrlHelper.pasteUrl(ctx)))
+            }
+        } else {
+            val pasteCount = meta["paste_count"]?.toIntOrNull() ?: 0
+            if (pasteCount > 0) {
+                findings.add(finding(
+                    "$pasteCount paste dump${if (pasteCount != 1) "s" else ""}", "Paste Sites", DossierConfidence.MEDIUM,
+                    "Paste Exposure", isWarning = true, sourceUrl = FindingUrlHelper.pasteUrl(ctx)
+                ))
+            }
         }
+
+        // LeakCheck breach sources
+        val leakCount = meta["leakcheck_count"]?.toIntOrNull() ?: 0
+        if (leakCount > 0) {
+            findings.add(finding(
+                "$leakCount breach source${if (leakCount != 1) "s" else ""}", "LeakCheck", DossierConfidence.HIGH,
+                "Credential Leak", isWarning = true, sourceUrl = "https://leakcheck.io/"
+            ))
+            meta["leakcheck_sources"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { src ->
+                findings.add(finding(src, "LeakCheck", DossierConfidence.HIGH, "Breach Source", isWarning = true,
+                    sourceUrl = "https://leakcheck.io/"))
+            }
+        }
+
+        // ProxyNova COMB credential rows
+        val proxyCount = meta["proxynova_breach_count"]?.toIntOrNull() ?: 0
+        if (proxyCount > 0) {
+            findings.add(finding(
+                "$proxyCount COMB record${if (proxyCount != 1) "s" else ""}", "ProxyNova", DossierConfidence.MEDIUM,
+                "Credential Leak", isWarning = true,
+                sourceUrl = "https://www.proxynova.com/tools/comb-database-search/"
+            ))
+            meta["proxynova_records"]?.split("|")?.map { it.trim() }?.filter { it.isNotBlank() }?.take(10)?.forEach { rec ->
+                findings.add(finding(rec, "ProxyNova", DossierConfidence.MEDIUM, "COMB Record", isWarning = true,
+                    sourceUrl = "https://www.proxynova.com/tools/comb-database-search/"))
+            }
+        }
+
         if (findings.isEmpty()) {
             findings.add(finding("No indexed dark web or breach exposure found for this subject", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("darkweb", "Dark Web", "🕳", findings)
+        return DossierSection("darkweb", "Dark Web & Breaches", "🕳", findings)
+    }
+
+    private fun extractPiiFromDarkSnippet(text: String, source: String): List<DossierFinding> {
+        val found = mutableListOf<DossierFinding>()
+        val ssnRegex = Regex("""\b\d{3}-\d{2}-\d{4}\b""")
+        val dobRegex = Regex("""\b(?:19|20)\d{2}[-/]\d{2}[-/]\d{2}\b|\b\d{2}[-/]\d{2}[-/](?:19|20)\d{2}\b""")
+        val plateRegex = Regex("""\b[A-Z]{1,3}[\s-]?\d{3,4}[A-Z]{0,2}\b|\b\d{1,3}[A-Z]{2,3}\d{1,4}\b""")
+
+        ssnRegex.findAll(text).forEach { m ->
+            found.add(finding(m.value, source, DossierConfidence.HIGH, "SSN (indexed)", isWarning = true))
+        }
+        dobRegex.findAll(text).forEach { m ->
+            found.add(finding(m.value, source, DossierConfidence.MEDIUM, "DOB (indexed)", isWarning = true))
+        }
+        plateRegex.findAll(text).filter { it.value.length >= 5 }.forEach { m ->
+            found.add(finding(m.value, source, DossierConfidence.LOW, "License Plate (indexed)"))
+        }
+        return found
     }
 
     private fun buildAiSection(meta: Map<String, String>): DossierSection {
