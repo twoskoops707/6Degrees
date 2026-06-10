@@ -95,7 +95,7 @@ class SearchFragment : Fragment() {
         binding.intentSection.isVisible = investigator
         binding.tvQueryCounter.isVisible = investigator
         binding.btnWebHub.isVisible = investigator
-        binding.pipelineInclude.root.isVisible = investigator
+        binding.pipelineInclude.isVisible = investigator
         if (!investigator) {
             binding.tvQueryCounter.text = getString(R.string.intake_sources_simple)
         } else {

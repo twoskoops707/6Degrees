@@ -10,7 +10,6 @@ import com.google.android.material.color.MaterialColors
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.card.MaterialCardView
-import com.twoskoops707.sixdegrees.BuildConfig
 import com.twoskoops707.sixdegrees.R
 import com.google.android.material.chip.Chip
 import com.twoskoops707.sixdegrees.data.AppSettings
@@ -95,7 +94,7 @@ class SettingsFragment : Fragment() {
 
         refreshInfrastructureStatus()
 
-        binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME}"
+        binding.tvVersion.text = "Version ${resolveVersionName()}"
 
         val currentBase = prefs.getString("pref_theme_base", "modern") ?: "modern"
         updateThemeCardSelection(currentBase)
@@ -323,6 +322,12 @@ class SettingsFragment : Fragment() {
         style(b.cardThemeTheplug, selectedBase == "theplug")
         style(b.cardThemePatrino, selectedBase == "patrino")
     }
+
+    private fun resolveVersionName(): String =
+        runCatching {
+            @Suppress("DEPRECATION")
+            requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName
+        }.getOrNull().orEmpty().ifBlank { "1.0" }
 
     override fun onDestroyView() {
         super.onDestroyView()
