@@ -75,6 +75,8 @@ class SettingsFragment : Fragment() {
 
         binding.switchInvestigatorMode.isChecked =
             prefs.getBoolean(AppSettings.KEY_INVESTIGATOR_MODE, false)
+        binding.switchTermuxFallback.isChecked =
+            prefs.getBoolean(AppSettings.KEY_TERMUX_FALLBACK, false)
         binding.switchAiAgentAssist.isChecked =
             prefs.getBoolean(AppSettings.KEY_AI_AGENT_ASSIST, false)
         advancedExpanded = prefs.getBoolean(AppSettings.KEY_INVESTIGATOR_MODE, false)
@@ -85,6 +87,11 @@ class SettingsFragment : Fragment() {
             if (enabled) advancedExpanded = true
             applyInvestigatorModeUi()
             activity?.invalidateOptionsMenu()
+        }
+        binding.switchTermuxFallback.setOnCheckedChangeListener { _, enabled ->
+            if (isInitializing) return@setOnCheckedChangeListener
+            prefs.edit().putBoolean(AppSettings.KEY_TERMUX_FALLBACK, enabled).apply()
+            refreshInfrastructureStatus()
         }
         binding.switchAiAgentAssist.setOnCheckedChangeListener { _, enabled ->
             if (isInitializing) return@setOnCheckedChangeListener

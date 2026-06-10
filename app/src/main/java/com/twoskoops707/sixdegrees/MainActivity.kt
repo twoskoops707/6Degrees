@@ -211,14 +211,13 @@ class MainActivity : AppCompatActivity() {
         window?.decorView?.post {
             if (!isFinishing && !isDestroyed) {
                 AlertDialog.Builder(this)
-                    .setTitle("Connect to Termux")
+                    .setTitle("Optional Termux extras")
                     .setMessage(
-                        "6Degrees can use Termux CLI tools (sherlock, maigret, holehe, nmap) to supercharge your searches.\n\n" +
-                        "To enable this, open Termux and run:\n\n" +
-                        "  termux-setup-storage\n\n" +
-                        "Then go to Termux → Settings → Advanced and enable:\n\n" +
-                        "  \"Allow External Apps\"\n\n" +
-                        "Without this, CLI tools are silently skipped and everything else works normally."
+                        "Username and email scans now run inside 6Degrees automatically — no Termux required.\n\n" +
+                        "For optional CLI extras (nmap, theHarvester), open Settings and enable Termux CLI fallback, then in Termux:\n\n" +
+                        "1. Run: termux-setup-storage\n" +
+                        "2. Enable Allow External Apps (Settings → Advanced)\n" +
+                        "3. Tap Allow when 6Degrees requests RunCommand permission"
                     )
                     .setPositiveButton("Got it") { _, _ -> }
                     .setNeutralButton("Open Termux") { _, _ ->
