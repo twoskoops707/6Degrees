@@ -40,22 +40,22 @@ class OsintResourcesFragment : Fragment() {
     )
 
     private val categories = listOf(
-        OsintCategory("person",   "Person",       "👤", "Public records, people search engines, criminal and court records"),
-        OsintCategory("email",    "Email",         "📧", "Breach history, reputation, deliverability, linked accounts"),
-        OsintCategory("phone",    "Phone",         "📞", "Carrier lookup, owner ID, reverse search, spam reports"),
-        OsintCategory("username", "Username",      "🔑", "Cross-platform presence — social, gaming, forums, dating"),
-        OsintCategory("domain",   "Domain / IP",   "🌐", "WHOIS, DNS, open ports, SSL certs, threat intel, archives"),
-        OsintCategory("company",  "Company",       "🏢", "Corporate registry, filings, officers, tech stack, financials"),
-        OsintCategory("image",    "Image / Face",  "🖼️", "Reverse image and facial recognition across the web"),
-        OsintCategory("social",   "Social Media",  "💬", "Deep search across Twitter/X, Instagram, Reddit, Telegram"),
-        OsintCategory("vehicle",  "Vehicle / VIN", "🚗", "VIN decode, history reports, license plate lookup"),
-        OsintCategory("breach",   "Breaches",      "🔓", "Leaked credentials, breach databases, data exposure"),
-        OsintCategory("darknet",  "Dark Web",      "🕸️", "Tor indexes, ransomware trackers, onion search engines"),
-        OsintCategory("geo",      "Geolocation",   "📍", "Satellite, street view, WiFi positioning, ship and flight tracking"),
-        OsintCategory("finance",  "Financial",     "💰", "SEC filings, offshore leaks, government salaries, FOIA"),
-        OsintCategory("records",  "Public Records","📋", "Court records, genealogy, death index, police accountability"),
-        OsintCategory("threat",   "Threat Intel",  "⚠️", "Malware sandboxes, IOC feeds, CVE and exploit search"),
-        OsintCategory("tools",    "Tools",         "🛠️", "OSINT utilities, encoders, archivers, hash crackers")
+        OsintCategory("person",   "Person",        "", "Public records, people search engines, criminal and court records"),
+        OsintCategory("email",    "Email",         "", "Breach history, reputation, deliverability, linked accounts"),
+        OsintCategory("phone",    "Phone",         "", "Carrier lookup, owner ID, reverse search, spam reports"),
+        OsintCategory("username", "Username",      "", "Cross-platform presence: social, gaming, forums, dating"),
+        OsintCategory("domain",   "Domain / IP",   "", "WHOIS, DNS, open ports, SSL certs, threat intel, archives"),
+        OsintCategory("company",  "Company",       "", "Corporate registry, filings, officers, tech stack, financials"),
+        OsintCategory("image",    "Image / Face",  "", "Reverse image and facial recognition across the web"),
+        OsintCategory("social",   "Social Media",  "", "Deep search across Twitter/X, Instagram, Reddit, Telegram"),
+        OsintCategory("vehicle",  "Vehicle / VIN", "", "VIN decode, history reports, license plate lookup"),
+        OsintCategory("breach",   "Breaches",      "", "Leaked credentials, breach databases, data exposure"),
+        OsintCategory("darknet",  "Dark Web",      "", "Tor indexes, ransomware trackers, onion search engines"),
+        OsintCategory("geo",      "Geolocation",   "", "Satellite, street view, WiFi positioning, ship and flight tracking"),
+        OsintCategory("finance",  "Financial",     "", "SEC filings, offshore leaks, government salaries, FOIA"),
+        OsintCategory("records",  "Public Records","", "Court records, genealogy, death index, police accountability"),
+        OsintCategory("threat",   "Threat Intel",  "", "Malware sandboxes, IOC feeds, CVE and exploit search"),
+        OsintCategory("tools",    "Tools",         "", "OSINT utilities, encoders, archivers, hash crackers")
     )
 
     private fun buildUrl(template: String, query: String): String {

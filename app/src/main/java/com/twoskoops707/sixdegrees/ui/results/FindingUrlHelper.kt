@@ -165,7 +165,7 @@ object FindingUrlHelper {
     fun urlForRow(label: String, value: String, meta: Map<String, String>): String? {
         if (value.startsWith("http://") || value.startsWith("https://")) return value
         if (value.startsWith("pivot://")) return pivotUrl(value, subjectContext(meta))
-        val cleanLabel = label.removePrefix("⟶ ").removePrefix("Verify ↗ ").trim()
+        val cleanLabel = label.removePrefix("> ").removePrefix("Verify: ").trim()
         return verificationUrl(
             DossierFinding(label = cleanLabel, value = value, source = "", confidence = DossierConfidence.LOW),
             meta

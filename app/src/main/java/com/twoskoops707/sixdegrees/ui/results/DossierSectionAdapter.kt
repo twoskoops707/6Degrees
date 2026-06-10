@@ -37,7 +37,11 @@ class DossierSectionAdapter(
         val binding = holder.binding
         val ctx = fragment.requireContext()
 
-        binding.dossierSectionTitle.text = "${section.icon}  ${section.title}"
+        binding.dossierSectionTitle.text = if (section.icon.isBlank()) {
+            section.title
+        } else {
+            "${section.icon}  ${section.title}"
+        }
         binding.dossierSectionTitle.visibility = View.VISIBLE
 
         val realFindings = section.findings.filter { !isPlaceholder(it) }

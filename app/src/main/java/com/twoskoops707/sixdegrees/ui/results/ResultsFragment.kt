@@ -129,14 +129,14 @@ class ResultsFragment : Fragment() {
             val bestAge = extractBestAge(meta)
             binding.jobTitle.text = buildString {
                 bestAge?.let { append("Age: $it") }
-                qFields["dob"]?.takeIf { it.isNotBlank() }?.let { if (isNotEmpty()) append(" · "); append(it) }
-                meta["demographics_gender"]?.let { g -> if (isNotEmpty()) append(" · "); append(g) }
+                qFields["dob"]?.takeIf { it.isNotBlank() }?.let { if (isNotEmpty()) append(" | "); append(it) }
+                meta["demographics_gender"]?.let { g -> if (isNotEmpty()) append(" | "); append(g) }
                 val subFields = listOfNotNull(
-                    qFields["phone"]?.takeIf { it.isNotBlank() && qFields["name"]?.isNotBlank() == true }?.let { "☎ $it" },
-                    qFields["email"]?.takeIf { it.isNotBlank() && displayName != it }?.let { "✉ $it" },
+                    qFields["phone"]?.takeIf { it.isNotBlank() && qFields["name"]?.isNotBlank() == true }?.let { "Phone: $it" },
+                    qFields["email"]?.takeIf { it.isNotBlank() && displayName != it }?.let { "Email: $it" },
                     qFields["username"]?.takeIf { it.isNotBlank() }?.let { "@ $it" }
                 )
-                if (subFields.isNotEmpty() && isEmpty()) append(subFields.joinToString("  ·  "))
+                if (subFields.isNotEmpty() && isEmpty()) append(subFields.joinToString("  |  "))
             }
             val city = qFields["city"] ?: qFields["location"] ?: ""
             val state = qFields["state"] ?: ""
@@ -269,13 +269,8 @@ class ResultsFragment : Fragment() {
 
     private fun sec(label: String): Pair<String, String> {
         val clean = label.trimStart()
-            .removePrefix("◈ ").removePrefix("> ").removePrefix("══ ")
-            .removeSuffix(" ══").trim()
-        val prefs = requireContext().getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
-        val base = prefs.getString("pref_theme_base", "modern") ?: "modern"
-        val prefix = when (base) { "hacker" -> "> "; "tactical" -> "══ "; else -> "◈ " }
-        val suffix = if (base == "tactical") " ══" else ""
-        return "$prefix$clean$suffix" to ""
+            .removePrefix("> ").trim()
+        return clean.uppercase() to ""
     }
 
     private fun appendAiSuggestedSearchRows(
@@ -289,7 +284,7 @@ class ResultsFragment : Fragment() {
             links.lines().filter { it.isNotBlank() }.forEach { line ->
                 val colonIdx = line.indexOf(": http")
                 if (colonIdx > 0) {
-                    val label = "Verify ↗ ${line.substring(0, colonIdx)}"
+                    val label = "Verify: ${line.substring(0, colonIdx)}"
                     val url = line.substring(colonIdx + 2)
                     rows.add(label to url)
                 }
@@ -350,7 +345,7 @@ class ResultsFragment : Fragment() {
                 }.trim()
                 rows.add(category.displayName to text)
                 if (hit.url.startsWith("http")) {
-                    rows.add("Verify ↗" to hit.url)
+                    rows.add("Verify" to hit.url)
                 }
             }
         }
@@ -368,7 +363,7 @@ class ResultsFragment : Fragment() {
             it.lines().filter { line -> line.isNotBlank() }.forEach { line ->
                 val colonIdx = line.indexOf(": http")
                 if (colonIdx > 0) {
-                    val label = "Verify ↗ ${line.substring(0, colonIdx)}"
+                    val label = "Verify: ${line.substring(0, colonIdx)}"
                     val url = line.substring(colonIdx + 2)
                     rows.add(label to url)
                 }
@@ -396,13 +391,13 @@ class ResultsFragment : Fragment() {
                 rows.add("Next Step" to it.trim())
             }
             appendAiSuggestedSearchRows(rows, meta, AppSettings.isInvestigatorMode(requireContext()))
-            rows.add("⚠ Disclaimer" to "AI-generated synthesis — verify all claims independently.")
+            rows.add("! Disclaimer" to "AI-generated synthesis — verify all claims independently.")
             return
         }
         meta["ai_summary"]?.takeIf { it.isNotBlank() }?.let { summary ->
             rows.add(sec("AI INTELLIGENCE BRIEF"))
             summary.lines().filter { it.isNotBlank() }.forEach { rows.add("Brief" to it.trim()) }
-            rows.add("⚠ Disclaimer" to "AI-generated summary — verify all claims independently.")
+            rows.add("! Disclaimer" to "AI-generated summary — verify all claims independently.")
         }
     }
 
@@ -536,8 +531,8 @@ class ResultsFragment : Fragment() {
             meta["username"]?.takeIf { it.isNotBlank() }?.let { rows.add("Handle" to it) }
             parseSocialProfilesFromMeta(meta).filter { !it.statsLabel.isNullOrBlank() }.take(12).forEach { profile ->
                 val label = buildString {
-                    append("✓ ${profile.platform}")
-                    profile.statsLabel?.let { append(" · $it") }
+                    append("${profile.platform}")
+                    profile.statsLabel?.let { append(" | $it") }
                 }
                 rows.add(label to (profile.url ?: profile.username))
             }
@@ -550,10 +545,10 @@ class ResultsFragment : Fragment() {
                 val parts = cleanLine.split(": ", limit = 2)
                 val siteName = parts.firstOrNull()?.trim() ?: ""
                 val url = parts.getOrNull(1) ?: cleanLine
-                val desc = PLATFORM_DESCRIPTIONS[siteName]?.removePrefix("⚠ ")
+                val desc = PLATFORM_DESCRIPTIONS[siteName]?.removePrefix("! ")
                 val label = buildString {
-                    append(if (isNsfw) "⚠ $siteName" else "✓ $siteName")
-                    if (!desc.isNullOrBlank()) append(" · $desc")
+                    append(if (isNsfw) "! $siteName" else "$siteName")
+                    if (!desc.isNullOrBlank()) append(" | $desc")
                 }
                 rows.add(label to url)
             }
@@ -593,7 +588,7 @@ class ResultsFragment : Fragment() {
                 url.contains("tiktok.com") -> "TikTok"
                 else -> "Social"
             }
-            links.add("⟶ $platform" to url)
+            links.add("> $platform" to url)
         }
         return links
     }
@@ -616,7 +611,7 @@ class ResultsFragment : Fragment() {
         val allRel = extractRelatives(meta)
         if (allRel.isNotEmpty()) {
             rows.add(sec("RELATIVES & ASSOCIATES (${allRel.size})"))
-            allRel.forEach { rows.add("⟶ Pivot Search" to "pivot://person/$it") }
+            allRel.forEach { rows.add("> Pivot Search" to "pivot://person/$it") }
         }
 
         run {
@@ -679,14 +674,14 @@ class ResultsFragment : Fragment() {
         if (arrestCount > 0 || courtCount > 0 || judyCount > 0 || !meta["judyrecords_cases"].isNullOrBlank()) {
             rows.add(sec("CRIMINAL & COURT RECORDS"))
             if (arrestCount > 0) {
-                rows.add("⚠ Arrests on File" to "$arrestCount record${if (arrestCount != 1) "s" else ""}")
+                rows.add("! Arrests on File" to "$arrestCount record${if (arrestCount != 1) "s" else ""}")
                 meta["arrest_records"]?.takeIf { it.isNotBlank() }?.let {
                     it.lines().filter { l -> l.isNotBlank() }.forEach { r -> rows.add("Arrest Record" to r) }
                 }
             }
             if (courtCount > 0) {
                 rows.add("CourtListener" to "$courtCount case${if (courtCount != 1) "s" else ""}")
-                meta["courtlistener_link"]?.let { rows.add("⟶ View CourtListener" to it) }
+                meta["courtlistener_link"]?.let { rows.add("> View CourtListener" to it) }
             }
             if (judyCount > 0) rows.add("JudyRecords" to "$judyCount court record${if (judyCount != 1) "s" else ""}")
             meta["judyrecords_cases"]?.takeIf { it.isNotBlank() }?.let {
@@ -697,12 +692,12 @@ class ResultsFragment : Fragment() {
 
         val sanctionsTotal = meta["opensanctions_total"]?.toIntOrNull() ?: 0
         if (sanctionsTotal > 0) {
-            rows.add(sec("⚠ SANCTIONS / PEP DATABASE"))
-            rows.add("⚠ OpenSanctions Hits" to "$sanctionsTotal match${if (sanctionsTotal != 1) "es" else ""}")
+            rows.add(sec("! SANCTIONS / PEP DATABASE"))
+            rows.add("! OpenSanctions Hits" to "$sanctionsTotal match${if (sanctionsTotal != 1) "es" else ""}")
             meta["opensanctions_names"]?.let { rows.add("Matched Names" to it) }
             meta["opensanctions_datasets"]?.let { rows.add("Datasets" to it) }
             meta["opensanctions_countries"]?.let { rows.add("Countries" to it) }
-            meta["opensanctions_link"]?.let { rows.add("⟶ View OpenSanctions" to it) }
+            meta["opensanctions_link"]?.let { rows.add("> View OpenSanctions" to it) }
         }
 
         meta["dork_criminal_results"]?.takeIf { it.isNotBlank() }?.let {
@@ -715,8 +710,8 @@ class ResultsFragment : Fragment() {
         }
 
         val ctx = FindingUrlHelper.subjectContext(meta)
-        rows.add("⟶ Search Court Records" to FindingUrlHelper.courtUrl(ctx))
-        rows.add("⟶ Search JudyRecords" to OsintToolRegistry.buildUrl(
+        rows.add("> Search Court Records" to FindingUrlHelper.courtUrl(ctx))
+        rows.add("> Search JudyRecords" to OsintToolRegistry.buildUrl(
             "https://www.judyrecords.com/search?search={q-encoded}", ctx.name.ifBlank { ctx.email }
         ))
         if (rows.size <= 2) rows.add(0, sec("LEGAL & COURT RECORDS"))
@@ -766,16 +761,16 @@ class ResultsFragment : Fragment() {
         if (gnewsCount > 0 || newsCount > 0 || wikiHits > 0 || !meta["wikidata_descriptions"].isNullOrBlank()) {
             rows.add(sec("NEWS & PUBLIC RECORDS"))
             meta["wikipedia_titles"]?.let { rows.add("Wikipedia" to it) }
-            meta["wikipedia_link"]?.takeIf { wikiHits > 0 }?.let { rows.add("⟶ View on Wikipedia" to it) }
+            meta["wikipedia_link"]?.takeIf { wikiHits > 0 }?.let { rows.add("> View on Wikipedia" to it) }
             meta["wikidata_descriptions"]?.let { rows.add("WikiData" to it) }
-            meta["wikidata_link"]?.let { rows.add("⟶ View on WikiData" to it) }
+            meta["wikidata_link"]?.let { rows.add("> View on WikiData" to it) }
             meta["wikidata_employers"]?.takeIf { it.isNotBlank() }?.let { rows.add("Employers" to it) }
             meta["wikidata_organizations"]?.takeIf { it.isNotBlank() }?.let { rows.add("Organizations" to it) }
             if (gnewsCount > 0) {
                 meta["gnews_articles"]?.takeIf { it.isNotBlank() }?.let {
                     it.split("\n---\n").filter { a -> a.isNotBlank() }.forEach { article ->
                         val lines = article.lines().filter { l -> l.isNotBlank() }
-                        if (lines.isNotEmpty()) rows.add("News" to lines.joinToString(" · "))
+                        if (lines.isNotEmpty()) rows.add("News" to lines.joinToString(" | "))
                     }
                 }
             }
@@ -908,13 +903,13 @@ class ResultsFragment : Fragment() {
             it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("Social" to s.trim()) }
         }
         meta["dork_leaks_results"]?.takeIf { it.isNotBlank() }?.let {
-            rows.add(sec("⚠ LEAKED DATA (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("⚠ Leak" to s.trim()) }
+            rows.add(sec("! LEAKED DATA (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(10).forEach { s -> rows.add("! Leak" to s.trim()) }
         }
         meta["dork_dark_results"]?.takeIf { it.isNotBlank() }?.let {
             val existing = meta["dork_leaks_results"]
-            if (existing.isNullOrBlank()) rows.add(sec("⚠ LEAKED DATA (AUTO-DORK)"))
-            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("⚠ Dark" to s.trim()) }
+            if (existing.isNullOrBlank()) rows.add(sec("! LEAKED DATA (AUTO-DORK)"))
+            it.split("\n---\n").filter { s -> s.isNotBlank() }.take(8).forEach { s -> rows.add("! Dark" to s.trim()) }
         }
         meta["dork_files_results"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("DOCUMENT DUMP RESULTS (AUTO-DORK)"))
@@ -944,7 +939,7 @@ class ResultsFragment : Fragment() {
             meta["chronicling_excerpts"]?.takeIf { it.isNotBlank() }?.let {
                 it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s -> rows.add("Excerpt" to s.trim()) }
             }
-            meta["chronicling_link"]?.let { rows.add("⟶ View All on LOC" to it) }
+            meta["chronicling_link"]?.let { rows.add("> View All on LOC" to it) }
         }
 
         val openLibCount = meta["openlibrary_count"]?.toIntOrNull() ?: 0
@@ -957,12 +952,12 @@ class ResultsFragment : Fragment() {
                 meta["openlibrary_titles"]?.takeIf { it.isNotBlank() }?.let {
                     it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { t -> rows.add("Book" to t) }
                 }
-                meta["openlibrary_link"]?.let { rows.add("⟶ Open Library" to it) }
+                meta["openlibrary_link"]?.let { rows.add("> Open Library" to it) }
             }
             if (orcidCount > 0) {
                 rows.add("ORCID" to "$orcidCount researcher profile${if (orcidCount != 1) "s" else ""}")
                 meta["orcid_ids"]?.let { rows.add("ORCID IDs" to it) }
-                meta["orcid_link"]?.let { rows.add("⟶ ORCID Search" to it) }
+                meta["orcid_link"]?.let { rows.add("> ORCID Search" to it) }
             }
             if (crossrefTotal > 0) {
                 rows.add("Crossref" to "$crossrefTotal academic publication${if (crossrefTotal != 1) "s" else ""}")
@@ -970,7 +965,7 @@ class ResultsFragment : Fragment() {
                     it.lines().filter { l -> l.isNotBlank() }.take(5).forEach { t -> rows.add("Publication" to t) }
                 }
                 meta["crossref_journals"]?.let { rows.add("Journals" to it) }
-                meta["crossref_link"]?.let { rows.add("⟶ Crossref Search" to it) }
+                meta["crossref_link"]?.let { rows.add("> Crossref Search" to it) }
             }
         }
 
@@ -994,7 +989,7 @@ class ResultsFragment : Fragment() {
                     rows.add("Google CSE" to s.trim())
                 }
             }
-            meta["cse_error"]?.takeIf { it.isNotBlank() }?.let { rows.add("⚠ Google CSE Error" to it) }
+            meta["cse_error"]?.takeIf { it.isNotBlank() }?.let { rows.add("! Google CSE Error" to it) }
             meta["bing_snippets"]?.takeIf { it.isNotBlank() }?.let {
                 it.split("\n---\n").filter { s -> s.isNotBlank() }.take(5).forEach { s ->
                     rows.add("Bing" to s.trim())
@@ -1011,15 +1006,15 @@ class ResultsFragment : Fragment() {
                     val parts = line.split(" → ", limit = 2)
                     val site = parts.firstOrNull() ?: "Profile"
                     val url = parts.getOrNull(1) ?: line
-                    rows.add("⟶ $site" to url)
+                    rows.add("> $site" to url)
                 }
             }
         }
 
         val pasteCount = meta["paste_count"]?.toIntOrNull() ?: 0
         if (pasteCount > 0) {
-            rows.add(sec("⚠ PASTE DUMPS"))
-            rows.add("⚠ Paste Hits" to "$pasteCount paste dump${if (pasteCount != 1) "s" else ""} mention this subject")
+            rows.add(sec("! PASTE DUMPS"))
+            rows.add("! Paste Hits" to "$pasteCount paste dump${if (pasteCount != 1) "s" else ""} mention this subject")
             meta["paste_snippets"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(5)?.forEach { s ->
                 rows.add("Paste Excerpt" to s.trim())
             }
@@ -1036,24 +1031,24 @@ class ResultsFragment : Fragment() {
         val darkSearchSnippet = meta["darksearch_snippet"]?.takeIf { it.isNotBlank() }
         val darkSearchLinks = (meta["darksearch_links"] ?: meta["darksearch_dark_links"])?.takeIf { it.isNotBlank() }
         if (darkSearchSnippet != null || darkSearchLinks != null) {
-            rows.add(sec("⚠ DARKSEARCH RESULTS"))
-            darkSearchSnippet?.lines()?.filter { it.isNotBlank() }?.take(8)?.forEach { rows.add("⚠ Result" to it.trim()) }
-            darkSearchLinks?.lines()?.filter { it.isNotBlank() }?.take(8)?.forEach { rows.add("⟶ Link" to it.trim()) }
+            rows.add(sec("! DARKSEARCH RESULTS"))
+            darkSearchSnippet?.lines()?.filter { it.isNotBlank() }?.take(8)?.forEach { rows.add("! Result" to it.trim()) }
+            darkSearchLinks?.lines()?.filter { it.isNotBlank() }?.take(8)?.forEach { rows.add("> Link" to it.trim()) }
         }
 
         val ahmiaCountRaw = meta["ahmia_count"]
         if (ahmiaCountRaw != null) {
             val ahmiaCount = ahmiaCountRaw.toIntOrNull() ?: 0
-            rows.add(sec("⚠ DARK WEB INDEX CHECK"))
+            rows.add(sec("! DARK WEB INDEX CHECK"))
             val viaToR = meta["ahmia_via_tor"]?.toBooleanStrictOrNull() == true
             if (ahmiaCount > 0) {
-                rows.add("⚠ Indexed Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found via Ahmia.fi Tor index")
-                if (viaToR) rows.add("⚠ Connection" to "Fetched via Tor network")
+                rows.add("! Indexed Hits" to "$ahmiaCount result${if (ahmiaCount != 1) "s" else ""} found via Ahmia.fi Tor index")
+                if (viaToR) rows.add("! Connection" to "Fetched via Tor network")
                 val titleLines = meta["ahmia_titles"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
                 val urlLines = meta["ahmia_urls"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
                 val descLines = meta["ahmia_descs"]?.split("\n---\n")?.filter { it.isNotBlank() } ?: emptyList()
                 titleLines.forEachIndexed { i, t ->
-                    rows.add("⚠ Tor Site" to t)
+                    rows.add("! Tor Site" to t)
                     descLines.getOrNull(i)?.takeIf { it.isNotBlank() }?.let { d -> rows.add("  Description" to d) }
                     urlLines.getOrNull(i)?.let { u -> rows.add("  .onion URL" to u) }
                 }
@@ -1061,18 +1056,18 @@ class ResultsFragment : Fragment() {
                 rows.add("Dark Web Status" to "No mentions found in Ahmia.fi Tor index")
                 if (viaToR) rows.add("Connection" to "Searched via Tor network") else rows.add("Connection" to "Searched via clearnet proxy")
             }
-            rows.add("⚠ Note" to "Ahmia indexes publicly-accessible Tor hidden services. Subject to index freshness.")
+            rows.add("! Note" to "Ahmia indexes publicly-accessible Tor hidden services. Subject to index freshness.")
         }
 
         val torchCount = meta["torch_count"]?.toIntOrNull() ?: 0
         if (torchCount > 0) {
-            rows.add(sec("⚠ TORCH DARK WEB (via Tor)"))
-            rows.add("⚠ Torch Hits" to "$torchCount result${if (torchCount != 1) "s" else ""} on Torch .onion search engine")
+            rows.add(sec("! TORCH DARK WEB (via Tor)"))
+            rows.add("! Torch Hits" to "$torchCount result${if (torchCount != 1) "s" else ""} on Torch .onion search engine")
             val torchTitles = meta["torch_titles"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
             val torchUrls = meta["torch_urls"]?.lines()?.filter { it.isNotBlank() } ?: emptyList()
             val torchDescs = meta["torch_descs"]?.split("\n---\n")?.filter { it.isNotBlank() } ?: emptyList()
             torchTitles.forEachIndexed { i, t ->
-                rows.add("⚠ Result" to t)
+                rows.add("! Result" to t)
                 torchDescs.getOrNull(i)?.takeIf { it.isNotBlank() }?.let { d -> rows.add("  Excerpt" to d.take(200)) }
                 torchUrls.getOrNull(i)?.let { u -> rows.add("  .onion URL" to u) }
             }
@@ -1089,7 +1084,7 @@ class ResultsFragment : Fragment() {
                 val parts = line.split(": ", limit = 2)
                 val platform = parts.firstOrNull() ?: "Social"
                 val url = parts.getOrNull(1) ?: line
-                allLinks.add("⟶ $platform" to url)
+                allLinks.add("> $platform" to url)
             }
             if (allLinks.isNotEmpty()) {
                 rows.add(sec("SOCIAL & WEB PROFILES"))
@@ -1130,11 +1125,11 @@ class ResultsFragment : Fragment() {
             ?: rawSearchQuery.split("|").firstOrNull { !it.contains("=") }?.trim() ?: ""
         if (pivotPhones.isNotEmpty() || pivotEmails.isNotEmpty()) {
             rows.add(sec("PIVOT SEARCHES"))
-            pivotPhones.forEach { phone -> rows.add("⟶ Search Phone" to "pivot://phone/$phone") }
-            pivotEmails.take(3).forEach { email -> rows.add("⟶ Search Email" to "pivot://email/$email") }
+            pivotPhones.forEach { phone -> rows.add("> Search Phone" to "pivot://phone/$phone") }
+            pivotEmails.take(3).forEach { email -> rows.add("> Search Email" to "pivot://email/$email") }
             if (parsedSearchName.isNotBlank()) {
                 val parts = parsedSearchName.trim().split(" ")
-                if (parts.size >= 2) rows.add("⟶ Reversed Name" to "pivot://person/${parts.last()} ${parts.first()}")
+                if (parts.size >= 2) rows.add("> Reversed Name" to "pivot://person/${parts.last()} ${parts.first()}")
             }
         }
 
@@ -1146,13 +1141,13 @@ class ResultsFragment : Fragment() {
         val rows = mutableListOf<Pair<String, String>>()
         rows.add(sec("REPUTATION"))
         meta["emailrep_reputation"]?.let { rows.add("Reputation" to it.replaceFirstChar { c -> c.uppercase() }) }
-        meta["emailrep_suspicious"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Suspicious" to "Flagged by EmailRep threat database") }
-        meta["emailrep_breach"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Breach Exposure" to "Involved in known data breach") }
+        meta["emailrep_suspicious"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Suspicious" to "Flagged by EmailRep threat database") }
+        meta["emailrep_breach"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Breach Exposure" to "Involved in known data breach") }
         meta["emailrep_references"]?.let { rows.add("DB References" to it) }
         meta["emailrep_profiles"]?.takeIf { it.isNotBlank() }?.let { rows.add("Seen On" to it) }
         meta["eva_deliverable"]?.let { rows.add("Deliverable" to it.replaceFirstChar { c -> c.uppercase() }) }
-        meta["eva_disposable"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Disposable" to "Temporary/throwaway email service") }
-        meta["eva_spam_trap"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Spam Trap" to "Address is a spam trap") }
+        meta["eva_disposable"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Disposable" to "Temporary/throwaway email service") }
+        meta["eva_spam_trap"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Spam Trap" to "Address is a spam trap") }
         meta["eva_mx_record"]?.let { rows.add("MX Record" to it) }
         meta["kickbox_disposable"]?.toBooleanStrictOrNull()?.let { disposable ->
             rows.add("Disposable (Kickbox)" to if (disposable) "Yes — temporary provider" else "No")
@@ -1162,7 +1157,7 @@ class ResultsFragment : Fragment() {
         val proxyCount = meta["proxynova_breach_count"]?.toIntOrNull() ?: 0
         if (hibpCount > 0 || proxyCount > 0) {
             rows.add(sec("BREACH SUMMARY"))
-            if (hibpCount > 0) rows.add("⚠ HIBP Breaches" to "$hibpCount breach${if (hibpCount != 1) "es" else ""}")
+            if (hibpCount > 0) rows.add("! HIBP Breaches" to "$hibpCount breach${if (hibpCount != 1) "es" else ""}")
             if (proxyCount > 0) rows.add("COMB Dataset" to "$proxyCount record${if (proxyCount != 1) "s" else ""}")
         }
         return rows
@@ -1185,7 +1180,7 @@ class ResultsFragment : Fragment() {
                         || nsfwClasses.any { dc -> detail.contains(dc, ignoreCase = true) }
                         || detail.contains("[SENSITIVE]", ignoreCase = true)
                         || lDetail.contains("ashley madison") || lDetail.contains("adult friend finder")
-                    rows.add(if (isNsfw) "⚠ NSFW Breach" to detail else "Breach" to detail)
+                    rows.add(if (isNsfw) "! NSFW Breach" to detail else "Breach" to detail)
                 }
             } ?: meta["hibp_breaches"]?.takeIf { it.isNotBlank() }?.let { rows.add("Breach Names" to it) }
         }
@@ -1217,9 +1212,9 @@ class ResultsFragment : Fragment() {
         val ipqsFraud = meta["ipqs_email_fraud_score"]?.toIntOrNull() ?: -1
         if (ipqsLeaked || ipqsFraud >= 0) {
             rows.add(sec("IPQS RISK SCORING"))
-            if (ipqsFraud >= 0) rows.add("Fraud Score" to "$ipqsFraud / 100${if (ipqsFraud > 70) " ⚠ HIGH RISK" else ""}")
-            if (ipqsLeaked) rows.add("⚠ Dark Web Leaked" to "Found in dark web leaks")
-            meta["ipqs_email_suspect"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Suspect" to "Flagged as suspect") }
+            if (ipqsFraud >= 0) rows.add("Fraud Score" to "$ipqsFraud / 100${if (ipqsFraud > 70) " ! HIGH RISK" else ""}")
+            if (ipqsLeaked) rows.add("! Dark Web Leaked" to "Found in dark web leaks")
+            meta["ipqs_email_suspect"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Suspect" to "Flagged as suspect") }
         }
 
         val emailrepBreached = meta["emailrep_breach"]?.toBooleanStrictOrNull() ?: false
@@ -1298,46 +1293,46 @@ class ResultsFragment : Fragment() {
             rows.add(sec("SHODAN EXPOSURE"))
             meta["shodan_ports"]?.let { rows.add("Open Ports" to it) }
             meta["shodan_hostnames"]?.let { rows.add("Hostnames" to it) }
-            meta["shodan_vulns"]?.takeIf { it.isNotBlank() }?.let { rows.add("⚠ CVEs" to it) }
+            meta["shodan_vulns"]?.takeIf { it.isNotBlank() }?.let { rows.add("! CVEs" to it) }
         }
         val ipqueryRisk = meta["ipquery_risk_score"]?.toIntOrNull() ?: -1
         val ipqsIpFraud = meta["ipqs_ip_fraud_score"]?.toIntOrNull() ?: -1
         if (ipqueryRisk >= 0) {
             rows.add(sec("IPQUERY RISK"))
-            rows.add("Risk Score" to "$ipqueryRisk / 100${if (ipqueryRisk > 70) " ⚠ HIGH" else if (ipqueryRisk > 30) " ⚠ Moderate" else " — Low"}")
-            meta["ipquery_vpn"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ VPN" to "Known VPN exit node") }
-            meta["ipquery_proxy"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Proxy" to "Known proxy") }
-            meta["ipquery_tor"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Tor" to "Tor exit node") }
+            rows.add("Risk Score" to "$ipqueryRisk / 100${if (ipqueryRisk > 70) " ! HIGH" else if (ipqueryRisk > 30) " ! Moderate" else " — Low"}")
+            meta["ipquery_vpn"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! VPN" to "Known VPN exit node") }
+            meta["ipquery_proxy"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Proxy" to "Known proxy") }
+            meta["ipquery_tor"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Tor" to "Tor exit node") }
         }
         if (ipqsIpFraud >= 0) {
             rows.add(sec("IPQS FRAUD SCORE"))
-            rows.add("Fraud Score" to "$ipqsIpFraud / 100${if (ipqsIpFraud > 70) " ⚠ HIGH" else ""}")
-            meta["ipqs_ip_vpn"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ VPN (IPQS)" to "Known VPN") }
-            meta["ipqs_ip_proxy"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Proxy (IPQS)" to "Known proxy") }
-            meta["ipqs_ip_tor"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Tor (IPQS)" to "Tor node") }
+            rows.add("Fraud Score" to "$ipqsIpFraud / 100${if (ipqsIpFraud > 70) " ! HIGH" else ""}")
+            meta["ipqs_ip_vpn"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! VPN (IPQS)" to "Known VPN") }
+            meta["ipqs_ip_proxy"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Proxy (IPQS)" to "Known proxy") }
+            meta["ipqs_ip_tor"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Tor (IPQS)" to "Tor node") }
         }
         meta["greynoise_classification"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("GREYNOISE"))
             rows.add("Classification" to it.replaceFirstChar { c -> c.uppercase() })
-            meta["greynoise_noise"]?.toBooleanStrictOrNull()?.let { n -> if (n) rows.add("⚠ Internet Scanner" to "This IP actively scans the internet") }
+            meta["greynoise_noise"]?.toBooleanStrictOrNull()?.let { n -> if (n) rows.add("! Internet Scanner" to "This IP actively scans the internet") }
             meta["greynoise_name"]?.takeIf { it.isNotBlank() }?.let { n -> rows.add("Actor" to n) }
             meta["greynoise_last_seen"]?.takeIf { it.isNotBlank() }?.let { d -> rows.add("Last Seen" to d) }
         }
         meta["abuseipdb_score"]?.let { s ->
             if ((s.toIntOrNull() ?: 0) > 0) {
                 rows.add(sec("ABUSEIPDB"))
-                rows.add("⚠ Abuse Score" to "$s%")
+                rows.add("! Abuse Score" to "$s%")
                 meta["abuseipdb_reports"]?.let { r -> rows.add("Reports" to r) }
             }
         }
-        meta["otx_pulse_count"]?.let { p -> if ((p.toIntOrNull() ?: 0) > 0) rows.add("⚠ OTX Pulses" to p) }
+        meta["otx_pulse_count"]?.let { p -> if ((p.toIntOrNull() ?: 0) > 0) rows.add("! OTX Pulses" to p) }
         val vtMalicious = meta["vt_malicious"]?.toIntOrNull() ?: 0
         val vtHarmless = meta["vt_harmless"]?.toIntOrNull() ?: 0
         val vtSuspicious = meta["vt_suspicious"]?.toIntOrNull() ?: 0
         if (vtMalicious > 0 || vtHarmless > 0 || vtSuspicious > 0) {
             rows.add(sec("VIRUSTOTAL"))
-            if (vtMalicious > 0) rows.add("⚠ Malicious Detections" to "$vtMalicious engines")
-            if (vtSuspicious > 0) rows.add("⚠ Suspicious" to "$vtSuspicious engines")
+            if (vtMalicious > 0) rows.add("! Malicious Detections" to "$vtMalicious engines")
+            if (vtSuspicious > 0) rows.add("! Suspicious" to "$vtSuspicious engines")
             if (vtHarmless > 0) rows.add("Clean Detections" to "$vtHarmless engines")
             meta["vt_reputation"]?.let { rows.add("Reputation Score" to it) }
             meta["vt_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country" to it) }
@@ -1348,14 +1343,14 @@ class ResultsFragment : Fragment() {
         if (urlscanTotal > 0) {
             rows.add(sec("URLSCAN"))
             rows.add("Total Scans" to urlscanTotal.toString())
-            if (urlscanMal > 0) rows.add("⚠ Malicious Scans" to urlscanMal.toString())
+            if (urlscanMal > 0) rows.add("! Malicious Scans" to urlscanMal.toString())
             meta["urlscan_ips"]?.takeIf { it.isNotBlank() }?.let { rows.add("IPs Observed" to it) }
         }
         meta["maltiverse_classification"]?.takeIf { it.isNotBlank() }?.let {
             rows.add(sec("MALTIVERSE"))
             rows.add("Classification" to it)
             meta["maltiverse_as_name"]?.takeIf { it.isNotBlank() }?.let { n -> rows.add("AS Name" to n) }
-            meta["maltiverse_blacklists"]?.takeIf { it.isNotBlank() }?.let { b -> rows.add("⚠ Blacklists" to b) }
+            meta["maltiverse_blacklists"]?.takeIf { it.isNotBlank() }?.let { b -> rows.add("! Blacklists" to b) }
         }
         meta["urlhaus_status"]?.takeIf { it.isNotBlank() }?.let { status ->
             rows.add(sec("URLHAUS"))
@@ -1469,21 +1464,21 @@ class ResultsFragment : Fragment() {
             "OkCupid" to "Dating app & matchmaking service",
             "Xing" to "European professional networking",
             "Exercism" to "Programming practice & mentorship",
-            "OnlyFans" to "⚠ Adult content subscription platform",
-            "Pornhub" to "⚠ Adult video streaming site",
-            "Chaturbate" to "⚠ Adult live cam broadcasting",
-            "ManyVids" to "⚠ Adult content creator marketplace",
-            "Fansly" to "⚠ Adult content subscription platform",
-            "RedGIFs" to "⚠ Adult GIF & video sharing",
-            "XVIDEOS" to "⚠ Adult video streaming site",
-            "BDSMLR" to "⚠ Adult BDSM-focused social blogging",
-            "Stripchat" to "⚠ Adult live cam platform",
-            "MyFreeCams" to "⚠ Adult webcam model platform",
-            "CamSoda" to "⚠ Adult cam broadcasting platform",
+            "OnlyFans" to "! Adult content subscription platform",
+            "Pornhub" to "! Adult video streaming site",
+            "Chaturbate" to "! Adult live cam broadcasting",
+            "ManyVids" to "! Adult content creator marketplace",
+            "Fansly" to "! Adult content subscription platform",
+            "RedGIFs" to "! Adult GIF & video sharing",
+            "XVIDEOS" to "! Adult video streaming site",
+            "BDSMLR" to "! Adult BDSM-focused social blogging",
+            "Stripchat" to "! Adult live cam platform",
+            "MyFreeCams" to "! Adult webcam model platform",
+            "CamSoda" to "! Adult cam broadcasting platform",
             "Tinder" to "Dating app",
             "Bumble" to "Dating & networking app",
-            "Ashley Madison" to "⚠ Extramarital affairs dating platform",
-            "Seeking" to "⚠ Sugar dating platform",
+            "Ashley Madison" to "! Extramarital affairs dating platform",
+            "Seeking" to "! Sugar dating platform",
             "FurAffinity" to "Furry art & community platform"
         )
         meta["found_urls"]?.takeIf { it.isNotBlank() }?.let {
@@ -1493,10 +1488,10 @@ class ResultsFragment : Fragment() {
                 val parts = cleanLine.split(": ", limit = 2)
                 val siteName = parts.firstOrNull() ?: "Platform"
                 val url = parts.getOrNull(1) ?: cleanLine
-                val desc = siteDesc[siteName]?.removePrefix("⚠ ")
+                val desc = siteDesc[siteName]?.removePrefix("! ")
                 val label = buildString {
-                    append(if (isNsfw) "⚠ NSFW / $siteName" else "✓ $siteName")
-                    if (!desc.isNullOrBlank()) append(" · $desc")
+                    append(if (isNsfw) "! NSFW / $siteName" else "$siteName")
+                    if (!desc.isNullOrBlank()) append(" | $desc")
                 }
                 rows.add(label to url)
             }
@@ -1589,13 +1584,13 @@ class ResultsFragment : Fragment() {
     private fun buildPhoneValidation(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
         rows.add(sec("NUMBER VALIDATION"))
-        meta["numverify_valid"]?.let { rows.add("Valid" to if (it == "true") "Yes ✓" else "No ✗") }
+        meta["numverify_valid"]?.let { rows.add("Valid" to if (it == "true") "Yes ✓" else "No No") }
         meta["numverify_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country" to it) }
         meta["numverify_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier" to it) }
         meta["numverify_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type" to it) }
         meta["numverify_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
         meta["numverify_intl"]?.takeIf { it.isNotBlank() }?.let { rows.add("Intl Format" to it) }
-        meta["libphone_valid"]?.let { rows.add("Valid (libphonenumber)" to if (it == "true") "Yes ✓" else "No ✗") }
+        meta["libphone_valid"]?.let { rows.add("Valid (libphonenumber)" to if (it == "true") "Yes ✓" else "No No") }
         meta["libphone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (libphonenumber)" to it) }
         meta["libphone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier (libphonenumber)" to it) }
         meta["libphone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (libphonenumber)" to it) }
@@ -1625,9 +1620,9 @@ class ResultsFragment : Fragment() {
         val ipqsFraud = meta["ipqs_phone_fraud_score"]?.toIntOrNull() ?: -1
         if (ipqsFraud >= 0) {
             rows.add(sec("IPQS FRAUD SCORING"))
-            rows.add("Fraud Score" to "$ipqsFraud / 100${if (ipqsFraud > 70) " ⚠ HIGH RISK" else if (ipqsFraud > 40) " ⚠ Moderate" else " — Low"}")
-            meta["ipqs_phone_risky"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Risky" to "Phone flagged as risky") }
-            meta["ipqs_phone_spam"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("⚠ Spammer" to "Associated with spam/scam activity") }
+            rows.add("Fraud Score" to "$ipqsFraud / 100${if (ipqsFraud > 70) " ! HIGH RISK" else if (ipqsFraud > 40) " ! Moderate" else " — Low"}")
+            meta["ipqs_phone_risky"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Risky" to "Phone flagged as risky") }
+            meta["ipqs_phone_spam"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("! Spammer" to "Associated with spam/scam activity") }
             meta["ipqs_phone_voip"]?.toBooleanStrictOrNull()?.let { if (it) rows.add("VoIP" to "Voice over IP number") }
             meta["ipqs_phone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type" to it) }
             meta["ipqs_phone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier" to it) }
@@ -1721,10 +1716,10 @@ class ResultsFragment : Fragment() {
         val rows = mutableListOf<Pair<String, String>>()
         rows.add(sec("FACE RECOGNITION ENGINES"))
         rows.add("Instructions" to "Open each link in browser → upload photo → get matches")
-        meta["face_facecheck_id_link"]?.let { rows.add("⟶ FaceCheck.id" to it) }
-        meta["face_pimeyes_link"]?.let { rows.add("⟶ PimEyes" to it) }
-        meta["face_search4faces_link"]?.let { rows.add("⟶ Search4Faces" to it) }
-        meta["face_lenso_ai_link"]?.let { rows.add("⟶ Lenso.ai" to it) }
+        meta["face_facecheck_id_link"]?.let { rows.add("> FaceCheck.id" to it) }
+        meta["face_pimeyes_link"]?.let { rows.add("> PimEyes" to it) }
+        meta["face_search4faces_link"]?.let { rows.add("> Search4Faces" to it) }
+        meta["face_lenso_ai_link"]?.let { rows.add("> Lenso.ai" to it) }
         return rows
     }
 
@@ -1732,11 +1727,11 @@ class ResultsFragment : Fragment() {
         val rows = mutableListOf<Pair<String, String>>()
         rows.add(sec("REVERSE IMAGE SEARCH"))
         rows.add("Instructions" to "Upload image to find where it appears across the web")
-        meta["rev_google_lens_link"]?.let { rows.add("⟶ Google Lens" to it) }
-        meta["rev_yandex_images_link"]?.let { rows.add("⟶ Yandex Images (best for faces)" to it) }
-        meta["rev_tineye_link"]?.let { rows.add("⟶ TinEye" to it) }
-        meta["rev_bing_visual_search_link"]?.let { rows.add("⟶ Bing Visual" to it) }
-        meta["rev_karmadecay_link"]?.let { rows.add("⟶ KarmaDecay (Reddit)" to it) }
+        meta["rev_google_lens_link"]?.let { rows.add("> Google Lens" to it) }
+        meta["rev_yandex_images_link"]?.let { rows.add("> Yandex Images (best for faces)" to it) }
+        meta["rev_tineye_link"]?.let { rows.add("> TinEye" to it) }
+        meta["rev_bing_visual_search_link"]?.let { rows.add("> Bing Visual" to it) }
+        meta["rev_karmadecay_link"]?.let { rows.add("> KarmaDecay (Reddit)" to it) }
         return rows
     }
 
@@ -2002,7 +1997,7 @@ class ResultsFragment : Fragment() {
                 })
                 if (cAge.isNotBlank()) nameRow.addView(TextView(ctx).apply { text = "Age $cAge"; textSize = 12f; setTextColor(colorPrimary); setTextIsSelectable(true) })
                 row.addView(nameRow)
-                val detailParts = listOfNotNull(cLoc.takeIf { it.isNotBlank() }, cPhone.takeIf { it.isNotBlank() }?.let { "☎ $it" })
+                val detailParts = listOfNotNull(cLoc.takeIf { it.isNotBlank() }, cPhone.takeIf { it.isNotBlank() }?.let { "Phone: $it" })
                 if (detailParts.isNotEmpty()) row.addView(TextView(ctx).apply {
                     text = detailParts.joinToString("   "); textSize = 12f
                     setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
@@ -2133,8 +2128,7 @@ class ResultsFragment : Fragment() {
                     currentRows = mutableListOf()
                 }
                 currentTitle = label.trimStart()
-                    .removePrefix("◈ ").removePrefix("> ").removePrefix("══ ")
-                    .removeSuffix(" ══").trim()
+                    .removePrefix("> ").trim()
             } else {
                 currentRows.add(label to value)
             }
@@ -2148,7 +2142,7 @@ class ResultsFragment : Fragment() {
     private fun getSectionAccentColor(ctx: Context, title: String): Int {
         val t = title.uppercase()
         return when {
-            t.startsWith("⚠") || "CRIMINAL" in t || "LEGAL" in t || "ARREST" in t
+            t.startsWith("!") || t.startsWith("WARNING") || "CRIMINAL" in t || "LEGAL" in t || "ARREST" in t
                 || "COURT" in t || "SANCTIONS" in t || "LEAKED" in t || "BREACH" in t
                 || "DARK WEB" in t || "PASTE" in t || "HIBP" in t || "COMB" in t
                 || "LEAKCHECK" in t || "IPQS" in t ->
@@ -2178,7 +2172,7 @@ class ResultsFragment : Fragment() {
         val density = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * density).toInt()
 
-        val isWarning = title.startsWith("⚠")
+        val isWarning = title.startsWith("!") || title.startsWith("WARNING")
         val accentColor = getSectionAccentColor(ctx, title)
         val cardBg = if (isWarning) ContextCompat.getColor(ctx, R.color.error_dim) else ContextCompat.getColor(ctx, R.color.surface)
         val borderColor = if (isWarning) ContextCompat.getColor(ctx, R.color.score_red) else ContextCompat.getColor(ctx, R.color.border)
@@ -2211,20 +2205,10 @@ class ResultsFragment : Fragment() {
                 layoutParams = LinearLayout.LayoutParams(dp(3f), dp(16f)).also { it.marginEnd = dp(10f) }
                 setBackgroundColor(accentColor)
             })
-            val sectionIcon = when {
-                "PHONE" in title.uppercase() || "NUMBER VALID" in title.uppercase() -> "☎ "
-                "EMAIL" in title.uppercase() || "BREACH" in title.uppercase() || "HIBP" in title.uppercase() -> "✉ "
-                "ADDRESS" in title.uppercase() || "VOTER" in title.uppercase() -> "⌂ "
-                title.startsWith("⚠") || "CRIMINAL" in title.uppercase() || "ARREST" in title.uppercase() -> "⚠ "
-                "SOCIAL" in title.uppercase() || "DIGITAL" in title.uppercase() || "PROFILE" in title.uppercase() -> "◎ "
-                "NEWS" in title.uppercase() -> "◉ "
-                "IDENTITY" in title.uppercase() || "SUBJECT" in title.uppercase() -> "◈ "
-                else -> "▸ "
-            }
-            val cleanTitle = title.removePrefix("⚠ ").removePrefix("⚠").trim()
+            val cleanTitle = title.removePrefix("! ").removePrefix("WARNING ").trim()
             header.addView(TextView(ctx).apply {
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                text = "$sectionIcon$cleanTitle"
+                text = cleanTitle
                 textSize = 10f
                 typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                 isAllCaps = true
@@ -2260,7 +2244,7 @@ class ResultsFragment : Fragment() {
     private fun bindDataRow(b: ItemDataRowBinding, label: String, value: String, ctx: Context) {
         val isPivot = value.startsWith("pivot://")
         val isLink = value.startsWith("http://") || value.startsWith("https://")
-        val isWarning = label.startsWith("⚠")
+        val isWarning = label.startsWith("!") || label.startsWith("WARNING")
         val isCredential = label == "Login" || label == "Password / Hash" || label == "Leaked Record"
         val isNsfwLink = isWarning && isLink
         val isPhone = !isPivot && !isLink && value.matches(Regex("\\+?1?[\\s.\\-]?\\(?\\d{3}\\)?[\\s.\\-]\\d{3}[\\s.\\-]\\d{4}.*"))
@@ -2488,21 +2472,21 @@ class ResultsFragment : Fragment() {
             "OkCupid" to "Dating app & matchmaking service",
             "Xing" to "European professional networking",
             "Exercism" to "Programming practice & mentorship",
-            "OnlyFans" to "⚠ Adult content subscription platform",
-            "Pornhub" to "⚠ Adult video streaming site",
-            "Chaturbate" to "⚠ Adult live cam broadcasting",
-            "ManyVids" to "⚠ Adult content creator marketplace",
-            "Fansly" to "⚠ Adult content subscription platform",
-            "RedGIFs" to "⚠ Adult GIF & video sharing",
-            "XVIDEOS" to "⚠ Adult video streaming site",
-            "BDSMLR" to "⚠ Adult BDSM-focused social blogging",
-            "Stripchat" to "⚠ Adult live cam platform",
-            "MyFreeCams" to "⚠ Adult webcam model platform",
-            "CamSoda" to "⚠ Adult cam broadcasting platform",
+            "OnlyFans" to "! Adult content subscription platform",
+            "Pornhub" to "! Adult video streaming site",
+            "Chaturbate" to "! Adult live cam broadcasting",
+            "ManyVids" to "! Adult content creator marketplace",
+            "Fansly" to "! Adult content subscription platform",
+            "RedGIFs" to "! Adult GIF & video sharing",
+            "XVIDEOS" to "! Adult video streaming site",
+            "BDSMLR" to "! Adult BDSM-focused social blogging",
+            "Stripchat" to "! Adult live cam platform",
+            "MyFreeCams" to "! Adult webcam model platform",
+            "CamSoda" to "! Adult cam broadcasting platform",
             "Tinder" to "Dating app",
             "Bumble" to "Dating & networking app",
-            "Ashley Madison" to "⚠ Extramarital affairs dating platform",
-            "Seeking" to "⚠ Sugar dating platform",
+            "Ashley Madison" to "! Extramarital affairs dating platform",
+            "Seeking" to "! Sugar dating platform",
             "FurAffinity" to "Furry art & community platform"
         )
     }

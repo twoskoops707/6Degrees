@@ -59,14 +59,14 @@ class HistoryAdapter(
 
             val details = mutableListOf<String>()
             if (fields["name"]?.isNotBlank() == true) {
-                fields["phone"]?.takeIf { it.isNotBlank() }?.let { details.add("☎ $it") }
-                fields["email"]?.takeIf { it.isNotBlank() }?.let { details.add("✉ $it") }
+                fields["phone"]?.takeIf { it.isNotBlank() }?.let { details.add("Phone: $it") }
+                fields["email"]?.takeIf { it.isNotBlank() }?.let { details.add("Email: $it") }
                 fields["username"]?.takeIf { it.isNotBlank() }?.let { details.add("@ $it") }
             }
             val city = fields["city"] ?: ""
             val state = fields["state"] ?: ""
             val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
-            if (loc.isNotBlank()) details.add("📍 $loc")
+            if (loc.isNotBlank()) details.add(loc)
             fields["dob"]?.takeIf { it.isNotBlank() }?.let { details.add("DOB: $it") }
 
             if (details.isNotEmpty()) {

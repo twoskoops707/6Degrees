@@ -813,7 +813,7 @@
                 android:contentDescription="@string/intake_clear_fields"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
-                android:text="✕"
+                android:text="X"
                 android:textSize="18sp" />
 
         </LinearLayout>

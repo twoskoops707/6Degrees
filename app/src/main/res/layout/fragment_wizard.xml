@@ -194,7 +194,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="80+ tools across 8 categories — select any, enter a target, launch all at once"
+                            android:text="80+ tools across 8 categories. Select any, enter a target, launch all at once."
                             android:textColor="@color/text_secondary"
                             android:textSize="11sp"
                             android:layout_marginTop="3dp" />
@@ -203,7 +203,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="→"
+                        android:text=">"
                         android:textColor="?attr/colorPrimary"
                         android:textSize="20sp"
                         android:layout_marginStart="12dp" />

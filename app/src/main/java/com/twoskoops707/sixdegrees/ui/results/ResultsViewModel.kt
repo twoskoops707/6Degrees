@@ -300,16 +300,16 @@ object DossierBuilder {
         )
 
         return listOf(
-            DossierSection("who", "Who they are", "👤", who.ifEmpty {
-                listOf(finding("We couldn't find much — try adding a city or photo", "SixDegrees", DossierConfidence.LOW))
+            DossierSection("who", "Who they are", "", who.ifEmpty {
+                listOf(finding("We couldn't find much  -  try adding a city or photo", "SixDegrees", DossierConfidence.LOW))
             }),
-            DossierSection("where", "Where they've been", "📍", where.ifEmpty {
+            DossierSection("where", "Where they've been", "", where.ifEmpty {
                 listOf(finding("No location history found in public records", "SixDegrees", DossierConfidence.LOW))
             }),
-            DossierSection("flags", "Red flags", "⚠", flags.ifEmpty {
+            DossierSection("flags", "Red flags", "", flags.ifEmpty {
                 listOf(finding("Nothing alarming turned up in public or indexed sources", "SixDegrees", DossierConfidence.LOW))
             } + verifyLinks),
-            DossierSection("safe", "Risk assessment", "⚠", safe)
+            DossierSection("safe", "Risk assessment", "", safe)
         )
     }
 
@@ -328,9 +328,9 @@ object DossierBuilder {
         val findings = mutableListOf<DossierFinding>()
         val verdictLabel = when {
             shady.score == 0 -> "Looks okay from public data"
-            shady.score < 30 -> "Minor concerns — use your judgment"
-            shady.score < 60 -> "Some red flags — proceed carefully"
-            else -> "Serious concerns — trust your instincts"
+            shady.score < 30 -> "Minor concerns  -  use your judgment"
+            shady.score < 60 -> "Some red flags  -  proceed carefully"
+            else -> "Serious concerns  -  trust your instincts"
         }
         findings.add(finding(verdictLabel, "SixDegrees", DossierConfidence.MEDIUM, "Overall"))
         if (shady.detail.isNotBlank() && shady.score > 0) {
@@ -342,7 +342,7 @@ object DossierBuilder {
             findings.add(finding(line.trim(), "AI summary", DossierConfidence.MEDIUM, "Note"))
         }
         findings.add(finding(
-            "Informational only — not legal advice. Verify anything important yourself.",
+            "Informational only  -  not legal advice. Verify anything important yourself.",
             "SixDegrees", DossierConfidence.LOW, "Disclaimer", isWarning = true
         ))
         return findings
@@ -395,16 +395,16 @@ object DossierBuilder {
         score = minOf(score, 100)
 
         val (verdict, detail) = when {
-            score == 0 -> "LIKELY OK" to "No red flags in public or indexed sources — informational only"
-            score < 30 -> "LOW CONCERN" to flags.joinToString(" · ").ifBlank { "Minor signals — use your judgment" }
-            score < 60 -> "RED FLAGS" to flags.joinToString(" · ")
-            else -> "HIGH CONCERN" to flags.joinToString(" · ")
+            score == 0 -> "LIKELY OK" to "No red flags in public or indexed sources  -  informational only"
+            score < 30 -> "LOW CONCERN" to flags.joinToString("  |  ").ifBlank { "Minor signals  -  use your judgment" }
+            score < 60 -> "RED FLAGS" to flags.joinToString("  |  ")
+            else -> "HIGH CONCERN" to flags.joinToString("  |  ")
         }
         return ShadyScore(
             score = score,
             verdict = verdict,
             detail = detail,
-            displayValue = if (score == 0) "✓" else score.toString()
+            displayValue = if (score == 0) "OK" else score.toString()
         )
     }
 
@@ -453,7 +453,7 @@ object DossierBuilder {
         val dark = buildDarkWebSection(meta)
         return listOf(
             DossierSection(
-                "phone", "Phone Intel", "☎",
+                "phone", "Phone Intel", "",
                 intel.ifEmpty { listOf(finding("No phone-specific findings yet", "SixDegrees", DossierConfidence.LOW)) }
             ),
             contact,
@@ -473,18 +473,18 @@ object DossierBuilder {
         val mentions = intel.filter { it.label in setOf("Mention", "Caller Reports", "Summary") }
         val flags = full.flatMap { it.findings }.filter { it.isWarning || isRedFlagFinding(it) }
         return listOf(
-            DossierSection("who", "Who owns this number?", "👤", owners.ifEmpty {
+            DossierSection("who", "Who owns this number?", "", owners.ifEmpty {
                 mentions.take(3).ifEmpty {
                     listOf(finding("No owner name found in public records", "SixDegrees", DossierConfidence.LOW))
                 }
             }),
-            DossierSection("carrier", "Carrier & location", "📡", carrier.ifEmpty {
+            DossierSection("carrier", "Carrier & location", "", carrier.ifEmpty {
                 listOf(finding("Carrier details not available", "SixDegrees", DossierConfidence.LOW))
             }),
-            DossierSection("flags", "Red flags", "⚠", flags.ifEmpty {
+            DossierSection("flags", "Red flags", "", flags.ifEmpty {
                 listOf(finding("Nothing alarming turned up for this number", "SixDegrees", DossierConfidence.LOW))
             }),
-            DossierSection("mentions", "What people say", "💬", mentions.ifEmpty {
+            DossierSection("mentions", "What people say", "", mentions.ifEmpty {
                 listOf(finding("No public comments found for this number", "SixDegrees", DossierConfidence.LOW))
             })
         )
@@ -499,13 +499,13 @@ object DossierBuilder {
         val digital = buildDigitalSection(meta)
         val legal = buildLegalSection(meta)
         return listOf(
-            DossierSection("email", "Email profile", "✉", contact.findings.ifEmpty {
+            DossierSection("email", "Email profile", "", contact.findings.ifEmpty {
                 listOf(finding("No email profile data found", "SixDegrees", DossierConfidence.LOW))
             }),
-            DossierSection("digital", "Online footprint", "🌐", digital.findings.ifEmpty {
+            DossierSection("digital", "Online footprint", "", digital.findings.ifEmpty {
                 listOf(finding("No linked accounts found", "SixDegrees", DossierConfidence.LOW))
             }),
-            DossierSection("flags", "Red flags", "⚠", legal.findings.filter { it.isWarning || isRedFlagFinding(it) }.ifEmpty {
+            DossierSection("flags", "Red flags", "", legal.findings.filter { it.isWarning || isRedFlagFinding(it) }.ifEmpty {
                 listOf(finding("No breaches or legal hits found", "SixDegrees", DossierConfidence.LOW))
             })
         )
@@ -516,7 +516,7 @@ object DossierBuilder {
             .filter { it.value.isNotBlank() && !it.key.startsWith("_") }
             .take(40)
             .map { (k, v) -> finding(v, sourceFromKey(k), confidenceFromKey(k), label = k.replace('_', ' ')) }
-        return DossierSection("data", "Report Data", "▸", findings)
+        return DossierSection("data", "Report Data", "", findings)
     }
 
     private fun buildIdentitySection(meta: Map<String, String>): DossierSection {
@@ -554,7 +554,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No identity data found for this subject", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("identity", "Identity", "◈", findings)
+        return DossierSection("identity", "Identity", "", findings)
     }
 
     private fun buildLocationsSection(meta: Map<String, String>, city: String, state: String, geoLabel: String): DossierSection {
@@ -566,7 +566,7 @@ object DossierBuilder {
         if (city.isNotBlank() || state.isNotBlank()) {
             val rejected = allAddresses.filter { it !in filtered.toSet() }
             rejected.forEach { addr ->
-                skipped.add("Skipped — outside $geoLabel: $addr")
+                skipped.add("Skipped  -  outside $geoLabel: $addr")
             }
         }
 
@@ -588,7 +588,7 @@ object DossierBuilder {
         if (findings.isEmpty() && skipped.isEmpty()) {
             findings.add(finding("No location data matched your search area", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("locations", "Locations", "⌂", findings, skipped.distinct())
+        return DossierSection("locations", "Locations", "", findings, skipped.distinct())
     }
 
     private fun buildContactSection(meta: Map<String, String>): DossierSection {
@@ -626,7 +626,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No contact data found", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("contact", "Contact", "☎", findings)
+        return DossierSection("contact", "Contact", "", findings)
     }
 
     private fun buildFamilySection(meta: Map<String, String>): DossierSection {
@@ -648,7 +648,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No family or associates found", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("family", "Family & Associates", "👥", findings)
+        return DossierSection("family", "Family & Associates", "", findings)
     }
 
     private fun buildEmploymentSection(meta: Map<String, String>): DossierSection {
@@ -689,7 +689,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No employment or company records found", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("employment", "Employment & Companies", "🏢", findings)
+        return DossierSection("employment", "Employment & Companies", "", findings)
     }
 
     private fun buildLegalSection(meta: Map<String, String>): DossierSection {
@@ -773,7 +773,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No legal or court records found", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("legal", "Legal & Courts", "⚖", findings)
+        return DossierSection("legal", "Legal & Courts", "", findings)
     }
 
     private fun buildDigitalSection(meta: Map<String, String>): DossierSection {
@@ -835,7 +835,7 @@ object DossierBuilder {
             parseSocialProfilesFromMeta(meta).filter { !it.statsLabel.isNullOrBlank() }.take(10).forEach { profile ->
                 val value = buildString {
                     append(profile.url ?: profile.username)
-                    profile.statsLabel?.let { append(" — $it") }
+                    profile.statsLabel?.let { append("  -  $it") }
                 }
                 findings.add(finding(value, profile.platform, DossierConfidence.MEDIUM, profile.platform, isLink = profile.url?.startsWith("http") == true))
             }
@@ -849,7 +849,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No digital footprint found", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("digital", "Digital Footprint", "◎", findings)
+        return DossierSection("digital", "Digital Footprint", "", findings)
     }
 
     private fun buildGoogleIntelligenceSection(
@@ -866,13 +866,13 @@ object DossierBuilder {
             val hits = DorkMetadataStore.hitsForCategory(meta, category)
             hits.forEach { hit ->
                 val displayLabel = if (investigatorMode && hit.query.isNotBlank()) {
-                    "${category.displayName} · ${hit.query.take(72)}"
+                    "${category.displayName}  |  ${hit.query.take(72)}"
                 } else {
                     category.displayName
                 }
                 val summary = buildString {
                     append(hit.title)
-                    if (hit.snippet.isNotBlank()) append(" — ").append(hit.snippet.take(180))
+                    if (hit.snippet.isNotBlank()) append("  -  ").append(hit.snippet.take(180))
                 }.trim()
                 val link = hit.url.takeIf { it.startsWith("http") }
                 findings.add(
@@ -893,7 +893,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No Google dork hits matched this subject", "Google Dork", DossierConfidence.LOW))
         }
-        return DossierSection("google_intel", "Google Intelligence", "🔍", findings)
+        return DossierSection("google_intel", "Google Intelligence", "", findings)
     }
 
     private fun buildVehiclesSection(meta: Map<String, String>): DossierSection {
@@ -909,7 +909,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No vehicle records found", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("vehicles", "Vehicles", "🚗", findings)
+        return DossierSection("vehicles", "Vehicles", "", findings)
     }
 
     private fun buildDarkWebSection(meta: Map<String, String>): DossierSection {
@@ -968,7 +968,7 @@ object DossierBuilder {
             ))
         }
 
-        // HIBP breaches — count + individual breach names
+        // HIBP breaches  -  count + individual breach names
         val breachCount = meta["hibp_breach_count"]?.toIntOrNull() ?: 0
         if (breachCount > 0) {
             findings.add(finding(
@@ -981,7 +981,7 @@ object DossierBuilder {
             }
         }
 
-        // HIBP pastes — count + individual paste sources
+        // HIBP pastes  -  count + individual paste sources
         val hibpPasteCount = meta["hibp_paste_count"]?.toIntOrNull() ?: 0
         if (hibpPasteCount > 0) {
             findings.add(finding(
@@ -1032,7 +1032,7 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No indexed dark web or breach exposure found for this subject", "SixDegrees", DossierConfidence.LOW))
         }
-        return DossierSection("darkweb", "Dark Web & Breaches", "🕳", findings)
+        return DossierSection("darkweb", "Dark Web & Breaches", "", findings)
     }
 
     private fun extractPiiFromDarkSnippet(text: String, source: String): List<DossierFinding> {
@@ -1064,7 +1064,7 @@ object DossierBuilder {
             }
             meta["ai_confidence"]?.takeIf { it.isNotBlank() }?.let { conf ->
                 val rationale = meta["ai_confidence_rationale"]?.takeIf { it.isNotBlank() }
-                findings.add(finding(if (rationale != null) "$conf — $rationale" else conf, "AI Analysis", DossierConfidence.MEDIUM, "AI Confidence"))
+                findings.add(finding(if (rationale != null) "$conf  -  $rationale" else conf, "AI Analysis", DossierConfidence.MEDIUM, "AI Confidence"))
             }
             meta["ai_false_positives"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
                 findings.add(finding(line.trim(), "AI Analysis", DossierConfidence.LOW, "False Positive"))
@@ -1080,9 +1080,9 @@ object DossierBuilder {
         if (findings.isEmpty()) {
             findings.add(finding("No AI brief available for this report", "SixDegrees", DossierConfidence.LOW))
         } else {
-            findings.add(finding("AI-generated synthesis — verify all claims independently.", "SixDegrees", DossierConfidence.LOW, "Disclaimer", isWarning = true))
+            findings.add(finding("AI-generated synthesis  -  verify all claims independently.", "SixDegrees", DossierConfidence.LOW, "Disclaimer", isWarning = true))
         }
-        return DossierSection("ai", "AI Brief", "✦", findings)
+        return DossierSection("ai", "AI Brief", "", findings)
     }
 
     private fun extractRejectionNotes(meta: Map<String, String>, geoLabel: String): List<String> {
@@ -1096,7 +1096,7 @@ object DossierBuilder {
             }
         }
         meta["geo_rejected"]?.lines()?.filter { it.isNotBlank() }?.forEach { line ->
-            notes.add(if (line.startsWith("Skipped")) line else "Skipped — outside $geoLabel: $line")
+            notes.add(if (line.startsWith("Skipped")) line else "Skipped  -  outside $geoLabel: $line")
         }
         return notes.distinct()
     }
@@ -1104,7 +1104,7 @@ object DossierBuilder {
     private fun formatRejectionNote(key: String, value: String, geoLabel: String): String {
         if (value.startsWith("Skipped", ignoreCase = true)) return value
         val source = sourceFromKey(key)
-        return "Skipped — outside $geoLabel ($source): $value"
+        return "Skipped  -  outside $geoLabel ($source): $value"
     }
 
     private fun parseSocialProfilesFromMeta(meta: Map<String, String>): List<SocialProfile> {
@@ -1144,7 +1144,7 @@ object DossierBuilder {
         confidence = confidence,
         isPivot = isPivot || value.startsWith("pivot://"),
         isLink = isLink || value.startsWith("http://") || value.startsWith("https://"),
-        isWarning = isWarning || (label?.startsWith("⚠") == true),
+        isWarning = isWarning || (label?.startsWith("") == true),
         sourceUrl = sourceUrl
     )
 
