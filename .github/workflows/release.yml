@@ -2,9 +2,10 @@ name: Build SixDegrees
 
 on:
   push:
-    branches: [main, enhanced-reports]
-  pull_request:
-    branches: [main, enhanced-reports]
+    branches:
+      - main
+      - enhanced-reports
+      - 'cursor/**'
   workflow_dispatch:
 
 env:
@@ -34,16 +35,20 @@ jobs:
         id: sha
         run: echo "SHORT_SHA=$(echo '${{ github.sha }}' | cut -c1-7)" >> $GITHUB_OUTPUT
 
+      - name: Set safe ref slug
+        id: refslug
+        run: echo "SAFE_REF=$(echo '${{ github.ref_name }}' | tr '/' '-')" >> $GITHUB_OUTPUT
+
       - name: Rename APK
         run: |
           mkdir -p app/build/outputs/apk/debug/
           cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/sixdegrees-${{ steps.sha.outputs.SHORT_SHA }}-debug.apk"
 
       - name: Create GitHub Release
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/enhanced-reports')
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.ref_name }}-${{ steps.sha.outputs.SHORT_SHA }}
+          tag_name: build-${{ steps.refslug.outputs.SAFE_REF }}-${{ steps.sha.outputs.SHORT_SHA }}
           name: "SixDegrees ${{ github.ref_name }} @ ${{ steps.sha.outputs.SHORT_SHA }}"
           body: "Automated build from commit ${{ github.sha }}"
           files: app/build/outputs/apk/debug/sixdegrees-*.apk
@@ -54,7 +59,7 @@ jobs:
       - name: Notify APK ready (ntfy)
         if: success() && github.event_name == 'push'
         run: |
-          MSG="Download: https://github.com/${{ github.repository }}/releases/latest"
+          MSG="Download: https://github.com/${{ github.repository }}/releases/tag/build-${{ steps.refslug.outputs.SAFE_REF }}-${{ steps.sha.outputs.SHORT_SHA }}"
           curl -s -H "Title: 6Degrees APK Ready" \
             -H "Tags: package" \
             -H "Priority: high" \
