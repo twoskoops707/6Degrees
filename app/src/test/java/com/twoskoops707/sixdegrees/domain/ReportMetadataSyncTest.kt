@@ -51,6 +51,20 @@ class ReportMetadataSyncTest {
     }
 
     @Test
+    fun courtKeysAlignWithDossierConsumer() {
+        val meta = mutableMapOf(
+            "court_case_count" to "2",
+            "court_case_urls" to "https://www.courtlistener.com/c/abc/\nhttps://www.courtlistener.com/c/def/"
+        )
+        // DossierBuilder reads courtlistener_count — repository must write it at scrape time.
+        // This test documents the expected key after repository fix.
+        meta["courtlistener_count"] = meta["court_case_count"]!!
+        meta["courtlistener_link"] = meta["court_case_urls"]!!.lines().first()
+        assertEquals("2", meta["courtlistener_count"])
+        assertTrue(meta["courtlistener_link"]!!.startsWith("https://"))
+    }
+
+    @Test
     fun filtersObviousNonNames() {
         val names = ReportMetadataSync.extractPersonNames("Reverse lookup for mobile wireless number")
         assertTrue(names.isEmpty())

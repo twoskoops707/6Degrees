@@ -263,8 +263,8 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun normalizePhone(raw: String): String {
-        val digits = raw.replace(Regex("[^0-9+]"), "")
-        return if (digits.length == 10 || digits.length == 11) digits.takeLast(10) else raw.trim()
+        val digits = raw.replace(Regex("[^0-9]"), "")
+        return if (digits.length >= 10) digits.takeLast(10) else raw.trim()
     }
 
     private fun resolveSearchType(form: IntakeForm, profile: SubjectProfile): String {

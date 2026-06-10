@@ -37,6 +37,7 @@ import com.twoskoops707.sixdegrees.scraper.scrapeThatsThem
 import com.twoskoops707.sixdegrees.tor.TorBootstrapManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -2697,6 +2698,91 @@ class OsintRepository(context: Context) {
         ReportMetadataSync.sync(metadata)
     }
 
+    private fun CoroutineScope.launchPhoneIntelScrapers(
+        phone: String,
+        city: String,
+        state: String,
+        metadata: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        channel: SendChannel<SearchProgressEvent>,
+        semaphore: Semaphore
+    ) {
+        val phoneDigits = phone.replace(Regex("[^0-9]"), "").takeLast(10)
+        if (phoneDigits.length < 10) return
+        val phoneFmt = "${phoneDigits.substring(0, 3)}-${phoneDigits.substring(3, 6)}-${phoneDigits.substring(6, 10)}"
+        metadata["person_phone"] = phoneFmt
+
+        launch {
+            channel.send(SearchProgressEvent.Checking("800notes"))
+            val out = scrape800Notes(phone)
+            handleScrapeOut("800notes", "https://800notes.com/Phone.aspx/$phoneFmt", out, sources, metadata, channel)
+        }
+        launch {
+            channel.send(SearchProgressEvent.Checking("ThatsThem"))
+            val out = scrapePhoneReversePage("https://thatsthem.com/phone/$phoneFmt", phoneFmt)
+            handleScrapeOut("ThatsThem", "https://thatsthem.com/phone/$phoneFmt", out, sources, metadata, channel)
+        }
+        launch {
+            channel.send(SearchProgressEvent.Checking("FastPeopleSearch"))
+            val out = scrapePhoneReversePage("https://www.fastpeoplesearch.com/$phoneDigits", phoneFmt)
+            handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/$phoneDigits", out, sources, metadata, channel)
+        }
+        launch {
+            channel.send(SearchProgressEvent.Checking("USPhoneBook"))
+            val out = scrapeUSPhoneBook(phoneFmt, city, state, byPhone = true)
+            handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/$phoneDigits", out, sources, metadata, channel)
+        }
+        launch {
+            semaphore.withPermit {
+                val key = apiKeys.numverifyKey
+                if (key.isBlank()) return@withPermit
+                channel.send(SearchProgressEvent.Checking("Numverify"))
+                val out = scrapeNumverify(phone, key)
+                if (out.blocked) {
+                    channel.send(SearchProgressEvent.Blocked("Numverify"))
+                } else if (out.found) {
+                    out.fields["valid"]?.let { metadata["numverify_valid"] = it }
+                    out.fields["country"]?.let { metadata["numverify_country"] = it }
+                    out.fields["carrier"]?.let { metadata["numverify_carrier"] = it }
+                    out.fields["line_type"]?.let { metadata["numverify_line_type"] = it }
+                    out.fields["location"]?.let { metadata["numverify_location"] = it }
+                    out.fields["intl"]?.let { metadata["numverify_intl"] = it }
+                    sources.add(DataSource("Numverify", "https://numverify.com/", Date(), 0.85))
+                    channel.send(SearchProgressEvent.Found("Numverify", out.fields["snippet"] ?: ""))
+                } else {
+                    channel.send(SearchProgressEvent.NotFound("Numverify"))
+                }
+            }
+        }
+        launch {
+            channel.send(SearchProgressEvent.Checking("libphonenumber"))
+            val out = scrapeLibPhoneNumber(phone)
+            if (out.found) {
+                out.fields["valid"]?.let { metadata["libphone_valid"] = it }
+                out.fields["country"]?.let { metadata["libphone_country"] = it }
+                out.fields["carrier"]?.let { metadata["libphone_carrier"] = it }
+                out.fields["line_type"]?.let { metadata["libphone_line_type"] = it }
+                out.fields["location"]?.let { metadata["libphone_location"] = it }
+                out.fields["timezone"]?.let { metadata["libphone_timezone"] = it }
+                out.fields["intl"]?.let { metadata["libphone_intl"] = it }
+            }
+            handleScrapeOut("libphonenumber", "https://libphonenumberapi.com/api/phone-numbers/${encode(phone)}", out, sources, metadata, channel)
+        }
+        launch {
+            channel.send(SearchProgressEvent.Checking("CallTracer"))
+            val out = scrapeCallTracer(phone)
+            if (out.found) {
+                out.fields["country"]?.let { metadata["calltracer_country"] = it }
+                out.fields["line_type"]?.let { metadata["calltracer_line_type"] = it }
+                out.fields["carrier"]?.let { metadata["calltracer_carrier"] = it }
+                out.fields["location"]?.let { metadata["calltracer_location"] = it }
+                out.fields["spam_score"]?.let { metadata["calltracer_spam_score"] = it }
+                out.fields["spam_reports"]?.let { metadata["calltracer_spam_reports"] = it }
+            }
+            handleScrapeOut("CallTracer", "https://calltracer.io/api/lookup/$phoneDigits", out, sources, metadata, channel)
+        }
+    }
+
     suspend fun saveReport(
         query: String,
         personId: String?,
@@ -2900,29 +2986,10 @@ class OsintRepository(context: Context) {
                             val out = scrapeGoogleNews(newsQuery, matchQuery = primaryQuery)
                             handleScrapeOut("Google News", "https://news.google.com/rss/search?q=${encode(newsQuery)}", out, sources, metadata, this@channelFlow)
                         }
-                        if (isPhoneOnly) {
-                            launch {
-                                send(SearchProgressEvent.Checking("800notes"))
-                                val out = scrape800Notes(primaryQuery)
-                                val digits = primaryQuery.replace(Regex("[^0-9]"), "")
-                                val fmt = if (digits.length >= 10) "${digits.substring(0,3)}-${digits.substring(3,6)}-${digits.substring(6,10)}" else primaryQuery
-                                handleScrapeOut("800notes", "https://800notes.com/Phone.aspx/$fmt", out, sources, metadata, this@channelFlow)
-                            }
-                            launch {
-                                send(SearchProgressEvent.Checking("libphonenumber"))
-                                val out = scrapeLibPhoneNumber(primaryQuery)
-                                if (out.found) {
-                                    out.fields["valid"]?.let { metadata["libphone_valid"] = it }
-                                    out.fields["carrier"]?.let { metadata["libphone_carrier"] = it }
-                                    out.fields["location"]?.let { metadata["libphone_location"] = it }
-                                }
-                                handleScrapeOut("libphonenumber", "https://libphonenumberapi.com/api/phone-numbers/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
-                            }
-                            launch {
-                                send(SearchProgressEvent.Checking("CallTracer"))
-                                val out = scrapeCallTracer(primaryQuery)
-                                handleScrapeOut("CallTracer", "https://calltracer.io/api/lookup/${primaryQuery.replace(Regex("[^0-9]"), "")}", out, sources, metadata, this@channelFlow)
-                            }
+                        fields["phone"]?.takeIf { it.isNotBlank() }?.let { personPhone ->
+                            launchPhoneIntelScrapers(
+                                personPhone, city, state, metadata, sources, this@channelFlow, semaphore
+                            )
                         }
                         if (SubjectSearchOrchestrator.shouldRunScraper(
                                 "DarkSearch", searchPhase, subjectIntent, activeCategories
@@ -2937,9 +3004,16 @@ class OsintRepository(context: Context) {
                                 send(SearchProgressEvent.Checking("CourtListener"))
                                 val out = scrapeCourtListener(primaryQuery)
                                 if (out.found) {
-                                    out.fields["case_count"]?.let { metadata["court_case_count"] = it }
+                                    out.fields["case_count"]?.let {
+                                        metadata["courtlistener_count"] = it
+                                        metadata["court_case_count"] = it
+                                    }
                                     out.fields["snippet"]?.let { metadata["court_cases"] = it }
-                                    out.fields["case_urls"]?.let { metadata["court_case_urls"] = it }
+                                    out.fields["case_urls"]?.let { urls ->
+                                        metadata["court_case_urls"] = urls
+                                        urls.lines().firstOrNull { it.startsWith("http") }
+                                            ?.let { metadata["courtlistener_link"] = it }
+                                    }
                                 }
                                 handleScrapeOut("CourtListener", "https://www.courtlistener.com/?q=${encode(primaryQuery)}&type=r", out, sources, metadata, this@channelFlow, 0.75)
                             }
@@ -3569,7 +3643,7 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "phone" -> {
-                        val phoneDigits = primaryQuery.replace(Regex("[^0-9]"), "")
+                        val phoneDigits = primaryQuery.replace(Regex("[^0-9]"), "").takeLast(10)
                         val phoneFmt = if (phoneDigits.length >= 10) {
                             "${phoneDigits.substring(0, 3)}-${phoneDigits.substring(3, 6)}-${phoneDigits.substring(6, 10)}"
                         } else primaryQuery
@@ -3618,81 +3692,9 @@ class OsintRepository(context: Context) {
                                 }
                             }
                         }
-                        launch {
-                            send(SearchProgressEvent.Checking("800notes"))
-                            val out = scrape800Notes(primaryQuery)
-                            handleScrapeOut("800notes", "https://800notes.com/Phone.aspx/$phoneFmt", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("ThatsThem"))
-                            val out = scrapePhoneReversePage(
-                                "https://thatsthem.com/phone/$phoneFmt",
-                                phoneFmt
-                            )
-                            handleScrapeOut("ThatsThem", "https://thatsthem.com/phone/$phoneFmt", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("FastPeopleSearch"))
-                            val out = scrapePhoneReversePage(
-                                "https://www.fastpeoplesearch.com/$phoneDigits",
-                                phoneFmt
-                            )
-                            handleScrapeOut("FastPeopleSearch", "https://www.fastpeoplesearch.com/$phoneDigits", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("USPhoneBook"))
-                            val out = scrapeUSPhoneBook(phoneFmt, city, state, byPhone = true)
-                            handleScrapeOut("USPhoneBook", "https://www.usphonebook.com/$phoneDigits", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            semaphore.withPermit {
-                                val key = apiKeys.numverifyKey
-                                if (key.isBlank()) return@withPermit
-                                    send(SearchProgressEvent.Checking("Numverify"))
-                                    val out = scrapeNumverify(primaryQuery, key)
-                                    if (out.blocked) {
-                                        send(SearchProgressEvent.Blocked("Numverify"))
-                                    } else if (out.found) {
-                                        out.fields["valid"]?.let { metadata["numverify_valid"] = it }
-                                        out.fields["country"]?.let { metadata["numverify_country"] = it }
-                                        out.fields["carrier"]?.let { metadata["numverify_carrier"] = it }
-                                        out.fields["line_type"]?.let { metadata["numverify_line_type"] = it }
-                                        out.fields["location"]?.let { metadata["numverify_location"] = it }
-                                        out.fields["intl"]?.let { metadata["numverify_intl"] = it }
-                                        sources.add(DataSource("Numverify", "https://numverify.com/", Date(), 0.85))
-                                        send(SearchProgressEvent.Found("Numverify", out.fields["snippet"] ?: ""))
-                                    } else {
-                                        send(SearchProgressEvent.NotFound("Numverify"))
-                                    }
-                            }
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("libphonenumber"))
-                            val out = scrapeLibPhoneNumber(primaryQuery)
-                            if (out.found) {
-                                out.fields["valid"]?.let { metadata["libphone_valid"] = it }
-                                out.fields["country"]?.let { metadata["libphone_country"] = it }
-                                out.fields["carrier"]?.let { metadata["libphone_carrier"] = it }
-                                out.fields["line_type"]?.let { metadata["libphone_line_type"] = it }
-                                out.fields["location"]?.let { metadata["libphone_location"] = it }
-                                out.fields["timezone"]?.let { metadata["libphone_timezone"] = it }
-                                out.fields["intl"]?.let { metadata["libphone_intl"] = it }
-                            }
-                            handleScrapeOut("libphonenumber", "https://libphonenumberapi.com/api/phone-numbers/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
-                        }
-                        launch {
-                            send(SearchProgressEvent.Checking("CallTracer"))
-                            val out = scrapeCallTracer(primaryQuery)
-                            if (out.found) {
-                                out.fields["country"]?.let { metadata["calltracer_country"] = it }
-                                out.fields["line_type"]?.let { metadata["calltracer_line_type"] = it }
-                                out.fields["carrier"]?.let { metadata["calltracer_carrier"] = it }
-                                out.fields["location"]?.let { metadata["calltracer_location"] = it }
-                                out.fields["spam_score"]?.let { metadata["calltracer_spam_score"] = it }
-                                out.fields["spam_reports"]?.let { metadata["calltracer_spam_reports"] = it }
-                            }
-                            handleScrapeOut("CallTracer", "https://calltracer.io/api/lookup/${phoneDigits}", out, sources, metadata, this@channelFlow)
-                        }
+                        launchPhoneIntelScrapers(
+                            primaryQuery, city, state, metadata, sources, this@channelFlow, semaphore
+                        )
                         launch {
                             send(SearchProgressEvent.Checking("DarkSearch"))
                             val out = searchDarkWeb(primaryQuery)

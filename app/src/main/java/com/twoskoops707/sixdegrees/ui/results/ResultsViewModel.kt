@@ -235,6 +235,7 @@ object DossierBuilder {
         when (searchType) {
             "phone" -> return buildPhoneSections(meta)
             "email", "breach" -> return buildEmailSections(meta)
+            "vehicle", "vin" -> return listOf(buildVehiclesSection(meta), buildAiSection(meta)).filter { !it.isEmpty }
         }
         if (searchType !in setOf("person", "scan", "comprehensive")) {
             return listOf(buildLegacyFallback(meta))
@@ -679,8 +680,6 @@ object DossierBuilder {
             ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "SEC Affiliations")) }
         meta["sec_fulltext_entities"]?.takeIf { it.isNotBlank() && meta["sec_person_entities"].isNullOrBlank() }
             ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "SEC Filings")) }
-        meta["sec_affiliations"]?.takeIf { it.isNotBlank() }
-            ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "SEC Affiliations")) }
         meta["sec_fulltext_forms"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "SEC EDGAR", DossierConfidence.MEDIUM, "Filing Types")) }
         meta["sec_filings_count"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
@@ -708,9 +707,11 @@ object DossierBuilder {
                 ))
             }
         }
-        val courtCount = meta["courtlistener_count"]?.toIntOrNull() ?: 0
+        val courtCount = meta["courtlistener_count"]?.toIntOrNull()
+            ?: meta["court_case_count"]?.toIntOrNull() ?: 0
         if (courtCount > 0) {
             val courtLink = meta["courtlistener_link"]?.takeIf { it.startsWith("http") }
+                ?: meta["court_case_urls"]?.lines()?.firstOrNull { it.startsWith("http") }
             findings.add(finding(
                 "$courtCount case${if (courtCount != 1) "s" else ""}", "CourtListener", DossierConfidence.HIGH, "Court Cases",
                 sourceUrl = courtLink ?: FindingUrlHelper.courtUrl(ctx)

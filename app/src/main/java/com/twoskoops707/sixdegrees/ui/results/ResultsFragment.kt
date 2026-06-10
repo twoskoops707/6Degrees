@@ -160,7 +160,8 @@ class ResultsFragment : Fragment() {
 
         applyShadyScore(state.shadyScore, enrichedMeta, searchType, investigatorMode)
         showPartialReportBanner(enrichedMeta)
-        setupDossierTabs(state.dossierSections, investigatorMode, enrichedMeta)
+        val sections = resolveReportSections(searchType, investigatorMode, state.dossierSections, enrichedMeta)
+        setupDossierTabs(sections, investigatorMode, enrichedMeta)
         buildCandidateDisambiguation(enrichedMeta)
         setupBackToCandidates()
 
@@ -208,6 +209,64 @@ class ResultsFragment : Fragment() {
     private fun extractBestLocation(meta: Map<String, String>): String =
         FindingUrlHelper.bestDisplayLocation(meta)
 
+    private fun resolveReportSections(
+        searchType: String,
+        investigatorMode: Boolean,
+        dossierSections: List<DossierSection>,
+        meta: Map<String, String>
+    ): List<DossierSection> {
+        val structuredTabTypes = setOf("company", "domain", "ip", "username", "image", "vehicle", "vin", "comprehensive")
+        val isLegacyDump = dossierSections.size == 1 && dossierSections.firstOrNull()?.id == "data"
+        return when {
+            searchType in structuredTabTypes || isLegacyDump ->
+                tabsToDossierSections(buildTabs(meta, searchType))
+            searchType == "phone" && investigatorMode ->
+                dossierSections + tabsToDossierSections(buildTabs(meta, searchType))
+            else -> dossierSections
+        }
+    }
+
+    private fun tabsToDossierSections(
+        tabs: List<Pair<String, List<Pair<String, String>>>>
+    ): List<DossierSection> {
+        return tabs.mapIndexed { index, (title, rows) ->
+            val findings = rows.mapNotNull { (label, value) ->
+                when {
+                    value.isBlank() && label.isNotBlank() ->
+                        DossierFinding(
+                            label = "Section",
+                            value = label.trim(),
+                            source = "SixDegrees",
+                            confidence = DossierConfidence.MEDIUM
+                        )
+                    value.isBlank() -> null
+                    else -> DossierFinding(
+                        label = label.ifBlank { null },
+                        value = value,
+                        source = "SixDegrees",
+                        confidence = DossierConfidence.MEDIUM,
+                        isLink = value.startsWith("http://") || value.startsWith("https://")
+                    )
+                }
+            }
+            DossierSection(
+                id = "tab_$index",
+                title = title,
+                icon = "",
+                findings = findings.ifEmpty {
+                    listOf(
+                        DossierFinding(
+                            label = "Status",
+                            value = "No data in this section",
+                            source = "SixDegrees",
+                            confidence = DossierConfidence.LOW
+                        )
+                    )
+                }
+            )
+        }
+    }
+
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
         return when (type) {
             "person", "scan" -> listOf(
@@ -248,6 +307,9 @@ class ResultsFragment : Fragment() {
             "image" -> listOf(
                 getString(R.string.dossier_tab_face) to buildImageFace(meta),
                 getString(R.string.dossier_tab_reverse) to buildImageReverse(meta)
+            )
+            "vehicle", "vin" -> listOf(
+                getString(R.string.dossier_tab_data) to buildVehicleTab(meta)
             )
             "comprehensive" -> {
                 val tabs = mutableListOf(
@@ -1584,13 +1646,13 @@ class ResultsFragment : Fragment() {
     private fun buildPhoneValidation(meta: Map<String, String>): List<Pair<String, String>> {
         val rows = mutableListOf<Pair<String, String>>()
         rows.add(sec("NUMBER VALIDATION"))
-        meta["numverify_valid"]?.let { rows.add("Valid" to if (it == "true") "Yes ✓" else "No No") }
+        meta["numverify_valid"]?.let { rows.add("Valid" to if (it == "true") "Yes" else "No") }
         meta["numverify_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country" to it) }
         meta["numverify_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier" to it) }
         meta["numverify_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type" to it) }
         meta["numverify_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
         meta["numverify_intl"]?.takeIf { it.isNotBlank() }?.let { rows.add("Intl Format" to it) }
-        meta["libphone_valid"]?.let { rows.add("Valid (libphonenumber)" to if (it == "true") "Yes ✓" else "No No") }
+        meta["libphone_valid"]?.let { rows.add("Valid (libphonenumber)" to if (it == "true") "Yes" else "No") }
         meta["libphone_country"]?.takeIf { it.isNotBlank() }?.let { rows.add("Country (libphonenumber)" to it) }
         meta["libphone_carrier"]?.takeIf { it.isNotBlank() }?.let { rows.add("Carrier (libphonenumber)" to it) }
         meta["libphone_line_type"]?.takeIf { it.isNotBlank() }?.let { rows.add("Line Type (libphonenumber)" to it) }
@@ -1709,6 +1771,25 @@ class ResultsFragment : Fragment() {
             rows.add("Entity" to it)
         }
         if (rows.isEmpty()) rows.add("Status" to "No filing data found for this entity")
+        return rows
+    }
+
+    private fun buildVehicleTab(meta: Map<String, String>): List<Pair<String, String>> {
+        val rows = mutableListOf<Pair<String, String>>()
+        mapOf(
+            "vehicle_make" to "Make",
+            "vehicle_model" to "Model",
+            "vehicle_year" to "Year",
+            "vehicle_records" to "Records",
+            "vehicle_plates" to "Plates",
+            "vehicle_search_note" to "Note"
+        ).forEach { (key, label) ->
+            meta[key]?.takeIf { it.isNotBlank() }?.let { rows.add(label to it) }
+        }
+        meta["dork_vehicle_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(8)?.forEach {
+            rows.add("Vehicle intel" to it.trim())
+        }
+        if (rows.isEmpty()) rows.add("Status" to "No vehicle records found for this VIN or plate")
         return rows
     }
 
