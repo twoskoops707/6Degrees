@@ -110,10 +110,10 @@ class SettingsFragment : Fragment() {
 
         binding.plugBgSection.visibility = if (currentBase == "theplug") View.VISIBLE else View.GONE
 
-        val currentPlugBg = prefs.getString("pref_plug_bg", "bricks") ?: "bricks"
+        val currentPlugBg = prefs.getString("pref_plug_bg", "gradient") ?: "gradient"
         updatePlugBgSelection(currentPlugBg)
 
-        binding.cardPlugBgRasta.setOnClickListener { selectPlugBg("rasta", prefs) }
+        binding.cardPlugBgRasta.setOnClickListener { selectPlugBg("gradient", prefs) }
         binding.cardPlugBgLeaves.setOnClickListener { selectPlugBg("leaves", prefs) }
         binding.cardPlugBgBricks.setOnClickListener { selectPlugBg("bricks", prefs) }
         binding.cardPlugBgMedellin.setOnClickListener { selectPlugBg("medellin", prefs) }
@@ -259,7 +259,7 @@ class SettingsFragment : Fragment() {
     }
 
     private fun selectPlugBg(variant: String, prefs: android.content.SharedPreferences) {
-        val current = prefs.getString("pref_plug_bg", "bricks")
+        val current = prefs.getString("pref_plug_bg", "gradient")
         prefs.edit().putString("pref_plug_bg", variant).apply()
         if (_binding != null) updatePlugBgSelection(variant)
         if (variant != current) {
@@ -279,7 +279,7 @@ class SettingsFragment : Fragment() {
             card.strokeColor = if (active) activeStroke else inactiveStroke
             card.strokeWidth = if (active) activeWidth else inactiveWidth
         }
-        style(b.cardPlugBgRasta, selected == "rasta")
+        style(b.cardPlugBgRasta, selected == "gradient" || selected == "rasta" || selected == "plain")
         style(b.cardPlugBgLeaves, selected == "leaves")
         style(b.cardPlugBgBricks, selected == "bricks")
         style(b.cardPlugBgMedellin, selected == "medellin")

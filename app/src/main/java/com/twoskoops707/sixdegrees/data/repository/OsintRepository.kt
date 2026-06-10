@@ -145,6 +145,27 @@ class OsintRepository(context: Context) {
         .build()
 
     private val termuxRunner by lazy { TermuxToolRunner(appCtx) }
+    private val usernameDiscovery by lazy { UsernameDiscoveryService() }
+
+    private suspend fun runUsernameDiscovery(
+        usernames: Collection<String>,
+        socialUrls: Collection<String>,
+        metadata: ConcurrentHashMap<String, String>,
+        sources: MutableList<DataSource>,
+        channel: SendChannel<SearchProgressEvent>
+    ) {
+        val primary = usernames.firstOrNull()?.trim()?.removePrefix("@").orEmpty()
+        if (primary.isBlank() && socialUrls.isEmpty()) return
+        val hits = usernameDiscovery.discoverFromHints(usernames, socialUrls) { channel.send(it) }
+        if (hits.isEmpty()) return
+        usernameDiscovery.applyToMetadata(hits, metadata, primary.ifBlank { usernames.first() })
+        sources.add(DataSource("Username Scan", "in-app", Date(), 0.85))
+        hits.firstOrNull()?.let { first ->
+            if (metadata["profile_photo_url"].isNullOrBlank()) {
+                fetchAvatarUrl(first.username, first.platform.lowercase())?.let { metadata["profile_photo_url"] = it }
+            }
+        }
+    }
 
     private fun torHttpClientOrNull(): OkHttpClient? {
         if (!TorBootstrapManager.isPortOpen()) return null
@@ -296,14 +317,6 @@ class OsintRepository(context: Context) {
             val agifyBody = agifyResp.body?.string() ?: ""
             agifyResp.close()
 
-            val natReq = Request.Builder()
-                .url("https://api.nationalize.io/?name=$encoded")
-                .header("User-Agent", SEC_USER_AGENT)
-                .build()
-            val natResp = fastHttpClient.newCall(natReq).execute()
-            val natBody = natResp.body?.string() ?: ""
-            natResp.close()
-
             val fields = mutableMapOf<String, String>()
             if (genderBody.startsWith("{")) {
                 val g = JSONObject(genderBody)
@@ -315,18 +328,6 @@ class OsintRepository(context: Context) {
             if (agifyBody.startsWith("{")) {
                 val a = JSONObject(agifyBody)
                 a.optInt("age", 0).takeIf { it in 1..120 }?.let { fields["estimated_age"] = it.toString() }
-            }
-            if (natBody.startsWith("{")) {
-                val n = JSONObject(natBody)
-                val countries = n.optJSONArray("country") ?: org.json.JSONArray()
-                val top = (0 until minOf(3, countries.length())).mapNotNull { i ->
-                    countries.optJSONObject(i)?.let { c ->
-                        val id = c.optString("country_id")
-                        val p = c.optDouble("probability", 0.0)
-                        if (id.isNotBlank()) "$id (${(p * 100).toInt()}%)" else null
-                    }
-                }
-                if (top.isNotEmpty()) fields["nationality"] = top.joinToString(", ")
             }
             if (fields.isEmpty()) ScrapeOut(false, false)
             else ScrapeOut(true, false, fields + mapOf(
@@ -1751,9 +1752,7 @@ class OsintRepository(context: Context) {
             metadata["${prefix}gender"]?.takeIf { it.isNotBlank() }?.let {
                 if (metadata["demographics_gender"].isNullOrBlank()) metadata["demographics_gender"] = it
             }
-            metadata["${prefix}nationality"]?.takeIf { it.isNotBlank() }?.let {
-                if (metadata["demographics_nationality"].isNullOrBlank()) metadata["demographics_nationality"] = it
-            }
+            // Nationality from name-only APIs is unreliable — do not promote to report metadata.
         }
     }
 
@@ -2543,6 +2542,10 @@ class OsintRepository(context: Context) {
         metadata["pdl_profiles"]?.takeIf { it.isNotBlank() }?.let { appendLine("Profiles (PDL):\n${it.take(200)}") }
         metadata["github_name"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub Name: $it") }
         metadata["github_stats"]?.takeIf { it.isNotBlank() }?.let { appendLine("GitHub: $it") }
+        metadata["username_platform_summary"]?.takeIf { it.isNotBlank() }?.let { appendLine("Username platforms:\n${it.take(400)}") }
+        metadata["sites_found"]?.toIntOrNull()?.takeIf { it > 0 }?.let { found ->
+            appendLine("Username scan: $found profiles on ${metadata["sites_checked"] ?: "?"} platforms")
+        }
         metadata["reddit_url"]?.takeIf { it.isNotBlank() }?.let { appendLine("Reddit: $it") }
         listOfNotNull(metadata["pipl_employment"], metadata["pdl_employment"])
             .firstOrNull { it.isNotBlank() }?.let { appendLine("Employment:\n${it.take(300)}") }
@@ -2722,6 +2725,9 @@ class OsintRepository(context: Context) {
                 SubjectSearchOrchestrator.shouldRunForPreset(name, activeCategories)
             val subjectIntent = SubjectSearchOrchestrator.normalizeIntent(subjectProfile.intent)
             if (subjectProfile.intent.isNotBlank()) metadata["subject_intent"] = subjectIntent
+            if (termuxRunner.isTermuxInstalled()) {
+                termuxRunner.requestToolStatusRefresh()
+            }
             val isPhoneOnly = fields["phone"]?.isNotBlank() == true &&
                 fields["name"].isNullOrBlank() && fields["email"].isNullOrBlank() && fields["username"].isNullOrBlank()
             if (isPhoneOnly) metadata["phone_only_search"] = "true"
@@ -2780,9 +2786,11 @@ class OsintRepository(context: Context) {
                                 "Wikidata", "OpenSanctions", "OpenCorporates", "FBI Wanted",
                                 "NPI Registry", "OpenFEC"
                             ) + SubjectSearchOrchestrator.extraDeepScrapersForIntent(subjectIntent)
-                            if (SubjectSearchOrchestrator.shouldRunDarkWeb(searchPhase, subjectIntent)) {
-                                launch { ensureDarkWebTor(this@channelFlow) }
-                            }
+                        }
+                        if (SubjectSearchOrchestrator.shouldRunDarkWeb(searchPhase, subjectIntent) &&
+                            SubjectSearchOrchestrator.shouldRunScraper("DarkSearch", searchPhase, subjectIntent, activeCategories)
+                        ) {
+                            launch { ensureDarkWebTor(this@channelFlow) }
                         }
                         val personPhone = fields["phone"] ?: ""
                         val personEmail = fields["email"] ?: ""
@@ -2871,8 +2879,9 @@ class OsintRepository(context: Context) {
                                 handleScrapeOut("CallTracer", "https://calltracer.io/api/lookup/${primaryQuery.replace(Regex("[^0-9]"), "")}", out, sources, metadata, this@channelFlow)
                             }
                         }
-                        if (deepPhase && allowSource("DarkSearch") &&
-                            SubjectSearchOrchestrator.shouldRunDarkWeb(searchPhase, subjectIntent)
+                        if (SubjectSearchOrchestrator.shouldRunScraper(
+                                "DarkSearch", searchPhase, subjectIntent, activeCategories
+                            )
                         ) {
                             launch {
                                 runDarkWebSearches(subjectProfile, primaryQuery, sources, metadata, this@channelFlow)
@@ -3133,26 +3142,32 @@ class OsintRepository(context: Context) {
                                 }
                             }
                         }
-                        if (deepPhase) {
-                            if (personUsername.isNotBlank()) {
+                        if (personUsername.isNotBlank()) {
+                            if (SubjectSearchOrchestrator.shouldRunScraper("sherlock", searchPhase, subjectIntent, activeCategories)) {
                                 launch {
                                     semaphore.withPermit {
                                         termuxRunner.runSherlock(personUsername).collect { send(it) }
                                     }
                                 }
+                            }
+                            if (SubjectSearchOrchestrator.shouldRunScraper("maigret", searchPhase, subjectIntent, activeCategories)) {
                                 launch {
                                     semaphore.withPermit {
                                         termuxRunner.runMaigret(personUsername).collect { send(it) }
                                     }
                                 }
                             }
-                            if (personEmail.isNotBlank()) {
-                                launch {
-                                    semaphore.withPermit {
-                                        termuxRunner.runHolehe(personEmail).collect { send(it) }
-                                    }
+                        }
+                        if (personEmail.isNotBlank() &&
+                            SubjectSearchOrchestrator.shouldRunScraper("holehe", searchPhase, subjectIntent, activeCategories)
+                        ) {
+                            launch {
+                                semaphore.withPermit {
+                                    termuxRunner.runHolehe(personEmail).collect { send(it) }
                                 }
                             }
+                        }
+                        if (SubjectSearchOrchestrator.shouldRunScraper("theHarvester", searchPhase, subjectIntent, activeCategories)) {
                             launch {
                                 semaphore.withPermit {
                                     termuxRunner.runTheHarvester(primaryQuery).collect { send(it) }
@@ -3902,6 +3917,15 @@ class OsintRepository(context: Context) {
                     "username" -> {
                         targetedScraperNames += setOf("GitHub", "Reddit")
                         launch {
+                            runUsernameDiscovery(
+                                usernames = listOf(primaryQuery),
+                                socialUrls = emptyList(),
+                                metadata = metadata,
+                                sources = sources,
+                                channel = this@channelFlow
+                            )
+                        }
+                        launch {
                             send(SearchProgressEvent.Checking("GitHub"))
                             val out = scrapeGitHub(primaryQuery)
                             if (out.found) {
@@ -3913,7 +3937,9 @@ class OsintRepository(context: Context) {
                                 metadata["github_stats"] = out.fields["stats"] ?: ""
                                 val ghUrl = out.fields["profile_url"] ?: "https://github.com/$primaryQuery"
                                 metadata["github_url"] = ghUrl
-                                appendMetadata(metadata, "found_urls", "GitHub: $ghUrl")
+                                if (!metadata["found_urls"].orEmpty().contains("GitHub:")) {
+                                    appendMetadata(metadata, "found_urls", "GitHub: $ghUrl")
+                                }
                             }
                             handleScrapeOut("GitHub", "https://github.com/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
@@ -4017,7 +4043,7 @@ class OsintRepository(context: Context) {
                 )
             }
 
-            if (searchPhase == SearchPhase.DEEP_INVESTIGATION) {
+            if (SubjectSearchOrchestrator.shouldRunDarkWeb(searchPhase, subjectIntent)) {
                 send(SearchProgressEvent.PhaseUpdate("Dark web", "Tor + onion index sweep"))
             }
 
@@ -4049,6 +4075,23 @@ class OsintRepository(context: Context) {
                 }
                 if (distinctSocial.isNotEmpty()) metadata["search_social_links"] = distinctSocial.joinToString("\n")
                 if (distinctProfiles.isNotEmpty()) metadata["search_profile_links"] = distinctProfiles.joinToString("\n")
+                if (metadata["sites_checked"].isNullOrBlank()) {
+                    val usernameCandidates = buildList {
+                        fields["username"]?.takeIf { it.isNotBlank() }?.let { add(it) }
+                        fields["email"]?.takeIf { it.isNotBlank() }?.let { email ->
+                            addAll(com.twoskoops707.sixdegrees.data.osint.UsernamePlatformRegistry.candidatesFromEmail(email))
+                        }
+                    }.distinct()
+                    if (usernameCandidates.isNotEmpty() || distinctSocial.isNotEmpty()) {
+                        runUsernameDiscovery(
+                            usernames = usernameCandidates,
+                            socialUrls = distinctSocial,
+                            metadata = metadata,
+                            sources = sources,
+                            channel = this@channelFlow
+                        )
+                    }
+                }
                 if (ddgSnippets.isNotEmpty()) metadata["search_snippets"] = ddgSnippets.distinct().take(20).joinToString("\n").take(3000)
                 if (distinctPhones.isNotEmpty() || distinctAges.isNotEmpty() || stateFilteredAddresses.isNotEmpty() || distinctRelatives.isNotEmpty()) {
                     val rec = PersonRecord(
@@ -4064,15 +4107,18 @@ class OsintRepository(context: Context) {
                 }
 
                 val enc = { s: String -> URLEncoder.encode(s, "UTF-8") }
-                val locQ = listOf(city, state).filter { it.isNotBlank() }.joinToString("+")
-                val locEncoded = if (locQ.isNotBlank()) "+$locQ" else ""
+                val street = fields["address"]?.trim().orEmpty()
+                val fullLoc = listOf(street, city, state).filter { it.isNotBlank() }.joinToString(", ")
+                val locEncoded = if (fullLoc.isNotBlank()) "+${enc(fullLoc)}" else if (locationStr.isNotBlank()) "+${enc(locationStr)}" else ""
                 val nameEnc = enc(primaryQuery)
+                val hyphenName = enc(primaryQuery.replace(" ", "-"))
                 val verifyLinks = listOf(
                     "DDG: Name + Location" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22$locEncoded",
                     "DDG: Phone Lookup" to "https://html.duckduckgo.com/html/?q=%22$nameEnc%22+phone+number$locEncoded",
-                    "FastPeopleSearch" to "https://www.fastpeoplesearch.com/name/${enc(primaryQuery.replace(" ", "-"))}${if (state.isNotBlank()) "/${enc(state.lowercase())}" else ""}",
-                    "TruePeopleSearch" to "https://www.truepeoplesearch.com/results?name=$nameEnc&citystatezip=${enc(locationStr)}",
-                    "CourtListener" to "https://www.courtlistener.com/?q=$nameEnc&type=p&order_by=score+desc"
+                    "FastPeopleSearch" to "https://www.fastpeoplesearch.com/name/$hyphenName${if (state.isNotBlank()) "/${enc(state.lowercase())}" else ""}",
+                    "TruePeopleSearch" to "https://www.truepeoplesearch.com/results?name=$nameEnc&citystatezip=${enc(fullLoc.ifBlank { locationStr })}",
+                    "CourtListener" to "https://www.courtlistener.com/?q=$nameEnc$locEncoded&type=p&order_by=score+desc",
+                    "JudyRecords" to "https://www.judyrecords.com/search?search=$nameEnc"
                 ).joinToString("\n") { (label, url) -> "$label: $url" }
                 metadata["dork_browser_verify_links"] = verifyLinks
             }

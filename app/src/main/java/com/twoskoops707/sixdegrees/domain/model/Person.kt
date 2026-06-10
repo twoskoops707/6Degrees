@@ -38,5 +38,8 @@ data class SocialProfile(
     val platform: String, // LinkedIn, Facebook, Twitter, etc.
     val username: String,
     val url: String?,
-    val followersCount: Int?
+    val followersCount: Int? = null,
+    val followingCount: Int? = null,
+    val friendsCount: Int? = null,
+    val statsLabel: String? = null
 )

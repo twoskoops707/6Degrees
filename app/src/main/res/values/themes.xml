@@ -7,7 +7,7 @@
     <style name="Theme.SixDegrees" parent="Theme.SixDegrees.Modern" />
 
     <!-- ══════════════════════════════════════════════════ -->
-    <!-- MODERN — Material 3 clean dark UI                 -->
+    <!-- MODERN — Material 3 premium OSINT default                -->
     <!-- ══════════════════════════════════════════════════ -->
     <style name="Theme.SixDegrees.Modern" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="themeFamily">modern</item>
@@ -19,7 +19,7 @@
         <item name="colorOnSecondary">@color/md_background</item>
         <item name="colorSecondaryContainer">@color/md_secondary_container</item>
         <item name="colorOnSecondaryContainer">@color/md_on_secondary_container</item>
-        <item name="colorTertiary">@color/accent_violet</item>
+        <item name="colorTertiary">@color/accent_amber</item>
         <item name="colorOnTertiary">@color/white</item>
         <item name="colorTertiaryContainer">@color/md_tertiary_container</item>
         <item name="colorOnTertiaryContainer">@color/md_on_tertiary_container</item>
@@ -254,16 +254,16 @@
     </style>
 
     <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- REDACTED — white/light, black ink, government document      -->
+    <!-- CLASSIFIED (pref: redacted) — dark dossier, red stamps   -->
     <!-- ════════════════════════════════════════════════════════════ -->
     <style name="Theme.SixDegrees.Redacted" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="themeFamily">redacted</item>
-        <item name="colorPrimary">@color/red_ink</item>
-        <item name="colorPrimaryVariant">@color/red_ink_dim</item>
+        <item name="colorPrimary">@color/red_accent</item>
+        <item name="colorPrimaryVariant">@color/red_stamp</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/red_accent</item>
+        <item name="colorSecondary">@color/red_ink_dim</item>
         <item name="colorSecondaryVariant">@color/red_accent_dim</item>
-        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorOnSecondary">@color/red_ink</item>
         <item name="android:colorBackground">@color/red_bg</item>
         <item name="colorSurface">@color/red_surface</item>
         <item name="colorOnSurface">@color/red_ink</item>
@@ -271,14 +271,16 @@
         <item name="colorOnError">@color/white</item>
         <item name="android:statusBarColor">@color/red_bg</item>
         <item name="android:navigationBarColor">@color/red_bg</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
+        <item name="android:windowBackground">@drawable/bg_classified_gradient</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FieldIntel.Small</item>
-        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FieldIntel.Medium</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Classified.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Classified.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Classified.Medium</item>
         <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Redacted</item>
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Redacted</item>
+        <item name="materialButtonStyle">@style/Widget.SixDegrees.Button.Classified</item>
     </style>
 
     <!-- ════════════════════════════════════════════════════════════ -->
@@ -310,16 +312,16 @@
     </style>
 
     <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- HUMINT — dark navy, steel/ice blue, 4dp corners            -->
+    <!-- HUMINT — brass dossier on graphite, monospace intel        -->
     <!-- ════════════════════════════════════════════════════════════ -->
     <style name="Theme.SixDegrees.Humint" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="themeFamily">humint</item>
         <item name="colorPrimary">@color/hi_blue</item>
-        <item name="colorPrimaryVariant">@color/hi_blue_dim</item>
-        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorPrimaryVariant">@color/hi_stamp</item>
+        <item name="colorOnPrimary">@color/hi_bg</item>
         <item name="colorSecondary">@color/hi_cyan</item>
         <item name="colorSecondaryVariant">@color/hi_blue_dim</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorOnSecondary">@color/hi_text</item>
         <item name="android:colorBackground">@color/hi_bg</item>
         <item name="colorSurface">@color/hi_surface</item>
         <item name="colorOnSurface">@color/hi_text</item>
@@ -327,26 +329,28 @@
         <item name="colorOnError">@color/white</item>
         <item name="android:statusBarColor">@color/hi_bg</item>
         <item name="android:navigationBarColor">@color/hi_bg</item>
+        <item name="android:windowBackground">@drawable/bg_humint_gradient</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Tactical.Small</item>
-        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Tactical.Medium</item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Tactical.Medium</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Humint.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Humint.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Humint.Medium</item>
         <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.Humint</item>
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.Humint</item>
+        <item name="materialButtonStyle">@style/Widget.SixDegrees.Button.Humint</item>
     </style>
 
     <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- THE PLUG — white brick, cannabis green, cheeky & readable   -->
+    <!-- THE PLUG — premium dark emerald street intel               -->
     <!-- ════════════════════════════════════════════════════════════ -->
     <style name="Theme.SixDegrees.ThePlug" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="themeFamily">theplug</item>
         <item name="colorPrimary">@color/plug_green</item>
-        <item name="colorPrimaryVariant">@color/plug_green_bright</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/plug_green_bright</item>
-        <item name="colorSecondaryVariant">@color/plug_green_dim</item>
+        <item name="colorPrimaryVariant">@color/plug_money</item>
+        <item name="colorOnPrimary">@color/plug_bg</item>
+        <item name="colorSecondary">@color/plug_gold</item>
+        <item name="colorSecondaryVariant">@color/plug_gold_dim</item>
         <item name="colorOnSecondary">@color/plug_text</item>
         <item name="android:colorBackground">@color/plug_bg</item>
         <item name="colorSurface">@color/plug_surface</item>
@@ -355,15 +359,16 @@
         <item name="colorOnError">@color/white</item>
         <item name="android:statusBarColor">@color/plug_bg</item>
         <item name="android:navigationBarColor">@color/plug_bg</item>
-        <item name="android:windowBackground">@drawable/bg_plug_brick</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
+        <item name="android:windowBackground">@drawable/bg_plug_gradient</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Plug.Small</item>
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Plug.Medium</item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Plug.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Plug.Large</item>
         <item name="materialCardViewStyle">@style/Widget.SixDegrees.CardView.ThePlug</item>
         <item name="bottomNavigationStyle">@style/Widget.SixDegrees.BottomNav.ThePlug</item>
+        <item name="materialButtonStyle">@style/Widget.SixDegrees.Button.Plug</item>
     </style>
 
     <!-- ════════════════════════════════════════════════════════════ -->
@@ -429,10 +434,27 @@
     </style>
 
     <style name="ShapeAppearance.Plug.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
-        <item name="cornerSize">8dp</item>
+        <item name="cornerSize">10dp</item>
     </style>
     <style name="ShapeAppearance.Plug.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
-        <item name="cornerSize">12dp</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+    <style name="ShapeAppearance.Plug.Large" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerSize">20dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Humint.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">2dp</item>
+    </style>
+    <style name="ShapeAppearance.Humint.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">2dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Classified.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">2dp</item>
+    </style>
+    <style name="ShapeAppearance.Classified.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">2dp</item>
     </style>
 
     <!-- ════════════════════ CARD STYLES ════════════════════ -->
@@ -500,7 +522,7 @@
         <item name="cardBackgroundColor">@color/red_surface</item>
         <item name="cardCornerRadius">2dp</item>
         <item name="cardElevation">0dp</item>
-        <item name="strokeColor">@color/red_border</item>
+        <item name="strokeColor">@color/red_accent</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
@@ -514,17 +536,17 @@
 
     <style name="Widget.SixDegrees.CardView.Humint" parent="Widget.MaterialComponents.CardView">
         <item name="cardBackgroundColor">@color/hi_surface</item>
-        <item name="cardCornerRadius">4dp</item>
+        <item name="cardCornerRadius">2dp</item>
         <item name="cardElevation">0dp</item>
         <item name="strokeColor">@color/hi_border</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
     <style name="Widget.SixDegrees.CardView.ThePlug" parent="Widget.MaterialComponents.CardView">
-        <item name="cardBackgroundColor">@color/plug_surface</item>
-        <item name="cardCornerRadius">12dp</item>
-        <item name="cardElevation">2dp</item>
-        <item name="strokeColor">@color/plug_green</item>
+        <item name="cardBackgroundColor">@color/plug_surface_elevated</item>
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">4dp</item>
+        <item name="strokeColor">@color/plug_border</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
@@ -562,13 +584,17 @@
         <item name="android:background">@color/nops_bg</item>
     </style>
     <style name="Widget.SixDegrees.BottomNav.Redacted" parent="Widget.SixDegrees.BottomNav">
-        <item name="android:background">@color/red_bg</item>
+        <item name="android:background">@color/red_surface</item>
+        <item name="itemIconTint">@color/red_bottom_nav_color</item>
+        <item name="itemTextColor">@color/red_bottom_nav_color</item>
     </style>
     <style name="Widget.SixDegrees.BottomNav.ColdWar" parent="Widget.SixDegrees.BottomNav">
         <item name="android:background">@color/cw_bg</item>
     </style>
     <style name="Widget.SixDegrees.BottomNav.Humint" parent="Widget.SixDegrees.BottomNav">
-        <item name="android:background">@color/hi_bg</item>
+        <item name="android:background">@color/hi_surface</item>
+        <item name="itemIconTint">@color/hi_bottom_nav_color</item>
+        <item name="itemTextColor">@color/hi_bottom_nav_color</item>
     </style>
     <style name="Widget.SixDegrees.BottomNav.ThePlug" parent="Widget.SixDegrees.BottomNav">
         <item name="android:background">@color/plug_surface</item>
@@ -651,6 +677,32 @@
         <item name="android:textColor">@color/white</item>
         <item name="android:textSize">14sp</item>
         <item name="android:letterSpacing">0.05</item>
+    </style>
+
+    <style name="Widget.SixDegrees.Button.Classified" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/red_accent</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">2dp</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <style name="Widget.SixDegrees.Button.Humint" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/hi_blue</item>
+        <item name="android:textColor">@color/hi_bg</item>
+        <item name="cornerRadius">2dp</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <style name="Widget.SixDegrees.Button.Plug" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/plug_green</item>
+        <item name="android:textColor">@color/plug_bg</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.04</item>
     </style>
 
     <style name="Theme.SixDegrees.NoActionBar" parent="Theme.SixDegrees">

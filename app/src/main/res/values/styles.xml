@@ -4,6 +4,7 @@
     <!-- Typography -->
     <style name="TextAppearance.SixDegrees.HeadlineLarge" parent="TextAppearance.Material3.HeadlineLarge">
         <item name="android:textColor">?attr/colorOnBackground</item>
+        <item name="android:letterSpacing">-0.01</item>
     </style>
 
     <style name="TextAppearance.SixDegrees.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
@@ -39,7 +40,8 @@
     <style name="TextAppearance.SixDegrees.SectionHeader" parent="TextAppearance.Material3.LabelMedium">
         <item name="android:textColor">?attr/colorPrimary</item>
         <item name="android:textAllCaps">true</item>
-        <item name="android:letterSpacing">0.08</item>
+        <item name="android:letterSpacing">0.12</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
     <!-- Components -->

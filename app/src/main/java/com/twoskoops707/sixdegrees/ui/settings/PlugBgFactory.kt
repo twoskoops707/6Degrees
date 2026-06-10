@@ -19,7 +19,11 @@ object PlugBgFactory {
         "bricks"   -> ContextCompat.getDrawable(context, R.drawable.bg_plug_brick)
             ?: createBricksBg(context)
         "medellin" -> createMedellinBg(context)
-        else       -> ColorDrawable(ContextCompat.getColor(context, R.color.plug_bg))
+        "gradient" -> ContextCompat.getDrawable(context, R.drawable.bg_plug_gradient)
+            ?: ColorDrawable(ContextCompat.getColor(context, R.color.plug_bg))
+        "plain", "rasta" -> ColorDrawable(ContextCompat.getColor(context, R.color.plug_bg))
+        else       -> ContextCompat.getDrawable(context, R.drawable.bg_plug_gradient)
+            ?: ColorDrawable(ContextCompat.getColor(context, R.color.plug_bg))
     }
 
     private fun createLeavesBg(context: Context): Drawable {
@@ -35,13 +39,13 @@ object PlugBgFactory {
         val leafPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ContextCompat.getColor(context, R.color.plug_green)
             style = Paint.Style.FILL
-            alpha = 48
+            alpha = 32
         }
         val stemPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ContextCompat.getColor(context, R.color.plug_green_bright)
             strokeWidth = dp * 1.2f
             style = Paint.Style.STROKE
-            alpha = 64
+            alpha = 48
         }
 
         val cx = size / 2f

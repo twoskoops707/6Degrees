@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -23,6 +24,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.tabs.TabLayoutMediator
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.AppSettings
+import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
 import com.twoskoops707.sixdegrees.domain.DorkMetadataStore
 import com.twoskoops707.sixdegrees.databinding.FragmentResultsBinding
 import com.twoskoops707.sixdegrees.databinding.ItemDataRowBinding
@@ -41,6 +43,7 @@ class ResultsFragment : Fragment() {
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     private var tabMediator: TabLayoutMediator? = null
     private var displayedReportId: String? = null
+    private var reportMeta: Map<String, String> = emptyMap()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentResultsBinding.inflate(inflater, container, false)
@@ -137,8 +140,9 @@ class ResultsFragment : Fragment() {
             }
             val city = qFields["city"] ?: qFields["location"] ?: ""
             val state = qFields["state"] ?: ""
-            val enteredLoc = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
-            binding.location.text = enteredLoc.ifBlank { extractBestLocation(meta) }
+            val address = qFields["address"] ?: meta["person_entered_address"] ?: ""
+            val fullLoc = listOf(address, city, state).filter { it.isNotBlank() }.joinToString(", ")
+            binding.location.text = fullLoc.ifBlank { FindingUrlHelper.bestDisplayLocation(meta) }
         }
 
         val sourceCount = try {
@@ -149,6 +153,7 @@ class ResultsFragment : Fragment() {
         binding.tvSourcesCount.text = "$sourceCount\nsources"
 
         val enrichedMeta = state.enrichedMeta.ifEmpty { meta }
+        reportMeta = enrichedMeta
 
         val investigatorMode = AppSettings.isInvestigatorMode(requireContext())
         applyResultsModeUi(investigatorMode)
@@ -156,6 +161,7 @@ class ResultsFragment : Fragment() {
         applyShadyScore(state.shadyScore, enrichedMeta, searchType, investigatorMode)
         setupDossierTabs(state.dossierSections, investigatorMode, enrichedMeta)
         buildCandidateDisambiguation(enrichedMeta)
+        setupBackToCandidates()
 
         binding.btnExport.setOnClickListener { shareReport(report.searchQuery, searchType, enrichedMeta) }
 
@@ -169,31 +175,37 @@ class ResultsFragment : Fragment() {
         }
     }
 
+    private fun setupBackToCandidates() {
+        val candidatesJson = arguments?.getString("candidatesJson").orEmpty()
+        val hasCandidates = candidatesJson.isNotBlank() && candidatesJson != "[]"
+        binding.btnBackToCandidates.isVisible = hasCandidates
+        if (!hasCandidates) return
+
+        val searchQuery = arguments?.getString("searchQuery").orEmpty()
+        val reportId = arguments?.getString("reportId").orEmpty()
+        val round = arguments?.getInt("candidateRound") ?: 1
+
+        binding.btnBackToCandidates.setOnClickListener {
+            findNavController().navigate(
+                R.id.action_results_to_candidates,
+                Bundle().apply {
+                    putString("candidatesJson", candidatesJson)
+                    putString("reportId", reportId)
+                    putInt("round", round.coerceAtLeast(1))
+                    putString("searchQuery", searchQuery)
+                }
+            )
+        }
+    }
+
     private fun extractBestAge(meta: Map<String, String>): String? =
         meta["search_age"] ?: meta["tps_age"] ?: meta["zaba_age"] ?: meta["411_age"]
             ?: meta["voter_age"] ?: meta["radaris_age"] ?: meta["peekyou_age"]
             ?: meta["nuwber_age"] ?: meta["wp_age"] ?: meta["fps_age"] ?: meta["tt_ages"]?.split(", ")?.firstOrNull()?.trim()
             ?: meta["uspb_age"] ?: meta["demographics_age_estimate"]
 
-    private fun extractBestLocation(meta: Map<String, String>): String {
-        val enteredCity = meta["person_city"]?.trim()?.lowercase() ?: ""
-        val enteredState = meta["person_state"]?.trim()?.lowercase() ?: ""
-        val allLocs = listOfNotNull(
-            meta["search_addresses"], meta["ddg_addresses"], meta["tps_locations"], meta["zaba_locations"], meta["411_locations"],
-            meta["ftn_locations"], meta["voter_addresses"], meta["uspb_addresses"], meta["pdl_address"], meta["pdl_location"],
-            meta["tt_locations"], meta["tt_addresses"], meta["fps_locations"], meta["fps_addresses"], meta["radaris_locations"],
-            meta["peekyou_locations"], meta["nuwber_locations"], meta["wp_locations"]
-        ).flatMap { it.split(" | ").flatMap { s -> s.split("\n") } }.map { it.trim() }.filter { it.isNotBlank() }
-        if (enteredCity.isNotBlank() || enteredState.isNotBlank()) {
-            val stateMatch = allLocs.firstOrNull { loc ->
-                val l = loc.lowercase()
-                (enteredState.isNotBlank() && l.contains(enteredState)) &&
-                (enteredCity.isBlank() || l.contains(enteredCity))
-            }
-            if (stateMatch != null) return stateMatch
-        }
-        return allLocs.firstOrNull() ?: ""
-    }
+    private fun extractBestLocation(meta: Map<String, String>): String =
+        FindingUrlHelper.bestDisplayLocation(meta)
 
     private fun buildTabs(meta: Map<String, String>, type: String): List<Pair<String, List<Pair<String, String>>>> {
         return when (type) {
@@ -407,8 +419,8 @@ class ResultsFragment : Fragment() {
         meta["ftn_birth_year"]?.takeIf { bestDob.isNullOrBlank() }?.let { rows.add("Birth Year" to "~$it") }
         meta["demographics_gender"]?.let { rows.add("Gender" to it) }
         meta["pipl_gender"]?.takeIf { meta["demographics_gender"].isNullOrBlank() }?.let { rows.add("Gender" to it) }
-        meta["demographics_nationality"]?.let { rows.add("Nationality Est." to it) }
-        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() }?.let { rows.add("Nationalities" to it) }
+        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() && meta["pipl_found"] == "true" }
+            ?.let { rows.add("Nationalities (verify independently)" to it) }
         meta["pipl_aliases"]?.takeIf { it.isNotBlank() }?.let { rows.add("Known Aliases" to it) }
 
         meta["pipl_employment"]?.takeIf { it.isNotBlank() }?.let { emp ->
@@ -432,16 +444,16 @@ class ResultsFragment : Fragment() {
         }
 
         val enteredLoc = meta["person_location"]?.takeIf { it.isNotBlank() }
+        val enteredAddress = meta["person_entered_address"]?.takeIf { it.isNotBlank() }
         val scrapedLoc = extractBestLocation(meta)
-        val bestLoc = enteredLoc ?: scrapedLoc
+        val bestLoc = enteredAddress ?: enteredLoc ?: scrapedLoc
         if (bestLoc.isNotBlank()) {
             rows.add(sec("LOCATION"))
-            if (enteredLoc != null) {
-                rows.add("Search Location" to enteredLoc)
-                if (scrapedLoc.isNotBlank() && !scrapedLoc.equals(enteredLoc, ignoreCase = true)) {
-                    rows.add("Scraped Location" to scrapedLoc)
-                }
-            } else {
+            enteredAddress?.let { rows.add("Street Address" to it) }
+            enteredLoc?.takeIf { !it.equals(enteredAddress, ignoreCase = true) }?.let { rows.add("Search Location" to it) }
+            if (scrapedLoc.isNotBlank() && !scrapedLoc.equals(bestLoc, ignoreCase = true)) {
+                rows.add("Records Location" to scrapedLoc)
+            } else if (enteredAddress == null && enteredLoc == null) {
                 rows.add("Location" to scrapedLoc)
             }
         }
@@ -516,6 +528,19 @@ class ResultsFragment : Fragment() {
         val sherlockFound = meta["sherlock_found"]?.takeIf { it.isNotBlank() }
         val sherlockNameFound = meta["sherlock_name_found"]?.takeIf { it.isNotBlank() }
         val maigretFound = meta["maigret_found"]?.takeIf { it.isNotBlank() }
+        val sitesFound = meta["sites_found"]?.toIntOrNull() ?: 0
+        val sitesChecked = meta["sites_checked"]?.toIntOrNull() ?: 0
+        if (sitesFound > 0) {
+            rows.add(sec("USERNAME PRESENCE ($sitesFound / $sitesChecked platforms)"))
+            meta["username"]?.takeIf { it.isNotBlank() }?.let { rows.add("Handle" to it) }
+            parseSocialProfilesFromMeta(meta).filter { !it.statsLabel.isNullOrBlank() }.take(12).forEach { profile ->
+                val label = buildString {
+                    append("✓ ${profile.platform}")
+                    profile.statsLabel?.let { append(" · $it") }
+                }
+                rows.add(label to (profile.url ?: profile.username))
+            }
+        }
         if (foundUrls != null || sherlockFound != null || sherlockNameFound != null || maigretFound != null) {
             rows.add(sec("DIGITAL PRESENCE"))
             foundUrls?.lines()?.filter { it.isNotBlank() }?.take(15)?.forEach { line ->
@@ -688,7 +713,16 @@ class ResultsFragment : Fragment() {
             it.split("\n---\n").filter { s -> s.isNotBlank() }.take(12).forEach { s -> rows.add("Court" to s.trim()) }
         }
 
-        if (rows.isEmpty()) rows.add("Status" to "No legal records found for this subject")
+        val ctx = FindingUrlHelper.subjectContext(meta)
+        rows.add("⟶ Search Court Records" to FindingUrlHelper.courtUrl(ctx))
+        rows.add("⟶ Search JudyRecords" to OsintToolRegistry.buildUrl(
+            "https://www.judyrecords.com/search?search={q-encoded}", ctx.name.ifBlank { ctx.email }
+        ))
+        if (rows.size <= 2) rows.add(0, sec("LEGAL & COURT RECORDS"))
+        if (rows.none { it.first == "Status" } && arrestCount == 0 && courtCount == 0 && judyCount == 0
+            && meta["dork_court_results"].isNullOrBlank() && meta["dork_criminal_results"].isNullOrBlank()) {
+            rows.add("Status" to "No legal records found — use links above to search")
+        }
         return rows
     }
 
@@ -1518,8 +1552,37 @@ class ResultsFragment : Fragment() {
                 rows.add((parts.firstOrNull() ?: "Profile") to (parts.getOrNull(1) ?: line))
             }
         }
+        parseSocialProfilesFromMeta(meta)
+            .filter { profile ->
+                when (profile.platform) {
+                    "GitHub" -> !hasGitHub
+                    "Keybase" -> !hasKeybase
+                    "HackerNews" -> meta["hackernews_karma"].isNullOrBlank()
+                    "Dev.to" -> meta["devto_name"].isNullOrBlank()
+                    else -> true
+                }
+            }
+            .forEach { profile ->
+                rows.add(sec(profile.platform.uppercase()))
+                rows.add("Profile" to (profile.url ?: profile.username))
+                profile.statsLabel?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
+            }
         if (rows.isEmpty()) rows.add("Status" to "No profile data extracted from found accounts")
         return rows
+    }
+
+    private fun parseSocialProfilesFromMeta(meta: Map<String, String>): List<com.twoskoops707.sixdegrees.domain.model.SocialProfile> {
+        val json = meta["social_profiles_json"]?.takeIf { it.isNotBlank() } ?: return emptyList()
+        return try {
+            val type = Types.newParameterizedType(
+                List::class.java,
+                com.twoskoops707.sixdegrees.domain.model.SocialProfile::class.java
+            )
+            moshi.adapter<List<com.twoskoops707.sixdegrees.domain.model.SocialProfile>>(type)
+                .fromJson(json) ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     private fun buildPhoneValidation(meta: Map<String, String>): List<Pair<String, String>> {
@@ -1690,30 +1753,8 @@ class ResultsFragment : Fragment() {
         return set
     }
 
-    private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
-        val set = linkedSetOf<String>()
-        meta["person_entered_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
-        meta["pdl_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        meta["pdl_location"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        meta["clearbit_person_location"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        meta["search_addresses"]?.lines()?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
-        meta["ddg_addresses"]?.lines()?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
-        listOf(
-            "tps_full_addresses", "zaba_full_addresses", "411_full_addresses", "ftn_full_addresses",
-            "tps_locations", "zaba_locations", "411_locations", "ftn_locations",
-            "voter_addresses", "uspb_addresses", "tt_locations", "tt_addresses", "fps_locations", "fps_addresses",
-            "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations", "checkpeople_locations"
-        ).forEach { key -> meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) } }
-        val streetPattern = Regex("""\d{1,5}\s+[A-Z][A-Za-z0-9\s]{2,35}(?:St\.?|Ave\.?|Blvd\.?|Dr\.?|Rd\.?|Ln\.?|Ct\.?|Way|Pl\.?|Cir\.?|Pkwy|Hwy|Ter\.?|Trl\.?|Loop|Pass|Pt\.?|Road|Street|Avenue|Boulevard|Drive|Lane|Court)\b[^<\n]{0,40}[A-Z]{2}[\s,]+\d{5}(?:-\d{4})?""")
-        listOf("dork_address_full_results", "dork_address_results", "dork_phone_results", "dork_identity_results",
-            "dork_voter_results", "dork_property_results").forEach { key ->
-            meta[key]?.let { text ->
-                streetPattern.findAll(text).map { it.value.replace(Regex("\\s+"), " ").trim() }.filter { it.length in 15..100 }.take(8).forEach { set.add(it) }
-            }
-        }
-        return set
-    }
+    private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> =
+        LinkedHashSet(FindingUrlHelper.extractFullAddresses(meta))
 
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {
         val set = linkedSetOf<String>()
@@ -1787,11 +1828,7 @@ class ResultsFragment : Fragment() {
     }
 
     private fun parseFirstAddress(json: String): String {
-        return try {
-            val type = Types.newParameterizedType(List::class.java, com.twoskoops707.sixdegrees.domain.model.Address::class.java)
-            val addrs = moshi.adapter<List<com.twoskoops707.sixdegrees.domain.model.Address>>(type).fromJson(json) ?: emptyList()
-            addrs.firstOrNull()?.let { listOf(it.city, it.state, it.country).filter { s -> s.isNotBlank() }.joinToString(", ") } ?: ""
-        } catch (_: Exception) { "" }
+        return parseAllAddresses(json).firstOrNull().orEmpty()
     }
 
     private fun parseCurrentJob(json: String): String {
@@ -2281,6 +2318,11 @@ class ResultsFragment : Fragment() {
             }
             isLink -> {
                 b.root.setOnClickListener {
+                    val url = if (value.startsWith("http")) value else FindingUrlHelper.resolveUrl(
+                        DossierFinding(label = label, value = value, source = "", confidence = DossierConfidence.LOW, isLink = true),
+                        reportMeta
+                    )
+                    if (url == null) return@setOnClickListener
                     val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
                     val pkg = when (prefs.getString("pref_browser", "firefox")) {
                         "ddg" -> "com.duckduckgo.mobile.android"
@@ -2288,10 +2330,10 @@ class ResultsFragment : Fragment() {
                         "default" -> null
                         else -> "org.mozilla.firefox"
                     }
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(value))
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     if (pkg != null) intent.setPackage(pkg)
                     try { startActivity(intent) }
-                    catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))) }
+                    catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 }
             }
             isPhone -> {
@@ -2307,7 +2349,33 @@ class ResultsFragment : Fragment() {
                     catch (_: Exception) {}
                 }
             }
-            else -> b.root.setOnClickListener(null)
+            else -> {
+                val verifyUrl = FindingUrlHelper.urlForRow(label, value, reportMeta)
+                    ?: FindingUrlHelper.resolveUrl(
+                        DossierFinding(label = label, value = value, source = "", confidence = DossierConfidence.LOW),
+                        reportMeta
+                    )
+                if (verifyUrl != null) {
+                    b.rowAccentStripe.visibility = View.VISIBLE
+                    b.rowAccentStripe.setBackgroundColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+                    b.tvRowValue.setTextColor(ContextCompat.getColor(ctx, R.color.accent_cyan))
+                    b.root.setOnClickListener {
+                        val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                        val pkg = when (prefs.getString("pref_browser", "firefox")) {
+                            "ddg" -> "com.duckduckgo.mobile.android"
+                            "chrome" -> "com.android.chrome"
+                            "default" -> null
+                            else -> "org.mozilla.firefox"
+                        }
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(verifyUrl))
+                        if (pkg != null) intent.setPackage(pkg)
+                        try { startActivity(intent) }
+                        catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(verifyUrl))) }
+                    }
+                } else {
+                    b.root.setOnClickListener(null)
+                }
+            }
         }
 
         b.tvRowValue.setTextIsSelectable(true)

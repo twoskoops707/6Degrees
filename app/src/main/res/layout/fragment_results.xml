@@ -23,6 +23,16 @@
             android:layout_marginEnd="4dp">
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_back_to_candidates"
+                style="@style/Widget.SixDegrees.Button.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:text="@string/results_back_to_candidates"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_web_hub"
                 style="@style/Widget.SixDegrees.Button.Outlined"
                 android:layout_width="wrap_content"

@@ -89,6 +89,11 @@ class CandidateSelectionFragment : Fragment() {
         val lockedQuery = viewModel.buildLockedQuery(candidate)
         if (lockedQuery.isBlank()) return
 
+        val candidatesJsonArg = arguments?.getString("candidatesJson") ?: try {
+            val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
+            moshi.adapter<List<CandidateProfile>>(listType).toJson(candidates)
+        } catch (_: Exception) { "[]" }
+
         try {
             nav.navigate(
                 R.id.action_candidates_to_progress,
@@ -98,6 +103,7 @@ class CandidateSelectionFragment : Fragment() {
                     putInt("round", round + 1)
                     putString("searchQuery", searchQuery)
                     putString("reportId", reportId)
+                    putString("candidatesJson", candidatesJsonArg)
                 }
             )
         } catch (_: Exception) {}

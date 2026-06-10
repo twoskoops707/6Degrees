@@ -48,6 +48,10 @@
             android:name="subjectProfileJson"
             app:argType="string"
             android:defaultValue="" />
+        <argument
+            android:name="candidatesJson"
+            app:argType="string"
+            android:defaultValue="" />
         <action
             android:id="@+id/action_progress_to_results"
             app:destination="@id/nav_results"
@@ -92,7 +96,7 @@
             android:id="@+id/action_candidates_to_progress"
             app:destination="@id/nav_search_progress"
             app:popUpTo="@id/nav_candidate_selection"
-            app:popUpToInclusive="true" />
+            app:popUpToInclusive="false" />
         <action
             android:id="@+id/action_candidates_to_results"
             app:destination="@id/nav_results"
@@ -192,11 +196,24 @@
             android:name="reportId"
             app:argType="string"
             android:defaultValue="" />
+        <argument
+            android:name="candidatesJson"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="candidateRound"
+            app:argType="integer"
+            android:defaultValue="1" />
         <action
             android:id="@+id/action_results_to_progress"
             app:destination="@id/nav_search_progress"
             app:popUpTo="@id/nav_search"
             app:popUpToInclusive="false" />
+        <action
+            android:id="@+id/action_results_to_candidates"
+            app:destination="@id/nav_candidate_selection"
+            app:popUpTo="@id/nav_results"
+            app:popUpToInclusive="true" />
         <action
             android:id="@+id/action_results_to_osint_resources"
             app:destination="@id/nav_osint_resources" />

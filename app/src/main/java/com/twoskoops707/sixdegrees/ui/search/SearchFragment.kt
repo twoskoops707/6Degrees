@@ -40,6 +40,7 @@ class SearchFragment : Fragment() {
     private var pendingImageUri: Uri? = null
     private var attachedImageUri: Uri? = null
     private var selectedIntent: InvestigationIntent? = null
+    private var selectedSearchType: IntakeSearchType = IntakeSearchType.PERSON
 
     private val cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
@@ -74,10 +75,12 @@ class SearchFragment : Fragment() {
 
         InvestigationPipelineView.bind(binding.root, InvestigationStep.INTAKE)
 
+        setupTypeChips()
         setupIntentChips()
         setupTextWatchers()
         setupActions()
         setupRecentSearches()
+        applySearchTypeUi(selectedSearchType)
         updateQueryCounter()
         applyInvestigatorModeUi()
     }
@@ -97,6 +100,67 @@ class SearchFragment : Fragment() {
             binding.tvQueryCounter.text = getString(R.string.intake_sources_simple)
         } else {
             updateQueryCounter()
+        }
+    }
+
+    private fun setupTypeChips() {
+        val typeChips = mapOf(
+            binding.chipTypePerson to IntakeSearchType.PERSON,
+            binding.chipTypeCompany to IntakeSearchType.COMPANY,
+            binding.chipTypeVehicle to IntakeSearchType.VEHICLE,
+            binding.chipTypeDomain to IntakeSearchType.DOMAIN,
+            binding.chipTypePhone to IntakeSearchType.PHONE,
+            binding.chipTypeEmail to IntakeSearchType.EMAIL,
+            binding.chipTypeUsername to IntakeSearchType.USERNAME,
+            binding.chipTypePhoto to IntakeSearchType.PHOTO
+        )
+        typeChips.forEach { (chip, type) ->
+            chip.setOnCheckedChangeListener { button, isChecked ->
+                if (isChecked) {
+                    selectedSearchType = type
+                    typeChips.keys.filter { it != button }.forEach { other ->
+                        if (other.isChecked) other.isChecked = false
+                    }
+                    applySearchTypeUi(type)
+                    updateQueryCounter()
+                }
+            }
+        }
+    }
+
+    private fun applySearchTypeUi(type: IntakeSearchType) {
+        val personExtras = listOf(
+            binding.tvPersonDetailsLabel,
+            binding.cardFreeform,
+            binding.cardName,
+            binding.cardPhoto,
+            binding.cardEmail,
+            binding.cardUsername,
+            binding.cardLocation
+        )
+        val allTypeCards = listOf(
+            binding.cardCompany,
+            binding.cardVehicle,
+            binding.cardDomain,
+            binding.cardPhone,
+            binding.cardEmail,
+            binding.cardUsername,
+            binding.cardPhoto
+        )
+        allTypeCards.forEach { it.isVisible = false }
+        personExtras.forEach { it.isVisible = false }
+
+        when (type) {
+            IntakeSearchType.PERSON -> {
+                personExtras.forEach { it.isVisible = true }
+            }
+            IntakeSearchType.COMPANY -> binding.cardCompany.isVisible = true
+            IntakeSearchType.VEHICLE -> binding.cardVehicle.isVisible = true
+            IntakeSearchType.DOMAIN -> binding.cardDomain.isVisible = true
+            IntakeSearchType.PHONE -> binding.cardPhone.isVisible = true
+            IntakeSearchType.EMAIL -> binding.cardEmail.isVisible = true
+            IntakeSearchType.USERNAME -> binding.cardUsername.isVisible = true
+            IntakeSearchType.PHOTO -> binding.cardPhoto.isVisible = true
         }
     }
 
@@ -124,13 +188,19 @@ class SearchFragment : Fragment() {
 
     private fun setupTextWatchers() {
         listOf(
+            binding.inputFreeform,
             binding.inputPhone,
             binding.inputFirstName,
             binding.inputLastName,
             binding.inputEmail,
             binding.inputUsername,
+            binding.inputAddress,
             binding.inputCity,
-            binding.inputState
+            binding.inputState,
+            binding.inputCompany,
+            binding.inputCompanyDomain,
+            binding.inputVehicleVin,
+            binding.inputDomainIp
         ).forEach { field ->
             field.doAfterTextChanged { updateQueryCounter() }
         }
@@ -185,6 +255,8 @@ class SearchFragment : Fragment() {
     }
 
     private fun collectForm(): IntakeForm = IntakeForm(
+        searchType = selectedSearchType,
+        freeform = binding.inputFreeform.text?.toString()?.trim().orEmpty(),
         phone = binding.inputPhone.text?.toString()?.trim().orEmpty(),
         firstName = binding.inputFirstName.text?.toString()?.trim().orEmpty(),
         lastName = binding.inputLastName.text?.toString()?.trim().orEmpty(),
@@ -192,6 +264,11 @@ class SearchFragment : Fragment() {
         username = binding.inputUsername.text?.toString()?.trim().orEmpty(),
         city = binding.inputCity.text?.toString()?.trim().orEmpty(),
         state = binding.inputState.text?.toString()?.trim().orEmpty(),
+        address = binding.inputAddress.text?.toString()?.trim().orEmpty(),
+        company = binding.inputCompany.text?.toString()?.trim().orEmpty(),
+        companyDomain = binding.inputCompanyDomain.text?.toString()?.trim().orEmpty(),
+        vehicleVin = binding.inputVehicleVin.text?.toString()?.trim().orEmpty(),
+        domainIp = binding.inputDomainIp.text?.toString()?.trim().orEmpty(),
         imageUri = attachedImageUri?.toString(),
         intent = selectedIntent
     )
@@ -223,21 +300,34 @@ class SearchFragment : Fragment() {
 
     private fun buildQueryPreview(): String {
         val form = collectForm()
-        return form.phone.ifBlank {
-            listOf(form.firstName, form.lastName, form.city, form.state)
-                .filter { it.isNotBlank() }
-                .joinToString(" ")
+        return when (form.searchType) {
+            IntakeSearchType.COMPANY -> form.company.ifBlank { form.companyDomain }
+            IntakeSearchType.VEHICLE -> form.vehicleVin
+            IntakeSearchType.DOMAIN -> form.domainIp
+            IntakeSearchType.PHONE -> form.phone
+            IntakeSearchType.EMAIL -> form.email
+            IntakeSearchType.USERNAME -> form.username
+            else -> listOf(
+                listOf(form.firstName, form.lastName).filter { it.isNotBlank() }.joinToString(" "),
+                form.freeform, form.phone, form.email, form.username, form.address, form.city, form.state
+            ).firstOrNull { it.isNotBlank() } ?: ""
         }
     }
 
     private fun clearForm() {
+        binding.inputFreeform.text?.clear()
         binding.inputPhone.text?.clear()
         binding.inputFirstName.text?.clear()
         binding.inputLastName.text?.clear()
         binding.inputEmail.text?.clear()
         binding.inputUsername.text?.clear()
+        binding.inputAddress.text?.clear()
         binding.inputCity.text?.clear()
         binding.inputState.text?.clear()
+        binding.inputCompany.text?.clear()
+        binding.inputCompanyDomain.text?.clear()
+        binding.inputVehicleVin.text?.clear()
+        binding.inputDomainIp.text?.clear()
 
         attachedImageUri = null
         binding.tvImageAttached.isVisible = false

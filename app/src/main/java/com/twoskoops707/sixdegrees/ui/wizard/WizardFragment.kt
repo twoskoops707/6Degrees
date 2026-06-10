@@ -20,6 +20,7 @@ import android.os.Bundle
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
 import com.twoskoops707.sixdegrees.data.AppSettings
+import com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner
 import com.twoskoops707.sixdegrees.databinding.FragmentWizardBinding
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -249,7 +250,7 @@ class WizardFragment : Fragment() {
         val density = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * density).toInt()
 
-        val statusFile = File("/storage/emulated/0/.6degrees/.6d_wizard_tools.txt")
+        val statusFile = File(TermuxToolRunner.SHARED_OUTPUT_DIR, ".6d_wizard_tools.txt")
         val statusTtl = 5 * 60 * 1000L
 
         data class ToolRow(val statusTv: TextView, val wrapper: LinearLayout, val cmdView: TextView)
@@ -315,9 +316,14 @@ class WizardFragment : Fragment() {
 
         val checks = termuxTools.joinToString(" ; ") { tool ->
             val key = tool.checkPath.substringAfterLast("/")
-            "[ -e '${tool.checkPath}' ] && echo $key:ok || echo $key:missing"
+            val bin = key
+            val pathCheck = "[ -e '${tool.checkPath}' ]" +
+                " || command -v $bin >/dev/null 2>&1" +
+                " || [ -x \"\$PREFIX/bin/$bin\" ]" +
+                " || [ -x \"\$HOME/.local/bin/$bin\" ]"
+            "($pathCheck) && echo $key:ok || echo $key:missing"
         }
-        val cmd = "mkdir -p /storage/emulated/0/.6degrees && { $checks ; } > ${statusFile.absolutePath} 2>&1 ; echo __DONE__ >> ${statusFile.absolutePath}"
+        val cmd = "mkdir -p ${TermuxToolRunner.SHARED_OUTPUT_DIR} && { $checks ; } > ${statusFile.absolutePath} 2>&1 ; echo __DONE__ >> ${statusFile.absolutePath}"
         try {
             val intent = Intent().apply {
                 setClassName("com.termux", "com.termux.app.RunCommandService")

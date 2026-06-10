@@ -35,9 +35,8 @@ object FindingClickBinder {
                     }
                     fragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
                 }
-                finding.isLink && finding.value.startsWith("http") -> openUrl(ctx, finding.value)
                 else -> {
-                    val url = FindingUrlHelper.verificationUrl(finding, meta)
+                    val url = FindingUrlHelper.resolveUrl(finding, meta)
                     if (url != null) openUrl(ctx, url)
                 }
             }

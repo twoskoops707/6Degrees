@@ -3,7 +3,7 @@
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_title">6Degrees</string>
-    <string name="nav_header_subtitle">Know who you\'re meeting</string>
+    <string name="nav_header_subtitle">Background OSINT reports</string>
     <string name="nav_header_desc">Navigation header</string>
     <string name="action_settings">Settings</string>
 
@@ -13,8 +13,8 @@
     <string name="menu_settings">Settings</string>
     <string name="menu_wizard">Setup Wizard</string>
 
-    <string name="search_title">Verify before you meet</string>
-    <string name="search_subtitle">Safety-first OSINT · phone, name, photo, or any clue</string>
+    <string name="search_title">Background investigation</string>
+    <string name="search_subtitle">Person, company, vehicle, domain, IP, phone, email, username, or photo</string>
     <string name="search_hint">Name, email, phone, username, IP, domain…</string>
     <string name="search_person">Person</string>
     <string name="search_email">Email</string>
@@ -39,17 +39,36 @@
     <string name="search_type_hint_wifi">Geolocates a WiFi network by SSID or BSSID using the WiGLE wardriving database.</string>
 
     <string name="results_title">INTELLIGENCE REPORT</string>
-    <string name="dossier_title">SAFETY DOSSIER</string>
-    <string name="pipeline_label">Safety check pipeline</string>
+    <string name="dossier_title">BACKGROUND REPORT</string>
+    <string name="pipeline_label">Investigation pipeline</string>
     <string name="pipeline_step_intake">Clues</string>
     <string name="pipeline_step_collect">Scan</string>
     <string name="pipeline_step_resolve">Confirm</string>
     <string name="pipeline_step_dossier">Report</string>
-    <string name="search_intake_title">Know who you\'re meeting</string>
-    <string name="search_intake_subtitle">One detail is enough — we\'ll build a safety dossier before you walk in blind</string>
+    <string name="search_intake_title">New background report</string>
+    <string name="search_intake_subtitle">Choose a subject type, then enter whatever you know. All fields are optional unless noted.</string>
+    <string name="intake_type_label">Subject type</string>
+    <string name="intake_type_person">Person</string>
+    <string name="intake_type_company">Company</string>
+    <string name="intake_type_vehicle">Vehicle</string>
+    <string name="intake_type_domain">Domain / IP</string>
+    <string name="intake_type_phone">Phone</string>
+    <string name="intake_type_email">Email</string>
+    <string name="intake_type_username">Username</string>
+    <string name="intake_type_photo">Photo</string>
+    <string name="intake_freeform_label">Paste anything</string>
+    <string name="intake_freeform_hint">John Smith, 123 Main St, Austin TX, 512-555-0100</string>
+    <string name="intake_freeform_helper">Optional freeform clues — we parse name, phone, address, and city automatically.</string>
     <string name="intake_phone_label">Phone number</string>
-    <string name="intake_phone_hint">(555) 123-4567 or paste everything you know</string>
-    <string name="intake_phone_helper">Phone only, or dump clues: John Smith, Austin TX, works at Dell, 512-555-0100</string>
+    <string name="intake_phone_hint">(555) 123-4567</string>
+    <string name="intake_phone_helper">Carrier lookup and reverse-phone records.</string>
+    <string name="intake_company_label">Company name</string>
+    <string name="intake_company_hint">Acme Corporation</string>
+    <string name="intake_company_domain_hint">Company website (optional)</string>
+    <string name="intake_vehicle_label">VIN</string>
+    <string name="intake_vehicle_hint">17-character vehicle identification number</string>
+    <string name="intake_domain_label">Domain or IP address</string>
+    <string name="intake_domain_hint">example.com or 203.0.113.42</string>
     <string name="progress_deep_investigation">Deep investigation in progress — typically 5–10 minutes</string>
     <string name="progress_elapsed">Elapsed %1$02d:%2$02d</string>
     <string name="progress_phase_discovery">Discovery — people finders &amp; social</string>
@@ -60,7 +79,7 @@
     <string name="progress_sources_checked">%1$d / %2$d sources checked</string>
     <string name="progress_findings">%1$d finding%2$s</string>
     <string name="intake_add_clues_label">Add more clues</string>
-    <string name="intake_optional_details_label">Optional details (fill in what you know)</string>
+    <string name="intake_optional_details_label">Subject details (optional — fill what you know)</string>
     <string name="intake_chip_name">Name</string>
     <string name="intake_chip_photo">Photo</string>
     <string name="intake_chip_email">Email</string>
@@ -75,18 +94,19 @@
     <string name="intake_photo_selected">Photo selected</string>
     <string name="intake_email_hint">Email address</string>
     <string name="intake_username_hint">Username or handle</string>
-    <string name="intake_location_label">Last known area</string>
+    <string name="intake_location_label">Address &amp; location</string>
+    <string name="intake_address_hint">Street address (full address if you have it)</string>
     <string name="intake_city_hint">City</string>
     <string name="intake_state_hint">State</string>
-    <string name="intake_intent_label">Why are you checking them?</string>
-    <string name="intake_intent_helper">Optional — tunes sources (people finders, courts, dark web on deep dive)</string>
-    <string name="intake_intent_first_date">First / blind date</string>
-    <string name="intake_intent_meeting">Meeting someone new</string>
-    <string name="intake_intent_verify">Verify identity</string>
-    <string name="intake_intent_fraud">Fraud check</string>
+    <string name="intake_intent_label">Report focus</string>
+    <string name="intake_intent_helper">Optional — tunes which sources run during the deep report</string>
+    <string name="intake_intent_first_date">Personal background</string>
+    <string name="intake_intent_meeting">Pre-meeting dossier</string>
+    <string name="intake_intent_verify">Identity verification</string>
+    <string name="intake_intent_fraud">Fraud / risk review</string>
     <string name="intake_sources_default">18 sources ready</string>
     <string name="intake_sources_count">%1$d sources ready</string>
-    <string name="intake_start_investigation">Run safety check</string>
+    <string name="intake_start_investigation">Run background report</string>
     <string name="intake_clear_fields">Clear all fields</string>
     <string name="intake_web_hub">Browse OSINT tools</string>
     <string name="intake_camera_permission">Camera permission is needed to take a photo</string>
@@ -123,9 +143,9 @@
     <string name="phone_label">Phone</string>
     <string name="no_results_title">No Intelligence Found</string>
     <string name="no_results_message">Try adding more details — city, employer, or age. Free sources run automatically with no setup.</string>
-    <string name="shady_score_title">Safe to meet?</string>
+    <string name="shady_score_title">Risk assessment</string>
     <string name="results_score_badge">RISK</string>
-    <string name="results_risk_disclaimer">Informational only — not legal advice. Trust your instincts.</string>
+    <string name="results_risk_disclaimer">Informational only — not legal advice. Verify critical findings independently.</string>
     <string name="dossier_tab_darkweb">Dark Web</string>
     <string name="export_report">Export Report</string>
     <string name="open_source">View Sources</string>
@@ -134,8 +154,8 @@
     <string name="results_empty_title">No Report Yet</string>
     <string name="results_empty_message">Choose an investigation type on the main screen, fill in what you know, and tap Investigate.</string>
     <string name="results_no_findings">No findings yet — try adding a city or full name.</string>
-    <string name="results_risk_label">Safe to meet?</string>
-    <string name="results_risk_calculating">Assessing red flags…</string>
+    <string name="results_risk_label">Risk assessment</string>
+    <string name="results_risk_calculating">Scoring public-record risk…</string>
 
     <!-- Wizard screen -->
     <string name="wizard_toolbar_title">Investigation Wizard</string>
@@ -251,9 +271,9 @@
     <string name="dork_builder_subtitle">Craft advanced search queries using Google/Bing operators to surface hidden public records</string>
 
     <!-- Candidate selection -->
-    <string name="candidate_title">Is this who you\'re meeting?</string>
-    <string name="candidate_subtitle">We found several matches. Pick the right person — we\'ll lock their profile and run a deep safety check.</string>
-    <string name="candidate_photo_instructions">Tap the person that matches — we\'ll verify identity, check courts, and scan the dark web index.</string>
+    <string name="candidate_title">Confirm the subject</string>
+    <string name="candidate_subtitle">We found several matches. Pick the correct subject — we\'ll lock their profile and run a deep background report.</string>
+    <string name="candidate_photo_instructions">Tap the matching subject — we\'ll verify identity, check courts, and scan indexed sources.</string>
     <string name="candidate_thats_them">That\'s them</string>
     <string name="candidate_not_any">Not any of these</string>
     <string name="candidate_match_pct">%1$d%% match</string>
@@ -288,16 +308,19 @@
     <string name="progress_simple_complete">What we found</string>
     <string name="progress_simple_choose">See matches</string>
     <string name="progress_simple_open_dossier">See what we found</string>
-    <string name="progress_source_log">Source pipeline</string>
+    <string name="progress_source_log">Sources being checked</string>
+    <string name="progress_source_log_pro">Source pipeline</string>
     <string name="dossier_simple_who">Who they are</string>
     <string name="dossier_simple_where">Where they\'ve been</string>
     <string name="dossier_simple_flags">Red flags</string>
-    <string name="dossier_simple_safe">Safe to meet?</string>
-    <string name="results_score_badge_simple">SAFE?</string>
+    <string name="dossier_simple_safe">Risk assessment</string>
+    <string name="results_score_badge_simple">RISK</string>
+    <string name="results_back_to_candidates">Back to candidate list</string>
     <string name="intake_sources_simple">We\'ll check public records</string>
 
     <!-- Search progress -->
-    <string name="progress_title">Running safety check…</string>
+    <string name="progress_title">Running background report…</string>
+    <string name="progress_back_to_candidates">Back to candidate list</string>
     <string name="progress_collect_title">Scanning public &amp; indexed sources</string>
     <string name="progress_collect_title_pro">Source pipeline</string>
     <string name="progress_subtitle">People finders, breach checks, courts — usually 10–30 seconds</string>
@@ -305,6 +328,10 @@
     <string name="darkweb_section_disclaimer">Indexed search results only — .onion links are not fetched. Ahmia via Tor when available.</string>
 
     <!-- Themes -->
+    <string name="theme_modern_subtitle">Pro OSINT · Midnight blue</string>
+    <string name="theme_classified_title">CLASSIFIED</string>
+    <string name="theme_classified_subtitle">Dark dossier · Red stamp</string>
+    <string name="theme_humint_subtitle">Brass · Graphite dossier</string>
     <string name="theme_theplug_title">The Plug</string>
-    <string name="theme_theplug_subtitle">White brick · Green vibes</string>
+    <string name="theme_theplug_subtitle">Dark emerald · Street intel</string>
 </resources>

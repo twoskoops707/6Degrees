@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         if (base == "theplug") {
-            val plugBg = prefs.getString("pref_plug_bg", "bricks") ?: "bricks"
+            val plugBg = prefs.getString("pref_plug_bg", "gradient") ?: "gradient"
             window.setBackgroundDrawable(PlugBgFactory.createBg(this, plugBg))
         }
 
@@ -244,14 +244,15 @@ class MainActivity : AppCompatActivity() {
     private fun checkTermuxTools() {
         val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
         val lastCheck = prefs.getLong("termux_tools_last_check", 0L)
-        if (System.currentTimeMillis() - lastCheck < 24 * 60 * 60 * 1000L) return
-
         val runner = com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner(this)
+        val cachedStatus = runner.readToolStatus()
+        if (System.currentTimeMillis() - lastCheck < 24 * 60 * 60 * 1000L && cachedStatus.isNotEmpty()) return
+
         if (!runner.isTermuxInstalled()) {
             prefs.edit().putString("infra_status_summary", "Termux not installed").apply()
             return
         }
-        val outFile = java.io.File(com.twoskoops707.sixdegrees.data.repository.TermuxToolRunner.STATUS_FILE)
+        val outFile = java.io.File(runner.statusFilePath())
         try {
             runner.requestToolStatusRefresh()
         } catch (_: Exception) { return }

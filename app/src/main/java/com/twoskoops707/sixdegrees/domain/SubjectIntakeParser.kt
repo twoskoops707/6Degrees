@@ -22,6 +22,10 @@ object SubjectIntakeParser {
         """(?i)(?:works?\s+at|employed\s+(?:at|by)|job\s+at)\s+([A-Za-z0-9][A-Za-z0-9\s&.'-]{1,40})"""
     )
     private val AGE_REGEX = Regex("""\b(?:age\s+)?(\d{2})\s*(?:years?\s*old|yo)?\b""", RegexOption.IGNORE_CASE)
+    private val STREET_ADDRESS_REGEX = Regex(
+        """\b(\d{1,5}\s+[A-Za-z0-9][A-Za-z0-9\s.'#-]{2,60}?(?:St\.?|Street|Ave\.?|Avenue|Blvd\.?|Boulevard|Dr\.?|Drive|Rd\.?|Road|Ln\.?|Lane|Ct\.?|Court|Way|Pl\.?|Place|Cir\.?|Circle|Pkwy|Hwy|Ter\.?|Trail)\b)""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun looksLikeFreeform(text: String): Boolean {
         val t = text.trim()
@@ -45,6 +49,10 @@ object SubjectIntakeParser {
 
         var city = ""
         var state = ""
+        var address = STREET_ADDRESS_REGEX.find(remaining)?.groupValues?.getOrNull(1)?.trim().orEmpty()
+        if (address.isNotBlank()) {
+            remaining = remaining.replace(address, " ")
+        }
         CITY_STATE_REGEX.find(remaining)?.let { match ->
             city = match.groupValues[1].trim()
             state = match.groupValues[2].trim()
@@ -86,6 +94,7 @@ object SubjectIntakeParser {
             lastName = if (nameParts.size > 1) nameParts.last() else "",
             city = city,
             state = state,
+            address = address,
             phone = phone,
             email = email,
             age = age,
@@ -100,6 +109,7 @@ object SubjectIntakeParser {
             lastName = form["lastName"]?.takeIf { it.isNotBlank() } ?: profile.lastName,
             city = form["city"]?.takeIf { it.isNotBlank() } ?: profile.city,
             state = form["state"]?.takeIf { it.isNotBlank() } ?: profile.state,
+            address = form["address"]?.takeIf { it.isNotBlank() } ?: profile.address,
             phone = form["phone"]?.takeIf { it.isNotBlank() } ?: profile.phone,
             email = form["email"]?.takeIf { it.isNotBlank() } ?: profile.email,
             username = form["username"]?.takeIf { it.isNotBlank() } ?: profile.username,

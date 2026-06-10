@@ -40,8 +40,8 @@ object SubjectSearchOrchestrator {
         else -> emptySet()
     }
 
-    fun shouldRunDarkWeb(phase: SearchPhase, @Suppress("UNUSED_PARAMETER") intent: String): Boolean =
-        isDeepPhase(phase)
+    fun shouldRunDarkWeb(phase: SearchPhase, intent: String): Boolean =
+        isDeepPhase(phase) || (intent.isNotBlank() && isSafetyIntent(intent))
 
     const val PARALLEL_WORKERS = 9
 

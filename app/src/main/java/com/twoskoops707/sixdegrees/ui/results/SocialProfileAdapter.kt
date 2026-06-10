@@ -25,7 +25,11 @@ class SocialProfileAdapter : ListAdapter<SocialProfile, SocialProfileAdapter.Vie
         RecyclerView.ViewHolder(binding.root) {
         fun bind(profile: SocialProfile) {
             binding.platform.text = profile.platform
-            binding.username.text = profile.username.ifBlank { profile.url ?: "" }
+            val stats = profile.statsLabel?.takeIf { it.isNotBlank() }
+            binding.username.text = buildString {
+                append(profile.username.ifBlank { profile.url ?: "" })
+                if (!stats.isNullOrBlank()) append("\n").append(stats)
+            }
             binding.root.setOnClickListener {
                 profile.url?.let { url ->
                     binding.root.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))

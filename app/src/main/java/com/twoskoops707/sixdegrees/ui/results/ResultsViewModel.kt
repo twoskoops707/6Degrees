@@ -277,9 +277,27 @@ object DossierBuilder {
             .filter { !isEmptyPlaceholder(it) && it.label != "Summary" }
         val who = findings("identity", "employment", "contact", "family") + googleIntel
         val where = byId["locations"]?.findings.orEmpty().filter { !isEmptyPlaceholder(it) }
-        val flags = findings("legal", "darkweb").filter { it.isWarning || isRedFlagFinding(it) }
+        val ctx = FindingUrlHelper.subjectContext(meta)
+        val flags = (findings("legal", "darkweb").filter { it.isWarning || isRedFlagFinding(it) } +
+            buildRiskFlagFindings(meta)).ifEmpty {
+            buildLegalSection(meta).findings.filter { it.isWarning || isRedFlagFinding(it) } +
+                buildDarkWebSection(meta).findings.filter { it.isWarning || isRedFlagFinding(it) } +
+                buildRiskFlagFindings(meta)
+        }.distinctBy { it.value + (it.label ?: "") }
         val shady = computeShadyScore(meta, searchType)
         val safe = buildSafeToMeetFindings(meta, shady)
+        val verifyLinks = listOf(
+            finding(
+                "Search ${ctx.name.ifBlank { "subject" }} on CourtListener",
+                "CourtListener", DossierConfidence.MEDIUM, "Court records",
+                isLink = true, sourceUrl = FindingUrlHelper.courtUrl(ctx)
+            ),
+            finding(
+                "Search ${ctx.name.ifBlank { "subject" }} on OpenSanctions",
+                "OpenSanctions", DossierConfidence.MEDIUM, "Sanctions",
+                isLink = true, sourceUrl = FindingUrlHelper.opensanctionsUrl(ctx)
+            )
+        )
 
         return listOf(
             DossierSection("who", "Who they are", "👤", who.ifEmpty {
@@ -290,7 +308,7 @@ object DossierBuilder {
             }),
             DossierSection("flags", "Red flags", "⚠", flags.ifEmpty {
                 listOf(finding("Nothing alarming turned up in public or indexed sources", "SixDegrees", DossierConfidence.LOW))
-            }),
+            } + verifyLinks),
             DossierSection("safe", "Safe to meet?", "✓", safe)
         )
     }
@@ -505,10 +523,8 @@ object DossierBuilder {
             ?.let { findings.add(finding(it, "Demographics", DossierConfidence.MEDIUM, "Gender")) }
         meta["pipl_gender"]?.takeIf { meta["demographics_gender"].isNullOrBlank() && it.isNotBlank() }
             ?.let { findings.add(finding(it, "Pipl", DossierConfidence.HIGH, "Gender")) }
-        meta["demographics_nationality"]?.takeIf { it.isNotBlank() }
-            ?.let { findings.add(finding(it, "Demographics", DossierConfidence.LOW, "Nationality Est.")) }
-        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() }
-            ?.let { findings.add(finding(it, "Pipl", DossierConfidence.HIGH, "Nationalities")) }
+        meta["pipl_nationalities"]?.takeIf { it.isNotBlank() && meta["pipl_found"] == "true" }
+            ?.let { findings.add(finding(it, "Pipl", DossierConfidence.MEDIUM, "Nationalities (verify independently)")) }
         meta["pipl_aliases"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "Pipl", DossierConfidence.HIGH, "Known Aliases")) }
         meta["ftn_birth_year"]?.takeIf { it.isNotBlank() }
@@ -558,7 +574,11 @@ object DossierBuilder {
 
         filtered.forEach { addr ->
             val source = inferAddressSource(meta, addr)
-            findings.add(finding(addr, source, confidenceFromKey(source.lowercase().replace(" ", "")), "Address"))
+            val ctx = FindingUrlHelper.subjectContext(meta)
+            findings.add(finding(
+                addr, source, confidenceFromKey(source.lowercase().replace(" ", "")), "Address",
+                sourceUrl = FindingUrlHelper.locationUrl(addr, ctx)
+            ))
         }
 
         if (findings.isEmpty() && skipped.isEmpty()) {
@@ -662,10 +682,17 @@ object DossierBuilder {
     private fun buildLegalSection(meta: Map<String, String>): DossierSection {
         val findings = mutableListOf<DossierFinding>()
         val arrestCount = meta["arrest_count"]?.toIntOrNull() ?: 0
+        val ctx = FindingUrlHelper.subjectContext(meta)
         if (arrestCount > 0) {
-            findings.add(finding("$arrestCount record${if (arrestCount != 1) "s" else ""}", "Arrest Database", DossierConfidence.HIGH, "Arrests on File", isWarning = true))
+            findings.add(finding(
+                "$arrestCount record${if (arrestCount != 1) "s" else ""}", "Arrest Database", DossierConfidence.HIGH,
+                "Arrests on File", isWarning = true, sourceUrl = FindingUrlHelper.courtUrl(ctx)
+            ))
             meta["arrest_records"]?.lines()?.filter { it.isNotBlank() }?.forEach { rec ->
-                findings.add(finding(rec, "Arrest Database", DossierConfidence.HIGH, "Arrest Record", isWarning = true))
+                findings.add(finding(
+                    rec, "Arrest Database", DossierConfidence.HIGH, "Arrest Record", isWarning = true,
+                    sourceUrl = FindingUrlHelper.courtUrl(ctx, rec)
+                ))
             }
         }
         val courtCount = meta["courtlistener_count"]?.toIntOrNull() ?: 0
@@ -678,14 +705,37 @@ object DossierBuilder {
         }
         val sanctions = meta["opensanctions_total"]?.toIntOrNull() ?: 0
         if (sanctions > 0) {
-            findings.add(finding("$sanctions match${if (sanctions != 1) "es" else ""}", "OpenSanctions", DossierConfidence.HIGH, "Sanctions / PEP", isWarning = true))
-            meta["opensanctions_names"]?.let { findings.add(finding(it, "OpenSanctions", DossierConfidence.HIGH, "Matched Names", isWarning = true)) }
+            findings.add(finding(
+                "$sanctions match${if (sanctions != 1) "es" else ""}", "OpenSanctions", DossierConfidence.HIGH,
+                "Sanctions / PEP", isWarning = true, sourceUrl = FindingUrlHelper.opensanctionsUrl(ctx)
+            ))
+            meta["opensanctions_names"]?.let {
+                findings.add(finding(
+                    it, "OpenSanctions", DossierConfidence.HIGH, "Matched Names", isWarning = true,
+                    sourceUrl = FindingUrlHelper.opensanctionsUrl(ctx)
+                ))
+            }
         }
         meta["dork_criminal_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(8)?.forEach { block ->
             findings.add(finding(block.trim(), "Auto-Dork", DossierConfidence.LOW, "Criminal Intel", isWarning = true))
         }
         meta["dork_court_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(8)?.forEach { block ->
-            findings.add(finding(block.trim(), "Auto-Dork", DossierConfidence.LOW, "Court Intel"))
+            findings.add(
+                finding(
+                    block.trim(), "Auto-Dork", DossierConfidence.LOW, "Court Intel",
+                    sourceUrl = FindingUrlHelper.courtUrl(FindingUrlHelper.subjectContext(meta), block.trim())
+                )
+            )
+        }
+        if (courtCount == 0) {
+            findings.add(
+                finding(
+                    "Search ${ctx.name.ifBlank { "subject" }} on CourtListener",
+                    "CourtListener", DossierConfidence.MEDIUM,
+                    "Search Court Records", isLink = true,
+                    sourceUrl = FindingUrlHelper.courtUrl(ctx)
+                )
+            )
         }
         if (findings.isEmpty()) {
             findings.add(finding("No legal or court records found", "SixDegrees", DossierConfidence.LOW))
@@ -743,6 +793,17 @@ object DossierBuilder {
             ?.let { findings.add(finding(it, "GitHub", DossierConfidence.MEDIUM, "GitHub Profile")) }
         meta["github_stats"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "GitHub", DossierConfidence.MEDIUM, "GitHub Activity")) }
+        meta["sites_found"]?.toIntOrNull()?.takeIf { it > 0 }?.let { found ->
+            val checked = meta["sites_checked"]?.toIntOrNull() ?: found
+            findings.add(finding("$found profiles on $checked platforms", "Username Scan", DossierConfidence.MEDIUM, "Cross-Platform"))
+            parseSocialProfilesFromMeta(meta).filter { !it.statsLabel.isNullOrBlank() }.take(10).forEach { profile ->
+                val value = buildString {
+                    append(profile.url ?: profile.username)
+                    profile.statsLabel?.let { append(" — $it") }
+                }
+                findings.add(finding(value, profile.platform, DossierConfidence.MEDIUM, profile.platform, isLink = profile.url?.startsWith("http") == true))
+            }
+        }
         meta["holehe_services"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { svc ->
             findings.add(finding(svc, "Holehe", DossierConfidence.MEDIUM, "Email Registered"))
         }
@@ -845,12 +906,19 @@ object DossierBuilder {
             findings.add(finding(block.trim(), "Auto-Dork", DossierConfidence.LOW, "Leaked Data", isWarning = true))
         }
         val breachCount = meta["hibp_breach_count"]?.toIntOrNull() ?: 0
+        val ctx = FindingUrlHelper.subjectContext(meta)
         if (breachCount > 0) {
-            findings.add(finding("$breachCount breach${if (breachCount != 1) "es" else ""}", "Have I Been Pwned", DossierConfidence.HIGH, "Breach Exposure", isWarning = true))
+            findings.add(finding(
+                "$breachCount breach${if (breachCount != 1) "es" else ""}", "Have I Been Pwned", DossierConfidence.HIGH,
+                "Breach Exposure", isWarning = true, sourceUrl = FindingUrlHelper.hibpUrl(ctx.email)
+            ))
         }
         val pasteCount = meta["paste_count"]?.toIntOrNull() ?: 0
         if (pasteCount > 0) {
-            findings.add(finding("$pasteCount paste dump${if (pasteCount != 1) "s" else ""}", "Paste Sites", DossierConfidence.MEDIUM, "Paste Exposure", isWarning = true))
+            findings.add(finding(
+                "$pasteCount paste dump${if (pasteCount != 1) "s" else ""}", "Paste Sites", DossierConfidence.MEDIUM,
+                "Paste Exposure", isWarning = true, sourceUrl = FindingUrlHelper.pasteUrl(ctx)
+            ))
         }
         if (findings.isEmpty()) {
             findings.add(finding("No indexed dark web or breach exposure found for this subject", "SixDegrees", DossierConfidence.LOW))
@@ -910,6 +978,27 @@ object DossierBuilder {
         if (value.startsWith("Skipped", ignoreCase = true)) return value
         val source = sourceFromKey(key)
         return "Skipped — outside $geoLabel ($source): $value"
+    }
+
+    private fun parseSocialProfilesFromMeta(meta: Map<String, String>): List<SocialProfile> {
+        val json = meta["social_profiles_json"]?.takeIf { it.isNotBlank() } ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).mapNotNull { i ->
+                val obj = arr.optJSONObject(i) ?: return@mapNotNull null
+                SocialProfile(
+                    platform = obj.optString("platform"),
+                    username = obj.optString("username"),
+                    url = obj.optString("url").takeIf { it.isNotBlank() },
+                    followersCount = obj.optInt("followersCount").takeIf { obj.has("followersCount") && !obj.isNull("followersCount") },
+                    followingCount = obj.optInt("followingCount").takeIf { obj.has("followingCount") && !obj.isNull("followingCount") },
+                    friendsCount = obj.optInt("friendsCount").takeIf { obj.has("friendsCount") && !obj.isNull("friendsCount") },
+                    statsLabel = obj.optString("statsLabel").takeIf { it.isNotBlank() }
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     private fun finding(
@@ -981,19 +1070,66 @@ object DossierBuilder {
         return set
     }
 
-    private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> {
-        val set = linkedSetOf<String>()
-        meta["person_entered_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        meta["pipl_addresses"]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
-        meta["pdl_address"]?.takeIf { it.isNotBlank() }?.let { set.add(it) }
-        meta["search_addresses"]?.lines()?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
-        listOf(
-            "tps_locations", "zaba_locations", "411_locations", "voter_addresses", "tt_locations", "tt_addresses",
-            "fps_locations", "radaris_locations", "peekyou_locations", "nuwber_locations", "wp_locations"
-        ).forEach { key ->
-            meta[key]?.split(" | ")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { set.add(it) }
+    private fun extractAddresses(meta: Map<String, String>): LinkedHashSet<String> =
+        LinkedHashSet(FindingUrlHelper.extractFullAddresses(meta))
+
+    private fun buildRiskFlagFindings(meta: Map<String, String>): List<DossierFinding> {
+        val ctx = FindingUrlHelper.subjectContext(meta)
+        val findings = mutableListOf<DossierFinding>()
+
+        meta["hibp_breach_count"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
+            findings.add(finding(
+                "$count data breach${if (count != 1) "es" else ""} on record",
+                "Have I Been Pwned", DossierConfidence.HIGH, "Breach", isWarning = true,
+                sourceUrl = FindingUrlHelper.hibpUrl(ctx.email)
+            ))
         }
-        return set
+        meta["arrest_count"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
+            findings.add(finding(
+                "$count arrest record${if (count != 1) "s" else ""}",
+                "Arrest Database", DossierConfidence.HIGH, "Arrest", isWarning = true,
+                sourceUrl = FindingUrlHelper.courtUrl(ctx)
+            ))
+        }
+        meta["opensanctions_total"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
+            findings.add(finding(
+                "$count sanctions / PEP match${if (count != 1) "es" else ""}",
+                "OpenSanctions", DossierConfidence.HIGH, "Sanctions", isWarning = true,
+                sourceUrl = FindingUrlHelper.opensanctionsUrl(ctx)
+            ))
+        }
+        meta["paste_count"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
+            findings.add(finding(
+                "$count paste dump${if (count != 1) "s" else ""}",
+                "Paste Sites", DossierConfidence.MEDIUM, "Paste", isWarning = true,
+                sourceUrl = FindingUrlHelper.pasteUrl(ctx)
+            ))
+        }
+        meta["ahmia_count"]?.toIntOrNull()?.takeIf { it > 0 }?.let { count ->
+            findings.add(finding(
+                "$count dark web index hit${if (count != 1) "s" else ""}",
+                "Ahmia", DossierConfidence.MEDIUM, "Dark Web", isWarning = true,
+                sourceUrl = FindingUrlHelper.darkWebUrl(ctx)
+            ))
+        }
+        meta["emailrep_suspicious"]?.toBooleanStrictOrNull()?.takeIf { it }?.let {
+            findings.add(finding(
+                "Email flagged as suspicious",
+                "EmailRep", DossierConfidence.MEDIUM, "Email Risk", isWarning = true,
+                sourceUrl = FindingUrlHelper.emailUrl(ctx.email)
+            ))
+        }
+        val courtCases = meta["court_case_count"]?.toIntOrNull()
+            ?: meta["courtlistener_count"]?.toIntOrNull() ?: 0
+        if (courtCases > 0) {
+            findings.add(finding(
+                "$courtCases court record${if (courtCases != 1) "s" else ""}",
+                "CourtListener", DossierConfidence.HIGH, "Court", isWarning = true,
+                sourceUrl = meta["courtlistener_link"]?.takeIf { it.startsWith("http") }
+                    ?: FindingUrlHelper.courtUrl(ctx)
+            ))
+        }
+        return findings
     }
 
     private fun extractRelatives(meta: Map<String, String>): LinkedHashSet<String> {

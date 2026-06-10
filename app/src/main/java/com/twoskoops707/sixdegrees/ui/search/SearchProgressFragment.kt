@@ -55,6 +55,7 @@ class SearchProgressFragment : Fragment() {
     private var currentDisplayQuery = ""
     private var investigatorMode = false
     private var currentRound = 1
+    private var candidatesJson: String? = null
 
     private fun normalizedSearchType(): String = when (currentType) {
         "scan" -> "person"
@@ -88,6 +89,7 @@ class SearchProgressFragment : Fragment() {
         val type = arguments?.getString("type") ?: "person"
         val round = arguments?.getInt("round") ?: 1
         val displayQuery = arguments?.getString("searchQuery")?.takeIf { it.isNotBlank() } ?: rawQuery
+        candidatesJson = arguments?.getString("candidatesJson")
 
         searchStartMs = System.currentTimeMillis()
         currentRound = round
@@ -113,6 +115,7 @@ class SearchProgressFragment : Fragment() {
                 else -> type.uppercase()
             }
             binding.searchProgressToolbar.title = getString(R.string.progress_collect_title_pro)
+            binding.tvSourceLogHeader.text = getString(R.string.progress_source_log_pro)
         } else {
             applySimpleProgressUi()
         }
@@ -130,6 +133,10 @@ class SearchProgressFragment : Fragment() {
             itemAnimator = null
         }
 
+        binding.searchProgressToolbar.setNavigationOnClickListener {
+            navigateBackFromProgress()
+        }
+
         binding.btnPartialResults.setOnClickListener {
             navigateToResults(partialReportId ?: completedReportId)
         }
@@ -145,6 +152,7 @@ class SearchProgressFragment : Fragment() {
                     moshi.adapter<List<CandidateProfile>>(listType).toJson(candidates)
                 } catch (_: Exception) { "[]" }
                 try {
+                    candidatesJson = json
                     nav.navigate(
                         R.id.action_progress_to_candidates,
                         Bundle().apply {
@@ -211,6 +219,8 @@ class SearchProgressFragment : Fragment() {
                     putString("searchQuery", currentDisplayQuery)
                     putString("searchType", normalizedSearchType())
                     putString("reportId", id)
+                    candidatesJson?.let { putString("candidatesJson", it) }
+                    if (currentRound > 1) putInt("candidateRound", currentRound)
                 }
             )
         } catch (_: Exception) {}
@@ -242,21 +252,21 @@ class SearchProgressFragment : Fragment() {
                 }
             }
             is SearchProgressEvent.Checking -> {
-                if (investigatorMode) {
-                    val existing = sourceRows.indexOfFirst { it.source == event.source }
-                    if (existing == -1) {
-                        sourceRows.add(SourceRow(event.source, SourceRow.State.CHECKING))
-                        adapter.notifyItemInserted(sourceRows.lastIndex)
-                        binding.rvSources.smoothScrollToPosition(sourceRows.lastIndex)
-                    }
-                    binding.tvStatus.text = "Checking ${event.source}…"
+                val existing = sourceRows.indexOfFirst { it.source == event.source }
+                if (existing == -1) {
+                    sourceRows.add(SourceRow(event.source, SourceRow.State.CHECKING))
+                    adapter.notifyItemInserted(sourceRows.lastIndex)
+                    binding.rvSources.smoothScrollToPosition(sourceRows.lastIndex)
+                }
+                binding.tvStatus.text = if (investigatorMode) {
+                    "Checking ${event.source}…"
                 } else {
-                    binding.tvStatus.text = getString(R.string.progress_simple_status)
+                    getString(R.string.progress_simple_status) + " — ${event.source}"
                 }
             }
             is SearchProgressEvent.Found -> {
                 hitCount++
-                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.FOUND, event.detail)
+                updateSourceRow(event.source, SourceRow.State.FOUND, event.detail)
                 checkedCount++
                 updateCounts()
                 if (!investigatorMode && hitCount > 0) {
@@ -264,7 +274,7 @@ class SearchProgressFragment : Fragment() {
                 }
             }
             is SearchProgressEvent.NotFound -> {
-                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.NOT_FOUND)
+                updateSourceRow(event.source, SourceRow.State.NOT_FOUND)
                 checkedCount++
                 updateCounts()
             }
@@ -276,18 +286,18 @@ class SearchProgressFragment : Fragment() {
                     binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
                     Toast.makeText(requireContext(), event.reason, Toast.LENGTH_LONG).show()
                 } else {
-                    if (investigatorMode) updateSourceRow(event.source, SourceRow.State.FAILED, event.reason)
+                    updateSourceRow(event.source, SourceRow.State.FAILED, event.reason)
                     checkedCount++
                     updateCounts()
                 }
             }
             is SearchProgressEvent.Blocked -> {
-                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.BLOCKED, event.reason)
+                updateSourceRow(event.source, SourceRow.State.BLOCKED, event.reason)
                 checkedCount++
                 updateCounts()
             }
             is SearchProgressEvent.Skipped -> {
-                if (investigatorMode) updateSourceRow(event.source, SourceRow.State.SKIPPED, event.reason)
+                updateSourceRow(event.source, SourceRow.State.SKIPPED, event.reason)
                 checkedCount++
                 updateCounts()
             }
@@ -311,11 +321,16 @@ class SearchProgressFragment : Fragment() {
                             putString("type", "comprehensive")
                             putInt("round", event.round + 1)
                             putString("searchQuery", currentDisplayQuery)
+                            candidatesJson?.let { putString("candidatesJson", it) }
                         }
                     )
                     } catch (_: Exception) {}
                 } else {
                     pendingCandidates = event.candidates
+                    val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
+                    candidatesJson = try {
+                        moshi.adapter<List<CandidateProfile>>(listType).toJson(event.candidates)
+                    } catch (_: Exception) { candidatesJson }
                     val withPhotos = event.candidates.count { it.allPhotoUrls().isNotEmpty() }
                     binding.tvStatus.text = if (investigatorMode) {
                         "${event.candidates.size} people in your area · ${withPhotos} with photos · ${elapsedSec}s"
@@ -363,8 +378,10 @@ class SearchProgressFragment : Fragment() {
                 }
                 if (!investigatorMode) {
                     viewLifecycleOwner.lifecycleScope.launch {
-                        delay(1_200)
-                        navigateToResults(completedReportId)
+                        delay(2_500)
+                        if (isAdded && isResumed && _binding != null) {
+                            navigateToResults(completedReportId)
+                        }
                     }
                 }
             }
@@ -373,16 +390,39 @@ class SearchProgressFragment : Fragment() {
 
     private fun applySimpleProgressUi() {
         binding.chipSearchType.visibility = View.GONE
-        binding.layoutCheckedColumn.visibility = View.GONE
-        binding.statsDivider.visibility = View.GONE
-        binding.tvFoundLabel.text = getString(R.string.progress_simple_complete)
-        binding.tvSourceLogHeader.visibility = View.GONE
-        binding.rvSources.visibility = View.GONE
+        binding.layoutCheckedColumn.visibility = View.VISIBLE
+        binding.statsDivider.visibility = View.VISIBLE
+        binding.tvSourceLogHeader.visibility = View.VISIBLE
+        binding.tvSourceLogHeader.text = getString(R.string.progress_source_log)
+        binding.rvSources.visibility = View.VISIBLE
         binding.tvPhase.visibility = View.GONE
         binding.tvEta.visibility = View.GONE
         binding.btnPartialResults.visibility = View.GONE
         binding.tvStatus.text = getString(R.string.progress_simple_status)
-        binding.searchProgressToolbar.title = getString(R.string.progress_collect_title)
+        binding.searchProgressToolbar.title = getString(R.string.progress_title)
+    }
+
+    private fun navigateBackFromProgress() {
+        if (!isAdded) return
+        val nav = findNavController()
+        val json = candidatesJson
+        if (currentRound > 1 && !json.isNullOrBlank()) {
+            try {
+                nav.navigate(
+                    R.id.action_progress_to_candidates,
+                    Bundle().apply {
+                        putString("candidatesJson", json)
+                        putString("reportId", completedReportId ?: partialReportId ?: "")
+                        putInt("round", currentRound)
+                        putString("searchQuery", currentDisplayQuery)
+                    }
+                )
+            } catch (_: Exception) {
+                nav.popBackStack(R.id.nav_candidate_selection, false)
+            }
+        } else {
+            nav.popBackStack()
+        }
     }
 
     private fun updateSourceRow(source: String, state: SourceRow.State, detail: String = "") {
@@ -420,6 +460,8 @@ class SearchProgressFragment : Fragment() {
             }
         } else {
             binding.tvFoundCount.text = hitCount.toString()
+            val total = maxOf(estimatedTotal, sourceRows.size, 1)
+            binding.tvCheckedCount.text = getString(R.string.progress_sources_checked, checkedCount, total)
         }
     }
 

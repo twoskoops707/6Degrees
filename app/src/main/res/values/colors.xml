@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ── Material 3 Modern palette ───────────────── -->
-    <color name="md_background">#0C1322</color>
-    <color name="md_on_background">#EDF2FF</color>
-    <color name="md_surface">#111B2E</color>
-    <color name="md_on_surface">#EDF2FF</color>
-    <color name="md_surface_variant">#172035</color>
-    <color name="md_on_surface_variant">#A8BCDC</color>
-    <color name="md_surface_container">#111B2E</color>
-    <color name="md_surface_container_high">#172035</color>
-    <color name="md_surface_container_highest">#1E2B44</color>
-    <color name="md_outline">#28395A</color>
-    <color name="md_outline_variant">#1E2B44</color>
-    <color name="md_primary_container">#0D1E3A</color>
-    <color name="md_on_primary_container">#93C5FD</color>
-    <color name="md_secondary_container">#041B2C</color>
-    <color name="md_on_secondary_container">#7DD3FC</color>
-    <color name="md_tertiary_container">#1A1040</color>
-    <color name="md_on_tertiary_container">#C4B5FD</color>
+    <!-- ── Material 3 Modern — premium private-eye OSINT ── -->
+    <color name="md_background">#060A12</color>
+    <color name="md_on_background">#F0F4FC</color>
+    <color name="md_surface">#0C1220</color>
+    <color name="md_on_surface">#F0F4FC</color>
+    <color name="md_surface_variant">#131C2E</color>
+    <color name="md_on_surface_variant">#9AADCE</color>
+    <color name="md_surface_container">#0E1524</color>
+    <color name="md_surface_container_high">#151F32</color>
+    <color name="md_surface_container_highest">#1C2840</color>
+    <color name="md_outline">#2A3D5C</color>
+    <color name="md_outline_variant">#1A2740</color>
+    <color name="md_primary_container">#0A1A36</color>
+    <color name="md_on_primary_container">#8BB8FF</color>
+    <color name="md_secondary_container">#031824</color>
+    <color name="md_on_secondary_container">#6DD4F7</color>
+    <color name="md_tertiary_container">#221808</color>
+    <color name="md_on_tertiary_container">#F5C76A</color>
 
     <!-- ── Base Surfaces (legacy aliases) ──────────── -->
     <color name="background_primary">@color/md_background</color>
@@ -111,16 +111,19 @@
     <color name="nops_text">#00FF41</color>
     <color name="nops_ash">#005C17</color>
 
-    <!-- ── Redacted Theme ───────────────────────────── -->
-    <color name="red_bg">#F0EDE8</color>
-    <color name="red_surface">#FFFFFF</color>
-    <color name="red_border">#C8C0B8</color>
-    <color name="red_ink">#0D0D0D</color>
-    <color name="red_ink_dim">#1A1A1A</color>
-    <color name="red_accent">#BF360C</color>
-    <color name="red_accent_dim">#FBE9E7</color>
-    <color name="red_ash">#6B6B6B</color>
-    <color name="red_success">#1B5E20</color>
+    <!-- ── Classified (legacy key: redacted) — dark dossier ── -->
+    <color name="red_bg">#080808</color>
+    <color name="red_surface">#121212</color>
+    <color name="red_surface_elevated">#1A1A1A</color>
+    <color name="red_border">#2E2E2E</color>
+    <color name="red_ink">#E8E8E8</color>
+    <color name="red_ink_dim">#B0B0B0</color>
+    <color name="red_accent">#DC2626</color>
+    <color name="red_accent_dim">#3D0A0A</color>
+    <color name="red_stamp">#991B1B</color>
+    <color name="red_ash">#737373</color>
+    <color name="red_bar">#1A1A1A</color>
+    <color name="red_success">#22C55E</color>
 
     <!-- ── Cold War Theme ───────────────────────────── -->
     <color name="cw_bg">#1C1508</color>
@@ -133,34 +136,37 @@
     <color name="cw_ash">#7A6040</color>
     <color name="cw_moss">#8B9E3A</color>
 
-    <!-- ── HUMINT Theme ──────────────────────────────── -->
-    <color name="hi_bg">#0A0E1A</color>
-    <color name="hi_surface">#111828</color>
-    <color name="hi_border">#1E2B44</color>
-    <color name="hi_blue">#4FC3F7</color>
-    <color name="hi_blue_dim">#041B2C</color>
-    <color name="hi_cyan">#80DEEA</color>
-    <color name="hi_text">#CFD8DC</color>
-    <color name="hi_ash">#546E7A</color>
+    <!-- ── HUMINT — operational dossier, brass on graphite ── -->
+    <color name="hi_bg">#0C0B09</color>
+    <color name="hi_surface">#161411</color>
+    <color name="hi_surface_elevated">#1E1B17</color>
+    <color name="hi_border">#3D3628</color>
+    <color name="hi_blue">#C4A35A</color>
+    <color name="hi_blue_dim">#2A2210</color>
+    <color name="hi_cyan">#8B7355</color>
+    <color name="hi_text">#E8E0D0</color>
+    <color name="hi_ash">#7A7060</color>
+    <color name="hi_stamp">#B45309</color>
 
-    <!-- ── The Plug Theme — white brick, green vibes ── -->
-    <color name="plug_bg">#F4F1EC</color>
-    <color name="plug_surface">#FFFFFF</color>
-    <color name="plug_surface_elevated">#FAF8F4</color>
-    <color name="plug_brick">#F0EBE3</color>
-    <color name="plug_brick_alt">#E8E3DB</color>
-    <color name="plug_grout">#3A3A3A</color>
-    <color name="plug_border">#C8C0B4</color>
-    <color name="plug_green">#2D5016</color>
-    <color name="plug_green_bright">#4CAF50</color>
-    <color name="plug_green_dim">#E8F5E9</color>
-    <color name="plug_gold">#7CB342</color>
-    <color name="plug_gold_dim">#E8F5E9</color>
-    <color name="plug_text">#1A2614</color>
-    <color name="plug_ash">#5C6B57</color>
-    <color name="plug_money">#2E7D32</color>
-    <color name="plug_red">#C62828</color>
-    <color name="plug_yellow">#8BC34A</color>
+    <!-- ── The Plug — premium dark street intel ── -->
+    <color name="plug_bg">#070A08</color>
+    <color name="plug_surface">#111916</color>
+    <color name="plug_surface_elevated">#182018</color>
+    <color name="plug_brick">#141A16</color>
+    <color name="plug_brick_alt">#0E1410</color>
+    <color name="plug_grout">#1A221C</color>
+    <color name="plug_border">#243028</color>
+    <color name="plug_green">#34D399</color>
+    <color name="plug_green_bright">#6EE7B7</color>
+    <color name="plug_green_dim">#0A2018</color>
+    <color name="plug_gold">#A3E635</color>
+    <color name="plug_gold_dim">#1A2810</color>
+    <color name="plug_text">#ECFDF5</color>
+    <color name="plug_ash">#6B8F7A</color>
+    <color name="plug_money">#10B981</color>
+    <color name="plug_red">#F87171</color>
+    <color name="plug_yellow">#BEF264</color>
+    <color name="plug_glow">#064E3B</color>
 
     <!-- ── el/la Patrino/a Theme — Colombian tricolor ── -->
     <color name="patrino_yellow">#FCD116</color>
