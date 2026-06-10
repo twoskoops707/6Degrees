@@ -48,10 +48,31 @@
                 android:textSize="15sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layout_tool_search"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Filter OSINT Framework tools"
+            app:boxStrokeColor="?attr/colorPrimary"
+            app:boxStrokeWidth="1dp"
+            app:hintTextColor="@color/text_secondary"
+            app:boxBackgroundColor="@color/surface">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_tool_search"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp" />
+        </com.google.android.material.textfield.TextInputLayout>
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Check the tools you want, then tap Launch Selected — all open simultaneously in your browser"
+            android:text="Free OSINT Framework tools that run inside SixDegrees and populate your dossier. Run a search to collect data — reference links open the source site."
             android:textColor="@color/text_secondary"
             android:textSize="11sp"
             android:layout_marginTop="8dp" />

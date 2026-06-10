@@ -15,6 +15,7 @@ import android.util.Log
 import com.twoskoops707.sixdegrees.data.local.OsintDatabase
 import com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity
 import com.twoskoops707.sixdegrees.data.local.entity.PersonEntity
+import com.twoskoops707.sixdegrees.data.osint.OsintFrameworkReportBridge
 import com.twoskoops707.sixdegrees.data.osint.OsintToolRegistry
 import com.twoskoops707.sixdegrees.data.remote.dto.peopledatalabs.PdlPerson
 import com.twoskoops707.sixdegrees.data.remote.dto.pipl.PiplPerson
@@ -2770,6 +2771,7 @@ class OsintRepository(context: Context) {
 
     private fun finalizeMetadata(metadata: ConcurrentHashMap<String, String>) {
         ReportMetadataSync.sync(metadata)
+        OsintFrameworkReportBridge.apply(metadata, OsintToolRegistry.allTools)
     }
 
     private fun buildStructuredPersonFields(metadata: Map<String, String>): Triple<String, String, String> {
@@ -2947,6 +2949,7 @@ class OsintRepository(context: Context) {
             val primaryQuery = resolvePrimaryQuery(type, fields, query)
 
             val metadata = ConcurrentHashMap<String, String>()
+            OsintToolRegistry.ensureLoaded(appCtx)
             val effectiveType = if (type == "scan") "person" else type
             val searchPhase = SubjectSearchOrchestrator.resolvePhase(type, round, subjectProfile)
             val fastMode = !AppSettings.isInvestigatorMode(appCtx)
@@ -4165,17 +4168,7 @@ class OsintRepository(context: Context) {
                     }
                 }
 
-                val relevantTools = OsintToolRegistry.relevantTools(type)
-                val browserCategories = LinkedHashMap<String, List<Pair<String, String>>>()
-
-                for ((cat, tools) in relevantTools) {
-                    browserCategories[cat] = tools.map { tool ->
-                        Pair(tool.name, OsintToolRegistry.buildUrl(tool.urlTemplate, primaryQuery))
-                    }
-                }
-
-                // Registry bulk HTML scrape disabled — expose browser links only.
-                send(SearchProgressEvent.BrowserToolsReady(browserCategories))
+                // OSINT Framework tools run in-app via scrapers / InHouseOsintRunner — not external browser tabs.
             }
 
             val nameTokens = primaryQuery.lowercase().split(" ").filter { it.length > 1 }

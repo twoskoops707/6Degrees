@@ -2,7 +2,6 @@ package com.twoskoops707.sixdegrees.data.osint
 
 import android.content.Context
 import com.twoskoops707.sixdegrees.data.BlockedSourceCache
-import java.net.URLEncoder
 
 object OsintToolRegistry {
 
@@ -12,277 +11,244 @@ object OsintToolRegistry {
         BlockedSourceCache(context).isUrlBlocked(url)
 
     data class OsintTool(
+        val id: String,
         val name: String,
         val description: String,
         val urlTemplate: String,
-        val categories: Set<String>
+        val categories: Set<String>,
+        val frameworkPath: List<String> = emptyList(),
+        val inputHint: String = "",
+        val isQueryable: Boolean = false
     )
 
-    fun buildUrl(template: String, query: String): String {
-        val first = urlEncode(query.substringBefore(" ").trim())
-        val last = urlEncode(query.substringAfterLast(" ").trim())
-        return template
-            .replace("{q-encoded}", urlEncode(query))
-            .replace("{q-hyphen}", query.replace(" ", "-"))
-            .replace("{q-plus}", query.replace(" ", "+"))
-            .replace("{q-underscore}", query.replace(" ", "_"))
-            .replace("{q-digits}", query.replace(Regex("[^0-9+]"), ""))
-            .replace("{q-raw}", query)
-            .replace("{first}", first)
-            .replace("{last}", last)
+    fun buildUrl(template: String, query: String): String =
+        OsintUrlBuilder.buildUrl(template, query)
+
+    private const val RELEVANT_TOOLS_PER_CATEGORY = 20
+
+    @Volatile
+    private var cachedTools: List<OsintTool>? = null
+
+    fun ensureLoaded(context: Context): List<OsintTool> {
+        cachedTools?.let { return it }
+        synchronized(this) {
+            cachedTools?.let { return it }
+            val repo = OsintFrameworkRepository.getInstance(searchTemplateOverrides())
+            val loaded = repo.loadTools(context.applicationContext).map { it.toRegistryTool() }
+            cachedTools = loaded
+            return loaded
+        }
     }
 
-    private fun urlEncode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
+    val allTools: List<OsintTool>
+        get() = cachedTools.orEmpty()
 
-    val allTools: List<OsintTool> = listOf(
-        OsintTool("FastPeopleSearch", "Free US people search", "https://www.fastpeoplesearch.com/name/{q-hyphen}", setOf("person")),
-        OsintTool("TruePeopleSearch", "Full profile with address history", "https://www.truepeoplesearch.com/results?name={q-encoded}", setOf("person")),
-        OsintTool("WhitePages", "US name/phone/address lookup", "https://www.whitepages.com/name/{q-hyphen}", setOf("person")),
-        OsintTool("Spokeo", "Social + public + contact aggregator", "https://www.spokeo.com/{q-plus}", setOf("person")),
-        OsintTool("PeekYou", "Social profiles linked to real identity", "https://www.peekyou.com/{q-underscore}", setOf("person")),
-        OsintTool("BeenVerified", "Background check — employment, criminal", "https://www.beenverified.com/f/search/person?q={q-encoded}", setOf("person")),
-        OsintTool("IDCrawl", "People search via name/username/email", "https://www.idcrawl.com/{q-encoded}", setOf("person", "username")),
-        OsintTool("WebMii", "Web presence and social profile linker", "https://webmii.com/people?n={q-encoded}", setOf("person")),
-        OsintTool("FamilyTree Now", "Genealogy + relatives + address history", "https://www.familytreenow.com/search/genealogy/results?fn={first}&ln={last}", setOf("person")),
-        OsintTool("ThatsThem", "Reverse lookup — name, phone, email, IP", "https://thatsthem.com/name/{q-hyphen}", setOf("person")),
-        OsintTool("ZabaSearch", "Free US people search", "https://www.zabasearch.com/people/{q-hyphen}/", setOf("person")),
-        OsintTool("Radaris", "Deep people search aggregator", "https://radaris.com/p/{first}/{last}/", setOf("person")),
-        OsintTool("CourtListener", "US federal and state court records", "https://www.courtlistener.com/?q={q-encoded}&type=p", setOf("person", "records")),
-        OsintTool("JudyRecords", "US court case records by name", "https://www.judyrecords.com/search?search={q-encoded}", setOf("person", "records")),
-        OsintTool("Intelius", "Comprehensive background reports", "https://www.intelius.com/people-search/name/{q-plus}", setOf("person")),
-        OsintTool("LinkedIn People", "Professional profiles and employment", "https://www.linkedin.com/search/results/people/?keywords={q-encoded}", setOf("person", "company")),
-        OsintTool("NSOPW", "National sex offender public registry", "https://www.nsopw.gov/Search/Results?firstName={first}&lastName={last}", setOf("person", "records")),
-        OsintTool("OpenSanctions", "Sanctions, PEPs, and crime databases", "https://www.opensanctions.org/search/?q={q-encoded}", setOf("person", "threat")),
-        OsintTool("Pipl", "Deep web person search engine", "https://pipl.com/search/?q={q-encoded}", setOf("person")),
-        OsintTool("411.com", "US white pages reverse lookup", "https://www.411.com/name/{q-hyphen}", setOf("person")),
-        OsintTool("HaveIBeenPwned", "Check 12B+ breached accounts", "https://haveibeenpwned.com/account/{q-encoded}", setOf("email", "breach")),
-        OsintTool("Epieos", "Reverse email: Google account, social profiles", "https://epieos.com/?q={q-encoded}&t=email", setOf("email")),
-        OsintTool("Hunter.io", "Email verifier and deliverability check", "https://hunter.io/email-verifier/{q-encoded}", setOf("email", "company")),
-        OsintTool("EmailRep.io", "Email reputation, risk flags, breach status", "https://emailrep.io/{q-encoded}", setOf("email")),
-        OsintTool("Intelligence X", "Deep web email search and breach data", "https://intelx.io/?s={q-encoded}", setOf("email", "breach", "darknet")),
-        OsintTool("DeHashed", "Breach database search", "https://dehashed.com/search?query={q-encoded}", setOf("email", "breach")),
-        OsintTool("Holehe", "Check email registration across 120+ sites", "https://github.com/megadose/holehe", setOf("email")),
-        OsintTool("Phonebook.cz", "Email, domain, and URL search engine", "https://phonebook.cz/?q={q-encoded}&t=2", setOf("email", "domain")),
-        OsintTool("Email-format.com", "Find email formats for any company", "https://www.email-format.com/i/search/?q={q-encoded}", setOf("email", "company")),
-        OsintTool("MXToolbox", "Email header analyzer and deliverability", "https://mxtoolbox.com/EmailHeaders.aspx", setOf("email", "domain")),
-        OsintTool("Snusbase", "Breach database with indexed passwords", "https://snusbase.com/", setOf("email", "breach")),
-        OsintTool("LeakCheck.io", "Leaked credential checker", "https://leakcheck.io/", setOf("email", "breach")),
-        OsintTool("Cybernews Leak Check", "Personal data leak checker", "https://cybernews.com/personal-data-leak-check/", setOf("email", "breach")),
-        OsintTool("GHunt", "OSINT on Google accounts via email", "https://github.com/mxrch/GHunt", setOf("email")),
-        OsintTool("Tovi", "Email lookup and social recovery", "https://tovi.io/", setOf("email")),
-        OsintTool("TrueCaller", "Global phone owner lookup + spam DB", "https://www.truecaller.com/search/us/{q-digits}", setOf("phone")),
-        OsintTool("WhoCalledMe", "US reverse phone + caller reports", "https://www.whocalledme.com/PhoneNumber/{q-digits}", setOf("phone")),
-        OsintTool("800notes", "Caller ID and spam phone reports", "https://800notes.com/Phone.aspx/{q-digits}", setOf("phone")),
-        OsintTool("PhoneInfoga", "International phone OSINT tool", "https://demo.phoneinfoga.crvx.fr/#/numbers/{q-encoded}/run", setOf("phone")),
-        OsintTool("SpyDialer", "Free reverse phone lookup", "https://www.spydialer.com/default.aspx", setOf("phone")),
-        OsintTool("NumLooker", "Reverse phone lookup aggregator", "https://www.numlooker.com/{q-digits}", setOf("phone")),
-        OsintTool("CallerID Test", "Free phone number lookup", "https://calleridtest.com/phonenumber/{q-digits}", setOf("phone")),
-        OsintTool("SYNC.me", "Phone book and social profile linker", "https://sync.me/", setOf("phone")),
-        OsintTool("Numverify", "Phone carrier and line type check", "https://numverify.com/", setOf("phone")),
-        OsintTool("OpenCelliD", "Cell tower geolocation database", "https://opencellid.org/", setOf("phone", "geo")),
-        OsintTool("CarrierLookup", "Phone carrier and number portability", "https://www.carrierlookup.com/", setOf("phone")),
-        OsintTool("AnyWho", "Reverse phone lookup", "https://www.anywho.com/reverse-lookup/{q-digits}", setOf("phone")),
-        OsintTool("WhatsMyName", "Check username across 500+ sites", "https://whatsmyname.app/?q={q-encoded}", setOf("username")),
-        OsintTool("NameCheckup", "Username on 100+ social networks", "https://namecheckup.com/{q-encoded}", setOf("username")),
-        OsintTool("Namecheckr", "Cross-platform username finder", "https://www.namecheckr.com/{q-encoded}", setOf("username")),
-        OsintTool("Instant Username", "Real-time username search", "https://instantusername.com/", setOf("username")),
-        OsintTool("KnowEm", "Username availability on 150+ networks", "https://knowem.com/checkusernames.php?u={q-encoded}", setOf("username")),
-        OsintTool("CheckUsernames", "Check social media username availability", "https://checkusernames.com/?q={q-encoded}", setOf("username")),
-        OsintTool("Twitter/X Profile", "Direct profile lookup", "https://twitter.com/{q-raw}", setOf("username", "social")),
-        OsintTool("Instagram Profile", "Direct profile lookup", "https://www.instagram.com/{q-raw}/", setOf("username", "social")),
-        OsintTool("Reddit Profile", "User profile and post history", "https://www.reddit.com/user/{q-raw}", setOf("username", "social")),
-        OsintTool("TikTok Profile", "Direct profile lookup", "https://www.tiktok.com/@{q-raw}", setOf("username", "social")),
-        OsintTool("GitHub Profile", "Developer profile and repos", "https://github.com/{q-raw}", setOf("username")),
-        OsintTool("Twitch Profile", "Streamer profile and stats", "https://www.twitch.tv/{q-raw}", setOf("username", "social")),
-        OsintTool("Steam Search", "Gaming profile search", "https://steamcommunity.com/search/users/#text={q-encoded}", setOf("username")),
-        OsintTool("Discord Lookup", "Discord user ID and profile", "https://discord.id/", setOf("username", "social")),
-        OsintTool("Telegram Search", "Telegram username and channel search", "https://tgstat.com/search?q={q-encoded}", setOf("username", "social")),
-        OsintTool("Shodan", "Internet-connected device and port scanner", "https://www.shodan.io/search?query={q-encoded}", setOf("domain")),
-        OsintTool("Censys", "Internet-wide host and cert search", "https://search.censys.io/search?resource=hosts&q={q-encoded}", setOf("domain")),
-        OsintTool("VirusTotal", "Malware and threat scan for domains/IPs", "https://www.virustotal.com/gui/domain/{q-raw}", setOf("domain", "threat")),
-        OsintTool("DNSDumpster", "DNS recon — subdomains, MX, TXT", "https://dnsdumpster.com/", setOf("domain")),
-        OsintTool("SecurityTrails", "Historical DNS, WHOIS, subdomains", "https://securitytrails.com/domain/{q-raw}/dns", setOf("domain")),
-        OsintTool("URLScan.io", "Website screenshot and request analysis", "https://urlscan.io/search/#domain:{q-raw}", setOf("domain")),
-        OsintTool("AbuseIPDB", "IP abuse reports and reputation", "https://www.abuseipdb.com/check/{q-raw}", setOf("domain", "threat")),
-        OsintTool("GreyNoise", "Internet scanner noise detection", "https://viz.greynoise.io/ip/{q-raw}", setOf("domain", "threat")),
-        OsintTool("AlienVault OTX", "Threat intelligence and IOC feeds", "https://otx.alienvault.com/indicator/domain/{q-raw}", setOf("domain", "threat")),
-        OsintTool("Robtex", "BGP routing and passive DNS", "https://www.robtex.com/dns-lookup/{q-raw}", setOf("domain")),
-        OsintTool("crt.sh", "SSL certificate transparency logs", "https://crt.sh/?q={q-encoded}", setOf("domain")),
-        OsintTool("Wayback Machine", "Archived web snapshots", "https://web.archive.org/web/*/{q-raw}", setOf("domain", "tools")),
-        OsintTool("IPinfo.io", "IP geolocation, ASN, company info", "https://ipinfo.io/{q-raw}", setOf("domain", "geo")),
-        OsintTool("ViewDNS.info", "Reverse IP, DNS history, ping", "https://viewdns.info/reverseip/?host={q-raw}&t=1", setOf("domain")),
-        OsintTool("HackerTarget", "Network tools and reverse IP", "https://hackertarget.com/reverse-ip-lookup/?q={q-raw}", setOf("domain")),
-        OsintTool("LeakIX", "Exposed services and data leak search", "https://leakix.net/search?scope=leak&q={q-encoded}", setOf("domain", "breach")),
-        OsintTool("ZoomEye", "Cyberspace device and service search", "https://www.zoomeye.org/searchResult?q={q-encoded}", setOf("domain")),
-        OsintTool("Netcraft", "Site report and technology fingerprint", "https://sitereport.netcraft.com/?url={q-encoded}", setOf("domain")),
-        OsintTool("BuiltWith", "Technology stack detection", "https://builtwith.com/{q-raw}", setOf("domain", "company")),
-        OsintTool("SimilarWeb", "Traffic and competitor analysis", "https://www.similarweb.com/website/{q-raw}", setOf("domain", "company")),
-        OsintTool("Who.is", "WHOIS lookup", "https://who.is/whois/{q-raw}", setOf("domain")),
-        OsintTool("MXToolbox DNS", "DNS lookup, blacklist check", "https://mxtoolbox.com/SuperTool.aspx?action=a%3a{q-raw}&run=toolpage", setOf("domain")),
-        OsintTool("PublicWWW", "Source code search for technologies", "https://publicwww.com/websites/{q-encoded}/", setOf("domain")),
-        OsintTool("OpenCorporates", "Global corporate registry, officers, filings", "https://opencorporates.com/companies?q={q-encoded}", setOf("company")),
-        OsintTool("Crunchbase", "Startup funding, acquisitions, team", "https://www.crunchbase.com/textsearch?q={q-encoded}", setOf("company")),
-        OsintTool("SEC EDGAR", "US public company filings, 10-K, 8-K", "https://efts.sec.gov/LATEST/search-index?q={q-encoded}", setOf("company", "finance")),
-        OsintTool("LinkedIn Company", "Employee count, leadership, job posts", "https://www.linkedin.com/search/results/companies/?keywords={q-encoded}", setOf("company")),
-        OsintTool("Hunter.io Domain", "Company email pattern and employees", "https://hunter.io/domain-search/{q-raw}", setOf("company", "email")),
-        OsintTool("Glassdoor", "Employee reviews and salary data", "https://www.glassdoor.com/Search/results.htm?keyword={q-encoded}", setOf("company")),
-        OsintTool("Companies House", "UK company registry", "https://find-and-update.company-information.service.gov.uk/search?q={q-encoded}", setOf("company")),
-        OsintTool("Corporation Wiki", "US corporate connections and officers", "https://www.corporationwiki.com/search/results?term={q-encoded}", setOf("company")),
-        OsintTool("LittleSis", "Power network — who knows who", "https://littlesis.org/search?q={q-encoded}", setOf("company", "finance")),
-        OsintTool("ICIJ Offshore Leaks", "Panama Papers, FinCEN, Pandora", "https://offshoreleaks.icij.org/search?q={q-encoded}", setOf("company", "finance")),
-        OsintTool("GovSalaries", "Government employee salary search", "https://govsalaries.com/search?s={q-encoded}", setOf("company", "finance")),
-        OsintTool("OpenPayrolls", "US public employee pay", "https://openpayrolls.com/search?term={q-encoded}", setOf("company", "finance")),
-        OsintTool("Wappalyzer", "Technology and framework detection", "https://www.wappalyzer.com/lookup/{q-raw}/", setOf("company", "domain")),
-        OsintTool("WHOXY", "Reverse WHOIS — who owns what", "https://www.whoxy.com/whois-history/{q-raw}.htm", setOf("company", "domain")),
-        OsintTool("Google Lens", "Reverse image search", "https://lens.google.com/", setOf("image")),
-        OsintTool("TinEye", "Reverse image — exact and modified", "https://tineye.com/", setOf("image")),
-        OsintTool("Yandex Images", "Best reverse image for faces", "https://yandex.com/images/", setOf("image")),
-        OsintTool("FaceCheck.id", "Facial recognition reverse image", "https://facecheck.id/", setOf("image")),
-        OsintTool("Search4Faces", "Face search across VK and OK", "https://search4faces.com/", setOf("image")),
-        OsintTool("PimEyes", "AI-powered facial recognition search", "https://pimeyes.com/en", setOf("image")),
-        OsintTool("Bing Visual Search", "Scene and object recognition", "https://www.bing.com/visualsearch", setOf("image")),
-        OsintTool("FotoForensics", "JPEG error level analysis", "https://fotoforensics.com/", setOf("image")),
-        OsintTool("Forensically", "Digital image forensics toolkit", "https://29a.ch/photo-forensics/", setOf("image")),
-        OsintTool("ExifData", "EXIF metadata viewer", "https://www.exifdata.com/", setOf("image")),
-        OsintTool("Jimpl", "Online EXIF data extractor", "https://jimpl.com/", setOf("image")),
-        OsintTool("Image Raider", "Reverse search across multiple engines", "https://infringement.report/", setOf("image")),
-        OsintTool("Social Searcher", "Real-time public post search", "https://www.social-searcher.com/social-buzz/?q5={q-encoded}", setOf("social")),
-        OsintTool("Twitter/X Advanced", "Advanced tweet search", "https://twitter.com/search?q={q-encoded}&f=live", setOf("social")),
-        OsintTool("Who Posted What", "Facebook post search", "https://www.whopostedwhat.com/", setOf("social")),
-        OsintTool("Reddit Search", "Reddit via Pushshift", "https://camas.unddit.com/", setOf("social")),
-        OsintTool("TikTok Search", "TikTok user and hashtag search", "https://www.tiktok.com/search?q={q-encoded}", setOf("social")),
-        OsintTool("YouTube Search", "Video and channel search", "https://www.youtube.com/results?search_query={q-encoded}", setOf("social")),
-        OsintTool("Telegram TGStat", "Telegram channel and message search", "https://tgstat.com/search?q={q-encoded}", setOf("social")),
-        OsintTool("Snapchat Maps", "Public geotagged Snapchat stories", "https://map.snapchat.com/", setOf("social", "geo")),
-        OsintTool("VK Search", "Russian social network search", "https://vk.com/search?c[q]={q-encoded}&c[section]=people", setOf("social")),
-        OsintTool("Discord DISBOARD", "Discord server directory", "https://disboard.org/search?keyword={q-encoded}", setOf("social")),
-        OsintTool("Twitch Search", "Streamer and clip search", "https://www.twitch.tv/search?term={q-encoded}", setOf("social")),
-        OsintTool("Reddit Investigator", "User behavior and karma analysis", "https://www.redditinvestigator.com/", setOf("social")),
-        OsintTool("Nitter", "Twitter without tracking", "https://nitter.net/search?q={q-encoded}", setOf("social")),
-        OsintTool("SocialGrep", "Reddit and social media search", "https://socialgrep.com/search?query={q-encoded}", setOf("social")),
-        OsintTool("VINDecoderz", "VIN decode — make, model, specs", "https://www.vindecoderz.com/EN/check-lookup/{q-raw}", setOf("vehicle")),
-        OsintTool("FAXVIN", "VIN check and vehicle history", "https://www.faxvin.com/{q-raw}", setOf("vehicle")),
-        OsintTool("VehicleHistory", "VIN report — accidents, title, odometer", "https://www.vehiclehistory.com/vin-report/{q-raw}", setOf("vehicle")),
-        OsintTool("AutoCheck", "Experian vehicle history report", "https://www.autocheck.com/vehiclehistory/autocheck/en/vehiclecheck?vin={q-raw}", setOf("vehicle")),
-        OsintTool("VINCheck NICB", "National Insurance Crime Bureau VIN check", "https://www.nicb.org/vincheck", setOf("vehicle")),
-        OsintTool("VINcheck.info", "Free VIN check and history", "https://www.vincheck.info/", setOf("vehicle")),
-        OsintTool("Plate Lookup", "License plate to owner lookup", "https://thatsthem.com/license-plate/{q-raw}", setOf("vehicle")),
-        OsintTool("Poctra", "European vehicle history", "https://poctra.com/{q-raw}", setOf("vehicle")),
-        OsintTool("SearchQuarry", "License plate lookup", "https://www.searchquarry.com/", setOf("vehicle")),
-        OsintTool("Ashley Madison Check", "Ashley Madison breach lookup", "https://ashley.cynic.al/", setOf("breach")),
-        OsintTool("DDoSecrets", "Public interest leaks and datasets", "https://ddosecrets.com/wiki/Special:Search?search={q-encoded}&ns0=1", setOf("breach", "darknet")),
-        OsintTool("Scylla.sh", "Public breach data aggregator", "https://scylla.sh/", setOf("breach")),
-        OsintTool("Breach Directory", "Username/email breach search", "https://breachdirectory.org/", setOf("breach")),
-        OsintTool("Ahmia", "Dark web search engine (Tor index)", "https://ahmia.fi/search/?q={q-encoded}", setOf("darknet")),
-        OsintTool("DarkTracer", "Ransomware victim and dark web monitor", "https://darktracer.io/", setOf("darknet", "threat")),
-        OsintTool("RansomWatch", "Ransomware group leak site tracker", "https://ransomwatch.telemetry.ltd/", setOf("darknet", "threat")),
-        OsintTool("OnionSearch", "Multi-engine dark web search", "https://onionsearchengine.com/search.php?search={q-encoded}", setOf("darknet")),
-        OsintTool("Onion.live", "Dark web site search and monitor", "https://onion.live/", setOf("darknet")),
-        OsintTool("Darknetlive", "Dark web news and site directory", "https://darknetlive.com/", setOf("darknet")),
-        OsintTool("Google Maps", "Satellite and street level mapping", "https://www.google.com/maps/search/{q-encoded}", setOf("geo")),
-        OsintTool("Yandex Maps", "Russian mapping — excellent satellite", "https://yandex.com/maps/?text={q-encoded}", setOf("geo")),
-        OsintTool("OpenStreetMap", "Open source collaborative map", "https://www.openstreetmap.org/search?query={q-encoded}", setOf("geo")),
-        OsintTool("Mapillary", "Street-level crowdsourced imagery", "https://www.mapillary.com/", setOf("geo")),
-        OsintTool("Wikimapia", "Map with user-added POI data", "https://wikimapia.org/#lang=en&q={q-encoded}", setOf("geo")),
-        OsintTool("WiGLE", "WiFi network geolocation database", "https://wigle.net/search#", setOf("geo")),
-        OsintTool("GeoNames", "Geographic database with 11M+ places", "https://www.geonames.org/search.html?q={q-encoded}", setOf("geo")),
-        OsintTool("SunCalc", "Sun position and shadow analysis", "https://www.suncalc.org/", setOf("geo")),
-        OsintTool("Satellites.pro", "Multi-provider satellite imagery", "https://satellites.pro/", setOf("geo")),
-        OsintTool("FlightAware", "Live and historical flight tracking", "https://flightaware.com/live/flight/{q-raw}", setOf("geo")),
-        OsintTool("MarineTraffic", "Live ship and vessel tracking", "https://www.marinetraffic.com/", setOf("geo")),
-        OsintTool("SEC EDGAR Full Text", "Securities filings full text search", "https://efts.sec.gov/LATEST/search-index?q={q-encoded}&dateRange=custom", setOf("finance", "company")),
-        OsintTool("PACER", "US federal court records", "https://pacer.uscourts.gov/", setOf("finance", "records")),
-        OsintTool("MuckRock", "FOIA request database", "https://www.muckrock.com/search/?q={q-encoded}", setOf("finance", "records")),
-        OsintTool("PPP Loan Database", "COVID PPP loan recipients", "https://ppp.directory/search?q={q-encoded}", setOf("finance")),
-        OsintTool("Nonprofit Explorer", "Nonprofit IRS 990 filings", "https://projects.propublica.org/nonprofits/search?q={q-encoded}", setOf("finance")),
-        OsintTool("Tradint Research", "Trade intelligence tool", "https://tradint.io/", setOf("finance")),
-        OsintTool("FamilySearch", "Genealogy and historical records", "https://www.familysearch.org/search/record/results?q.givenName={first}&q.surname={last}", setOf("records")),
-        OsintTool("SSDI Search", "Social Security Death Index", "https://www.familysearch.org/search/collection/1202798?q.givenName={first}&q.surname={last}", setOf("records")),
-        OsintTool("FindAGrave", "Cemetery and death records", "https://www.findagrave.com/memorial/search?q={q-encoded}", setOf("records")),
-        OsintTool("OpenOversight", "Police misconduct and badge lookup", "https://openoversight.com/", setOf("records")),
-        OsintTool("VirusTotal Scan", "Multi-engine malware and URL scanner", "https://www.virustotal.com/gui/search/{q-encoded}", setOf("threat")),
-        OsintTool("Hybrid Analysis", "Dynamic malware sandbox analysis", "https://www.hybrid-analysis.com/search?query={q-encoded}", setOf("threat")),
-        OsintTool("Any.run", "Interactive online malware sandbox", "https://app.any.run/", setOf("threat")),
-        OsintTool("Pulsedive", "Threat intelligence and IOC enrichment", "https://pulsedive.com/search/?q={q-encoded}", setOf("threat")),
-        OsintTool("Cisco Talos", "Threat intelligence and IP/domain reputation", "https://talosintelligence.com/reputation_center/lookup?search={q-encoded}", setOf("threat")),
-        OsintTool("ThreatMiner", "IOC and threat data mining", "https://www.threatminer.org/host.php?q={q-encoded}", setOf("threat")),
-        OsintTool("Shodan CVE", "CVE exploit and vulnerable host search", "https://www.shodan.io/search?query=vuln:{q-raw}", setOf("threat")),
-        OsintTool("Sploitus", "Exploit and vulnerability search", "https://sploitus.com/?query={q-encoded}", setOf("threat")),
-        OsintTool("CheckPhish", "Phishing URL and site detection", "https://checkphish.ai/scan/{q-encoded}", setOf("threat")),
-        OsintTool("UserSearch", "Multi-platform username and people search", "https://usersearch.org/results_normal/?q={q-encoded}", setOf("username", "person")),
-        OsintTool("ZLookup", "Free reverse phone lookup", "https://www.zlookup.com/phone-lookup/{q-digits}", setOf("phone")),
-        OsintTool("Verify Email", "Free email address validation", "https://verify-email.org/email/{q-encoded}", setOf("email")),
-        OsintTool("CentralOps Email Dossier", "MX, DNS, and reverse DNS email analysis", "https://centralops.net/co/emaildossier.aspx", setOf("email", "domain")),
-        OsintTool("AllPeople", "US people search and contact records", "https://allpeople.com/search?ss={q-encoded}", setOf("person")),
-        OsintTool("Yasni", "International people search aggregator", "https://www.yasni.com/{first}/check+{last}", setOf("person")),
-        OsintTool("Nuwber", "US background and contact records", "https://nuwber.com/name/{q-hyphen}", setOf("person")),
-        OsintTool("192.com", "UK people and business directory", "https://www.192.com/atoz/people/{q-hyphen}/", setOf("person")),
-        OsintTool("Canada411", "Canadian phone and people lookup", "https://www.canada411.ca/search/?stype=si&what={q-encoded}", setOf("person", "phone")),
-        OsintTool("Namechk", "Username availability checker", "https://namechk.com/{q-raw}", setOf("username")),
-        OsintTool("AnalyzeID", "Username checker across platforms", "https://analyzeid.com/username/?u={q-raw}", setOf("username")),
-        OsintTool("Archive.today", "Web page archive and snapshot search", "https://archive.ph/?run=1&url={q-encoded}", setOf("domain", "tools")),
-        OsintTool("Infobel", "International telephone and business directory", "https://www.infobel.com/en/world/search?q={q-encoded}", setOf("person", "phone", "company")),
-        OsintTool("xlek", "Free people search database", "https://www.xlek.com/result.php?fname={first}&lname={last}", setOf("person")),
-        OsintTool("Ufind.name", "People search by name", "https://ufind.name/search?q={q-encoded}", setOf("person")),
-        OsintTool("GofindWho", "People search with social links", "https://gofindwho.com/people/{q-hyphen}", setOf("person")),
-        OsintTool("ValidNumber", "International phone number validator", "https://validnumber.com/phone/{q-digits}", setOf("phone")),
-        OsintTool("ReversePhoneCheck", "Reverse phone lookup", "https://www.reversephonecheck.com/{q-digits}", setOf("phone")),
-        OsintTool("CallTracer", "Free carrier, location, and spam lookup", "https://calltracer.io/search?q={q-digits}", setOf("phone")),
-        OsintTool("OldPhoneBook", "Historical US phone listings", "http://www.oldphonebook.com/search.php?name={q-encoded}", setOf("phone", "person")),
-        OsintTool("OSINT4ALL Hub", "Curated OSINT tool directory (start.me)", "https://start.me/p/L1rEYQ/osint4all", setOf("person", "domain")),
-        OsintTool("Osiris Dashboard", "Real-time global OSINT situational awareness", "https://osirisai.live", setOf("geo"))
-    )
+    fun toolsForCategory(context: Context, categoryId: String): List<OsintTool> =
+        ensureLoaded(context).filter { categoryId in it.categories }
 
-    private val categoryLabels = mapOf(
-        "person" to "👤 People Search",
-        "email" to "📧 Email",
-        "phone" to "📞 Phone",
-        "username" to "🔑 Username",
-        "domain" to "🌐 Domain / IP",
-        "company" to "🏢 Company",
-        "image" to "🖼️ Image / Face",
-        "social" to "💬 Social Media",
-        "vehicle" to "🚗 Vehicle / VIN",
-        "breach" to "🔓 Breaches",
-        "darknet" to "🕸️ Dark Web",
-        "geo" to "📍 Geolocation",
-        "finance" to "💰 Financial",
-        "records" to "📋 Public Records",
-        "threat" to "⚠️ Threat Intel"
-    )
+    fun searchTools(context: Context, query: String, categoryId: String? = null): List<OsintTool> {
+        val needle = query.trim().lowercase()
+        return ensureLoaded(context).filter { tool ->
+            (categoryId == null || categoryId == "all" || categoryId in tool.categories) &&
+                (needle.isBlank() ||
+                    tool.name.lowercase().contains(needle) ||
+                    tool.description.lowercase().contains(needle) ||
+                    tool.frameworkPath.any { it.lowercase().contains(needle) })
+        }
+    }
 
-    private val typeToCategories = mapOf(
-        "scan" to listOf("person", "social", "breach", "records", "image"),
-        "person" to listOf("person", "social", "breach", "records", "image"),
-        "comprehensive" to listOf("person", "social", "breach", "records", "image"),
-        "image" to listOf("person", "social", "breach", "records", "image"),
-        "email" to listOf("email", "breach"),
-        "phone" to listOf("phone"),
-        "username" to listOf("username", "social"),
-        "domain" to listOf("domain", "threat", "breach"),
-        "ip" to listOf("domain", "threat", "breach"),
-        "company" to listOf("company", "domain", "finance"),
-        "vehicle" to listOf("vehicle"),
-        "vin" to listOf("vehicle"),
-        "wifi" to listOf("geo"),
-        "mac" to listOf("geo"),
-        "ssid" to listOf("geo")
-    )
+    fun relevantTools(context: Context, type: String): LinkedHashMap<String, List<OsintTool>> {
+        val categories = OsintFrameworkCategoryMapper.typeToCategories[type] ?: listOf("person", "social")
+        return rankToolsForSearch(ensureLoaded(context), categories, type)
+    }
 
+    /** Back-compat for callers without Context — returns empty until [ensureLoaded]. */
     fun relevantTools(type: String): LinkedHashMap<String, List<OsintTool>> {
-        val categories = typeToCategories[type] ?: listOf("person", "social")
+        val categories = OsintFrameworkCategoryMapper.typeToCategories[type] ?: listOf("person", "social")
+        val tools = cachedTools.orEmpty()
+        if (tools.isEmpty()) return LinkedHashMap()
+        return rankToolsForSearch(tools, categories, type)
+    }
+
+    private fun rankToolsForSearch(
+        tools: List<OsintTool>,
+        categories: List<String>,
+        searchType: String
+    ): LinkedHashMap<String, List<OsintTool>> {
         val result = LinkedHashMap<String, List<OsintTool>>()
         val seen = mutableSetOf<String>()
         for (cat in categories) {
-            val label = categoryLabels[cat] ?: cat
-            val tools = allTools.filter { tool ->
-                cat in tool.categories && tool.name !in seen
-            }
-            if (tools.isNotEmpty()) {
-                tools.forEach { seen.add(it.name) }
-                result[label] = tools
+            val label = OsintFrameworkCategoryMapper.categoryLabels[cat] ?: cat
+            val section = tools
+                .filter { cat in it.categories && it.name !in seen }
+                .sortedWith(
+                    compareByDescending<OsintTool> { it.isQueryable }
+                        .thenByDescending {
+                            OsintFrameworkCategoryMapper.inputMatchesSearchType(it.inputHint, searchType)
+                        }
+                        .thenBy { it.name.lowercase() }
+                )
+                .take(RELEVANT_TOOLS_PER_CATEGORY)
+            if (section.isNotEmpty()) {
+                section.forEach { seen.add(it.name) }
+                result[label] = section
             }
         }
         return result
     }
+
+    fun resetForTests() {
+        cachedTools = null
+        OsintFrameworkRepository.resetForTests()
+    }
+
+    private fun OsintFrameworkRepository.FrameworkTool.toRegistryTool() = OsintTool(
+        id = id,
+        name = name,
+        description = description,
+        urlTemplate = urlTemplate,
+        categories = categories,
+        frameworkPath = frameworkPath,
+        inputHint = inputHint,
+        isQueryable = isQueryable
+    )
+
+    /**
+     * Search URL templates for high-value tools. Keys are normalized names from [OsintUrlBuilder.normalizeToolName].
+     * Framework static URLs are replaced when a better query template exists.
+     */
+    private fun searchTemplateOverrides(): Map<String, String> = mapOf(
+        "fastpeoplesearch" to "https://www.fastpeoplesearch.com/name/{q-hyphen}",
+        "truepeoplesearch" to "https://www.truepeoplesearch.com/results?name={q-encoded}",
+        "whitepages" to "https://www.whitepages.com/name/{q-hyphen}",
+        "spokeo" to "https://www.spokeo.com/{q-plus}",
+        "peekyou" to "https://www.peekyou.com/{q-underscore}",
+        "beenverified" to "https://www.beenverified.com/f/search/person?q={q-encoded}",
+        "idcrawl" to "https://www.idcrawl.com/{q-encoded}",
+        "webmii" to "https://webmii.com/people?n={q-encoded}",
+        "familytreenow" to "https://www.familytreenow.com/search/genealogy/results?fn={first}&ln={last}",
+        "thatsthem" to "https://thatsthem.com/name/{q-hyphen}",
+        "zabasearch" to "https://www.zabasearch.com/people/{q-hyphen}/",
+        "radaris" to "https://radaris.com/p/{first}/{last}/",
+        "courtlistener" to "https://www.courtlistener.com/?q={q-encoded}&type=p",
+        "judyrecords" to "https://www.judyrecords.com/search?search={q-encoded}",
+        "intelius" to "https://www.intelius.com/people-search/name/{q-plus}",
+        "linkedinpeople" to "https://www.linkedin.com/search/results/people/?keywords={q-encoded}",
+        "nsopw" to "https://www.nsopw.gov/Search/Results?firstName={first}&lastName={last}",
+        "opensanctions" to "https://www.opensanctions.org/search/?q={q-encoded}",
+        "pipl" to "https://pipl.com/search/?q={q-encoded}",
+        "411com" to "https://www.411.com/name/{q-hyphen}",
+        "haveibeenpwned" to "https://haveibeenpwned.com/account/{q-encoded}",
+        "epieosemailtool" to "https://epieos.com/?q={q-encoded}&t=email",
+        "hunter" to "https://hunter.io/email-verifier/{q-encoded}",
+        "emailrepio" to "https://emailrep.io/{q-encoded}",
+        "intelligencex" to "https://intelx.io/?s={q-encoded}",
+        "dehashed" to "https://dehashed.com/search?query={q-encoded}",
+        "phonebookcz" to "https://phonebook.cz/?q={q-encoded}&t=2",
+        "emailformat" to "https://www.email-format.com/i/search/?q={q-encoded}",
+        "truecaller" to "https://www.truecaller.com/search/us/{q-digits}",
+        "whocalledme" to "https://www.whocalledme.com/PhoneNumber/{q-digits}",
+        "800notes" to "https://800notes.com/Phone.aspx/{q-digits}",
+        "phoneinfoga" to "https://demo.phoneinfoga.crvx.fr/#/numbers/{q-encoded}/run",
+        "numlooker" to "https://www.numlooker.com/{q-digits}",
+        "calleridtest" to "https://calleridtest.com/phonenumber/{q-digits}",
+        "anywho" to "https://www.anywho.com/reverse-lookup/{q-digits}",
+        "whatsmyname" to "https://whatsmyname.app/?q={q-encoded}",
+        "namecheckup" to "https://namecheckup.com/{q-encoded}",
+        "namecheckr" to "https://www.namecheckr.com/{q-encoded}",
+        "knowem" to "https://knowem.com/checkusernames.php?u={q-encoded}",
+        "checkusernames" to "https://checkusernames.com/?q={q-encoded}",
+        "twitterxprofile" to "https://twitter.com/{q-raw}",
+        "instagramprofile" to "https://www.instagram.com/{q-raw}/",
+        "redditprofile" to "https://www.reddit.com/user/{q-raw}",
+        "tiktokprofile" to "https://www.tiktok.com/@{q-raw}",
+        "githubprofile" to "https://github.com/{q-raw}",
+        "twitchprofile" to "https://www.twitch.tv/{q-raw}",
+        "shodan" to "https://www.shodan.io/search?query={q-encoded}",
+        "censys" to "https://search.censys.io/search?resource=hosts&q={q-encoded}",
+        "virustotal" to "https://www.virustotal.com/gui/domain/{q-raw}",
+        "securitytrails" to "https://securitytrails.com/domain/{q-raw}/dns",
+        "urlscanio" to "https://urlscan.io/search/#domain:{q-raw}",
+        "abuseipdb" to "https://www.abuseipdb.com/check/{q-raw}",
+        "greynoise" to "https://viz.greynoise.io/ip/{q-raw}",
+        "alienvaultotx" to "https://otx.alienvault.com/indicator/domain/{q-raw}",
+        "robtex" to "https://www.robtex.com/dns-lookup/{q-raw}",
+        "crtsh" to "https://crt.sh/?q={q-encoded}",
+        "waybackmachine" to "https://web.archive.org/web/*/{q-raw}",
+        "ipinfoio" to "https://ipinfo.io/{q-raw}",
+        "viewdnsinfo" to "https://viewdns.info/reverseip/?host={q-raw}&t=1",
+        "hackertarget" to "https://hackertarget.com/reverse-ip-lookup/?q={q-raw}",
+        "leakix" to "https://leakix.net/search?scope=leak&q={q-encoded}",
+        "zoomeye" to "https://www.zoomeye.org/searchResult?q={q-encoded}",
+        "netcraft" to "https://sitereport.netcraft.com/?url={q-encoded}",
+        "builtwith" to "https://builtwith.com/{q-raw}",
+        "similarweb" to "https://www.similarweb.com/website/{q-raw}",
+        "whois" to "https://who.is/whois/{q-raw}",
+        "mxtoolboxdns" to "https://mxtoolbox.com/SuperTool.aspx?action=a%3a{q-raw}&run=toolpage",
+        "publicwww" to "https://publicwww.com/websites/{q-encoded}/",
+        "opencorporates" to "https://opencorporates.com/companies?q={q-encoded}",
+        "crunchbase" to "https://www.crunchbase.com/textsearch?q={q-encoded}",
+        "secedgar" to "https://efts.sec.gov/LATEST/search-index?q={q-encoded}",
+        "linkedincompany" to "https://www.linkedin.com/search/results/companies/?keywords={q-encoded}",
+        "glassdoor" to "https://www.glassdoor.com/Search/results.htm?keyword={q-encoded}",
+        "companieshouse" to "https://find-and-update.company-information.service.gov.uk/search?q={q-encoded}",
+        "corporationwiki" to "https://www.corporationwiki.com/search/results?term={q-encoded}",
+        "littlesis" to "https://littlesis.org/search?q={q-encoded}",
+        "icijoffshoreleaks" to "https://offshoreleaks.icij.org/search?q={q-encoded}",
+        "socialsearcher" to "https://www.social-searcher.com/social-buzz/?q5={q-encoded}",
+        "twitterxadvanced" to "https://twitter.com/search?q={q-encoded}&f=live",
+        "tiktoksearch" to "https://www.tiktok.com/search?q={q-encoded}",
+        "youtubesearch" to "https://www.youtube.com/results?search_query={q-encoded}",
+        "tgstat" to "https://tgstat.com/search?q={q-encoded}",
+        "vksearch" to "https://vk.com/search?c[q]={q-encoded}&c[section]=people",
+        "disboard" to "https://disboard.org/search?keyword={q-encoded}",
+        "twitchsearch" to "https://www.twitch.tv/search?term={q-encoded}",
+        "nitter" to "https://nitter.net/search?q={q-encoded}",
+        "socialgrep" to "https://socialgrep.com/search?query={q-encoded}",
+        "vindecoderz" to "https://www.vindecoderz.com/EN/check-lookup/{q-raw}",
+        "faxvin" to "https://www.faxvin.com/{q-raw}",
+        "vehiclehistory" to "https://www.vehiclehistory.com/vin-report/{q-raw}",
+        "autocheck" to "https://www.autocheck.com/vehiclehistory/autocheck/en/vehiclecheck?vin={q-raw}",
+        "ddosecrets" to "https://ddosecrets.com/wiki/Special:Search?search={q-encoded}&ns0=1",
+        "ahmia" to "https://ahmia.fi/search/?q={q-encoded}",
+        "onionsearch" to "https://onionsearchengine.com/search.php?search={q-encoded}",
+        "googlemaps" to "https://www.google.com/maps/search/{q-encoded}",
+        "yandexmaps" to "https://yandex.com/maps/?text={q-encoded}",
+        "openstreetmap" to "https://www.openstreetmap.org/search?query={q-encoded}",
+        "wikimapia" to "https://wikimapia.org/#lang=en&q={q-encoded}",
+        "geonames" to "https://www.geonames.org/search.html?q={q-encoded}",
+        "flightaware" to "https://flightaware.com/live/flight/{q-raw}",
+        "muckrock" to "https://www.muckrock.com/search/?q={q-encoded}",
+        "ppploandatabase" to "https://ppp.directory/search?q={q-encoded}",
+        "nonprofitexplorer" to "https://projects.propublica.org/nonprofits/search?q={q-encoded}",
+        "familysearch" to "https://www.familysearch.org/search/record/results?q.givenName={first}&q.surname={last}",
+        "findagrave" to "https://www.findagrave.com/memorial/search?q={q-encoded}",
+        "hybridanalysis" to "https://www.hybrid-analysis.com/search?query={q-encoded}",
+        "pulsedive" to "https://pulsedive.com/search/?q={q-encoded}",
+        "threatminer" to "https://www.threatminer.org/host.php?q={q-encoded}",
+        "sploitus" to "https://sploitus.com/?query={q-encoded}",
+        "usersearch" to "https://usersearch.org/results_normal/?q={q-encoded}",
+        "zlookup" to "https://www.zlookup.com/phone-lookup/{q-digits}",
+        "allpeople" to "https://allpeople.com/search?ss={q-encoded}",
+        "yasni" to "https://www.yasni.com/{first}/check+{last}",
+        "nuwber" to "https://nuwber.com/name/{q-hyphen}",
+        "192com" to "https://www.192.com/atoz/people/{q-hyphen}/",
+        "canada411" to "https://www.canada411.ca/search/?stype=si&what={q-encoded}",
+        "namechk" to "https://namechk.com/{q-raw}",
+        "analyzeid" to "https://analyzeid.com/username/?u={q-raw}",
+        "archivetoday" to "https://archive.ph/?run=1&url={q-encoded}",
+        "infobel" to "https://www.infobel.com/en/world/search?q={q-encoded}",
+        "xlek" to "https://www.xlek.com/result.php?fname={first}&lname={last}",
+        "ufindname" to "https://ufind.name/search?q={q-encoded}",
+        "gofindwho" to "https://gofindwho.com/people/{q-hyphen}",
+        "validnumber" to "https://validnumber.com/phone/{q-digits}",
+        "reversephonecheck" to "https://www.reversephonecheck.com/{q-digits}",
+        "calltracer" to "https://calltracer.io/search?q={q-digits}",
+        "oldphonebook" to "http://www.oldphonebook.com/search.php?name={q-encoded}",
+        "explainShell" to "https://explainshell.com/explain?cmd={q-encoded}",
+        "emailreputation" to "https://emailrep.io/{q-encoded}",
+        "hudsonrock" to "https://www.hudsonrock.com/threat-intelligence-cybercrime-tools?search={q-encoded}",
+        "breachvip" to "https://breach.vip/?query={q-encoded}",
+        "osintindustries" to "https://www.osint.industries/?query={q-encoded}"
+    )
 }

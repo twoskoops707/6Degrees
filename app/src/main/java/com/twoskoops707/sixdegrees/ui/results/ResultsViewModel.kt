@@ -936,6 +936,18 @@ object DossierBuilder {
         meta["holehe_services"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.forEach { svc ->
             findings.add(finding(svc, "Holehe", DossierConfidence.MEDIUM, "Email Registered"))
         }
+        meta[com.twoskoops707.sixdegrees.data.osint.OsintFrameworkReportBridge.KEY_REPORT_LINES]
+            ?.lines()?.filter { it.isNotBlank() }?.take(12)?.forEach { line ->
+                val parts = line.split(": ", limit = 2)
+                findings.add(
+                    finding(
+                        parts.getOrNull(1) ?: line,
+                        "OSINT Framework",
+                        DossierConfidence.MEDIUM,
+                        parts.firstOrNull() ?: "In-App Tool"
+                    )
+                )
+            }
         meta["dork_social_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(6)?.forEach { block ->
             findings.add(finding(block.trim(), "Auto-Dork", DossierConfidence.LOW, "Social Trace"))
         }
