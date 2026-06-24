@@ -39,8 +39,7 @@ class CandidateSelectionViewModel : ViewModel() {
             city.isNotBlank() && state.isNotBlank() -> "$city, $state"
             city.isNotBlank() -> city
             state.isNotBlank() -> state
-            fields["location"]?.isNotBlank() == true -> fields["location"]!!
-            else -> ""
+            else -> fields["location"].orEmpty()
         }
 
         return listOf(name, location).filter { it.isNotBlank() }.joinToString(" · ")

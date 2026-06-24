@@ -76,7 +76,17 @@ class CandidateSelectionFragment : Fragment() {
 
         binding.btnNotAny.setOnClickListener {
             if (!isAdded || !isResumed) return@setOnClickListener
-            findNavController().popBackStack(R.id.nav_search, false)
+            val nav = findNavController()
+            // popBackStack returns false if nav_search is not on the back stack (e.g. the
+            // user navigated here from a deep link or history). In that case, explicitly
+            // navigate to the search screen so the button always does something visible.
+            if (!nav.popBackStack(R.id.nav_search, false)) {
+                try {
+                    nav.navigate(R.id.nav_search)
+                } catch (_: Exception) {
+                    nav.popBackStack()
+                }
+            }
         }
     }
 

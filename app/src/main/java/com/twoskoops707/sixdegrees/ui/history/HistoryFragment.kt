@@ -83,7 +83,10 @@ class HistoryFragment : Fragment() {
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.bindingAdapterPosition
-                val report = historyAdapter.currentList[position]
+                if (position == RecyclerView.NO_POSITION || position < 0) return
+                val currentList = historyAdapter.currentList
+                if (position >= currentList.size) return
+                val report = currentList[position]
                 viewModel.deleteReport(report)
                 Snackbar.make(binding.root, "Report deleted", Snackbar.LENGTH_LONG)
                     .setAction("Undo") { viewModel.restoreReport(report) }
