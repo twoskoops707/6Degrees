@@ -236,12 +236,23 @@ class UsernameDiscoveryService(
     }
 
     private fun checkRedditApi(username: String, profileUrl: String, platform: UsernamePlatformRegistry.PlatformDef): UsernamePlatformHit? {
-        val (code, body) = httpGet("https://www.reddit.com/user/${URLEncoder.encode(username, "UTF-8")}/about.json") ?: return null
-        if (code == 404 || !body.startsWith("{")) return null
-        val data = JSONObject(body).optJSONObject("data") ?: return null
-        val karma = data.optInt("link_karma", 0) + data.optInt("comment_karma", 0)
+        // Reddit's unauthenticated /about.json endpoint now returns HTTP 429 for all
+        // non-OAuth traffic. Fall back to a GET of the public profile page and detect
+        // presence by checking for the "u/<username>" canonical tag / absence of the
+        // "nobody's gone by this name" / "this account doesn't exist" markers.
+        val (code, body) = httpGet("https://www.reddit.com/user/${URLEncoder.encode(username, "UTF-8")}/") ?: return null
+        if (code == 404 || code == 429) return null
+        if (code !in 200..399) return null
+        val lower = body.lowercase()
+        // Reddit serves a specific page for deleted/missing accounts.
+        if (lower.contains("nobody's gone by this name") ||
+            lower.contains("this account doesn't exist") ||
+            lower.contains("account does not exist")) return null
+        // Confirm the page actually references the username to avoid false positives
+        // from generic landing pages.
+        if (!lower.contains(username.lowercase())) return null
         return baseHit(platform, profileUrl, username).copy(
-            extraStats = "Karma: $karma"
+            extraStats = null
         )
     }
 

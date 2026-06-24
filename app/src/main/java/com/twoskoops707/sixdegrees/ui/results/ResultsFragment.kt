@@ -2150,9 +2150,17 @@ class ResultsFragment : Fragment() {
         tabMediator = TabLayoutMediator(binding.dossierTabs, binding.dossierPager) { tab, position ->
             val section = sections[position]
             tab.text = section.title
+            // Count only real findings — exclude empty-state placeholder strings like
+            // "no data", "nothing found", "no records". Match the whole phrase to avoid
+            // excluding legitimate values that happen to contain "found" (e.g. "3 breaches found").
             val count = section.findings.count { finding ->
-                val lower = finding.value.lowercase()
-                !lower.startsWith("no ") && !lower.contains("found") && !lower.contains("no records")
+                val lower = finding.value.lowercase().trim()
+                lower.isNotBlank() &&
+                    !lower.startsWith("no ") &&
+                    !lower.startsWith("nothing ") &&
+                    !(lower.contains("not found") || lower.contains("no records") ||
+                      lower.contains("no data") || lower.contains("none found") ||
+                      lower.contains("0 results") || lower.contains("0 matches"))
             }
             tab.contentDescription = "${section.title}, $count findings"
         }.also { it.attach() }

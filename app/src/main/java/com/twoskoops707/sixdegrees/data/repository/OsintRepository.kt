@@ -220,17 +220,9 @@ class OsintRepository(context: Context) {
         val terms = subjectProfile.darkWebSearchTerms().ifEmpty { listOf(primaryQuery) }.distinct().take(4)
         metadata["darkweb_search_terms"] = terms.joinToString(", ")
         terms.forEachIndexed { index, term ->
-            channel.send(SearchProgressEvent.Checking("DarkSearch"))
-            val dsOut = searchDarkWeb(term)
-            if (dsOut.found) {
-                dsOut.fields["dark_links"]?.let { appendMetadata(metadata, "darksearch_links", it) }
-                dsOut.fields["snippet"]?.let { appendMetadata(metadata, "darksearch_snippet", it) }
-            }
-            handleScrapeOut(
-                "DarkSearch",
-                "https://darksearch.io/api/search?query=${encode(term)}",
-                dsOut, sources, metadata, channel, 0.55
-            )
+            // darksearch.io API was shut down in 2022 — skip the DarkSearch probe entirely
+            // to avoid emitting a misleading "Checking / not found" pair on every term.
+            // Dark-web results are surfaced by Ahmia (clearnet + onion) below.
             channel.send(SearchProgressEvent.Checking("Ahmia"))
             val ahmiaOut = scrapeAhmia(term)
             if (index == 0) {
@@ -3158,44 +3150,11 @@ class OsintRepository(context: Context) {
 
                             }
                         }
-                        launch {
-                            semaphore.withPermit {
-                                val key = apiKeys.clearbitKey.ifBlank { apiKeys.getKey("clearbit") ?: "" }
-                                if (key.isNullOrBlank()) return@withPermit
-                                    send(SearchProgressEvent.Checking("Clearbit Person"))
-                                    try {
-                                        val nameParts = primaryQuery.trim().split("\\s+".toRegex())
-                                        val resp = RetrofitClient.clearbitPersonService.findPerson(
-                                            email = fields["email"],
-                                            givenName = nameParts.firstOrNull(),
-                                            familyName = if (nameParts.size > 1) nameParts.last() else null,
-                                            bearerToken = "Bearer $key"
-                                        )
-                                        val cbPerson = resp.body()?.person
-                                        if (!resp.isSuccessful || cbPerson == null) {
-                                            send(SearchProgressEvent.NotFound("Clearbit Person"))
-                                        } else {
-                                            metadata["clearbit_person_found"] = "true"
-                                            cbPerson.name?.fullName?.let { metadata["clearbit_person_name"] = it }
-                                            cbPerson.email?.let { metadata["clearbit_person_email"] = it }
-                                            cbPerson.location?.let { metadata["clearbit_person_location"] = it }
-                                            cbPerson.employment?.let { emp ->
-                                                emp.name?.let { metadata["clearbit_person_company"] = it }
-                                                emp.title?.let { metadata["clearbit_person_title"] = it }
-                                            }
-                                            cbPerson.linkedin?.handle?.let { handle ->
-                                                appendMetadata(metadata, "found_urls", "LinkedIn: https://linkedin.com/in/$handle")
-                                            }
-                                            sources.add(DataSource("Clearbit Person", "https://clearbit.com/", Date(), 0.88))
-                                            send(SearchProgressEvent.Found("Clearbit Person", cbPerson.name?.fullName ?: "Profile found"))
-                                            apiKeys.recordUsage("clearbit")
-                                        }
-                                    } catch (_: Exception) {
-                                        send(SearchProgressEvent.Blocked("Clearbit Person"))
-                                    }
-
-                            }
-                        }
+                        // Clearbit was acquired by HubSpot and the company.clearbit.com /
+                        // person.clearbit.com API endpoints are sunset (return 401/410 even
+                        // with a valid key). Skip the calls entirely rather than wasting a
+                        // round-trip and emitting a misleading "Blocked" event.
+                        // launch { semaphore.withPermit { ... RetrofitClient.clearbitPersonService ... } }
                         if (deepPhase) {
                             launch {
                                 val key = apiKeys.opensanctionsKey.ifBlank { apiKeys.getKey("opensanctions") ?: "" }
@@ -3325,15 +3284,9 @@ class OsintRepository(context: Context) {
                             val out = scrapeHackerTarget(primaryQuery, "email")
                             handleScrapeOut("HackerTarget Email", "https://api.hackertarget.com/findemail/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
-                        launch {
-                            send(SearchProgressEvent.Checking("LeakCheck"))
-                            val out = scrapeLeakCheck(primaryQuery)
-                            if (out.found) {
-                                out.fields["breach_sources"]?.let { metadata["leakcheck_sources"] = it }
-                                out.fields["breach_count"]?.let { metadata["leakcheck_count"] = it }
-                            }
-                            handleScrapeOut("LeakCheck", "https://leakcheck.io/api/public?check=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
-                        }
+                        // LeakCheck public endpoint deprecated — now requires API key.
+                        // Skipped to avoid emitting a misleading "Checking / not found" pair.
+                        // Breach data still comes from HIBP (key), ProxyNova COMB, EmailRep.
                         launch {
                             send(SearchProgressEvent.Checking("EmailRep"))
                             val out = scrapeEmailRep(primaryQuery)
@@ -3686,12 +3639,7 @@ class OsintRepository(context: Context) {
                         launchPhoneIntelScrapers(
                             primaryQuery, city, state, metadata, sources, this@channelFlow, semaphore
                         )
-                        launch {
-                            send(SearchProgressEvent.Checking("DarkSearch"))
-                            val out = searchDarkWeb(primaryQuery)
-                            if (out.found) out.fields["dark_links"]?.let { metadata["darksearch_links"] = it }
-                            handleScrapeOut("DarkSearch", "https://darksearch.io/api/search?query=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.55)
-                        }
+                        // darksearch.io API shut down 2022 — dark-web results come from Ahmia below.
                         launch {
                             send(SearchProgressEvent.Checking("Ahmia"))
                             val out = scrapeAhmia(primaryQuery)
@@ -3803,34 +3751,8 @@ class OsintRepository(context: Context) {
                                     handleScrapeOut("URLhaus", "https://urlhaus.abuse.ch/browse/host/$companyDomain/", out, sources, metadata, this@channelFlow)
                                 }
                             }
-                            launch {
-                                semaphore.withPermit {
-                                    val key = apiKeys.getKey("clearbit")
-                                    if (key.isNullOrBlank()) return@withPermit
-                                        send(SearchProgressEvent.Checking("Clearbit"))
-                                        try {
-                                            val token = if (key.startsWith("Bearer ", ignoreCase = true)) key else "Bearer $key"
-                                            val resp = RetrofitClient.clearbitService.findCompany(companyDomain, token)
-                                            val company = resp.body()
-                                            if (resp.isSuccessful && company != null) {
-                                                metadata["clearbit_found"] = "true"
-                                                company.name?.let { metadata["clearbit_name"] = it }
-                                                company.description?.let { metadata["clearbit_description"] = it }
-                                                company.industry?.let { metadata["clearbit_industry"] = it }
-                                                company.location?.let { metadata["clearbit_location"] = it }
-                                                company.logo?.let { metadata["company_logo_url"] = it }
-                                                company.employees?.let { metadata["clearbit_employees"] = it.toString() }
-                                                sources.add(DataSource("Clearbit", "https://clearbit.com/", Date(), 0.9))
-                                                send(SearchProgressEvent.Found("Clearbit", company.name ?: companyDomain))
-                                                apiKeys.recordUsage("clearbit")
-                                            } else {
-                                                send(SearchProgressEvent.NotFound("Clearbit"))
-                                            }
-                                        } catch (_: Exception) {
-                                            send(SearchProgressEvent.Blocked("Clearbit"))
-                                        }
-                                }
-                            }
+                            // Clearbit company API is sunset (HubSpot acquisition) — skip.
+                            // launch { semaphore.withPermit { ... RetrofitClient.clearbitService.findCompany ... } }
                             launch {
                                 semaphore.withPermit {
                                     val key = apiKeys.getKey("builtwith")
@@ -4030,17 +3952,10 @@ class OsintRepository(context: Context) {
                             }
                             handleScrapeOut("GitHub", "https://github.com/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
-                        launch {
-                            send(SearchProgressEvent.Checking("Reddit"))
-                            val out = scrapeReddit(primaryQuery)
-                            if (out.found) {
-                                if (metadata["profile_photo_url"].isNullOrBlank()) out.fields["image_url"]?.let { metadata["profile_photo_url"] = it }
-                                val rdUrl = out.fields["profile_url"] ?: "https://www.reddit.com/user/$primaryQuery"
-                                metadata["reddit_url"] = rdUrl
-                                appendMetadata(metadata, "found_urls", "Reddit: $rdUrl")
-                            }
-                            handleScrapeOut("Reddit", "https://www.reddit.com/user/$primaryQuery", out, sources, metadata, this@channelFlow)
-                        }
+                        // Reddit username detection is handled by UsernameDiscoveryService
+                        // (which checks the public profile page). The dedicated scrapeReddit()
+                        // call was removed because it hit the /about.json endpoint that now
+                        // returns 429 for all unauthenticated traffic.
                         launch {
                             semaphore.withPermit {
                                 val sherlockHits = mutableListOf<String>()

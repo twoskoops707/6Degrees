@@ -263,6 +263,33 @@ class SearchProgressFragment : Fragment() {
         }
     }
 
+    private fun showCandidatesUi(event: SearchProgressEvent.CandidatesReady, elapsedSec: Int) {
+        if (_binding == null) return
+        pendingCandidates = event.candidates
+        val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
+        candidatesJson = try {
+            moshi.adapter<List<CandidateProfile>>(listType).toJson(event.candidates)
+        } catch (_: Exception) { candidatesJson }
+        val withPhotos = event.candidates.count { it.allPhotoUrls().isNotEmpty() }
+        binding.tvStatus.text = if (investigatorMode) {
+            "${event.candidates.size} people in your area · ${withPhotos} with photos · ${elapsedSec}s"
+        } else {
+            getString(R.string.progress_simple_complete) + " — ${event.candidates.size} possible match${if (event.candidates.size != 1) "es" else ""}"
+        }
+        binding.tvEta.text = ""
+        binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
+        binding.fabViewReport.text = if (investigatorMode) {
+            "Choose person (${event.candidates.size})"
+        } else {
+            getString(R.string.progress_simple_choose)
+        }
+        binding.fabViewReport.apply {
+            visibility = View.VISIBLE
+            alpha = 0f
+            animate().alpha(1f).setDuration(400).start()
+        }
+    }
+
     private fun showFailureUi(message: String) {
         if (_binding == null) return
         searchFailed = true
@@ -411,7 +438,10 @@ class SearchProgressFragment : Fragment() {
                 pendingCandidatesRound = event.round
                 binding.progressBar.visibility = View.GONE
                 val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
-                if (event.autoSelect && event.refinedQuery.isNotBlank()) {
+                if (event.autoSelect && event.refinedQuery.isNotBlank() && event.round == 1) {
+                    // Auto-select is only safe on the first round (1 candidate, uncommon name).
+                    // Never chain auto-navigation across round 2+ — that would deep-search a
+                    // potentially misidentified subject without user confirmation.
                     binding.tvStatus.text = "1 match found — deepening investigation…"
                     binding.tvEta.text = ""
                     binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
@@ -430,30 +460,12 @@ class SearchProgressFragment : Fragment() {
                         }
                     )
                     } catch (_: Exception) {}
+                } else if (event.autoSelect && event.round > 1) {
+                    // Round 2+ with autoSelect: don't chain — show the candidate UI so the
+                    // user can confirm before any further deep-search.
+                    showCandidatesUi(event, elapsedSec)
                 } else {
-                    pendingCandidates = event.candidates
-                    val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
-                    candidatesJson = try {
-                        moshi.adapter<List<CandidateProfile>>(listType).toJson(event.candidates)
-                    } catch (_: Exception) { candidatesJson }
-                    val withPhotos = event.candidates.count { it.allPhotoUrls().isNotEmpty() }
-                    binding.tvStatus.text = if (investigatorMode) {
-                        "${event.candidates.size} people in your area · ${withPhotos} with photos · ${elapsedSec}s"
-                    } else {
-                        getString(R.string.progress_simple_complete) + " — ${event.candidates.size} possible match${if (event.candidates.size != 1) "es" else ""}"
-                    }
-                    binding.tvEta.text = ""
-                    binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_cyan))
-                    binding.fabViewReport.text = if (investigatorMode) {
-                        "Choose person (${event.candidates.size})"
-                    } else {
-                        getString(R.string.progress_simple_choose)
-                    }
-                    binding.fabViewReport.apply {
-                        visibility = View.VISIBLE
-                        alpha = 0f
-                        animate().alpha(1f).setDuration(400).start()
-                    }
+                    showCandidatesUi(event, elapsedSec)
                 }
             }
             is SearchProgressEvent.BrowserToolsReady -> { /* in-app scraping handles these; no external browser */ }
