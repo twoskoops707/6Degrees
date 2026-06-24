@@ -33,7 +33,11 @@ object FindingClickBinder {
                         putString("query", parts.getOrNull(1).orEmpty())
                         putString("type", parts.getOrNull(0) ?: "person")
                     }
-                    fragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
+                    try {
+                        fragment.findNavController().navigate(R.id.action_results_to_progress, bundle)
+                    } catch (_: Exception) {
+                        // Stale destination or back-stack mismatch — ignore rather than crash
+                    }
                 }
                 else -> {
                     val url = FindingUrlHelper.resolveUrl(finding, meta)

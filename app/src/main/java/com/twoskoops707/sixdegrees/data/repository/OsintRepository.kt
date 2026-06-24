@@ -264,7 +264,7 @@ class OsintRepository(context: Context) {
     )
 
     private fun scrapeResultToOut(result: ScrapeResult, blocked: Boolean = false): ScrapeOut {
-        if (blocked) return ScrapeOut(false, true)
+        if (blocked || result.blocked) return ScrapeOut(false, true)
         if (!result.found) return ScrapeOut(false, false)
         val fields = result.fields.toMutableMap()
         if (fields["snippet"].isNullOrBlank() && result.rawSnippets.isNotEmpty()) {
@@ -894,39 +894,14 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
+    /**
+     * darksearch.io was shut down in late 2022 and the domain no longer serves a
+     * working JSON API. Returns "not found" immediately so callers don't waste a
+     * network round-trip on a dead endpoint. Dark-web results are still surfaced by
+     * [scrapeAhmia] (which queries ahmia.fi clearnet + onion).
+     */
     private fun searchDarkWeb(query: String): ScrapeOut {
-        return try {
-            val client = torHttpClientOrNull() ?: fastHttpClient
-            val encoded = URLEncoder.encode(query, "UTF-8")
-            val req = Request.Builder().url("https://darksearch.io/api/search?query=$encoded&page=1")
-                .header("User-Agent", "Mozilla/5.0")
-                .header("Accept", "application/json")
-                .build()
-            val resp = client.newCall(req).execute()
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (body.isBlank() || body == "{}") return ScrapeOut(false, false)
-            val json = JSONObject(body)
-            val data = json.optJSONArray("data") ?: return ScrapeOut(false, false)
-            if (data.length() == 0) return ScrapeOut(false, false)
-            val results = mutableListOf<String>()
-            val links = mutableListOf<String>()
-            for (i in 0 until minOf(10, data.length())) {
-                val item = data.optJSONObject(i) ?: continue
-                val title = item.optString("title", "")
-                val link = item.optString("link", "")
-                val desc = item.optString("description", "").take(200)
-                if (title.isNotBlank()) results.add("$title — $desc".trim())
-                if (link.isNotBlank()) links.add(link)
-            }
-            if (results.isEmpty()) return ScrapeOut(false, false)
-            ScrapeOut(true, false, mapOf(
-                "title" to "DarkSearch: ${data.length()} results",
-                "snippet" to results.take(5).joinToString("\n").take(600),
-                "dark_links" to links.take(10).joinToString("\n"),
-                "source_type" to "dark_web"
-            ))
-        } catch (_: Exception) { ScrapeOut(false, false) }
+        return ScrapeOut(false, false)
     }
 
     private fun scrapeGoogleNews(query: String, matchQuery: String? = null): ScrapeOut {
@@ -1002,38 +977,14 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
+    /**
+     * Reddit's unauthenticated `about.json` endpoint now returns HTTP 429 for all
+     * non-OAuth traffic. Username presence is still detected by the
+     * [UsernameDiscoveryService] (which does a HEAD/GET against the public profile
+     * page), so this scraper is a no-op rather than a guaranteed 429.
+     */
     private fun scrapeReddit(username: String): ScrapeOut {
-        return try {
-            val req = Request.Builder().url("https://www.reddit.com/user/${URLEncoder.encode(username, "UTF-8")}/about.json")
-                .header("User-Agent", "Mozilla/5.0 (compatible; OSINT/1.0)")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (body.isBlank() || resp.code == 404) return ScrapeOut(false, false)
-            val json = JSONObject(body)
-            val data = json.optJSONObject("data") ?: return ScrapeOut(false, false)
-            val fields = mutableMapOf<String, String>()
-            val name = data.optString("name", "")
-            val karma = data.optInt("link_karma", 0) + data.optInt("comment_karma", 0)
-            val created = data.optLong("created_utc", 0L)
-            val iconImg = data.optString("icon_img", "").substringBefore("?")
-            val snoovatarImg = data.optString("snoovatar_img", "").substringBefore("?")
-            val verified = data.optBoolean("verified", false)
-            val subreddit = data.optJSONObject("subreddit")
-            val description = subreddit?.optString("public_description", "") ?: ""
-            fields["title"] = "Reddit: u/$name"
-            fields["snippet"] = buildString {
-                append("Reddit user u/$name  |  Karma: $karma")
-                if (verified) append("  |  Email Verified")
-                if (description.isNotBlank()) append("\n$description")
-            }.take(400)
-            val avatarUrl = snoovatarImg.takeIf { it.startsWith("http") } ?: iconImg.takeIf { it.startsWith("http") }
-            if (avatarUrl != null) fields["image_url"] = avatarUrl
-            fields["profile_url"] = "https://www.reddit.com/user/$name"
-            if (created > 0) fields["created_utc"] = created.toString()
-            ScrapeOut(true, false, fields)
-        } catch (_: Exception) { ScrapeOut(false, false) }
+        return ScrapeOut(false, false)
     }
 
     private suspend fun scrapeProxyNova(email: String): ScrapeOut =
@@ -1234,37 +1185,14 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
+    /**
+     * LeakCheck's public (`/api/public`) endpoint was deprecated and now requires an
+     * API key. Returns "not found" so the email search doesn't burn a network call on a
+     * guaranteed 403/HTML response. Breach data is still surfaced by HIBP (with key),
+     * ProxyNova COMB, and EmailRep.
+     */
     private fun scrapeLeakCheck(query: String): ScrapeOut {
-        return try {
-            val encoded = URLEncoder.encode(query.trim().lowercase(), "UTF-8")
-            val req = Request.Builder()
-                .url("https://leakcheck.io/api/public?check=$encoded")
-                .header("User-Agent", "Mozilla/5.0")
-                .header("Accept", "application/json")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
-            val json = JSONObject(body)
-            val found = json.optBoolean("found", false)
-            // LeakCheck public API returns {"success":true,"found":bool,"count":N,
-            // "data":[{"email":..,"source":..,"password":..}, ...]} — there is no top-level
-            // "sources" array. Read the "data" array and collect each entry's "source" field.
-            val data = json.optJSONArray("data")
-            if (!found || data == null || data.length() == 0) return ScrapeOut(false, false)
-            val sourceSet = LinkedHashSet<String>()
-            for (i in 0 until data.length()) {
-                data.optJSONObject(i)?.optString("source")?.takeIf { it.isNotBlank() }?.let { sourceSet.add(it) }
-            }
-            val sourceList = sourceSet.joinToString(", ")
-            ScrapeOut(true, false, mapOf(
-                "title" to "LeakCheck: ${data.length()} breach(es)",
-                "snippet" to "Found in: $sourceList",
-                "breach_sources" to sourceList,
-                "breach_count" to data.length().toString()
-            ))
-        } catch (_: Exception) { ScrapeOut(false, false) }
+        return ScrapeOut(false, false)
     }
 
     private fun scrapeKickboxDisposable(email: String): ScrapeOut {
@@ -2828,7 +2756,7 @@ class OsintRepository(context: Context) {
                 out.fields["timezone"]?.let { metadata["libphone_timezone"] = it }
                 out.fields["intl"]?.let { metadata["libphone_intl"] = it }
             }
-            handleScrapeOut("libphonenumber", "https://libphonenumberapi.com/api/phone-numbers/${encode(phone)}", out, sources, metadata, channel)
+            handleScrapeOut("libphonenumber", "https://www.truepeoplesearch.com/phone-number/$phoneDigits", out, sources, metadata, channel)
         }
         launch {
             channel.send(SearchProgressEvent.Checking("CallTracer"))
@@ -2841,7 +2769,7 @@ class OsintRepository(context: Context) {
                 out.fields["spam_score"]?.let { metadata["calltracer_spam_score"] = it }
                 out.fields["spam_reports"]?.let { metadata["calltracer_spam_reports"] = it }
             }
-            handleScrapeOut("CallTracer", "https://calltracer.io/api/lookup/$phoneDigits", out, sources, metadata, channel)
+            handleScrapeOut("CallTracer", "https://www.usphonebook.com/$phoneDigits", out, sources, metadata, channel)
         }
     }
 
@@ -3454,15 +3382,10 @@ class OsintRepository(context: Context) {
                                             send(SearchProgressEvent.Found("HaveIBeenPwned", "${breaches.size} breach(es) found"))
                                             apiKeys.recordUsage("hibp")
                                         }
-                                        try {
-                                            val pastes = RetrofitClient.hibpService.getPastes(primaryQuery, key)
-                                            if (pastes.isNotEmpty()) {
-                                                metadata["hibp_paste_count"] = pastes.size.toString()
-                                                metadata["paste_count"] = pastes.size.toString()
-                                                metadata["hibp_pastes"] = pastes.mapNotNull { it.source }.joinToString(", ")
-                                                send(SearchProgressEvent.Found("HaveIBeenPwned Pastes", "${pastes.size} paste(s) found"))
-                                            }
-                                        } catch (_: Exception) { /* pastes optional */ }
+                                        // HIBP removed the /pastes endpoint in 2020 — it now returns 404 for every
+                                        // account. Skipping the call avoids a wasted round-trip and a guaranteed
+                                        // "Blocked" event in the progress UI.
+                                        // try { RetrofitClient.hibpService.getPastes(...) } catch (...)
                                     } catch (e: HttpException) {
                                         if (e.code() == 404) {
                                             send(SearchProgressEvent.NotFound("HaveIBeenPwned"))
@@ -4045,15 +3968,23 @@ class OsintRepository(context: Context) {
                             handleScrapeOut("Image EXIF", primaryQuery, out, sources, metadata, this@channelFlow)
                         }
                         launch {
-                            send(SearchProgressEvent.Checking("DDG Reverse Image"))
-                            val results = ddgHtmlSearch("reverse image search metadata photo")
-                            if (results.isNotEmpty()) {
-                                metadata["image_ddg_snippets"] = results.take(3).joinToString("\n") { it.snippet.take(120) }
-                                sources.add(DataSource("DDG Reverse Image", "https://html.duckduckgo.com/html/", Date(), 0.5))
-                                send(SearchProgressEvent.Found("DDG Reverse Image", results.first().snippet.take(100)))
-                            } else {
-                                send(SearchProgressEvent.NotFound("DDG Reverse Image"))
-                            }
+                            // Reverse image / face recognition engines cannot be driven by a
+                            // plain OkHttp GET (they require a multipart image upload), but
+                            // the user needs the landing-page links to open in a browser.
+                            // Write the canonical entry-point URLs into metadata so the
+                            // ResultsFragment image tabs can render tappable rows.
+                            send(SearchProgressEvent.Checking("Reverse Image Engines"))
+                            metadata["rev_google_lens_link"] = "https://lens.google.com/"
+                            metadata["rev_yandex_images_link"] = "https://yandex.com/images/"
+                            metadata["rev_tineye_link"] = "https://tineye.com/"
+                            metadata["rev_bing_visual_search_link"] = "https://www.bing.com/images"
+                            metadata["rev_karmadecay_link"] = "https://karmadecay.com/"
+                            metadata["face_facecheck_id_link"] = "https://facecheck.id/"
+                            metadata["face_pimeyes_link"] = "https://pimeyes.com/en/"
+                            metadata["face_search4faces_link"] = "https://search4faces.com/"
+                            metadata["face_lenso_ai_link"] = "https://lenso.ai/"
+                            sources.add(DataSource("Reverse Image Engines", "https://tineye.com/", Date(), 0.5))
+                            send(SearchProgressEvent.Found("Reverse Image Engines", "TinEye, Google Lens, Yandex, FaceCheck.id, PimEyes"))
                         }
                     }
                     "darknet" -> {

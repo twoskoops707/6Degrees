@@ -2151,7 +2151,8 @@ class ResultsFragment : Fragment() {
             val section = sections[position]
             tab.text = section.title
             val count = section.findings.count { finding ->
-                !finding.value.lowercase().startsWith("no ") || !finding.value.lowercase().contains("found")
+                val lower = finding.value.lowercase()
+                !lower.startsWith("no ") && !lower.contains("found") && !lower.contains("no records")
             }
             tab.contentDescription = "${section.title}, $count findings"
         }.also { it.attach() }

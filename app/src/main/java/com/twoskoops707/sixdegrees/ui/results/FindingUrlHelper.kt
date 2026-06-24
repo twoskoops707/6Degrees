@@ -186,13 +186,11 @@ object FindingUrlHelper {
     fun phoneUrl(phone: String, ctx: SubjectContext = SubjectContext("", "", "", "", "", "", "", "", "", "")): String {
         val digits = phone.filter { it.isDigit() }
         return if (digits.length >= 10) {
-            OsintToolRegistry.buildUrl(
-                "https://www.truepeoplesearch.com/results?name={q-encoded}",
-                "${ctx.name} $phone ${ctx.location}".trim()
-            ).let { tps ->
-                if (ctx.name.isNotBlank()) tps
-                else "https://www.fastpeoplesearch.com/phone-number/${digits.takeLast(10)}"
-            }
+            val last10 = digits.takeLast(10)
+            // Reverse phone lookup — use the phone number, NOT a name search. FastPeopleSearch
+            // and TruePeopleSearch both expose a /phone-number/<10-digit> path that returns
+            // the owner, address, and associated names for a given number.
+            "https://www.fastpeoplesearch.com/phone-number/$last10"
         } else "tel:$digits"
     }
 

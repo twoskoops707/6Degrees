@@ -1145,7 +1145,7 @@ object DossierBuilder {
         confidence = confidence,
         isPivot = isPivot || value.startsWith("pivot://"),
         isLink = isLink || value.startsWith("http://") || value.startsWith("https://"),
-        isWarning = isWarning || (label?.startsWith("") == true),
+        isWarning = isWarning,
         sourceUrl = sourceUrl
     )
 
