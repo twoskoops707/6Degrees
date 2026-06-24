@@ -351,6 +351,15 @@ class OsintRepository(context: Context) {
             val agifyBody = agifyResp.body?.string() ?: ""
             agifyResp.close()
 
+            // README claims Name Demographics includes nationality (Nationalize.io).
+            val nationalizeReq = Request.Builder()
+                .url("https://api.nationalize.io/?name=$encoded")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val nationalizeResp = fastHttpClient.newCall(nationalizeReq).execute()
+            val nationalizeBody = nationalizeResp.body?.string() ?: ""
+            nationalizeResp.close()
+
             val fields = mutableMapOf<String, String>()
             if (genderBody.startsWith("{")) {
                 val g = JSONObject(genderBody)
@@ -362,6 +371,20 @@ class OsintRepository(context: Context) {
             if (agifyBody.startsWith("{")) {
                 val a = JSONObject(agifyBody)
                 a.optInt("age", 0).takeIf { it in 1..120 }?.let { fields["estimated_age"] = it.toString() }
+            }
+            if (nationalizeBody.startsWith("{")) {
+                val n = JSONObject(nationalizeBody)
+                val countries = n.optJSONArray("country")
+                if (countries != null && countries.length() > 0) {
+                    val top = (0 until minOf(3, countries.length())).mapNotNull { i ->
+                        countries.optJSONObject(i)?.let { c ->
+                            val code = c.optString("country_id").ifBlank { return@mapNotNull null }
+                            val prob = c.optDouble("probability", 0.0)
+                            "$code (${(prob * 100).toInt()}%)"
+                        }
+                    }
+                    if (top.isNotEmpty()) fields["nationality"] = top.joinToString(", ")
+                }
             }
             if (fields.isEmpty()) ScrapeOut(false, false)
             else ScrapeOut(true, false, fields + mapOf(
@@ -1019,7 +1042,15 @@ class OsintRepository(context: Context) {
     private fun scrapeHackerTarget(query: String, type: String): ScrapeOut {
         return try {
             val url = when (type) {
-                "email" -> "https://api.hackertarget.com/findemail/?q=${URLEncoder.encode(query, "UTF-8")}"
+                // HackerTarget's findemail endpoint expects a DOMAIN (it returns the public
+                // contact email for that domain), not an email address. For an email search
+                // we derive the domain from the email and correlate — which is the
+                // "email-to-host correlation" the README actually describes.
+                "email" -> {
+                    val domain = query.trim().substringAfter("@", "").lowercase()
+                    if (domain.isBlank() || !domain.contains(".")) return ScrapeOut(false, false)
+                    "https://api.hackertarget.com/findemail/?q=${URLEncoder.encode(domain, "UTF-8")}"
+                }
                 else -> "https://api.hackertarget.com/hostsearch/?q=${URLEncoder.encode(query, "UTF-8")}"
             }
             val req = Request.Builder().url(url)
@@ -1107,79 +1138,88 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
+    /**
+     * Offline NANP (North American Numbering Plan) validation.
+     *
+     * The previous implementation hit libphonenumberapi.com, which is not a real public
+     * API and always failed silently. Google's libphonenumber is a JVM *library*, not an
+     * HTTP service. Rather than ship a dead network call, we validate the number offline
+     * against the NANP rules (country code +1, 10-digit, area code [2-9]xx, exchange
+     * [2-9]xx) and infer a coarse line type from the area code. No carrier/geo is
+     * fabricated — only what can be derived from the digits themselves.
+     */
     private fun scrapeLibPhoneNumber(phone: String): ScrapeOut {
         return try {
-            val digits = phone.replace(Regex("[^0-9+]"), "")
-            if (digits.replace("+", "").length < 7) return ScrapeOut(false, false)
-            val e164 = if (digits.startsWith("+")) digits else "+$digits"
-            val encoded = URLEncoder.encode(e164, "UTF-8")
-            val req = Request.Builder()
-                .url("https://libphonenumberapi.com/api/phone-numbers/$encoded")
-                .header("User-Agent", "6Degrees OSINT/1.0")
-                .header("Accept", "application/json")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
-            val json = JSONObject(body)
-            val isValid = json.optBoolean("is_valid", false)
-            val isPossible = json.optBoolean("is_possible", false)
-            if (!isValid && !isPossible) return ScrapeOut(false, false)
+            val rawDigits = phone.replace(Regex("[^0-9+]"), "")
+            if (rawDigits.replace("+", "").length < 7) return ScrapeOut(false, false)
+            // Normalize to a bare 10/11-digit NANP form.
+            var digits = rawDigits.removePrefix("+")
+            val hadCountryCode = digits.startsWith("1") && digits.length == 11
+            if (hadCountryCode) digits = digits.substring(1)
+            if (digits.length != 10) return ScrapeOut(false, false)
+            val area = digits.substring(0, 3)
+            val exchange = digits.substring(3, 6)
+            val subscriber = digits.substring(6, 10)
+            // NANP validity: area code and exchange both start 2-9.
+            val areaValid = area[0] in '2'..'9'
+            val exchangeValid = exchange[0] in '2'..'9'
+            val isValid = areaValid && exchangeValid
+            if (!isValid) return ScrapeOut(false, false)
+
+            val tollFreeAreas = setOf("800", "833", "844", "855", "866", "877", "888")
+            val lineType = when {
+                area in tollFreeAreas -> "Toll-free"
+                area in setOf("900") -> "Premium"
+                else -> "Landline or mobile (NANP)"
+            }
             val fields = mutableMapOf<String, String>()
-            fields["title"] = "libphonenumber: $phone"
-            fields["valid"] = isValid.toString()
-            fields["possible"] = isPossible.toString()
-            json.optString("country", "").takeIf { it.isNotBlank() }?.let { fields["country"] = it }
-            json.optString("type", "").takeIf { it.isNotBlank() }?.let { fields["line_type"] = it }
-            json.optString("carrier", "").takeIf { it.isNotBlank() }?.let { fields["carrier"] = it }
-            json.optString("geo_name", "").takeIf { it.isNotBlank() }?.let { fields["location"] = it }
-            json.optString("timezone", "").takeIf { it.isNotBlank() }?.let { fields["timezone"] = it }
-            json.optJSONObject("formats")?.optString("international", "")?.takeIf { it.isNotBlank() }
-                ?.let { fields["intl"] = it }
+            fields["title"] = "Number validation: $phone"
+            fields["valid"] = "true"
+            fields["possible"] = "true"
+            fields["country"] = "US/CA (NANP)"
+            fields["line_type"] = lineType
+            fields["intl"] = "+1 $area $exchange $subscriber"
             fields["snippet"] = buildString {
-                append(if (isValid) "Valid" else "Possible")
-                fields["line_type"]?.let { append(" $it") }
-                fields["country"]?.let { append(" · $it") }
-                fields["location"]?.let { append(" · $it") }
-                fields["carrier"]?.let { append(" · $it") }
+                append("Valid NANP")
+                append(" · $lineType")
+                append(" · +1 $area $exchange $subscriber")
             }.trim()
             ScrapeOut(true, false, fields)
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
+    /**
+     * Offline toll-free / premium-area flag check.
+     *
+     * The previous implementation hit calltracer.io, which is not a real public lookup
+     * API and always failed silently. We instead flag the number as a potential spam /
+     * toll-free / premium line based purely on its NANP area code — real, derivable data
+     * with no network call and no fabricated carrier or spam-score.
+     */
     private fun scrapeCallTracer(phone: String): ScrapeOut {
         return try {
-            val digits = phone.replace(Regex("[^0-9]"), "")
+            var digits = phone.replace(Regex("[^0-9]"), "")
             if (digits.length < 7) return ScrapeOut(false, false)
-            val req = Request.Builder()
-                .url("https://calltracer.io/api/lookup/$digits")
-                .header("User-Agent", "6Degrees OSINT/1.0")
-                .header("Accept", "application/json")
-                .build()
-            val resp = fastHttpClient.newCall(req).execute()
-            val body = resp.body?.string() ?: ""
-            resp.close()
-            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
-            val json = JSONObject(body)
-            if (!json.optBoolean("is_valid", false)) return ScrapeOut(false, false)
+            if (digits.startsWith("1") && digits.length == 11) digits = digits.substring(1)
+            if (digits.length != 10) return ScrapeOut(false, false)
+            val area = digits.substring(0, 3)
+            val tollFree = setOf("800", "833", "844", "855", "866", "877", "888")
+            val premium = setOf("900", "976")
             val fields = mutableMapOf<String, String>()
-            fields["title"] = "CallTracer: $phone"
-            json.optString("country", "").takeIf { it.isNotBlank() }?.let { fields["country"] = it }
-            json.optString("number_type", "").takeIf { it.isNotBlank() }?.let { fields["line_type"] = it }
-            json.optString("carrier", "").takeIf { it.isNotBlank() }?.let { fields["carrier"] = it }
-            json.optString("location", "").takeIf { it.isNotBlank() }?.let { fields["location"] = it }
-            json.optString("international", "").takeIf { it.isNotBlank() }?.let { fields["intl"] = it }
-            json.optJSONObject("reports")?.let { reports ->
-                reports.optInt("total", 0).takeIf { it > 0 }?.let { fields["spam_reports"] = it.toString() }
-                reports.optInt("spam_score", 0).takeIf { it > 0 }?.let { fields["spam_score"] = it.toString() }
+            fields["title"] = "Line flag: $phone"
+            when {
+                area in tollFree -> {
+                    fields["line_type"] = "Toll-free"
+                    fields["spam_reports"] = "toll-free line"
+                    fields["snippet"] = "Toll-free area code $area — often used by businesses; not a personal line."
+                }
+                area in premium -> {
+                    fields["line_type"] = "Premium"
+                    fields["spam_reports"] = "premium-rate line"
+                    fields["snippet"] = "Premium-rate area code $area — frequently associated with spam / paid services."
+                }
+                else -> return ScrapeOut(false, false)
             }
-            fields["snippet"] = buildString {
-                append("Valid")
-                fields["line_type"]?.let { append(" $it") }
-                fields["location"]?.let { append(" · $it") }
-                fields["spam_score"]?.let { append(" · spam score $it") }
-            }.trim()
             ScrapeOut(true, false, fields)
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
@@ -1208,14 +1248,21 @@ class OsintRepository(context: Context) {
             if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
             val json = JSONObject(body)
             val found = json.optBoolean("found", false)
-            val sources = json.optJSONArray("sources")
-            if (!found || sources == null || sources.length() == 0) return ScrapeOut(false, false)
-            val sourceList = (0 until sources.length()).mapNotNull { sources.optJSONObject(it)?.optString("name") }.joinToString(", ")
+            // LeakCheck public API returns {"success":true,"found":bool,"count":N,
+            // "data":[{"email":..,"source":..,"password":..}, ...]} — there is no top-level
+            // "sources" array. Read the "data" array and collect each entry's "source" field.
+            val data = json.optJSONArray("data")
+            if (!found || data == null || data.length() == 0) return ScrapeOut(false, false)
+            val sourceSet = LinkedHashSet<String>()
+            for (i in 0 until data.length()) {
+                data.optJSONObject(i)?.optString("source")?.takeIf { it.isNotBlank() }?.let { sourceSet.add(it) }
+            }
+            val sourceList = sourceSet.joinToString(", ")
             ScrapeOut(true, false, mapOf(
-                "title" to "LeakCheck: ${sources.length()} breach(es)",
+                "title" to "LeakCheck: ${data.length()} breach(es)",
                 "snippet" to "Found in: $sourceList",
                 "breach_sources" to sourceList,
-                "breach_count" to sources.length().toString()
+                "breach_count" to data.length().toString()
             ))
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
@@ -1481,7 +1528,10 @@ class OsintRepository(context: Context) {
             val json = JSONObject(body)
             if (json.has("detail")) return ScrapeOut(false, false)
             val ports = json.optJSONArray("ports")
-            val cves = json.optJSONArray("cpes")
+            // InternetDB returns both "cpes" (CPE product strings) and "vulns" (the actual
+            // CVE list). The README promises "open ports + CVEs", so read "vulns" here.
+            val cves = json.optJSONArray("vulns")
+            val cpes = json.optJSONArray("cpes")
             val hostnames = json.optJSONArray("hostnames")
             val tags = json.optJSONArray("tags")
             val fields = mutableMapOf<String, String>()
@@ -1493,6 +1543,10 @@ class OsintRepository(context: Context) {
             if (cves != null && cves.length() > 0) {
                 val cveList = (0 until cves.length()).map { cves.optString(it) }.joinToString(", ")
                 fields["cves"] = cveList
+            }
+            if (cpes != null && cpes.length() > 0) {
+                val cpeList = (0 until cpes.length()).map { cpes.optString(it) }.joinToString(", ")
+                fields["cpes"] = cpeList
             }
             if (hostnames != null && hostnames.length() > 0) {
                 val hnList = (0 until hostnames.length()).map { hostnames.optString(it) }.joinToString(", ")
@@ -1957,8 +2011,15 @@ class OsintRepository(context: Context) {
     private fun scrapeOpenCorporatesOfficers(name: String, apiKey: String): ScrapeOut {
         return try {
             val encoded = URLEncoder.encode(name.trim(), "UTF-8")
+            // OpenCorporates v0.4 supports anonymous access. Only append api_token when one
+            // is actually configured; an empty token is omitted to avoid edge-case rejections.
+            val url = if (apiKey.isNotBlank()) {
+                "https://api.opencorporates.com/v0.4/officers/search?q=$encoded&api_token=${URLEncoder.encode(apiKey, "UTF-8")}&per_page=10"
+            } else {
+                "https://api.opencorporates.com/v0.4/officers/search?q=$encoded&per_page=10"
+            }
             val req = Request.Builder()
-                .url("https://api.opencorporates.com/v0.4/officers/search?q=$encoded&api_token=$apiKey&per_page=10")
+                .url(url)
                 .header("User-Agent", SEC_USER_AGENT)
                 .header("Accept", "application/json")
                 .build()
@@ -2358,14 +2419,15 @@ class OsintRepository(context: Context) {
 
     private fun scrapeUrlhaus(host: String, authKey: String): ScrapeOut {
         return try {
-            if (authKey.isBlank()) return ScrapeOut(false, false)
+            // abuse.ch URLhaus /v1/host/{host}/ is a PUBLIC endpoint — no Auth-Key required.
+            // The README lists URLhaus as "free, no key". Don't bail when no key is set.
             val cleanHost = host.trim().lowercase().removePrefix("http://").removePrefix("https://").substringBefore("/")
-            val req = Request.Builder()
+            val builder = Request.Builder()
                 .url("https://urlhaus-api.abuse.ch/v1/host/${encode(cleanHost)}/")
-                .header("Auth-Key", authKey)
                 .header("User-Agent", SEC_USER_AGENT)
                 .header("Accept", "application/json")
-                .build()
+            if (authKey.isNotBlank()) builder.header("Auth-Key", authKey)
+            val req = builder.build()
             val resp = fastHttpClient.newCall(req).execute()
             val body = resp.body?.string() ?: ""
             val code = resp.code
@@ -3216,18 +3278,19 @@ class OsintRepository(context: Context) {
                                 }
                             }
                             launch {
+                                // OpenCorporates v0.4 allows anonymous access (lower rate limit)
+                                // without an api_token. README lists it as free/no-key, so run it
+                                // even when no key is configured.
                                 val key = apiKeys.opencorporatesKey.ifBlank { apiKeys.getKey("opencorporates") ?: "" }
-                                if (!key.isBlank()) {
-                                    send(SearchProgressEvent.Checking("OpenCorporates Officers"))
-                                    val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
-                                    if (out.found) {
-                                        out.fields["person_companies"]?.let { metadata["corpwiki_person_companies"] = it }
-                                        out.fields["positions"]?.let { metadata["opencorp_positions"] = it }
-                                        out.fields["person_states"]?.let { metadata["corpwiki_person_states"] = it }
-                                        out.fields["officer_matches"]?.let { metadata["officer_matches"] = it }
-                                    }
-                                    handleScrapeOut("OpenCorporates", "https://api.opencorporates.com/v0.4/officers/search?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.85)
+                                send(SearchProgressEvent.Checking("OpenCorporates Officers"))
+                                val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
+                                if (out.found) {
+                                    out.fields["person_companies"]?.let { metadata["corpwiki_person_companies"] = it }
+                                    out.fields["positions"]?.let { metadata["opencorp_positions"] = it }
+                                    out.fields["person_states"]?.let { metadata["corpwiki_person_states"] = it }
+                                    out.fields["officer_matches"]?.let { metadata["officer_matches"] = it }
                                 }
+                                handleScrapeOut("OpenCorporates", "https://api.opencorporates.com/v0.4/officers/search?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.85)
                             }
                             launch {
                                 send(SearchProgressEvent.Checking("FBI Wanted"))
@@ -3630,15 +3693,13 @@ class OsintRepository(context: Context) {
                                     handleScrapeOut("URLScan", "https://urlscan.io/search/#domain:$domainTarget", out, sources, metadata, this@channelFlow)
                                 }
                                 val urlhausKey = apiKeys.urlhausKey
-                                if (urlhausKey.isNotBlank()) {
-                                    send(SearchProgressEvent.Checking("URLhaus"))
-                                    val out = scrapeUrlhaus(domainTarget, urlhausKey)
-                                    if (out.found) {
-                                        out.fields["status"]?.let { metadata["urlhaus_status"] = it }
-                                        out.fields["urls_count"]?.let { metadata["urlhaus_urls_count"] = it }
-                                    }
-                                    handleScrapeOut("URLhaus", "https://urlhaus.abuse.ch/browse/host/$domainTarget/", out, sources, metadata, this@channelFlow)
+                                send(SearchProgressEvent.Checking("URLhaus"))
+                                val out = scrapeUrlhaus(domainTarget, urlhausKey)
+                                if (out.found) {
+                                    out.fields["status"]?.let { metadata["urlhaus_status"] = it }
+                                    out.fields["urls_count"]?.let { metadata["urlhaus_urls_count"] = it }
                                 }
+                                handleScrapeOut("URLhaus", "https://urlhaus.abuse.ch/browse/host/$domainTarget/", out, sources, metadata, this@channelFlow)
                             }
                         }
                     }
@@ -4513,7 +4574,7 @@ class OsintRepository(context: Context) {
             val s = SubjectFilter.toStateAbbrev(state).lowercase()
             if (c.isBlank() || s.isBlank()) return ScrapeOut(false, false)
             val req = Request.Builder()
-                .url("http://api.zippopotam.us/us/$s/$c")
+                .url("https://api.zippopotam.us/us/$s/$c")
                 .header("User-Agent", SEC_USER_AGENT)
                 .header("Accept", "application/json")
                 .build()

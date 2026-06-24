@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!--
+        6Degrees is an OSINT tool that queries many free public APIs and scrapes public
+        web pages. Several legitimate free sources are HTTP-only (ip-api.com free tier,
+        apilayer.net, api.zippopotam.us legacy endpoint, .onion dark-web services via
+        Tor). Permit cleartext for those specific domains so the app actually returns
+        the data the README promises instead of silently failing every request.
+    -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">ip-api.com</domain>
         <domain includeSubdomains="true">apilayer.net</domain>
+        <domain includeSubdomains="true">zippopotam.us</domain>
+        <domain includeSubdomains="true">onion</domain>
     </domain-config>
 </network-security-config>

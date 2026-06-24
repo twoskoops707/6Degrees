@@ -107,7 +107,9 @@ suspend fun scrapeFastPeopleSearch(firstName: String, lastName: String, client: 
 suspend fun scrapeProxyNova(email: String, client: OkHttpClient): ScrapeResult {
     return try {
         val encoded = URLEncoder.encode(email, "UTF-8")
-        val html = get(client, "https://www.proxynova.com/tools/comb-breach/?q=$encoded")
+        // The public COMB (3.2B credential) search lives at /tools/comb-database-search/,
+        // not /tools/comb-breach/ (which 404s and returns a generic page with no table).
+        val html = get(client, "https://www.proxynova.com/tools/comb-database-search/?q=$encoded")
         val doc = Jsoup.parse(html)
         val emailLower = email.trim().lowercase()
         val rows = doc.select("table tr").drop(1)
