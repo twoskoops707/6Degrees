@@ -41,7 +41,14 @@ abstract class OsintDatabase : RoomDatabase() {
                     context.applicationContext,
                     OsintDatabase::class.java,
                     "osint_database"
-                ).fallbackToDestructiveMigration().build()
+                )
+                    // Preserve saved reports across schema bumps. A destructive migration
+                    // would silently nuke the user's entire search history on any version
+                    // increase — unacceptable for a tool whose History tab is a core feature.
+                    // If columns are added in the future, add explicit Migration objects
+                    // here rather than reverting to fallbackToDestructiveMigration.
+                    .addMigrations()
+                    .build()
                 INSTANCE = instance
                 instance
             }

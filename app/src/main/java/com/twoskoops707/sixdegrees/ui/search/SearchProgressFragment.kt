@@ -50,6 +50,7 @@ class SearchProgressFragment : Fragment() {
     private var elapsedJob: Job? = null
     private var partialReportId: String? = null
     private var searchComplete = false
+    private var searchFailed = false
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     private var currentType = "person"
     private var currentDisplayQuery = ""
@@ -168,6 +169,14 @@ class SearchProgressFragment : Fragment() {
             }
         }
 
+        // Restore aggregate state from the ViewModel BEFORE subscribing, so a rotated
+        // fragment picks up hitCount, sourceRows, completedReportId, etc. without
+        // re-running the search (the VM's `started` flag prevents a double-start).
+        restoreStateFromVm()
+
+        // Subscribe to events BEFORE calling startSearch so the collector is ready
+        // when the first event fires. The SharedFlow has replay=1, so the most
+        // recent event is redelivered to this new collector as well.
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.events.collect { event ->
                 handleEvent(event)
@@ -175,6 +184,103 @@ class SearchProgressFragment : Fragment() {
         }
 
         viewModel.startSearch()
+
+        // If the search had already completed before this view was created (rotation
+        // during the 2.5s auto-nav window, or rotation after completion in
+        // investigator mode), re-show the FAB and re-arm the auto-nav so the user
+        // is not stuck on a dead progress screen.
+        val s = viewModel.state.value
+        if (s.searchComplete) {
+            showCompleteUi(s.completedReportId, s.hitCount)
+            if (!investigatorMode && s.completedReportId != null) {
+                viewLifecycleOwner.lifecycleScope.launch {
+                    delay(2_500)
+                    if (isAdded && isResumed && _binding != null && !searchFailed) {
+                        navigateToResults(completedReportId)
+                    }
+                }
+            }
+        } else if (s.searchFailed) {
+            showFailureUi(s.failureMessage ?: "Search failed")
+        }
+    }
+
+    /**
+     * Populate fragment fields + adapter from the VM's surviving [ProgressState] so the
+     * UI rebuilds correctly after a configuration change without restarting the search.
+     */
+    private fun restoreStateFromVm() {
+        val s = viewModel.state.value
+        searchStartMs = s.searchStartMs
+        hitCount = s.hitCount
+        checkedCount = s.checkedCount
+        completedReportId = s.completedReportId
+        partialReportId = s.partialReportId
+        searchComplete = s.searchComplete
+        searchFailed = s.searchFailed
+        pendingCandidatesRound = s.pendingCandidatesRound
+        s.pendingCandidatesJson?.let { json ->
+            candidatesJson = json
+            try {
+                val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
+                pendingCandidates = moshi.adapter<List<CandidateProfile>>(listType).fromJson(json)
+            } catch (_: Exception) {}
+        }
+        sourceRows.clear()
+        sourceRows.addAll(s.sourceRows.map { SourceRow(it.source, SourceRow.State.valueOf(it.state.name), it.detail) })
+        if (::adapter.isInitialized) {
+            adapter.notifyDataSetChanged()
+        }
+        if (partialReportId != null && !searchComplete) {
+            binding.btnPartialResults.visibility = View.VISIBLE
+        }
+        updateCounts()
+    }
+
+    private fun showCompleteUi(reportId: String?, hits: Int) {
+        if (_binding == null) return
+        completedReportId = reportId
+        hitCount = hits
+        searchComplete = true
+        binding.progressBar.visibility = View.GONE
+        binding.btnPartialResults.visibility = View.GONE
+        val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
+        binding.tvEta.text = ""
+        binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
+        if (investigatorMode) {
+            val suffix = if (hitCount != 1) "s" else ""
+            binding.tvStatus.text = getString(R.string.progress_findings, hitCount, suffix) +
+                " · ${elapsedSec / 60}m ${elapsedSec % 60}s"
+            binding.fabViewReport.text = "View Full Report"
+        } else {
+            binding.tvStatus.text = getString(R.string.progress_simple_complete) +
+                " — ${hitCount} result${if (hitCount != 1) "s" else ""}"
+            binding.fabViewReport.text = getString(R.string.progress_simple_open_dossier)
+        }
+        binding.fabViewReport.apply {
+            visibility = View.VISIBLE
+            alpha = 1f
+        }
+    }
+
+    private fun showFailureUi(message: String) {
+        if (_binding == null) return
+        searchFailed = true
+        binding.progressBar.visibility = View.GONE
+        binding.tvEta.text = ""
+        binding.tvStatus.text = "Search failed: $message"
+        binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
+        // Always show the FAB so the user can open whatever partial report was saved
+        // (if any), or back out manually. The FAB text reflects what's available.
+        val reportId = partialReportId ?: completedReportId
+        if (reportId != null) {
+            binding.fabViewReport.text = "View Partial Report"
+            binding.fabViewReport.apply {
+                visibility = View.VISIBLE
+                alpha = 1f
+            }
+        }
+        binding.btnPartialResults.visibility = if (partialReportId != null) View.VISIBLE else View.GONE
     }
 
     private fun parseDisplayFields(rawQuery: String): Map<String, String> {
@@ -280,10 +386,9 @@ class SearchProgressFragment : Fragment() {
             }
             is SearchProgressEvent.Failed -> {
                 if (event.source == "Search") {
-                    binding.progressBar.visibility = View.GONE
-                    binding.tvEta.text = ""
-                    binding.tvStatus.text = "Search failed: ${event.reason}"
-                    binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.score_red))
+                    // Top-level search failure — show a recovery path instead of leaving
+                    // the user on a dead progress screen with only the back button.
+                    showFailureUi(event.reason)
                     Toast.makeText(requireContext(), event.reason, Toast.LENGTH_LONG).show()
                 } else {
                     updateSourceRow(event.source, SourceRow.State.FAILED, event.reason)
@@ -353,33 +458,11 @@ class SearchProgressFragment : Fragment() {
             }
             is SearchProgressEvent.BrowserToolsReady -> { /* in-app scraping handles these; no external browser */ }
             is SearchProgressEvent.Complete -> {
-                searchComplete = true
-                completedReportId = event.reportId
-                binding.progressBar.visibility = View.GONE
-                binding.btnPartialResults.visibility = View.GONE
-                val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
-                binding.tvEta.text = ""
-                binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
-                if (investigatorMode) {
-                    val suffix = if (hitCount != 1) "s" else ""
-                    binding.tvStatus.text = getString(R.string.progress_findings, hitCount, suffix) +
-                        " · ${elapsedSec / 60}m ${elapsedSec % 60}s"
-                    binding.tvPhase.text = getString(R.string.progress_phase_ai)
-                    binding.fabViewReport.text = "View Full Report"
-                } else {
-                    binding.tvStatus.text = getString(R.string.progress_simple_complete) +
-                        " — ${hitCount} result${if (hitCount != 1) "s" else ""}"
-                    binding.fabViewReport.text = getString(R.string.progress_simple_open_dossier)
-                }
-                binding.fabViewReport.apply {
-                    visibility = View.VISIBLE
-                    alpha = 0f
-                    animate().alpha(1f).setDuration(400).start()
-                }
+                showCompleteUi(event.reportId, event.hitCount)
                 if (!investigatorMode) {
                     viewLifecycleOwner.lifecycleScope.launch {
                         delay(2_500)
-                        if (isAdded && isResumed && _binding != null) {
+                        if (isAdded && isResumed && _binding != null && !searchFailed) {
                             navigateToResults(completedReportId)
                         }
                     }

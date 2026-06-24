@@ -2805,7 +2805,14 @@ class OsintRepository(context: Context) {
     suspend fun search(query: String, type: String): String {
         var reportId = ""
         searchWithProgress(query, type).collect { event ->
-            if (event is SearchProgressEvent.Complete) reportId = event.reportId
+            // Capture the report ID from either terminal event. Person round-1 searches
+            // emit CandidatesReady (and return early) instead of Complete, so capturing
+            // only Complete would return "" for the most common search type.
+            when (event) {
+                is SearchProgressEvent.Complete -> reportId = event.reportId
+                is SearchProgressEvent.CandidatesReady -> reportId = event.reportId
+                else -> {}
+            }
         }
         return reportId
     }
