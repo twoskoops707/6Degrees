@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Guard nullable JSONArray receiver in ThreatFox scrape (`data?.optJSONObject(i)`) — removes compiler warning and latent NPE risk
+
 ### Added
 - ProxyNova COMB breach search — free keyless check against 3.2B leaked credentials
 - EVA Email Validator — deliverability, MX record, disposable address, spam trap detection
