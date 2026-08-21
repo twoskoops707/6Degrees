@@ -2,6 +2,10 @@
 
 This document provides information about the APIs used in the 6Degrees OSINT tool and how to obtain API keys for each service.
 
+> **New:** the full catalog of **free** sources (no-key + free-key) with setup links lives in
+> [free-osint-apis.md](free-osint-apis.md), and the machine-readable list ships with the app at
+> `app/src/main/assets/free_apis.csv`.
+
 ## Table of APIs
 
 1. [People Data Labs](#people-data-labs)
