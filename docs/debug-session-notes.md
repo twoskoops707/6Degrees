@@ -54,6 +54,25 @@ Net change: **1 file, +1/−1 lines.**
   (8 prior local commits + this one). The push will publish all of them and
   trigger CI on `main`.
 
+## Follow-up: "Not allowed to start service" crash (August 2026)
+
+**Symptom:** app freezes mid-search and shows a partially visible "Not allowed to
+start service" error.
+
+**Root cause:** `TermuxToolRunner.fireCommand()` calls `startForegroundService()`
+to reach Termux's `RunCommandService`. On Android 8+ (O) starting a background
+service, and on Android 12+ (S) starting a foreground service, both throw when the
+app is in the background. A long search running while the app was backgrounded hit
+this via the unguarded `requestToolStatusRefresh()` in `searchWithProgress()`, the
+exception escaped the search flow, and the UI surfaced "Search failed: Not allowed
+to start service…".
+
+**Fix:**
+- `fireCommand()` now wraps the service start in try/catch and logs instead of
+  throwing — every caller (9+ sites) is safe regardless of foreground state.
+- The `requestToolStatusRefresh()` call in `searchWithProgress()` is wrapped in
+  try/catch so a rejected service start can never abort a search.
+
 ## Build verification summary
 
 | Step | Result |

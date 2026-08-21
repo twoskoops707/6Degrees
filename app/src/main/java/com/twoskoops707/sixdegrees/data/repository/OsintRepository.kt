@@ -3299,7 +3299,13 @@ class OsintRepository(context: Context) {
             val subjectIntent = SubjectSearchOrchestrator.normalizeIntent(subjectProfile.intent)
             if (subjectProfile.intent.isNotBlank()) metadata["subject_intent"] = subjectIntent
             if (termuxRunner.isTermuxInstalled()) {
-                termuxRunner.requestToolStatusRefresh()
+                try {
+                    termuxRunner.requestToolStatusRefresh()
+                } catch (_: Exception) {
+                    // Non-fatal: the Termux status refresh is best-effort. If the app
+                    // is backgrounded the foreground-service start is rejected, and
+                    // letting that escape would abort the entire search.
+                }
             }
             val isPhoneOnly = fields["phone"]?.isNotBlank() == true &&
                 fields["name"].isNullOrBlank() && fields["email"].isNullOrBlank() && fields["username"].isNullOrBlank()

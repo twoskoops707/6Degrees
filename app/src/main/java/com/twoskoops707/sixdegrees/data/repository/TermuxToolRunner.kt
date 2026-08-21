@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 
 import com.squareup.moshi.Moshi
 
@@ -240,11 +241,20 @@ class TermuxToolRunner(private val context: Context) {
 
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            @Suppress("DEPRECATION")
-            context.startService(intent)
+        // Never let a service-start failure escape: on Android 8+ (O) starting a
+        // background service and on Android 12+ (S) starting a foreground service
+        // both throw when the app is in the background, which would otherwise kill
+        // the whole search flow. Callers treat a non-started command as a normal
+        // "tool unreachable" case, so log and swallow here.
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                @Suppress("DEPRECATION")
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            Log.w("TermuxToolRunner", "fireCommand blocked (app in background?): ${e.message}")
         }
 
     }
