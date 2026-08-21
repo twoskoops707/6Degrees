@@ -57,6 +57,8 @@ class SearchProgressFragment : Fragment() {
     private var investigatorMode = false
     private var currentRound = 1
     private var candidatesJson: String? = null
+    private var rawQuery = ""
+    private var queueIndex = 0
 
     private fun normalizedSearchType(): String = when (currentType) {
         "scan" -> "person"
@@ -91,6 +93,8 @@ class SearchProgressFragment : Fragment() {
         val round = arguments?.getInt("round") ?: 1
         val displayQuery = arguments?.getString("searchQuery")?.takeIf { it.isNotBlank() } ?: rawQuery
         candidatesJson = arguments?.getString("candidatesJson")
+        this.rawQuery = rawQuery
+        queueIndex = arguments?.getInt("queueIndex") ?: 0
 
         searchStartMs = System.currentTimeMillis()
         currentRound = round
@@ -161,6 +165,7 @@ class SearchProgressFragment : Fragment() {
                             putString("reportId", completedReportId ?: "")
                             putInt("round", pendingCandidatesRound)
                             putString("searchQuery", displayQuery)
+                            putString("baseQuery", rawQuery)
                         }
                     )
                 } catch (_: Exception) {}
@@ -184,6 +189,12 @@ class SearchProgressFragment : Fragment() {
         }
 
         viewModel.startSearch()
+
+        // Batch deep-search: tell the user which selected candidate is being searched.
+        val queueSize = parseCandidateQueue().size
+        if (queueSize > 1 && queueIndex > 0) {
+            binding.tvStatus.text = getString(R.string.progress_queue_searching, queueIndex + 1, queueSize)
+        }
 
         // If the search had already completed before this view was created (rotation
         // during the 2.5s auto-nav window, or rotation after completion in
@@ -354,6 +365,7 @@ class SearchProgressFragment : Fragment() {
                     putString("reportId", id)
                     candidatesJson?.let { putString("candidatesJson", it) }
                     if (currentRound > 1) putInt("candidateRound", currentRound)
+                    putString("baseQuery", rawQuery)
                 }
             )
         } catch (_: Exception) {}
@@ -471,7 +483,19 @@ class SearchProgressFragment : Fragment() {
             is SearchProgressEvent.BrowserToolsReady -> { /* in-app scraping handles these; no external browser */ }
             is SearchProgressEvent.Complete -> {
                 showCompleteUi(event.reportId, event.hitCount)
-                if (!investigatorMode) {
+                val queue = parseCandidateQueue()
+                val nextIndex = queueIndex + 1
+                if (queue.size > 1 && nextIndex < queue.size) {
+                    // Batch deep-search: this candidate's report is saved — chain straight
+                    // into the next selected candidate's deep investigation.
+                    binding.tvStatus.text = getString(R.string.progress_queue_next, nextIndex, queue.size)
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        delay(1_200)
+                        if (isAdded && isResumed && _binding != null && !searchFailed) {
+                            advanceQueue(nextIndex, queue)
+                        }
+                    }
+                } else if (!investigatorMode) {
                     viewLifecycleOwner.lifecycleScope.launch {
                         delay(2_500)
                         if (isAdded && isResumed && _binding != null && !searchFailed) {
@@ -495,6 +519,42 @@ class SearchProgressFragment : Fragment() {
         binding.btnPartialResults.visibility = View.GONE
         binding.tvStatus.text = getString(R.string.progress_simple_status)
         binding.searchProgressToolbar.title = getString(R.string.progress_title)
+    }
+
+    private fun parseCandidateQueue(): List<CandidateProfile> {
+        val json = candidatesJson ?: return emptyList()
+        if (json.isBlank() || json == "[]") return emptyList()
+        return try {
+            val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
+            moshi.adapter<List<CandidateProfile>>(listType).fromJson(json) ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+    }
+
+    /**
+     * Batch deep-search: advance to the next selected candidate's locked query and start
+     * another round-2 deep investigation in a fresh progress screen. Each candidate's
+     * report was already saved by the repository, so nothing is lost when chaining.
+     */
+    private fun advanceQueue(nextIndex: Int, queue: List<CandidateProfile>) {
+        val next = queue.getOrNull(nextIndex) ?: return
+        val base = SubjectProfile.fromFields(parseDisplayFields(rawQuery))
+        val locked = SubjectProfile.fromCandidate(next, base).toQueryString()
+        if (locked.isBlank()) return
+        val nav = findNavController()
+        if (nav.currentDestination?.id != R.id.nav_search_progress) return
+        try {
+            nav.navigate(
+                R.id.action_progress_to_progress,
+                Bundle().apply {
+                    putString("query", locked)
+                    putString("type", "comprehensive")
+                    putInt("round", currentRound + 1)
+                    putString("searchQuery", currentDisplayQuery)
+                    candidatesJson?.let { putString("candidatesJson", it) }
+                    putInt("queueIndex", nextIndex)
+                }
+            )
+        } catch (_: Exception) {}
     }
 
     private fun navigateBackFromProgress() {

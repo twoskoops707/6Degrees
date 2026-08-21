@@ -23,9 +23,11 @@ A comprehensive Android application for gathering publicly available intelligenc
 ### Free — No API Key Required
 
 **Email**
-- EmailRep.io — reputation + breach flag
+- EmailRep.io — reputation + breach flag *(free key — emailrep.io)*
+- BreachDirectory — breach names + exposed passwords *(free key)*
+- AbstractAPI Email — deliverability + disposable flags *(free key)*
+- IntelX — breach/credential records *(free key)*
 - Gravatar — profile image + linked accounts
-- LeakCheck.io — public breach hits
 - ThreatCrowd — linked domains
 - HackerTarget — email-to-host correlation
 - ProxyNova COMB — 3.2B leaked credential dataset
@@ -53,23 +55,30 @@ OkCupid, Xing, Exercism, and more
 - GreyNoise Community — internet scanner / RIOT classification
 - Robtex — BGP + passive DNS
 - AlienVault OTX — threat pulse count
+- Pulsedive — indicator risk score
+- Maltiverse — threat classification + blacklist membership
 - HackerTarget — DNS lookup, WHOIS, host search, reverse DNS
 - crt.sh — SSL certificate transparency + subdomains
 - Wayback Machine CDX — archive snapshot history
 - ThreatCrowd — historic resolutions + hashes
-- URLhaus — malware URL hosting status
+- URLhaus — malware URL hosting status *(free Auth-Key — auth.abuse.ch)*
+- ThreatFox — malware IOC search *(free Auth-Key — threatfox.abuse.ch)*
+- LeakIX — open leaks + honeypots *(free key)*
+- SecurityTrails — subdomains + DNS history *(free key)*
+- CriminalIP — threat score *(free key)*
+- Netlas — internet scan + DNS *(free key)*
 - RDAP — modern WHOIS replacement (registrar, dates, nameservers)
-- Maltiverse — threat classification + blacklist membership
 
 **Person**
 - CourtListener — federal + state court records
 - JailBase — arrest records
-- OpenCorporates Officers — officer history
+- OpenCorporates Officers — officer history *(free token — opencorporates.com)*
+- OpenSanctions — sanctions / PEP screening *(free key — opensanctions.org)*
 - Wikipedia / WikiData — public encyclopedic records
 - FEC Campaign Finance — political donation records
 - SEC EDGAR — Form-4 insider filings
 - Google News RSS — recent news mentions
-- ThatsThem — age, city, phone, relatives (HTML scrape)
+- ThatsThem — age, city, phone, relatives (HTML scrape; often Cloudflare-blocked, opens in browser)
 - USPhoneBook — address + phone (HTML scrape)
 - ShadowDork Engine — 15 specialized Google/Bing dork queries
 - Name Demographics — gender probability, average age, nationality (Genderize/Agify/Nationalize)

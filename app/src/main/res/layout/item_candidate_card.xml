@@ -19,12 +19,21 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Photo row: primary + up to 2 thumbnails -->
+        <!-- Photo row: select checkbox + primary photo + up to 2 thumbnails -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
+
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/cb_candidate_select"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:clickable="false"
+                android:focusable="false"
+                app:buttonTint="?attr/colorPrimary" />
 
             <com.google.android.material.imageview.ShapeableImageView
                 android:id="@+id/iv_candidate_photo_primary"
@@ -100,6 +109,18 @@
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:visibility="gone"
                     tools:text="Software engineer" />
+
+                <TextView
+                    android:id="@+id/tv_candidate_phones"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:autoLink="phone"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="13sp"
+                    android:visibility="gone"
+                    tools:text="(512) 555-0100 · (512) 555-0111" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_match_score"

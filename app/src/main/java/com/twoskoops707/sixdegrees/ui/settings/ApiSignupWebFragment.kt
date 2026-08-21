@@ -245,11 +245,22 @@ class ApiSignupWebFragment : Fragment() {
             n.contains("veriphone") -> apiKeyManager.veriphoneKey = key
             n.contains("googlecustom") || n.contains("googlecse") -> apiKeyManager.googleCseApiKey = key
             n.contains("bing") -> apiKeyManager.bingSearchKey = key
-            n.contains("clearbit") -> apiKeyManager.clearbitKey = key
             n.contains("builtwith") -> apiKeyManager.builtWithKey = key
             n.contains("virustotal") -> apiKeyManager.virusTotalKey = key
             n.contains("abuseipdb") -> apiKeyManager.abuseIpDbKey = key
             n.contains("urlscan") -> apiKeyManager.urlScanKey = key
+            n.contains("emailrep") -> apiKeyManager.emailrepKey = key
+            n.contains("opensanctions") -> apiKeyManager.opensanctionsKey = key
+            n.contains("opencorporates") -> apiKeyManager.opencorporatesKey = key
+            n.contains("urlhaus") -> apiKeyManager.urlhausKey = key
+            n.contains("breachdirectory") -> apiKeyManager.breachdirectoryKey = key
+            n.contains("threatfox") -> apiKeyManager.threatfoxKey = key
+            n.contains("veriphone") -> apiKeyManager.veriphoneKey = key
+            n.contains("abstractapi") -> {
+                // AbstractAPI ships separate keys for email + phone validation. Default to email;
+                // the other can be pasted in Settings.
+                apiKeyManager.abstractApiEmailKey = key
+            }
         }
     }
 

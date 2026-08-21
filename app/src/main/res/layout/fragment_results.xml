@@ -199,6 +199,18 @@
                             android:drawablePadding="4dp"
                             android:textIsSelectable="true" />
 
+                        <TextView
+                            android:id="@+id/context_line"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:ellipsize="end"
+                            android:maxLines="2"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textSize="12sp"
+                            android:textIsSelectable="true"
+                            android:visibility="gone" />
+
                     </LinearLayout>
 
                     <!-- Score badge -->

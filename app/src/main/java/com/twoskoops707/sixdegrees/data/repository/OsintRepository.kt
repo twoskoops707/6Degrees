@@ -51,6 +51,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.Jsoup
 import retrofit2.HttpException
@@ -699,6 +700,8 @@ class OsintRepository(context: Context) {
         phone: String = "",
         email: String = "",
         username: String = "",
+        aka: String = "",
+        dob: String = "",
         phase: SearchPhase = SearchPhase.DEEP_INVESTIGATION,
         activeCategories: Set<String>? = null
     ): List<Pair<String, String>> {
@@ -741,6 +744,8 @@ class OsintRepository(context: Context) {
         if (phone.isNotBlank()) queries.add("PhoneCrossRef" to "\"$phone\" \"$name\"")
         if (email.isNotBlank()) queries.add("EmailCrossRef" to "\"$email\" \"$name\"")
         if (username.isNotBlank()) queries.add("UsernameCrossRef" to "\"$username\" \"$name\"")
+        if (aka.isNotBlank()) queries.add("AKACrossRef" to "\"$name\" \"$aka\"")
+        if (dob.isNotBlank()) queries.add("DOB" to "\"$name\" \"$dob\" voter records")
         return queries.filter { (label, _) -> label in allowedLabels }
     }
 
@@ -1211,12 +1216,16 @@ class OsintRepository(context: Context) {
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
-    private fun scrapeEmailRep(email: String): ScrapeOut {
+    private fun scrapeEmailRep(email: String, apiKey: String): ScrapeOut {
         return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
             val encoded = URLEncoder.encode(email.trim().lowercase(), "UTF-8")
             val req = Request.Builder()
-                .url("https://emailrep.io/$encoded")
+                // EmailRep disabled the unauthenticated tier — v3 requires the free API key
+                // in the `Key` header (https://emailrep.io/docs).
+                .url("https://emailrep.io/v3/query/$encoded")
                 .header("User-Agent", "6Degrees OSINT/1.0")
+                .header("Key", apiKey)
                 .header("Accept", "application/json")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
@@ -1224,6 +1233,7 @@ class OsintRepository(context: Context) {
             resp.close()
             if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
             val json = JSONObject(body)
+            // v3 keeps the same shape as v2: reputation, suspicious, references, details{...}.
             val reputation = json.optString("reputation", "")
             val suspicious = json.optBoolean("suspicious", false)
             val refs = json.optInt("references", 0)
@@ -1232,10 +1242,14 @@ class OsintRepository(context: Context) {
             val fields = mutableMapOf<String, String>()
             fields["title"] = "EmailRep: $email"
             fields["snippet"] = "Reputation: $reputation | Suspicious: $suspicious | References: $refs"
+            fields["emailrep_reputation"] = reputation
+            fields["emailrep_suspicious"] = suspicious.toString()
+            fields["emailrep_references"] = refs.toString()
             if (details != null) {
                 details.optString("days_since_domain_creation", "").takeIf { it.isNotBlank() }
                     ?.let { fields["domain_age_days"] = it }
                 details.optBoolean("spam", false).let { if (it) fields["spam_flag"] = "true" }
+                details.optBoolean("breached", false).let { if (it) fields["emailrep_breach"] = "true" }
                 details.optJSONArray("profiles")?.let { arr ->
                     val profiles = (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }
                     if (profiles.isNotEmpty()) fields["linked_profiles"] = profiles.joinToString(", ")
@@ -1243,6 +1257,7 @@ class OsintRepository(context: Context) {
                 details.optString("first_seen", "").takeIf { it.isNotBlank() }?.let { fields["first_seen"] = it }
                 details.optString("last_seen", "").takeIf { it.isNotBlank() }?.let { fields["last_seen"] = it }
             }
+            apiKeys.recordUsage("emailrep")
             ScrapeOut(true, false, fields)
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
@@ -1253,7 +1268,9 @@ class OsintRepository(context: Context) {
                 .digest(email.trim().lowercase().toByteArray())
                 .joinToString("") { "%02x".format(it) }
             val req = Request.Builder()
-                .url("https://www.gravatar.com/$hash.json")
+                // Gravatar's profile-JSON endpoint lives under /avatar/ — the bare /<hash>.json
+                // path 302-redirects and never returns the profile payload.
+                .url("https://www.gravatar.com/avatar/$hash.json")
                 .header("User-Agent", "Mozilla/5.0")
                 .build()
             val resp = fastHttpClient.newCall(req).execute()
@@ -1576,6 +1593,408 @@ class OsintRepository(context: Context) {
             )
             apiKeys.recordUsage("numverify")
             ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeAbstractEmail(email: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val req = Request.Builder()
+                .url("https://emailvalidation.abstractapi.com/v1/?api_key=${encode(apiKey)}&email=${encode(email.trim().lowercase())}")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.has("error")) return ScrapeOut(false, false)
+            val deliverability = json.optString("deliverability", "")
+            val quality = json.optString("quality_score", "")
+            val valid = json.optJSONObject("is_valid_format")?.optBoolean("value", false) ?: false
+            val fields = mutableMapOf(
+                "title" to "AbstractAPI Email: ${email.trim()}",
+                "valid" to valid.toString(),
+                "deliverability" to deliverability,
+                "quality_score" to quality
+            )
+            if (json.optString("is_disposable_email", "") == "true") fields["disposable"] = "true"
+            if (json.optString("is_free_email", "") == "true") fields["free_email"] = "true"
+            fields["snippet"] = "Deliverability: ${deliverability.ifBlank { "unknown" }} · Quality: ${quality.ifBlank { "?" }}"
+            apiKeys.recordUsage("abstractapi_email")
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeBreachDirectory(email: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val req = Request.Builder()
+                .url("https://breachdirectory.org/api/v3/?func=auto&term=${encode(email.trim().lowercase())}&key=${encode(apiKey)}")
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 429) return ScrapeOut(false, true)
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (!json.optBoolean("found", false)) return ScrapeOut(false, false)
+            val breaches = json.optJSONArray("breaches")
+            val breachNames = if (breaches != null) {
+                (0 until breaches.length()).mapNotNull { i -> breaches.optJSONObject(i)?.optString("name") }.filter { it.isNotBlank() }.joinToString(", ")
+            } else ""
+            val passwords = json.optJSONArray("passwords")
+            val pwCount = passwords?.length() ?: 0
+            val samplePw = if (passwords != null && pwCount > 0) {
+                (0 until minOf(3, pwCount)).mapNotNull { i -> passwords.optJSONObject(i)?.optString("password") }.filter { it.isNotBlank() }.joinToString(", ")
+            } else ""
+            val hashCount = json.optJSONArray("hashes")?.length() ?: 0
+            val fields = mutableMapOf<String, String>(
+                "title" to "BreachDirectory: ${breachNames.ifBlank { "data found" }}",
+                "breach_names" to breachNames,
+                "password_count" to pwCount.toString(),
+                "hash_count" to hashCount.toString()
+            )
+            if (samplePw.isNotBlank()) fields["sample_passwords"] = samplePw
+            fields["snippet"] = buildString {
+                append("Breached in: ${breachNames.ifBlank { "unknown sources" }}")
+                if (pwCount > 0) append(" · $pwCount password(s) exposed")
+                if (hashCount > 0) append(" · $hashCount hash(es)")
+            }
+            apiKeys.recordUsage("breachdirectory")
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeIntelxEmail(email: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val req = Request.Builder()
+                .url("https://2.intelx.io/email/search?email=${encode(email.trim().lowercase())}&maxresults=20&apikey=${encode(apiKey)}")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val records = json.optJSONArray("records")
+            if (records == null || records.length() == 0) return ScrapeOut(false, false)
+            val names = mutableListOf<String>()
+            for (i in 0 until minOf(8, records.length())) {
+                val rec = records.optJSONObject(i) ?: continue
+                val name = rec.optJSONObject("system")?.optString("name") ?: rec.optString("name", "")
+                if (name.isNotBlank()) names.add(name)
+            }
+            if (names.isEmpty()) return ScrapeOut(false, false)
+            apiKeys.recordUsage("intelx")
+            ScrapeOut(true, false, mapOf(
+                "title" to "IntelX: ${records.length()} record(s)",
+                "snippet" to names.take(5).joinToString(", "),
+                "sources" to names.joinToString(", ")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeVeriphone(phone: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val digits = phone.replace(Regex("[^0-9+]+"), "")
+            val e164 = if (digits.startsWith("+")) digits else "+1$digits"
+            val req = Request.Builder()
+                .url("https://api.veriphone.io/v2/verify?phone=${encode(e164)}&key=${encode(apiKey)}")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.has("error")) return ScrapeOut(false, false)
+            val valid = json.optBoolean("phone_valid", false)
+            val phoneType = json.optString("phone_type", "")
+            val carrier = json.optString("carrier", "")
+            val country = json.optString("country", "")
+            val city = json.optString("city", "")
+            apiKeys.recordUsage("veriphone")
+            ScrapeOut(true, false, mapOf(
+                "title" to "Veriphone: $e164",
+                "snippet" to listOf(carrier, phoneType, country).filter { it.isNotBlank() }.joinToString(" · "),
+                "valid" to valid.toString(),
+                "carrier" to carrier,
+                "line_type" to phoneType,
+                "country" to country,
+                "location" to city
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeAbstractPhone(phone: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val digits = phone.replace(Regex("[^0-9]+"), "")
+            val req = Request.Builder()
+                .url("https://phonevalidation.abstractapi.com/v1/?api_key=${encode(apiKey)}&phone=${encode(digits)}")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.has("error")) return ScrapeOut(false, false)
+            val valid = json.optBoolean("valid", false)
+            val carrier = json.optJSONObject("carrier")?.optString("name", "")
+            val lineType = json.optJSONObject("line_type")?.optBoolean("mobile", false) == true
+            val loc = json.optJSONObject("location")
+            val city = loc?.optString("city", "") ?: ""
+            val state = loc?.optString("state", "") ?: ""
+            apiKeys.recordUsage("abstractapi_phone")
+            ScrapeOut(true, false, mapOf(
+                "title" to "AbstractAPI Phone: $digits",
+                "snippet" to listOf(carrier.orEmpty(), if (lineType) "mobile" else "line", listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }.joinToString(" · "),
+                "valid" to valid.toString(),
+                "carrier" to carrier.orEmpty(),
+                "line_type" to if (lineType) "mobile" else "",
+                "location" to listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeAlienVaultOtx(ip: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://otx.alienvault.com/api/v1/indicators/IPv4/${encode(ip.trim())}/general")
+                .header("User-Agent", SEC_USER_AGENT)
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val reputation = json.optInt("reputation", 0)
+            val pulses = json.optJSONObject("pulse_info")?.optJSONArray("pulses")
+            val pulseCount = pulses?.length() ?: 0
+            val pulseNames = if (pulses != null) {
+                (0 until minOf(3, pulseCount)).mapNotNull { i -> pulses.optJSONObject(i)?.optString("name") }.filter { it.isNotBlank() }.joinToString(", ")
+            } else ""
+            if (reputation == 0 && pulseCount == 0) return ScrapeOut(false, false)
+            apiKeys.recordUsage("otx")
+            ScrapeOut(true, false, mapOf(
+                "title" to "AlienVault OTX: $ip",
+                "snippet" to "Reputation: $reputation · Pulses: $pulseCount${if (pulseNames.isNotBlank()) " · $pulseNames" else ""}",
+                "reputation" to reputation.toString(),
+                "pulse_count" to pulseCount.toString(),
+                "pulse_names" to pulseNames
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapePulsedive(ip: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://pulsedive.com/api/info.php?indicator=${encode(ip.trim())}&pretty=1")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val risk = json.optString("risk", "")
+            val riskRec = json.optString("risk_recommended", "")
+            val threat = json.optBoolean("threat", false)
+            if (risk.isBlank() && !threat) return ScrapeOut(false, false)
+            apiKeys.recordUsage("pulsedive")
+            ScrapeOut(true, false, mapOf(
+                "title" to "Pulsedive: $ip",
+                "snippet" to "Risk: ${risk.ifBlank { "none" }}${if (threat) " · Threat flagged" else ""}",
+                "risk" to risk,
+                "risk_recommended" to riskRec,
+                "threat" to threat.toString()
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeMaltiverse(ip: String): ScrapeOut {
+        return try {
+            val req = Request.Builder()
+                .url("https://api.maltiverse.com/ip/${encode(ip.trim())}")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            val code = resp.code
+            resp.close()
+            if (code == 404 || body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val classification = json.optString("classification", "")
+            val blacklist = json.optJSONArray("blacklist")
+            val blCount = blacklist?.length() ?: 0
+            val asn = json.optString("as_number", "")
+            if (classification.isBlank() && blCount == 0) return ScrapeOut(false, false)
+            apiKeys.recordUsage("maltiverse")
+            ScrapeOut(true, false, mapOf(
+                "title" to "Maltiverse: $ip",
+                "snippet" to "Classification: ${classification.ifBlank { "unknown" }} · Blacklist hits: $blCount${if (asn.isNotBlank()) " · AS$asn" else ""}",
+                "classification" to classification,
+                "blacklist_count" to blCount.toString(),
+                "asn" to asn
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeThreatFox(ioc: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val payload = "{\"query\":\"search_ioc\",\"search_term\":\"${ioc.trim()}\"}"
+            val req = Request.Builder()
+                .url("https://threatfox-api.abuse.ch/api/v1/")
+                .header("Auth-Key", apiKey)
+                .header("Content-Type", "application/json")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.optString("query_status") != "ok") return ScrapeOut(false, false)
+            val data = json.optJSONArray("data")
+            val count = data?.length() ?: 0
+            if (count == 0) return ScrapeOut(false, false)
+            val malware = mutableSetOf<String>()
+            for (i in 0 until minOf(5, count)) {
+                data.optJSONObject(i)?.optString("malware_printable")?.takeIf { it.isNotBlank() }?.let { malware.add(it) }
+            }
+            apiKeys.recordUsage("threatfox")
+            ScrapeOut(true, false, mapOf(
+                "title" to "ThreatFox: $ioc",
+                "snippet" to "$count malware indicator(s)${if (malware.isNotEmpty()) " — ${malware.joinToString(", ")}" else ""}",
+                "malware_count" to count.toString(),
+                "malware_families" to malware.joinToString(", ")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeLeakix(query: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val req = Request.Builder()
+                .url("https://leakix.net/api/search?q=${encode(query)}&scope=leak&limit=10")
+                .header("api-key", apiKey)
+                .header("Accept", "application/json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("[")) return ScrapeOut(false, false)
+            val arr = JSONArray(body)
+            if (arr.length() == 0) return ScrapeOut(false, false)
+            val leaks = mutableListOf<String>()
+            for (i in 0 until minOf(5, arr.length())) {
+                val entry = arr.optJSONObject(i) ?: continue
+                val leak = entry.optJSONObject("leak")
+                val name = leak?.optString("name") ?: entry.optString("name", "")
+                if (name.isNotBlank()) leaks.add(name)
+            }
+            apiKeys.recordUsage("leakix")
+            ScrapeOut(true, false, mapOf(
+                "title" to "LeakIX: ${arr.length()} leak(s)",
+                "snippet" to leaks.joinToString(", "),
+                "leaks" to leaks.joinToString(", ")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeSecurityTrails(domain: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val clean = domain.trim().lowercase().removePrefix("http://").removePrefix("https://").substringBefore("/")
+            val req = Request.Builder()
+                .url("https://api.securitytrails.com/v1/domain/$clean/subdomains")
+                .header("APIKEY", apiKey)
+                .header("Accept", "application/json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val subs = json.optJSONArray("subdomains")
+            val subList = if (subs != null) {
+                (0 until minOf(10, subs.length())).map { subs.optString(it) }.filter { it.isNotBlank() }
+            } else emptyList()
+            if (subList.isEmpty()) return ScrapeOut(false, false)
+            apiKeys.recordUsage("securitytrails")
+            ScrapeOut(true, false, mapOf(
+                "title" to "SecurityTrails: $clean",
+                "snippet" to subList.take(5).joinToString(", "),
+                "subdomains" to subList.joinToString(", ")
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeCriminalIp(ip: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val req = Request.Builder()
+                .url("https://api.criminalip.io/v1/ip/data?ip=${encode(ip.trim())}")
+                .header("x-api-key", apiKey)
+                .header("Accept", "application/json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val score = json.optString("score", "")
+            val country = json.optString("country", "")
+            val isp = json.optString("isp", "")
+            if (score.isBlank()) return ScrapeOut(false, false)
+            apiKeys.recordUsage("criminalip")
+            ScrapeOut(true, false, mapOf(
+                "title" to "CriminalIP: $ip",
+                "snippet" to listOf("Score: $score", country, isp).filter { it.isNotBlank() }.joinToString(" · "),
+                "score" to score,
+                "country" to country,
+                "isp" to isp
+            ))
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    private fun scrapeNetlas(query: String, apiKey: String): ScrapeOut {
+        return try {
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val req = Request.Builder()
+                .url("https://app.netlas.io/api/domains/?q=${encode(query)}&source_type=include&fields=name")
+                .header("X-API-Key", apiKey)
+                .header("Accept", "application/json")
+                .header("User-Agent", SEC_USER_AGENT)
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || !body.startsWith("{")) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val items = json.optJSONArray("items")
+            val names = if (items != null) {
+                (0 until minOf(10, items.length())).mapNotNull { i -> items.optJSONObject(i)?.optJSONObject("data")?.optString("name") }.filter { it.isNotBlank() }
+            } else emptyList()
+            if (names.isEmpty()) return ScrapeOut(false, false)
+            apiKeys.recordUsage("netlas")
+            ScrapeOut(true, false, mapOf(
+                "title" to "Netlas: $query",
+                "snippet" to names.take(5).joinToString(", "),
+                "hosts" to names.joinToString(", ")
+            ))
         } catch (_: Exception) { ScrapeOut(false, false) }
     }
 
@@ -1931,13 +2350,10 @@ class OsintRepository(context: Context) {
     private fun scrapeOpenCorporatesOfficers(name: String, apiKey: String): ScrapeOut {
         return try {
             val encoded = URLEncoder.encode(name.trim(), "UTF-8")
-            // OpenCorporates v0.4 supports anonymous access. Only append api_token when one
-            // is actually configured; an empty token is omitted to avoid edge-case rejections.
-            val url = if (apiKey.isNotBlank()) {
-                "https://api.opencorporates.com/v0.4/officers/search?q=$encoded&api_token=${URLEncoder.encode(apiKey, "UTF-8")}&per_page=10"
-            } else {
-                "https://api.opencorporates.com/v0.4/officers/search?q=$encoded&per_page=10"
-            }
+            // OpenCorporates v0.4 now rejects anonymous access (401 "Invalid Api Token").
+            // The free tier requires a token; skip the call entirely when none is set.
+            if (apiKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
+            val url = "https://api.opencorporates.com/v0.4/officers/search?q=$encoded&api_token=${URLEncoder.encode(apiKey, "UTF-8")}&per_page=10"
             val req = Request.Builder()
                 .url(url)
                 .header("User-Agent", SEC_USER_AGENT)
@@ -2276,16 +2692,18 @@ class OsintRepository(context: Context) {
         email: String,
         phase: SearchPhase,
         nameTokens: List<String>,
+        context: String = "",
+        aka: String = "",
         metadata: ConcurrentHashMap<String, String>,
         sources: MutableList<DataSource>,
         channel: SendChannel<SearchProgressEvent>,
         semaphore: Semaphore
     ) {
         var passIndex = 0
-        while (System.currentTimeMillis() - startMs < minMs && passIndex < 10) {
+        while (System.currentTimeMillis() - startMs < minMs && passIndex < 20) {
             channel.send(SearchProgressEvent.PhaseUpdate("Secondary sweep", "Pass ${passIndex + 1}"))
             val passes = SubjectSearchOrchestrator.secondaryDdgPassQueries(
-                name, city, state, phone, email, phase, passIndex
+                name, city, state, phone, email, phase, passIndex, context, aka
             )
             coroutineScope {
                 for ((label, q) in passes) {
@@ -2339,8 +2757,9 @@ class OsintRepository(context: Context) {
 
     private fun scrapeUrlhaus(host: String, authKey: String): ScrapeOut {
         return try {
-            // abuse.ch URLhaus /v1/host/{host}/ is a PUBLIC endpoint — no Auth-Key required.
-            // The README lists URLhaus as "free, no key". Don't bail when no key is set.
+            // abuse.ch URLhaus /v1/host/{host}/ now requires a free Auth-Key (auth.abuse.ch)
+            // and returns 401 without one. Bail early when no key is configured.
+            if (authKey.isBlank()) return ScrapeOut(false, false, mapOf("needs_key" to "true"))
             val cleanHost = host.trim().lowercase().removePrefix("http://").removePrefix("https://").substringBefore("/")
             val builder = Request.Builder()
                 .url("https://urlhaus-api.abuse.ch/v1/host/${encode(cleanHost)}/")
@@ -2519,13 +2938,14 @@ class OsintRepository(context: Context) {
         candidates: List<CandidateProfile>,
         city: String,
         state: String,
-        channel: SendChannel<SearchProgressEvent>
+        channel: SendChannel<SearchProgressEvent>,
+        context: String = ""
     ): List<CandidateProfile> {
         if (candidates.isEmpty()) return candidates
         channel.send(SearchProgressEvent.Checking("Candidate Photos"))
         return try {
             val enricher = CandidatePhotoEnricher(fastHttpClient)
-            val enriched = enricher.enrichAll(candidates, city, state)
+            val enriched = enricher.enrichAll(candidates, city, state, context)
             val withPhotos = enriched.count { it.allPhotoUrls().isNotEmpty() }
             if (withPhotos > 0) {
                 channel.send(SearchProgressEvent.Found("Candidate Photos", "$withPhotos of ${enriched.size} with photos"))
@@ -2737,6 +3157,39 @@ class OsintRepository(context: Context) {
             }
         }
         launch {
+            val key = apiKeys.veriphoneKey
+            if (key.isBlank()) {
+                channel.send(SearchProgressEvent.Skipped("Veriphone", "free key required — add in Settings"))
+                return@launch
+            }
+            channel.send(SearchProgressEvent.Checking("Veriphone"))
+            val out = scrapeVeriphone(phone, key)
+            if (out.found) {
+                out.fields["valid"]?.let { metadata["veriphone_valid"] = it }
+                out.fields["carrier"]?.let { metadata["veriphone_carrier"] = it }
+                out.fields["line_type"]?.let { metadata["veriphone_line_type"] = it }
+                out.fields["country"]?.let { metadata["veriphone_country"] = it }
+                out.fields["location"]?.let { metadata["veriphone_location"] = it }
+            }
+            handleScrapeOut("Veriphone", "https://www.veriphone.io/", out, sources, metadata, channel)
+        }
+        launch {
+            val key = apiKeys.abstractApiPhoneKey
+            if (key.isBlank()) {
+                channel.send(SearchProgressEvent.Skipped("AbstractAPI Phone", "free key required — add in Settings"))
+                return@launch
+            }
+            channel.send(SearchProgressEvent.Checking("AbstractAPI Phone"))
+            val out = scrapeAbstractPhone(phone, key)
+            if (out.found) {
+                out.fields["valid"]?.let { metadata["abstract_phone_valid"] = it }
+                out.fields["carrier"]?.let { metadata["abstract_phone_carrier"] = it }
+                out.fields["line_type"]?.let { metadata["abstract_phone_line_type"] = it }
+                out.fields["location"]?.let { metadata["abstract_phone_location"] = it }
+            }
+            handleScrapeOut("AbstractAPI Phone", "https://www.abstractapi.com/phone-validation-api", out, sources, metadata, channel)
+        }
+        launch {
             channel.send(SearchProgressEvent.Checking("libphonenumber"))
             val out = scrapeLibPhoneNumber(phone)
             if (out.found) {
@@ -2916,7 +3369,8 @@ class OsintRepository(context: Context) {
                         val personEmail = fields["email"] ?: ""
                         val personUsername = fields["username"] ?: ""
                         val personQueries = buildPersonQueries(
-                            primaryQuery, city, state, personPhone, personEmail, personUsername, searchPhase, activeCategories
+                            primaryQuery, city, state, personPhone, personEmail, personUsername,
+                            fields["aka"] ?: "", fields["dob"] ?: "", searchPhase, activeCategories
                         )
                         val nameTokens = primaryQuery.lowercase().split(" ").filter { it.length > 1 }
                         for ((label, q) in personQueries) {
@@ -3092,7 +3546,7 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("pipl")
-                                if (key.isNullOrBlank()) return@withPermit
+                                if (!key.isNullOrBlank()) {
                                     send(SearchProgressEvent.Checking("Pipl"))
                                     try {
                                         val nameParts = primaryQuery.trim().split("\\s+".toRegex())
@@ -3118,13 +3572,14 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Pipl"))
                                     }
+                                }
 
                             }
                         }
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("pdl")
-                                if (key.isNullOrBlank()) return@withPermit
+                                if (!key.isNullOrBlank()) {
                                     send(SearchProgressEvent.Checking("People Data Labs"))
                                     try {
                                         val nameParts = primaryQuery.trim().split("\\s+".toRegex())
@@ -3147,6 +3602,7 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("People Data Labs"))
                                     }
+                                }
 
                             }
                         }
@@ -3169,13 +3625,18 @@ class OsintRepository(context: Context) {
                                         out.fields["link"]?.let { metadata["opensanctions_link"] = it }
                                     }
                                     handleScrapeOut("OpenSanctions", "https://api.opensanctions.org/search/default?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.85)
+                                } else {
+                                    send(SearchProgressEvent.Skipped("OpenSanctions", "free key required — add in Settings"))
                                 }
                             }
                             launch {
-                                // OpenCorporates v0.4 allows anonymous access (lower rate limit)
-                                // without an api_token. README lists it as free/no-key, so run it
-                                // even when no key is configured.
+                                // OpenCorporates v0.4 now requires a free api_token (anonymous access
+                                // returns 401). Skip with a clear message when none is configured.
                                 val key = apiKeys.opencorporatesKey.ifBlank { apiKeys.getKey("opencorporates") ?: "" }
+                                if (key.isBlank()) {
+                                    send(SearchProgressEvent.Skipped("OpenCorporates", "free token required — add in Settings"))
+                                    return@launch
+                                }
                                 send(SearchProgressEvent.Checking("OpenCorporates Officers"))
                                 val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
                                 if (out.found) {
@@ -3288,14 +3749,66 @@ class OsintRepository(context: Context) {
                         // Skipped to avoid emitting a misleading "Checking / not found" pair.
                         // Breach data still comes from HIBP (key), ProxyNova COMB, EmailRep.
                         launch {
+                            val key = apiKeys.emailrepKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("EmailRep", "free key required — add in Settings"))
+                                return@launch
+                            }
                             send(SearchProgressEvent.Checking("EmailRep"))
-                            val out = scrapeEmailRep(primaryQuery)
+                            val out = scrapeEmailRep(primaryQuery, key)
                             if (out.found) {
+                                out.fields["emailrep_reputation"]?.let { metadata["emailrep_reputation"] = it }
+                                out.fields["emailrep_suspicious"]?.let { metadata["emailrep_suspicious"] = it }
+                                out.fields["emailrep_references"]?.let { metadata["emailrep_references"] = it }
+                                out.fields["emailrep_breach"]?.let { metadata["emailrep_breach"] = it }
                                 out.fields["linked_profiles"]?.let { metadata["emailrep_profiles"] = it }
                                 out.fields["spam_flag"]?.let { metadata["emailrep_spam"] = it }
                                 out.fields["first_seen"]?.let { metadata["emailrep_first_seen"] = it }
                             }
                             handleScrapeOut("EmailRep", "https://emailrep.io/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.abstractApiEmailKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("AbstractAPI Email", "free key required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("AbstractAPI Email"))
+                            val out = scrapeAbstractEmail(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["deliverability"]?.let { metadata["abstract_deliverability"] = it }
+                                out.fields["quality_score"]?.let { metadata["abstract_quality"] = it }
+                                out.fields["disposable"]?.let { metadata["abstract_disposable"] = it }
+                            }
+                            handleScrapeOut("AbstractAPI", "https://www.abstractapi.com/email-validation-api", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.breachdirectoryKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("BreachDirectory", "free key required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("BreachDirectory"))
+                            val out = scrapeBreachDirectory(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["breach_names"]?.let { metadata["breachdir_sources"] = it }
+                                out.fields["password_count"]?.let { metadata["breachdir_password_count"] = it }
+                                out.fields["sample_passwords"]?.let { metadata["breachdir_sample_passwords"] = it }
+                            }
+                            handleScrapeOut("BreachDirectory", "https://breachdirectory.org/", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.intelxKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("IntelX", "free key required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("IntelX"))
+                            val out = scrapeIntelxEmail(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["sources"]?.let { metadata["intelx_sources"] = it }
+                            }
+                            handleScrapeOut("IntelX", "https://intelx.io/?s=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("Kickbox Disposable"))
@@ -3327,7 +3840,7 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("hibp")
-                                if (key.isNullOrBlank()) return@withPermit
+                                if (!key.isNullOrBlank()) {
                                     send(SearchProgressEvent.Checking("HaveIBeenPwned"))
                                     try {
                                         val breaches = RetrofitClient.hibpService.getBreaches(primaryQuery, key)
@@ -3355,13 +3868,14 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("HaveIBeenPwned"))
                                     }
+                                }
 
                             }
                         }
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("hunter")
-                                if (key.isNullOrBlank()) return@withPermit
+                                if (!key.isNullOrBlank()) {
                                     send(SearchProgressEvent.Checking("Hunter.io Verify"))
                                     try {
                                         val result = RetrofitClient.hunterService.verifyEmail(primaryQuery, key)
@@ -3379,6 +3893,7 @@ class OsintRepository(context: Context) {
                                     } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Hunter.io Verify"))
                                     }
+                                }
 
                             }
                         }
@@ -3412,7 +3927,7 @@ class OsintRepository(context: Context) {
                         launch {
                             semaphore.withPermit {
                                 val key = apiKeys.getKey("hunter")
-                                if (key.isNullOrBlank()) return@withPermit
+                                if (!key.isNullOrBlank()) {
                                     send(SearchProgressEvent.Checking("Hunter.io"))
                                     try {
                                         val result = RetrofitClient.hunterService.domainSearch(primaryQuery, key)
@@ -3434,12 +3949,13 @@ class OsintRepository(context: Context) {
                                             }
                                             send(SearchProgressEvent.Found("Hunter.io", detail))
                                             apiKeys.recordUsage("hunter")
-                                        }
-                                    } catch (_: Exception) {
+                                        }                                    } catch (_: Exception) {
                                         send(SearchProgressEvent.Blocked("Hunter.io"))
                                     }
+                                }
 
-                            }
+
+                        }
                         }
                         launch {
                             semaphore.withPermit {
@@ -3497,6 +4013,103 @@ class OsintRepository(context: Context) {
                                 out.fields["coords"]?.let { metadata["ipinfo_coords"] = it }
                             }
                             handleScrapeOut("ipinfo", "https://ipinfo.io/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("AlienVault OTX"))
+                            val out = scrapeAlienVaultOtx(primaryQuery)
+                            if (out.found) {
+                                out.fields["reputation"]?.let { metadata["otx_reputation"] = it }
+                                out.fields["pulse_count"]?.let { metadata["otx_pulse_count"] = it }
+                                out.fields["pulse_names"]?.let { metadata["otx_pulse_names"] = it }
+                            }
+                            handleScrapeOut("AlienVault OTX", "https://otx.alienvault.com/indicator/ip/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Pulsedive"))
+                            val out = scrapePulsedive(primaryQuery)
+                            if (out.found) {
+                                out.fields["risk"]?.let { metadata["pulsedive_risk"] = it }
+                                out.fields["threat"]?.let { metadata["pulsedive_threat"] = it }
+                            }
+                            handleScrapeOut("Pulsedive", "https://pulsedive.com/indicator/?ioc=$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Maltiverse"))
+                            val out = scrapeMaltiverse(primaryQuery)
+                            if (out.found) {
+                                out.fields["classification"]?.let { metadata["maltiverse_classification"] = it }
+                                out.fields["blacklist_count"]?.let { metadata["maltiverse_blacklist_count"] = it }
+                                out.fields["asn"]?.let { metadata["maltiverse_asn"] = it }
+                            }
+                            handleScrapeOut("Maltiverse", "https://maltiverse.com/ip/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.threatfoxKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("ThreatFox", "free Auth-Key required — threatfox.abuse.ch"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("ThreatFox"))
+                            val out = scrapeThreatFox(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["malware_count"]?.let { metadata["threatfox_count"] = it }
+                                out.fields["malware_families"]?.let { metadata["threatfox_families"] = it }
+                            }
+                            handleScrapeOut("ThreatFox", "https://threatfox.abuse.ch/browse.php?search=$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.leakixKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("LeakIX", "free key required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("LeakIX"))
+                            val out = scrapeLeakix(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["leaks"]?.let { metadata["leakix_leaks"] = it }
+                            }
+                            handleScrapeOut("LeakIX", "https://leakix.net/search?scope=leak&q=$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.securityTrailsKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("SecurityTrails", "free key required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("SecurityTrails"))
+                            val out = scrapeSecurityTrails(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["subdomains"]?.let { metadata["securitytrails_subdomains"] = it }
+                            }
+                            handleScrapeOut("SecurityTrails", "https://securitytrails.com/domain/$primaryQuery/subdomains", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.criminalIpKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("CriminalIP", "free key required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("CriminalIP"))
+                            val out = scrapeCriminalIp(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["score"]?.let { metadata["criminalip_score"] = it }
+                                out.fields["country"]?.let { metadata["criminalip_country"] = it }
+                                out.fields["isp"]?.let { metadata["criminalip_isp"] = it }
+                            }
+                            handleScrapeOut("CriminalIP", "https://www.criminalip.io/en/asset/report/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            val key = apiKeys.netlasKey
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("Netlas", "free key required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("Netlas"))
+                            val out = scrapeNetlas(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["hosts"]?.let { metadata["netlas_hosts"] = it }
+                            }
+                            handleScrapeOut("Netlas", "https://app.netlas.io/domains/?q=$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("BGPView"))
@@ -3576,13 +4189,17 @@ class OsintRepository(context: Context) {
                                     handleScrapeOut("URLScan", "https://urlscan.io/search/#domain:$domainTarget", out, sources, metadata, this@channelFlow)
                                 }
                                 val urlhausKey = apiKeys.urlhausKey
-                                send(SearchProgressEvent.Checking("URLhaus"))
-                                val out = scrapeUrlhaus(domainTarget, urlhausKey)
-                                if (out.found) {
-                                    out.fields["status"]?.let { metadata["urlhaus_status"] = it }
-                                    out.fields["urls_count"]?.let { metadata["urlhaus_urls_count"] = it }
+                                if (urlhausKey.isNotBlank()) {
+                                    send(SearchProgressEvent.Checking("URLhaus"))
+                                    val out = scrapeUrlhaus(domainTarget, urlhausKey)
+                                    if (out.found) {
+                                        out.fields["status"]?.let { metadata["urlhaus_status"] = it }
+                                        out.fields["urls_count"]?.let { metadata["urlhaus_urls_count"] = it }
+                                    }
+                                    handleScrapeOut("URLhaus", "https://urlhaus.abuse.ch/browse/host/$domainTarget/", out, sources, metadata, this@channelFlow)
+                                } else {
+                                    send(SearchProgressEvent.Skipped("URLhaus", "free Auth-Key required — auth.abuse.ch"))
                                 }
-                                handleScrapeOut("URLhaus", "https://urlhaus.abuse.ch/browse/host/$domainTarget/", out, sources, metadata, this@channelFlow)
                             }
                         }
                     }
@@ -3756,7 +4373,7 @@ class OsintRepository(context: Context) {
                             launch {
                                 semaphore.withPermit {
                                     val key = apiKeys.getKey("builtwith")
-                                    if (key.isNullOrBlank()) return@withPermit
+                                    if (!key.isNullOrBlank()) {
                                         send(SearchProgressEvent.Checking("BuiltWith"))
                                         try {
                                             val resp = RetrofitClient.builtWithService.lookup(key, companyDomain)
@@ -3771,12 +4388,13 @@ class OsintRepository(context: Context) {
                                         } catch (_: Exception) {
                                             send(SearchProgressEvent.Blocked("BuiltWith"))
                                         }
+                                    }
                                 }
                             }
                             launch {
                                 semaphore.withPermit {
                                     val key = apiKeys.getKey("hunter")
-                                    if (key.isNullOrBlank()) return@withPermit
+                                    if (!key.isNullOrBlank()) {
                                         send(SearchProgressEvent.Checking("Hunter.io"))
                                         try {
                                             val result = RetrofitClient.hunterService.domainSearch(companyDomain, key)
@@ -3798,6 +4416,7 @@ class OsintRepository(context: Context) {
                                         } catch (_: Exception) {
                                             send(SearchProgressEvent.Blocked("Hunter.io"))
                                         }
+                                    }
                                 }
                             }
                         }
@@ -4038,6 +4657,8 @@ class OsintRepository(context: Context) {
                     email = fields["email"] ?: "",
                     phase = searchPhase,
                     nameTokens = nameTokens,
+                    context = fields["context"] ?: "",
+                    aka = fields["aka"] ?: "",
                     metadata = metadata,
                     sources = sources,
                     channel = this@channelFlow,
@@ -4216,7 +4837,7 @@ class OsintRepository(context: Context) {
                 } else emptyList()
 
                 if (rawCandidates.isNotEmpty()) {
-                    val candidates = enrichCandidatesWithPhotos(rawCandidates, city, state, this@channelFlow)
+                    val candidates = enrichCandidatesWithPhotos(rawCandidates, city, state, this@channelFlow, fields["context"] ?: "")
                     candidates.forEachIndexed { i, c ->
                         metadata["candidate_${i}_id"] = c.id
                         metadata["candidate_${i}_confidence"] = "%.2f".format(c.confidence)
@@ -4253,7 +4874,7 @@ class OsintRepository(context: Context) {
                         source = sources.firstOrNull()?.name ?: "Web",
                         confidence = SubjectSearchOrchestrator.candidateConfidence(sources.size, 0, SubjectFilter.hasGeoConstraint(city, state))
                     )
-                    val enriched = enrichCandidatesWithPhotos(listOf(fallbackCandidate), city, state, this@channelFlow)
+                    val enriched = enrichCandidatesWithPhotos(listOf(fallbackCandidate), city, state, this@channelFlow, fields["context"] ?: "")
                     enriched.forEachIndexed { i, c ->
                         metadata["candidate_${i}_id"] = c.id
                         if (c.allPhotoUrls().isNotEmpty()) {

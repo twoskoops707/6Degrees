@@ -27,18 +27,29 @@ class CandidatePhotoEnricher(
         .build()
 ) {
 
-    suspend fun enrichAll(candidates: List<CandidateProfile>, city: String, state: String): List<CandidateProfile> =
+    suspend fun enrichAll(
+        candidates: List<CandidateProfile>,
+        city: String,
+        state: String,
+        context: String = ""
+    ): List<CandidateProfile> =
         withContext(Dispatchers.IO) {
             coroutineScope {
                 candidates.map { c ->
-                    async { enrichOne(c, city, state) }
+                    async { enrichOne(c, city, state, context) }
                 }.awaitAll()
             }
         }
 
-    suspend fun enrichOne(candidate: CandidateProfile, city: String, state: String): CandidateProfile {
+    suspend fun enrichOne(
+        candidate: CandidateProfile,
+        city: String,
+        state: String,
+        context: String = ""
+    ): CandidateProfile {
         if (candidate.isCompany) return candidate
         val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
+        val ctx = context.trim().takeIf { it.isNotBlank() }.orEmpty()
         val name = candidate.name
         val photos = mutableListOf<String>()
         val socials = mutableListOf<SocialHint>()
@@ -57,7 +68,7 @@ class CandidatePhotoEnricher(
         socials.add(SocialHint("Facebook Search", facebookSearch))
 
         val quotedName = "\"$name\""
-        val ddgResults = ddgSearch("$quotedName ${if (loc.isNotBlank()) loc else ""} linkedin OR facebook OR instagram")
+        val ddgResults = ddgSearch("$quotedName ${if (loc.isNotBlank()) loc else ""}${if (ctx.isNotBlank()) " $ctx" else ""} linkedin OR facebook OR instagram")
         for (r in ddgResults) {
             val resultText = "${r.first} ${r.second}"
             if (!matchesCandidateName(resultText, name)) continue
@@ -81,7 +92,7 @@ class CandidatePhotoEnricher(
             }
         }
 
-        val imageResults = ddgImageSearch("$quotedName ${if (loc.isNotBlank()) loc else ""} photo portrait")
+        val imageResults = ddgImageSearch("$quotedName ${if (loc.isNotBlank()) loc else ""}${if (ctx.isNotBlank()) " $ctx" else ""} photo portrait")
         photos.addAll(imageResults.take(4))
 
         val distinctPhotos = photos.filter { it.startsWith("http") }.distinct().take(8)

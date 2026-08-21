@@ -42,7 +42,10 @@ data class IntakeForm(
     val freeform: String = "",
     val phone: String = "",
     val firstName: String = "",
+    val middleName: String = "",
     val lastName: String = "",
+    val aka: String = "",
+    val dob: String = "",
     val email: String = "",
     val username: String = "",
     val city: String = "",
@@ -53,7 +56,8 @@ data class IntakeForm(
     val vehicleVin: String = "",
     val domainIp: String = "",
     val imageUri: String? = null,
-    val intent: InvestigationIntent? = null
+    val intent: InvestigationIntent? = null,
+    val context: String = ""
 )
 
 data class IntakeValidation(
@@ -101,7 +105,10 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
                 form.freeform.isNotBlank() ||
                     form.phone.isNotBlank() ||
                     form.firstName.isNotBlank() ||
+                    form.middleName.isNotBlank() ||
                     form.lastName.isNotBlank() ||
+                    form.aka.isNotBlank() ||
+                    form.dob.isNotBlank() ||
                     form.email.isNotBlank() ||
                     form.username.isNotBlank() ||
                     form.city.isNotBlank() ||
@@ -159,6 +166,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         val parts = mutableListOf<String>()
         form.company.trim().takeIf { it.isNotBlank() }?.let { parts.add("name=$it") }
         form.companyDomain.trim().takeIf { it.isNotBlank() }?.let { parts.add("domain=$it") }
+        form.context.trim().takeIf { it.isNotBlank() }?.let { parts.add("context=$it") }
         form.intent?.let { parts.add("intent=${it.key}") }
         val label = form.company.ifBlank { form.companyDomain }.ifBlank { "Company report" }
         return IntakeQueryResult(parts.joinToString("|"), "company", label, form.intent)
@@ -167,6 +175,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     private fun buildVehicleQuery(form: IntakeForm): IntakeQueryResult {
         val vin = form.vehicleVin.trim().uppercase().filter { it.isLetterOrDigit() }
         val parts = mutableListOf("name=$vin")
+        form.context.trim().takeIf { it.isNotBlank() }?.let { parts.add("context=$it") }
         form.intent?.let { parts.add("intent=${it.key}") }
         return IntakeQueryResult(parts.joinToString("|"), "vehicle", vin, form.intent)
     }
@@ -175,6 +184,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         val target = form.domainIp.trim()
         val key = if (target.contains('.') && !target.matches(Regex("""\d{1,3}(\.\d{1,3}){3}"""))) "domain" else "ip"
         val parts = mutableListOf("$key=$target")
+        form.context.trim().takeIf { it.isNotBlank() }?.let { parts.add("context=$it") }
         form.intent?.let { parts.add("intent=${it.key}") }
         return IntakeQueryResult(parts.joinToString("|"), if (key == "ip") "ip" else "domain", target, form.intent)
     }
@@ -182,6 +192,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     private fun buildPhoneQuery(form: IntakeForm): IntakeQueryResult {
         val phone = normalizePhone(form.phone)
         val parts = mutableListOf("phone=$phone")
+        form.context.trim().takeIf { it.isNotBlank() }?.let { parts.add("context=$it") }
         form.intent?.let { parts.add("intent=${it.key}") }
         return IntakeQueryResult(parts.joinToString("|"), "phone", phone, form.intent)
     }
@@ -189,6 +200,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     private fun buildEmailQuery(form: IntakeForm): IntakeQueryResult {
         val email = form.email.trim()
         val parts = mutableListOf("email=$email")
+        form.context.trim().takeIf { it.isNotBlank() }?.let { parts.add("context=$it") }
         form.intent?.let { parts.add("intent=${it.key}") }
         return IntakeQueryResult(parts.joinToString("|"), "email", email, form.intent)
     }
@@ -196,6 +208,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     private fun buildUsernameQuery(form: IntakeForm): IntakeQueryResult {
         val username = form.username.trim().removePrefix("@")
         val parts = mutableListOf("username=$username")
+        form.context.trim().takeIf { it.isNotBlank() }?.let { parts.add("context=$it") }
         form.intent?.let { parts.add("intent=${it.key}") }
         return IntakeQueryResult(parts.joinToString("|"), "username", "@$username", form.intent)
     }
@@ -205,6 +218,9 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         val imageUri = form.imageUri
         val parts = mutableListOf<String>()
         if (profile.name.isNotBlank()) parts.add("name=${profile.name}")
+        if (profile.middleName.isNotBlank()) parts.add("middleName=${profile.middleName}")
+        if (profile.aka.isNotBlank()) parts.add("aka=${profile.aka}")
+        if (profile.dob.isNotBlank()) parts.add("dob=${profile.dob}")
         if (profile.phone.isNotBlank()) parts.add("phone=${profile.phone}")
         if (profile.email.isNotBlank()) parts.add("email=${profile.email}")
         if (profile.username.isNotBlank()) parts.add("username=${profile.username}")
@@ -212,6 +228,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         if (profile.state.isNotBlank()) parts.add("state=${profile.state}")
         if (profile.address.isNotBlank()) parts.add("address=${profile.address}")
         if (imageUri != null) parts.add("image=$imageUri")
+        if (profile.context.isNotBlank()) parts.add("context=${profile.context}")
         form.intent?.let { parts.add("intent=${it.key}") }
 
         val locationLabel = listOf(profile.address, profile.city, profile.state)
@@ -236,28 +253,39 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     private fun resolveProfile(form: IntakeForm): SubjectProfile {
         val freeformSource = form.freeform.ifBlank { form.phone }
         val fromForm = SubjectProfile(
-            name = listOf(form.firstName, form.lastName).filter { it.isNotBlank() }.joinToString(" "),
+            name = listOf(form.firstName, form.middleName, form.lastName).filter { it.isNotBlank() }.joinToString(" "),
             firstName = form.firstName,
+            middleName = form.middleName,
             lastName = form.lastName,
+            aka = form.aka,
+            dob = form.dob,
             city = form.city,
             state = form.state,
             address = form.address,
             phone = normalizePhone(form.phone),
             email = form.email.trim(),
-            username = form.username.trim()
+            username = form.username.trim(),
+            context = form.context.trim()
         )
         if (SubjectIntakeParser.looksLikeFreeform(freeformSource)) {
             val parsed = SubjectIntakeParser.parseFreeformText(freeformSource)
             return SubjectIntakeParser.mergeWithForm(parsed, mapOf(
                 "name" to fromForm.name,
                 "firstName" to fromForm.firstName,
+                "middleName" to fromForm.middleName,
                 "lastName" to fromForm.lastName,
+                "aka" to fromForm.aka,
+                "dob" to fromForm.dob,
                 "city" to fromForm.city,
                 "state" to fromForm.state,
                 "address" to fromForm.address,
                 "email" to fromForm.email,
                 "username" to fromForm.username
-            ))
+            )).copy(
+                // Explicit context field wins; otherwise keep whatever the freeform
+                // parser was able to preserve.
+                context = form.context.trim().ifBlank { parsed.context }
+            )
         }
         return fromForm
     }
@@ -273,7 +301,8 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         val fieldCount = listOf(
             hasName, profile.phone.isNotBlank(), profile.email.isNotBlank(),
             profile.username.isNotBlank(), profile.city.isNotBlank(), profile.state.isNotBlank(),
-            profile.address.isNotBlank(), form.imageUri != null
+            profile.address.isNotBlank(), profile.dob.isNotBlank(), profile.aka.isNotBlank(),
+            form.imageUri != null
         ).count { it }
         return when {
             fieldCount <= 1 && profile.phone.isNotBlank() && !hasName -> "phone"

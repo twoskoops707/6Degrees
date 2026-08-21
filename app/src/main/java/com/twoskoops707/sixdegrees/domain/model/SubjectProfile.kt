@@ -6,7 +6,9 @@ package com.twoskoops707.sixdegrees.domain.model
 data class SubjectProfile(
     val name: String = "",
     val firstName: String = "",
+    val middleName: String = "",
     val lastName: String = "",
+    val aka: String = "",
     val city: String = "",
     val state: String = "",
     val phone: String = "",
@@ -22,7 +24,9 @@ data class SubjectProfile(
     val profileUrl: String? = null,
     val intent: String = "",
     val locked: Boolean = false,
-    val candidateId: String? = null
+    val candidateId: String? = null,
+    /** Freeform context about the subject — where/how they were met, hobbies, distinguishing details. */
+    val context: String = ""
 ) {
     val location: String
         get() = listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
@@ -30,14 +34,18 @@ data class SubjectProfile(
     /** Terms used for dark-web index searches after subject lock (or during deep dive). */
     fun darkWebSearchTerms(): List<String> = buildList {
         if (name.isNotBlank()) add(name.trim())
+        aka.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
         email.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
         phone.takeIf { it.isNotBlank() }?.let { add(it.replace(Regex("[^0-9+]"), "")) }
         username.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
+        context.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
     }.distinct().filter { it.length >= 3 }
 
     fun toQueryString(): String {
         val parts = mutableListOf<String>()
         if (name.isNotBlank()) parts.add("name=$name")
+        if (middleName.isNotBlank()) parts.add("middleName=$middleName")
+        if (aka.isNotBlank()) parts.add("aka=$aka")
         if (phone.isNotBlank()) parts.add("phone=$phone")
         if (email.isNotBlank()) parts.add("email=$email")
         if (username.isNotBlank()) parts.add("username=$username")
@@ -48,6 +56,7 @@ data class SubjectProfile(
         if (dob.isNotBlank()) parts.add("dob=$dob")
         if (photoUri.isNotBlank()) parts.add("image=$photoUri")
         if (intent.isNotBlank()) parts.add("intent=$intent")
+        if (context.isNotBlank()) parts.add("context=$context")
         if (locked) parts.add("locked=true")
         if (!candidateId.isNullOrBlank()) parts.add("candidateId=$candidateId")
         return parts.joinToString("|")
@@ -67,7 +76,9 @@ data class SubjectProfile(
             return SubjectProfile(
                 name = name,
                 firstName = parts.firstOrNull().orEmpty(),
+                middleName = if (parts.size > 2) parts[1] else "",
                 lastName = if (parts.size > 1) parts.last() else "",
+                aka = fields["aka"]?.trim().orEmpty(),
                 city = fields["city"]?.trim().orEmpty(),
                 state = fields["state"]?.trim().orEmpty(),
                 phone = fields["phone"]?.trim().orEmpty(),
@@ -79,6 +90,7 @@ data class SubjectProfile(
                 dob = fields["dob"]?.trim().orEmpty(),
                 photoUri = fields["image"]?.trim().orEmpty(),
                 intent = fields["intent"]?.trim().orEmpty(),
+                context = fields["context"]?.trim().orEmpty(),
                 locked = fields["locked"]?.equals("true", ignoreCase = true) == true,
                 candidateId = fields["candidateId"]?.trim()?.takeIf { it.isNotBlank() }
             )
@@ -93,10 +105,13 @@ data class SubjectProfile(
                 candidate.photoUrl?.takeIf { it.isNotBlank() }?.let { add(it) }
                 addAll(candidate.photoUrls.filter { it.isNotBlank() })
             }.distinct()
+            val candidateAka = candidate.akas.firstOrNull { it.isNotBlank() }
             return base.copy(
                 name = candidate.name.ifBlank { base.name },
                 firstName = nameParts.firstOrNull() ?: base.firstName,
+                middleName = if (nameParts.size > 2) nameParts[1] else base.middleName,
                 lastName = nameParts.lastOrNull() ?: base.lastName,
+                aka = base.aka.ifBlank { candidateAka.orEmpty() },
                 city = city.ifBlank { base.city },
                 state = state.ifBlank { base.state },
                 phone = candidate.phones.firstOrNull() ?: base.phone,

@@ -111,7 +111,6 @@ class ApiSettingsFragment : Fragment() {
                 "numverify" -> { apiKeyManager.numverifyKey = v; count++ }
                 "shodan" -> { apiKeyManager.shodanKey = v; count++ }
                 "pipl" -> { apiKeyManager.piplKey = v; count++ }
-                "clearbit" -> { apiKeyManager.clearbitKey = v; count++ }
                 "builtwith" -> { apiKeyManager.builtWithKey = v; count++ }
                 "virustotal" -> { apiKeyManager.virusTotalKey = v; count++ }
                 "abuseipdb" -> { apiKeyManager.abuseIpDbKey = v; count++ }
@@ -135,6 +134,12 @@ class ApiSettingsFragment : Fragment() {
                 "dehashed" -> { apiKeyManager.dehashed = v; count++ }
                 "dehashed_user" -> { apiKeyManager.dehashedUser = v; count++ }
                 "wigle" -> { apiKeyManager.wigleKey = v; count++ }
+                "emailrep", "emailrep.io" -> { apiKeyManager.emailrepKey = v; count++ }
+                "opensanctions" -> { apiKeyManager.opensanctionsKey = v; count++ }
+                "opencorporates" -> { apiKeyManager.opencorporatesKey = v; count++ }
+                "urlhaus" -> { apiKeyManager.urlhausKey = v; count++ }
+                "breachdirectory" -> { apiKeyManager.breachdirectoryKey = v; count++ }
+                "threatfox" -> { apiKeyManager.threatfoxKey = v; count++ }
                 "openrouter", "openrouter_ai" -> { apiKeyManager.openrouterKey = v; count++ }
                 "openrouter_model" -> { apiKeyManager.openrouterModel = v; count++ }
             }
@@ -157,7 +162,6 @@ class ApiSettingsFragment : Fragment() {
             "numverify" to apiKeyManager.numverifyKey,
             "shodan" to apiKeyManager.shodanKey,
             "pipl" to apiKeyManager.piplKey,
-            "clearbit" to apiKeyManager.clearbitKey,
             "builtwith" to apiKeyManager.builtWithKey,
             "virustotal" to apiKeyManager.virusTotalKey,
             "abuseipdb" to apiKeyManager.abuseIpDbKey,
@@ -179,6 +183,12 @@ class ApiSettingsFragment : Fragment() {
             "leakix" to apiKeyManager.leakixKey,
             "intelx" to apiKeyManager.intelxKey,
             "wigle" to apiKeyManager.wigleKey,
+            "emailrep" to apiKeyManager.emailrepKey,
+            "opensanctions" to apiKeyManager.opensanctionsKey,
+            "opencorporates" to apiKeyManager.opencorporatesKey,
+            "urlhaus" to apiKeyManager.urlhausKey,
+            "breachdirectory" to apiKeyManager.breachdirectoryKey,
+            "threatfox" to apiKeyManager.threatfoxKey,
             "openrouter" to apiKeyManager.openrouterKey,
             "openrouter_model" to apiKeyManager.openrouterModel
         ).forEach { (name, key) ->
@@ -206,6 +216,13 @@ class ApiSettingsFragment : Fragment() {
     }
 
     private val allSignupApis = listOf(
+        "HaveIBeenPwned" to "https://haveibeenpwned.com/API/Key",
+        "EmailRep.io" to "https://emailrep.io/",
+        "BreachDirectory" to "https://breachdirectory.org/register",
+        "OpenSanctions" to "https://www.opensanctions.org/docs/api/",
+        "OpenCorporates" to "https://opencorporates.com/api_accounts/sign_up",
+        "URLhaus" to "https://auth.abuse.ch/",
+        "ThreatFox" to "https://threatfox.abuse.ch/",
         "AbuseIPDB" to "https://www.abuseipdb.com/register",
         "URLScan.io" to "https://urlscan.io/user/signup",
         "IPQualityScore" to "https://www.ipqualityscore.com/create-account",
@@ -352,7 +369,6 @@ class ApiSettingsFragment : Fragment() {
         binding.virustotalApiKeyInput.setText(apiKeyManager.getRawForDisplay("virustotal"))
         binding.abuseipdbApiKeyInput.setText(apiKeyManager.getRawForDisplay("abuseipdb"))
         binding.urlscanApiKeyInput.setText(apiKeyManager.getRawForDisplay("urlscan"))
-        binding.clearbitApiKeyInput.setText(apiKeyManager.clearbitKey)
         binding.builtwithApiKeyInput.setText(apiKeyManager.builtWithKey)
         binding.securitytrailsApiKeyInput.setText(apiKeyManager.securityTrailsKey)
         binding.censysIdInput.setText(apiKeyManager.censysId)
@@ -363,6 +379,12 @@ class ApiSettingsFragment : Fragment() {
         binding.abstractapiPhoneApiKeyInput.setText(apiKeyManager.abstractApiPhoneKey)
         binding.leakixApiKeyInput.setText(apiKeyManager.leakixKey)
         binding.intelxApiKeyInput.setText(apiKeyManager.intelxKey)
+        binding.emailrepApiKeyInput.setText(apiKeyManager.emailrepKey)
+        binding.opensanctionsApiKeyInput.setText(apiKeyManager.opensanctionsKey)
+        binding.opencorporatesApiKeyInput.setText(apiKeyManager.opencorporatesKey)
+        binding.urlhausApiKeyInput.setText(apiKeyManager.urlhausKey)
+        binding.breachdirectoryApiKeyInput.setText(apiKeyManager.breachdirectoryKey)
+        binding.threatfoxApiKeyInput.setText(apiKeyManager.threatfoxKey)
         binding.openrouterApiKeyInput.setText(apiKeyManager.openrouterKey)
         binding.openrouterModelInput.setText(apiKeyManager.openrouterModel)
     }
@@ -384,7 +406,6 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.virusTotalKey = binding.virustotalApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.abuseIpDbKey = binding.abuseipdbApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.urlScanKey = binding.urlscanApiKeyInput.text?.toString()?.trim() ?: ""
-        apiKeyManager.clearbitKey = binding.clearbitApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.builtWithKey = binding.builtwithApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.securityTrailsKey = binding.securitytrailsApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.censysId = binding.censysIdInput.text?.toString()?.trim() ?: ""
@@ -395,6 +416,12 @@ class ApiSettingsFragment : Fragment() {
         apiKeyManager.abstractApiPhoneKey = binding.abstractapiPhoneApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.leakixKey = binding.leakixApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.intelxKey = binding.intelxApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.emailrepKey = binding.emailrepApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.opensanctionsKey = binding.opensanctionsApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.opencorporatesKey = binding.opencorporatesApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.urlhausKey = binding.urlhausApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.breachdirectoryKey = binding.breachdirectoryApiKeyInput.text?.toString()?.trim() ?: ""
+        apiKeyManager.threatfoxKey = binding.threatfoxApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.openrouterKey = binding.openrouterApiKeyInput.text?.toString()?.trim() ?: ""
         apiKeyManager.openrouterModel = binding.openrouterModelInput.text?.toString()?.trim() ?: ""
         Toast.makeText(requireContext(), "API keys saved", Toast.LENGTH_SHORT).show()

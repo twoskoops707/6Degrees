@@ -6,14 +6,14 @@ import com.twoskoops707.sixdegrees.domain.model.SubjectProfile
 
 class CandidateSelectionViewModel : ViewModel() {
 
-    /** Build a locked deep-dive query from the chosen candidate. */
-    fun buildLockedQuery(candidate: CandidateProfile): String =
-        SubjectProfile.fromCandidate(candidate).toQueryString()
+    /** Build a locked deep-dive query from the chosen candidate, preserving intake context. */
+    fun buildLockedQuery(candidate: CandidateProfile, baseFields: Map<String, String> = emptyMap()): String =
+        SubjectProfile.fromCandidate(candidate, SubjectProfile.fromFields(baseFields)).toQueryString()
 
     /** @deprecated Use [buildLockedQuery] which returns SubjectProfile-based query */
     fun buildRefinedQuery(candidates: List<CandidateProfile>, baseFields: Map<String, String> = emptyMap()): String {
         val primary = candidates.firstOrNull() ?: return ""
-        return SubjectProfile.fromCandidate(primary, SubjectProfile.fromFields(baseFields)).toQueryString()
+        return buildLockedQuery(primary, baseFields)
     }
 
     fun buildLockedSubjectProfile(candidate: CandidateProfile, baseFields: Map<String, String> = emptyMap()) =

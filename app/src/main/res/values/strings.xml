@@ -59,6 +59,9 @@
     <string name="intake_freeform_label">Paste anything</string>
     <string name="intake_freeform_hint">John Smith, 123 Main St, Austin TX, 512-555-0100</string>
     <string name="intake_freeform_helper">Optional freeform clues - we parse name, phone, address, and city automatically.</string>
+    <string name="intake_context_label">Context</string>
+    <string name="intake_context_hint">Where did you meet them? Any hobbies, workplace details, or anything that helps narrow it down…</string>
+    <string name="intake_context_helper">Optional - extra context is woven into every search pass to disambiguate the subject.</string>
     <string name="intake_phone_label">Phone number</string>
     <string name="intake_phone_hint">(555) 123-4567</string>
     <string name="intake_phone_helper">Carrier lookup and reverse-phone records.</string>
@@ -95,6 +98,9 @@
     <string name="intake_chip_username">Username</string>
     <string name="intake_chip_location">City &amp; state</string>
     <string name="intake_name_label">Their name</string>
+    <string name="intake_middle_name_hint">Middle name</string>
+    <string name="intake_aka_hint">Also known as / nickname / alias</string>
+    <string name="intake_dob_hint">Date of birth (e.g. 01/15/1990)</string>
     <string name="intake_first_name_hint">First name</string>
     <string name="intake_last_name_hint">Last name</string>
     <string name="intake_photo_label">Add a photo</string>
@@ -175,7 +181,7 @@
     <string name="wizard_section_termux_tools">STEP 2 - OSINT COMMAND-LINE TOOLS</string>
     <string name="wizard_section_tips">INVESTIGATION TIPS</string>
     <string name="wizard_done_button">START INVESTIGATING</string>
-    <string name="wizard_tools_unavailable_note">Not available on Android: theHarvester (needs Playwright), hashcat (requires GPU), aircrack-ng (needs monitor-mode radio), Maltego (desktop GUI). Run those on a PC or Kali VM.</string>
+    <string name="wizard_tools_unavailable_note">Not available on Android: hashcat (requires GPU), aircrack-ng (needs monitor-mode radio), Maltego (desktop GUI), tshark/wireshark (not packaged for Termux). Run those on a PC or Kali VM. Tap any tool to install it — python and git are bootstrapped automatically.</string>
 
     <!-- Wizard setup steps -->
     <string name="wizard_step1_label">Allow external app access in Termux</string>
@@ -192,6 +198,7 @@
     <!-- Wizard tool status labels -->
     <string name="tool_status_ready">READY</string>
     <string name="tool_status_not_installed">NOT INSTALLED</string>
+    <string name="tool_status_broken">NOT AVAILABLE</string>
     <string name="tool_status_scanning">SCANNING...</string>
     <string name="tool_status_unknown">NEEDS SETUP</string>
     <string name="tool_install_toast">Command copied - paste in Termux to install</string>
@@ -219,6 +226,12 @@
     <string name="builtwith_api_key_hint">BuiltWith - website technology stack</string>
     <string name="hunter_api_key_hint">Hunter.io - company email discovery</string>
     <string name="hibp_api_key_hint">HaveIBeenPwned - data breach lookup</string>
+    <string name="emailrep_api_key_hint">EmailRep.io - free key (emailrep.io)</string>
+    <string name="opensanctions_api_key_hint">OpenSanctions - free key (opensanctions.org)</string>
+    <string name="opencorporates_api_key_hint">OpenCorporates - free token (opencorporates.com)</string>
+    <string name="urlhaus_api_key_hint">URLhaus - free Auth-Key (auth.abuse.ch)</string>
+    <string name="breachdirectory_api_key_hint">BreachDirectory - free key (breachdirectory.org)</string>
+    <string name="threatfox_api_key_hint">ThreatFox - free Auth-Key (threatfox.abuse.ch)</string>
     <string name="numverify_api_key_hint">Numverify - phone carrier &amp; line type</string>
     <string name="shodan_api_key_hint">Shodan - open ports &amp; device intel</string>
     <string name="virustotal_api_key_hint">VirusTotal - malware &amp; URL scanning</string>
@@ -281,7 +294,10 @@
 
     <!-- Candidate selection -->
     <string name="candidate_title">Confirm the subject</string>
-    <string name="candidate_subtitle">We found several matches. Pick the correct subject - we\'ll lock their profile and run a deep background report.</string>
+    <string name="candidate_subtitle">We found several matches. Tap cards to pick a few and deep-search them together, or tap "That\'s them" on one to lock it and start its full background report.</string>
+    <string name="candidate_deep_search_selected">Deep Search Selected (%1$d)</string>
+    <string name="progress_queue_searching">Deep searching candidate %1$d of %2$d…</string>
+    <string name="progress_queue_next">%1$d of %2$d candidates searched — starting the next…</string>
     <string name="candidate_photo_instructions">Tap the matching subject - we\'ll verify identity, check courts, and scan indexed sources.</string>
     <string name="candidate_thats_them">That\'s them</string>
     <string name="candidate_not_any">Not any of these</string>

@@ -44,6 +44,7 @@ class ResultsFragment : Fragment() {
     private var tabMediator: TabLayoutMediator? = null
     private var displayedReportId: String? = null
     private var reportMeta: Map<String, String> = emptyMap()
+    private var currentRawQuery = ""
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentResultsBinding.inflate(inflater, container, false)
@@ -76,6 +77,7 @@ class ResultsFragment : Fragment() {
 
     private fun populateReport(state: ResultsUiState) {
         val report = state.report ?: return
+        currentRawQuery = report.searchQuery
         val person = state.person
 
         val meta = try {
@@ -93,15 +95,35 @@ class ResultsFragment : Fragment() {
                 }.toMap()["name"] ?: ""
             }
         val avatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(subjectName.ifBlank { "?" })}&size=200&format=png&bold=true&color=fff&background=1a2744"
+        // Company / domain subjects fall back to a keyless favicon service for an
+        // identifiable logo when no photo was found anywhere else.
+        val logoDomain = when {
+            searchType == "company" || searchType == "domain" -> domainForHeader(qFieldsOf(report), meta)
+            else -> null
+        }
+        val logoUrl = logoDomain?.let { "https://www.google.com/s2/favicons?domain=$it&sz=128" }
         val profileImageUrl = person?.profileImageUrl
             ?: meta["profile_photo_url"]
             ?: meta["tt_image_url"]
             ?: meta["gravatar_url"]
+            ?: logoUrl
             ?: avatarUrl
         binding.profileImage.load(profileImageUrl) {
             crossfade(true)
             placeholder(R.drawable.ic_person_placeholder)
             error(R.drawable.ic_person_placeholder)
+        }
+
+        // Intake context (where they were met, hobbies, distinguishing details) is
+        // carried through the whole search — surface it under the header.
+        val contextText = qFieldsOf(report)["context"]
+            ?: meta["field_context"]
+            ?: meta["context"]
+        if (!contextText.isNullOrBlank()) {
+            binding.contextLine.text = contextText
+            binding.contextLine.isVisible = true
+        } else {
+            binding.contextLine.isVisible = false
         }
 
         binding.personCard.visibility = View.VISIBLE
@@ -186,6 +208,9 @@ class ResultsFragment : Fragment() {
         val searchQuery = arguments?.getString("searchQuery").orEmpty()
         val reportId = arguments?.getString("reportId").orEmpty()
         val round = arguments?.getInt("candidateRound") ?: 1
+        // Raw query (with intake context) so locking again re-preserves it.
+        val baseQuery = arguments?.getString("baseQuery").orEmpty()
+            .ifBlank { currentRawQuery }
 
         binding.btnBackToCandidates.setOnClickListener {
             findNavController().navigate(
@@ -195,9 +220,26 @@ class ResultsFragment : Fragment() {
                     putString("reportId", reportId)
                     putInt("round", round.coerceAtLeast(1))
                     putString("searchQuery", searchQuery)
+                    putString("baseQuery", baseQuery)
                 }
             )
         }
+    }
+
+    private fun qFieldsOf(report: com.twoskoops707.sixdegrees.data.local.entity.OsintReportEntity): Map<String, String> =
+        report.searchQuery.split("|").mapNotNull {
+            val p = it.split("=", limit = 2); if (p.size == 2) p[0].trim() to p[1].trim() else null
+        }.toMap()
+
+    private fun domainForHeader(qFields: Map<String, String>, meta: Map<String, String>): String? {
+        val candidate = qFields["domain"]?.trim()
+            ?: meta["comp_domain"]?.trim()
+            ?: meta["domain"]?.trim()
+            ?: qFields["name"]?.trim()
+        return candidate
+            ?.takeIf { it.isNotBlank() && it.matches(Regex("""[A-Za-z0-9.-]+\.[A-Za-z]{2,}""")) }
+            ?.removePrefix("https://")?.removePrefix("http://")?.removePrefix("www.")
+            ?.trimEnd('/')
     }
 
     private fun extractBestAge(meta: Map<String, String>): String? =

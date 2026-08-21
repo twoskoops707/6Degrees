@@ -35,6 +35,8 @@ class CandidateSelectionFragment : Fragment() {
     private var reportId = ""
     private var round = 1
     private var searchQuery = ""
+    private var baseFields = mapOf<String, String>()
+    private val selectedPositions = mutableSetOf<Int>()
     private lateinit var adapter: CandidateAdapter
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -52,6 +54,7 @@ class CandidateSelectionFragment : Fragment() {
         reportId = arguments?.getString("reportId") ?: ""
         round = arguments?.getInt("round") ?: 1
         searchQuery = arguments?.getString("searchQuery") ?: ""
+        baseFields = parseQueryFields(arguments?.getString("baseQuery").orEmpty())
 
         val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
         candidates = try {
@@ -67,12 +70,28 @@ class CandidateSelectionFragment : Fragment() {
             candidates.size
         )
 
-        adapter = CandidateAdapter(candidates) { index -> confirmCandidate(index) }
+        adapter = CandidateAdapter(
+            candidates,
+            onSelect = { index -> toggleSelection(index) },
+            onConfirm = { index -> confirmCandidate(index) }
+        )
         binding.rvCandidates.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@CandidateSelectionFragment.adapter
             itemAnimator = null
         }
+
+        binding.btnDeepSearchSelected.setOnClickListener {
+            if (!isAdded || !isResumed) return@setOnClickListener
+            val ordered = selectedPositions.sorted().mapNotNull { candidates.getOrNull(it) }
+            if (ordered.isEmpty()) return@setOnClickListener
+            if (ordered.size == 1) {
+                confirmCandidate(selectedPositions.first())
+            } else {
+                startQueuedDeepSearch(ordered)
+            }
+        }
+        updateSelectedCta()
 
         binding.btnNotAny.setOnClickListener {
             if (!isAdded || !isResumed) return@setOnClickListener
@@ -90,18 +109,39 @@ class CandidateSelectionFragment : Fragment() {
         }
     }
 
-    private fun confirmCandidate(index: Int) {
+    private fun toggleSelection(index: Int) {
         if (!isAdded || !isResumed) return
-        val candidate = candidates.getOrNull(index) ?: return
+        if (candidates.getOrNull(index) == null) return
+        if (!selectedPositions.add(index)) {
+            selectedPositions.remove(index)
+        }
+        adapter.notifyItemChanged(index)
+        updateSelectedCta()
+    }
+
+    private fun updateSelectedCta() {
+        if (_binding == null) return
+        if (selectedPositions.isEmpty()) {
+            binding.btnDeepSearchSelected.visibility = View.GONE
+        } else {
+            binding.btnDeepSearchSelected.visibility = View.VISIBLE
+            binding.btnDeepSearchSelected.text = getString(
+                R.string.candidate_deep_search_selected,
+                selectedPositions.size
+            )
+        }
+    }
+
+    private fun startQueuedDeepSearch(ordered: List<CandidateProfile>) {
         val nav = findNavController()
         if (nav.currentDestination?.id != R.id.nav_candidate_selection) return
-
-        val lockedQuery = viewModel.buildLockedQuery(candidate)
+        val first = ordered.first()
+        val lockedQuery = viewModel.buildLockedQuery(first, baseFields)
         if (lockedQuery.isBlank()) return
 
-        val candidatesJsonArg = arguments?.getString("candidatesJson") ?: try {
+        val json = try {
             val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
-            moshi.adapter<List<CandidateProfile>>(listType).toJson(candidates)
+            moshi.adapter<List<CandidateProfile>>(listType).toJson(ordered)
         } catch (_: Exception) { "[]" }
 
         try {
@@ -113,10 +153,47 @@ class CandidateSelectionFragment : Fragment() {
                     putInt("round", round + 1)
                     putString("searchQuery", searchQuery)
                     putString("reportId", reportId)
-                    putString("candidatesJson", candidatesJsonArg)
+                    putString("candidatesJson", json)
+                    putInt("queueIndex", 0)
                 }
             )
         } catch (_: Exception) {}
+    }
+
+    private fun confirmCandidate(index: Int) {
+        if (!isAdded || !isResumed) return
+        val candidate = candidates.getOrNull(index) ?: return
+        val nav = findNavController()
+        if (nav.currentDestination?.id != R.id.nav_candidate_selection) return
+
+        val lockedQuery = viewModel.buildLockedQuery(candidate, baseFields)
+        if (lockedQuery.isBlank()) return
+
+        try {
+            nav.navigate(
+                R.id.action_candidates_to_progress,
+                Bundle().apply {
+                    putString("query", lockedQuery)
+                    putString("type", "comprehensive")
+                    putInt("round", round + 1)
+                    putString("searchQuery", searchQuery)
+                    putString("reportId", reportId)
+                }
+            )
+        } catch (_: Exception) {}
+    }
+
+    private fun parseQueryFields(rawQuery: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        rawQuery.split("|").forEach { part ->
+            val eq = part.indexOf("=")
+            if (eq > 0) {
+                val k = part.substring(0, eq).trim()
+                val v = part.substring(eq + 1).trim()
+                if (v.isNotBlank()) result[k] = v
+            }
+        }
+        return result
     }
 
     override fun onDestroyView() {
@@ -126,6 +203,7 @@ class CandidateSelectionFragment : Fragment() {
 
     private inner class CandidateAdapter(
         private val items: List<CandidateProfile>,
+        private val onSelect: (Int) -> Unit,
         private val onConfirm: (Int) -> Unit
     ) : RecyclerView.Adapter<CandidateAdapter.VH>() {
 
@@ -145,6 +223,15 @@ class CandidateSelectionFragment : Fragment() {
             bindSocial(b, c)
             bindMatchScore(b, c)
 
+            val isSelected = position in selectedPositions
+            b.cbCandidateSelect.isChecked = isSelected
+            val ctx = b.root.context
+            b.root.strokeColor = if (isSelected) {
+                androidx.core.content.ContextCompat.getColor(ctx, R.color.success)
+            } else {
+                androidx.core.content.ContextCompat.getColor(ctx, R.color.border)
+            }
+            b.root.setOnClickListener { onSelect(position) }
             b.btnThatsThem.setOnClickListener { onConfirm(position) }
         }
 
@@ -210,6 +297,14 @@ class CandidateSelectionFragment : Fragment() {
                 b.tvCandidateEmployer.isVisible = true
             } else {
                 b.tvCandidateEmployer.isVisible = false
+            }
+
+            val phones = c.phones.filter { it.isNotBlank() }.distinct()
+            if (phones.isNotEmpty()) {
+                b.tvCandidatePhones.text = phones.take(3).joinToString("  ·  ")
+                b.tvCandidatePhones.isVisible = true
+            } else {
+                b.tvCandidatePhones.isVisible = false
             }
         }
 

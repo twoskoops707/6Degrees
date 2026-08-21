@@ -35,6 +35,14 @@ object SubjectIntakeParser {
         """(?i)(?:works?\s+at|employed\s+(?:at|by)|job\s+at)\s+([A-Za-z0-9][A-Za-z0-9\s&.'-]{1,40})"""
     )
     private val AGE_REGEX = Regex("""\b(?:age\s+)?(\d{2})\s*(?:years?\s*old|yo)?\b""", RegexOption.IGNORE_CASE)
+    private val DOB_REGEX = Regex(
+        """\b(?:(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4})|(?:\d{4}-\d{2}-\d{2})|(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}))\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val AKA_REGEX = Regex(
+        """\b(?:aka|a\.k\.a\.|also known as|nickname|goes by|alias)\b\s*["']?([A-Za-z][A-Za-z0-9 .'\-]{1,40})["']?""",
+        RegexOption.IGNORE_CASE
+    )
     private val STREET_ADDRESS_REGEX = Regex(
         """\b(\d{1,5}\s+[A-Za-z0-9][A-Za-z0-9\s.'#-]{2,60}?(?:St\.?|Street|Ave\.?|Avenue|Blvd\.?|Boulevard|Dr\.?|Drive|Rd\.?|Road|Ln\.?|Lane|Ct\.?|Court|Way|Pl\.?|Place|Cir\.?|Circle|Pkwy|Hwy|Ter\.?|Trail)\b)""",
         RegexOption.IGNORE_CASE
@@ -112,10 +120,21 @@ object SubjectIntakeParser {
                 .replace(company, " ", ignoreCase = true)
         }
 
+        val dob = DOB_REGEX.find(remaining)?.value?.also {
+            remaining = remaining.replace(it, " ")
+        }?.trim().orEmpty()
+        if (dob.isNotBlank()) fields["dob"] = dob
+
         val age = AGE_REGEX.find(remaining)?.groupValues?.getOrNull(1).orEmpty()
         if (age.isNotBlank()) {
             fields["age"] = age
             remaining = remaining.replace(AGE_REGEX, " ")
+        }
+
+        val aka = AKA_REGEX.find(remaining)?.groupValues?.getOrNull(1)?.trim().orEmpty()
+        if (aka.isNotBlank()) {
+            fields["aka"] = aka
+            remaining = remaining.replace(AKA_REGEX, " ")
         }
 
         val username = USERNAME_LABEL_REGEX.find(remaining)?.groupValues?.getOrNull(1)
@@ -153,12 +172,18 @@ object SubjectIntakeParser {
             .replace(Regex("(?i)\\bemail\\b"), " ")
             .replace(Regex("(?i)\\busername\\b"), " ")
             .replace(Regex("(?i)\\bhandle\\b"), " ")
+            .replace(Regex("(?i)\\baka\\b"), " ")
+            .replace(Regex("(?i)\\balias\\b"), " ")
+            .replace(Regex("(?i)\\bnickname\\b"), " ")
             .replace(Regex("(?i)\\bdomain\\b"), " ")
             .replace(Regex("(?i)\\bwebsite\\b"), " ")
             .replace(Regex("(?i)\\bvin\\b"), " ")
             .replace(Regex("(?i)\\bplate\\b"), " ")
             .replace(Regex("(?i)\\blicense\\b"), " ")
             .replace(Regex("(?i)\\bvehicle\\b"), " ")
+            .replace(Regex("(?i)\\bborn\\b"), " ")
+            .replace(Regex("(?i)\\bbirthday\\b"), " ")
+            .replace(Regex("(?i)\\bdate\\s+of\\s+birth\\b"), " ")
             .replace(Regex("(?i)\\bcompany\\b"), " ")
             .replace(Regex("(?i)\\bbusiness\\b"), " ")
             .replace(Regex("(?i)\\bemployer\\b"), " ")
@@ -175,13 +200,35 @@ object SubjectIntakeParser {
                 !part.equals("ca", ignoreCase = true) &&
                 !part.equals("ny", ignoreCase = true)
         }
-        val name = nameParts.joinToString(" ").trim().takeIf {
-            it.isNotBlank() &&
-                !it.contains("@") &&
-                !it.contains(".") &&
-                nameParts.size in 1..4
-        }.orEmpty()
+        val name = if (nameParts.size in 1..4) {
+            nameParts.joinToString(" ").trim().takeIf {
+                it.isNotBlank() && !it.contains("@") && !it.contains(".")
+            }.orEmpty()
+        } else {
+            // Long leftover means the user mixed in context ("met at the dog park,"
+            // "likes cycling"). Keep a leading First Last proper name if present so
+            // the subject name survives alongside the context.
+            val leading = nameParts.take(2)
+            when {
+                leading.size == 2 &&
+                    leading.all { it.firstOrNull()?.isUpperCase() == true } &&
+                    !leading[0].equals(leading[1], ignoreCase = true) -> leading.joinToString(" ")
+                leading.size == 1 && leading[0].firstOrNull()?.isUpperCase() == true -> leading[0]
+                else -> ""
+            }
+        }
         if (name.isNotBlank()) fields["name"] = name
+
+        // Anything left over that wasn't structured (met-where, hobbies, distinguishing
+        // details) is kept as searchable context instead of being silently dropped.
+        val context = buildString {
+            val nameWords = name.lowercase().split("\\s+".toRegex()).filter { it.isNotBlank() }
+            val leftoverWords = remaining.split("\\s+".toRegex()).filter { word ->
+                word.isNotBlank() && word.lowercase() !in nameWords
+            }
+            append(leftoverWords.joinToString(" "))
+        }.trim()
+        if (context.isNotBlank()) fields["context"] = context
 
         return fields
     }
@@ -193,7 +240,9 @@ object SubjectIntakeParser {
         return SubjectProfile(
             name = name,
             firstName = nameParts.firstOrNull().orEmpty(),
+            middleName = if (nameParts.size > 2) nameParts[1] else "",
             lastName = if (nameParts.size > 1) nameParts.last() else "",
+            aka = fields["aka"].orEmpty(),
             city = fields["city"].orEmpty(),
             state = fields["state"].orEmpty(),
             address = fields["address"].orEmpty(),
@@ -202,6 +251,8 @@ object SubjectIntakeParser {
             username = fields["username"].orEmpty(),
             employer = fields["company"].orEmpty(),
             age = fields["age"].orEmpty(),
+            dob = fields["dob"].orEmpty(),
+            context = fields["context"].orEmpty(),
             intent = fields["company"]?.takeIf { it.isNotBlank() }?.let { "employer=$it" }.orEmpty()
         )
     }
@@ -210,13 +261,16 @@ object SubjectIntakeParser {
         profile.copy(
             name = form["name"]?.takeIf { it.isNotBlank() } ?: profile.name,
             firstName = form["firstName"]?.takeIf { it.isNotBlank() } ?: profile.firstName,
+            middleName = form["middleName"]?.takeIf { it.isNotBlank() } ?: profile.middleName,
             lastName = form["lastName"]?.takeIf { it.isNotBlank() } ?: profile.lastName,
+            aka = form["aka"]?.takeIf { it.isNotBlank() } ?: profile.aka,
             city = form["city"]?.takeIf { it.isNotBlank() } ?: profile.city,
             state = form["state"]?.takeIf { it.isNotBlank() } ?: profile.state,
             address = form["address"]?.takeIf { it.isNotBlank() } ?: profile.address,
             phone = form["phone"]?.takeIf { it.isNotBlank() } ?: profile.phone,
             email = form["email"]?.takeIf { it.isNotBlank() } ?: profile.email,
             username = form["username"]?.takeIf { it.isNotBlank() } ?: profile.username,
+            dob = form["dob"]?.takeIf { it.isNotBlank() } ?: profile.dob,
             photoUri = form["image"]?.takeIf { it.isNotBlank() } ?: profile.photoUri,
             intent = form["intent"]?.takeIf { it.isNotBlank() } ?: profile.intent
         )

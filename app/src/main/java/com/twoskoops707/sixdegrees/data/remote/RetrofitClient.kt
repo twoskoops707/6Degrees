@@ -55,14 +55,6 @@ object RetrofitClient {
         retrofit("https://api.pipl.com/").create(PiplApiService::class.java)
     }
 
-    val clearbitService: ClearbitApiService by lazy {
-        retrofit("https://company.clearbit.com/v2/").create(ClearbitApiService::class.java)
-    }
-
-    val clearbitPersonService: ClearbitPersonApiService by lazy {
-        retrofit("https://person.clearbit.com/v2/").create(ClearbitPersonApiService::class.java)
-    }
-
     val pdlService: PeopleDataLabsApiService by lazy {
         retrofit("https://api.peopledatalabs.com/v5/").create(PeopleDataLabsApiService::class.java)
     }

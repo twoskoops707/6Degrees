@@ -1,0 +1,48 @@
+api_name,key_slot,category,signup_url,free_tier,notes
+EmailRep.io,emailrep,email,https://emailrep.io/,250/mo,Reputation + breach flag. Required since the unauthenticated tier was disabled.
+HaveIBeenPwned,hibp,email,https://haveibeenpwned.com/API/Key,Free for personal use,Breach + paste exposure. Needs a key in Settings.
+BreachDirectory,breachdirectory,email,https://breachdirectory.org/register,Free tier,Breach names + exposed password hashes/passwords.
+AbstractAPI Email,abstractapi_email,email,https://app.abstractapi.com/users/signup,100/mo,Deliverability + disposable/free-mail flags.
+IntelX,intelx,email,https://intelx.io/?signup,Free tier,Email breach records (password/credential leaks).
+Kickbox,disposable-email,email,https://open.kickbox.com/,Free tier,Disposable email detection (no key).
+Gravatar,gravatar,email,https://gravatar.com/,Free,Profile image + linked accounts (no key).
+Numverify,numverify,phone,https://numverify.com/product,100/mo,Carrier + line type validation.
+Veriphone,veriphone,phone,https://veriphone.io/signup,Free tier,Carrier + line type + country.
+AbstractAPI Phone,abstractapi_phone,phone,https://app.abstractapi.com/users/signup,500/mo,Carrier + line type + location.
+ip-api.com,ipapi,ip,https://ip-api.com/,Free HTTP tier,Geo + ISP + ASN (cleartext enabled).
+ipwho.is,ipwhois,ip,https://ipwho.is/,Free,Geo + org + timezone.
+ipinfo.io,ipinfo,ip,https://ipinfo.io/,50k/mo,Org + hostname + postal.
+Shodan InternetDB,internetdb,ip,https://internetdb.shodan.io/,Free,Open ports + CVEs (no key).
+AlienVault OTX,otx,ip,https://otx.alienvault.com/,Free,Reputation + threat pulses (keyless).
+Pulsedive,pulsedive,ip,https://pulsedive.com/,Free tier,Indicator risk score (keyless).
+Maltiverse,maltiverse,ip,https://maltiverse.com/,Free tier,Classification + blacklist membership (keyless).
+VirusTotal,virustotal,ip,https://www.virustotal.com/gui/join-us,Free key,File/URL/domain/IP analysis.
+AbuseIPDB,abuseipdb,ip,https://www.abuseipdb.com/register,Free key,Abuse reports + confidence score.
+URLScan.io,urlscan,ip,https://urlscan.io/user/signup,Free tier,Domain scan history + screenshots.
+GreyNoise,greynoise,ip,https://www.greynoise.io/viz/sign-up,Free community,Internet scanner / RIOT classification.
+ThreatFox,threatfox,ip,https://threatfox.abuse.ch/,Free Auth-Key,Malware IOC search.
+LeakIX,leakix,ip,https://leakix.net/register,Free key,Open leaks + honeypot data.
+SecurityTrails,securitytrails,ip,https://securitytrails.com/app/account,Free key,Subdomains + DNS history.
+CriminalIP,criminalip,ip,https://www.criminalip.io/user/signup,Free key,Threat intel + score.
+Netlas,netlas,ip,https://app.netlas.io/registration/,Free key,Internet scanning + DNS.
+HackerTarget,hackertarget,ip,https://hackertarget.com/register/,Free tier,DNS lookup + host search + findemail.
+crt.sh,crtsh,ip,https://crt.sh/,Free,Certificate transparency subdomains.
+URLhaus,urlhaus,ip,https://auth.abuse.ch/,Free Auth-Key,Malware URL hosting status.
+RDAP,rdap,ip,https://rdap.org/,Free,WHOIS replacement (registrar/dates/nameservers).
+Wayback CDX,wayback,ip,https://web.archive.org/,Free,Archive snapshot history.
+CourtListener,courtlistener,person,https://www.courtlistener.com/accounts/register/,Free,Court records search.
+CMS NPI Registry,npi,person,https://npiregistry.cms.hhs.gov/,Free,Healthcare provider lookup (no key).
+OpenFEC,openfec,person,https://api.open.fec.gov/developers/,Free,DEMO_KEY fallback,Campaign finance records.
+FBI Wanted,fbi_wanted,person,https://api.fbi.gov/,Free,Wanted persons (no key).
+OpenSanctions,opensanctions,person,https://www.opensanctions.org/docs/api/,Free key,Sanctions / PEP screening.
+OpenCorporates,opencorporates,person,https://opencorporates.com/api_accounts/sign_up,Free token,Officers + company registry (190+ jurisdictions).
+Pipl,pipl,person,https://pipl.com/api/,Free trial,Full person profile.
+People Data Labs,pdl,person,https://www.peopledatalabs.com/signup,100/mo,Identity graph enrichment.
+Genderize/Agify/Nationalize,demographics,person,https://genderize.io/,Free,Name demographics (no key).
+Wikipedia/Wikidata,wikidata,person,https://www.wikidata.org/,Free,Encyclopedic records (no key).
+Google News RSS,news,person,https://news.google.com/,Free,Recent news mentions (no key).
+GLEIF,gleif,company,https://api.gleif.org/,Free,LEI registry fuzzy search.
+SEC EDGAR,sec_edgar,company,https://www.sec.gov/edgar/,Free,Form-4 insider filings (no key).
+Hunter.io,hunter,company,https://hunter.io/users/sign_up,25/mo domain search,Company email discovery.
+BuiltWith,builtwith,company,https://builtwith.com/,Free tier,Tech stack lookup.
+OpenRouter AI,openrouter,ai,https://openrouter.ai/keys,Free models,Dossier synthesis.

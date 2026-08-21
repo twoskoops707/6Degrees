@@ -86,11 +86,23 @@
         app:strokeWidth="0dp">
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_deep_search_selected"
+            style="@style/Widget.SixDegrees.Button.Filled"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
+            android:layout_marginTop="@dimen/screen_padding_horizontal"
+            android:visibility="gone"
+            tools:text="Deep Search Selected (3)" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_not_any"
             style="@style/Widget.SixDegrees.Button.Outlined"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_margin="@dimen/screen_padding_horizontal"
+            android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
+            android:layout_marginTop="@dimen/screen_padding_horizontal"
+            android:layout_marginBottom="@dimen/screen_padding_horizontal"
             android:text="@string/candidate_not_any" />
     </com.google.android.material.card.MaterialCardView>
 

@@ -3,10 +3,9 @@ package com.twoskoops707.sixdegrees.data.repository
 
 
 import android.content.Context
-
 import android.content.Intent
-
 import android.content.pm.PackageManager
+import android.os.Build
 
 import com.squareup.moshi.Moshi
 
@@ -60,6 +59,14 @@ class TermuxToolRunner(private val context: Context) {
 
         )
 
+        /** App-private output dir for contexts without a TermuxToolRunner instance. */
+        fun appPrivateOutputPath(context: Context): String {
+            val dir = context.getExternalFilesDir(null)?.let { File(it, ".6degrees") }
+                ?: File(context.filesDir, ".6degrees")
+            dir.mkdirs()
+            return dir.absolutePath
+        }
+
     }
 
 
@@ -73,6 +80,12 @@ class TermuxToolRunner(private val context: Context) {
     /** App-writable path Termux can also write to via RUN_COMMAND. */
 
     fun statusFilePath(): String = statusFile.absolutePath
+
+
+
+    /** App-private output dir (no storage permission needed on any Android version). */
+
+    fun appPrivateOutputPath(): String = appPrivateOutputDir().absolutePath
 
 
 
@@ -227,7 +240,12 @@ class TermuxToolRunner(private val context: Context) {
 
         }
 
-        context.startForegroundService(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            @Suppress("DEPRECATION")
+            context.startService(intent)
+        }
 
     }
 

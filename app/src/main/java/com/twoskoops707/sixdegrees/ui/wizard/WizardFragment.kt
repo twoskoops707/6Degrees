@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import android.os.Build
 import android.os.Bundle
 import com.twoskoops707.sixdegrees.R
 import com.twoskoops707.sixdegrees.data.ApiKeyManager
@@ -62,28 +63,33 @@ class WizardFragment : Fragment() {
             "pkg install -y dnsutils"),
         ToolDef("tshark",
             "/data/data/com.termux/files/usr/bin/tshark",
-            "pkg install -y tshark"),
+            "pkg install -y tshark",
+            broken = true,
+            brokenNote = "tshark/wireshark is not packaged for Termux — capture traffic on a PC instead"),
+        ToolDef("theHarvester",
+            "/data/data/com.termux/files/usr/bin/theHarvester",
+            "pkg install -y python && pip install theHarvester"),
         ToolDef("sherlock",
             "/data/data/com.termux/files/usr/bin/sherlock",
-            "pip install sherlock-project"),
+            "pkg install -y python && pip install sherlock-project"),
         ToolDef("maigret",
             "/data/data/com.termux/files/usr/bin/maigret",
-            "pip install maigret"),
+            "pkg install -y python && pip install maigret"),
         ToolDef("holehe",
             "/data/data/com.termux/files/usr/bin/holehe",
-            "pip install holehe"),
+            "pkg install -y python && pip install holehe"),
         ToolDef("recon-ng",
             "/data/data/com.termux/files/home/recon-ng",
-            "git clone https://github.com/lanmaster53/recon-ng ~/recon-ng && pip install -r ~/recon-ng/REQUIREMENTS"),
+            "pkg install -y git python && git clone https://github.com/lanmaster53/recon-ng ~/recon-ng && pip install -r ~/recon-ng/REQUIREMENTS"),
         ToolDef("spiderfoot",
             "/data/data/com.termux/files/home/spiderfoot",
-            "git clone https://github.com/smicallef/spiderfoot ~/spiderfoot && pip install -r ~/spiderfoot/requirements.txt"),
+            "pkg install -y git python && git clone https://github.com/smicallef/spiderfoot ~/spiderfoot && pip install -r ~/spiderfoot/requirements.txt"),
         ToolDef("sqlmap",
             "/data/data/com.termux/files/home/sqlmap",
-            "git clone https://github.com/sqlmapproject/sqlmap ~/sqlmap"),
+            "pkg install -y git python && git clone https://github.com/sqlmapproject/sqlmap ~/sqlmap"),
         ToolDef("nikto",
             "/data/data/com.termux/files/home/nikto",
-            "pkg install -y perl && git clone https://github.com/sullo/nikto ~/nikto")
+            "pkg install -y git perl && git clone https://github.com/sullo/nikto ~/nikto")
     )
 
     private val apiDefs = listOf(
@@ -184,7 +190,12 @@ class WizardFragment : Fragment() {
                         putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
                         putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
                     }
-                    ctx.startForegroundService(intent)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        ctx.startForegroundService(intent)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        ctx.startService(intent)
+                    }
                     Toast.makeText(ctx, getString(R.string.wizard_step3_toast), Toast.LENGTH_LONG).show()
                 } catch (_: Exception) {
                     Toast.makeText(ctx, getString(R.string.wizard_step3_error), Toast.LENGTH_SHORT).show()
@@ -250,7 +261,7 @@ class WizardFragment : Fragment() {
         val density = ctx.resources.displayMetrics.density
         fun dp(f: Float) = (f * density).toInt()
 
-        val statusFile = File(TermuxToolRunner.SHARED_OUTPUT_DIR, ".6d_wizard_tools.txt")
+        val statusFile = File(TermuxToolRunner.appPrivateOutputPath(requireContext()), ".6d_wizard_tools.txt")
         val statusTtl = 5 * 60 * 1000L
 
         data class ToolRow(val statusTv: TextView, val wrapper: LinearLayout, val cmdView: TextView)
@@ -260,11 +271,17 @@ class WizardFragment : Fragment() {
             val key = tool.checkPath.substringAfterLast("/")
             val wrapper = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
-                setOnClickListener { launchTermuxInstall(tool.installCmd) }
+                setOnClickListener {
+                    if (tool.broken) {
+                        Toast.makeText(ctx, tool.brokenNote.ifBlank { getString(R.string.tool_status_broken) }, Toast.LENGTH_LONG).show()
+                    } else {
+                        launchTermuxInstall(tool.installCmd)
+                    }
+                }
             }
             val (row, _, statusTv) = buildStatusRowDetailed(tool.displayName, getString(R.string.tool_status_scanning), pending = true, isOk = false)
             val cmdView = TextView(ctx).apply {
-                text = tool.installCmd
+                text = if (tool.broken) tool.brokenNote else tool.installCmd
                 textSize = 11f
                 typeface = Typeface.MONOSPACE
                 isSingleLine = false
@@ -297,7 +314,12 @@ class WizardFragment : Fragment() {
             rowMap.forEach { (key, toolRow) ->
                 val isOk = results[key]
                 if (isOk == null) return@forEach
-                val label = if (isOk) getString(R.string.tool_status_ready) else getString(R.string.tool_status_not_installed)
+                val broken = termuxTools.firstOrNull { it.checkPath.substringAfterLast("/") == key }?.broken == true
+                val label = when {
+                    broken -> getString(R.string.tool_status_broken)
+                    isOk -> getString(R.string.tool_status_ready)
+                    else -> getString(R.string.tool_status_not_installed)
+                }
                 toolRow.statusTv.text = label
                 toolRow.statusTv.setTextColor(ContextCompat.getColor(ctx,
                     if (isOk) R.color.score_green else R.color.score_red))
@@ -323,7 +345,7 @@ class WizardFragment : Fragment() {
                 " || [ -x \"\$HOME/.local/bin/$bin\" ]"
             "($pathCheck) && echo $key:ok || echo $key:missing"
         }
-        val cmd = "mkdir -p ${TermuxToolRunner.SHARED_OUTPUT_DIR} && { $checks ; } > ${statusFile.absolutePath} 2>&1 ; echo __DONE__ >> ${statusFile.absolutePath}"
+        val cmd = "mkdir -p ${TermuxToolRunner.appPrivateOutputPath(requireContext())} && { $checks ; } > ${statusFile.absolutePath} 2>&1 ; echo __DONE__ >> ${statusFile.absolutePath}"
         try {
             val intent = Intent().apply {
                 setClassName("com.termux", "com.termux.app.RunCommandService")
@@ -332,8 +354,14 @@ class WizardFragment : Fragment() {
                 putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
                 putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                putExtra("com.termux.RUN_COMMAND_RESULT_DIRECTORY", TermuxToolRunner.appPrivateOutputPath(requireContext()))
             }
-            ctx.startForegroundService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ctx.startForegroundService(intent)
+            } else {
+                @Suppress("DEPRECATION")
+                ctx.startService(intent)
+            }
         } catch (_: Exception) {
             rowMap.forEach { (_, toolRow) ->
                 toolRow.statusTv.text = getString(R.string.tool_status_unknown)
@@ -382,7 +410,12 @@ class WizardFragment : Fragment() {
                 putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
             }
-            requireContext().startForegroundService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                requireContext().startForegroundService(intent)
+            } else {
+                @Suppress("DEPRECATION")
+                requireContext().startService(intent)
+            }
         } catch (_: Exception) {
             try {
                 requireContext().startActivity(Intent().apply {

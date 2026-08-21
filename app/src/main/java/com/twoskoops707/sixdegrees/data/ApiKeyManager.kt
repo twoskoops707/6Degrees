@@ -11,13 +11,15 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("pipl", "") ?: ""
         set(v) { prefs.edit().putString("pipl", v).apply() }
 
-    var clearbitKey: String
-        get() = prefs.getString("clearbit", "") ?: ""
-        set(v) { prefs.edit().putString("clearbit", v).apply() }
 
     var opensanctionsKey: String
         get() = prefs.getString("opensanctions", "") ?: ""
         set(v) { prefs.edit().putString("opensanctions", v).apply() }
+
+    /** Free API key from https://emailrep.io/ — required for EmailRep.io since the unauthenticated tier was disabled. */
+    var emailrepKey: String
+        get() = prefs.getString("emailrep", "") ?: ""
+        set(v) { prefs.edit().putString("emailrep", v).apply() }
 
     var opencorporatesKey: String
         get() = prefs.getString("opencorporates", "") ?: ""
@@ -132,6 +134,16 @@ class ApiKeyManager(context: Context) {
         get() = prefs.getString("leakix", "") ?: ""
         set(v) { prefs.edit().putString("leakix", v).apply() }
 
+    /** Free API key from https://breachdirectory.org — email/password breach lookup. */
+    var breachdirectoryKey: String
+        get() = prefs.getString("breachdirectory", "") ?: ""
+        set(v) { prefs.edit().putString("breachdirectory", v).apply() }
+
+    /** Free Auth-Key from https://threatfox.abuse.ch/ — malware IOC lookup. */
+    var threatfoxKey: String
+        get() = prefs.getString("threatfox", "") ?: ""
+        set(v) { prefs.edit().putString("threatfox", v).apply() }
+
     var intelxKey: String
         get() = prefs.getString("intelx", "") ?: ""
         set(v) { prefs.edit().putString("intelx", v).apply() }
@@ -180,7 +192,7 @@ class ApiKeyManager(context: Context) {
 
     fun activeKeyCount(): Int = listOf(
         hibpKey, hunterKey, pdlKey, numverifyKey, shodanKey,
-        virusTotalKey, abuseIpDbKey, urlScanKey, clearbitKey, builtWithKey,
+        virusTotalKey, abuseIpDbKey, urlScanKey, builtWithKey,
         securityTrailsKey, censysId, criminalIpKey, netlasKey,
         abstractApiEmailKey, abstractApiPhoneKey, leakixKey, intelxKey, wigleKey,
         pulsediveKey, fullHuntKey, tombaKey

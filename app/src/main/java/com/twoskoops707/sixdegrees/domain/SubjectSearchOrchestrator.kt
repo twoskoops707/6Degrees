@@ -51,18 +51,21 @@ object SubjectSearchOrchestrator {
     const val SOURCE_TIMEOUT_MS = 25_000L
 
     /** Phase 1 target: 2–3 minutes of discovery work. */
-    const val MIN_DISCOVERY_MS = 120_000L
+    const val MIN_DISCOVERY_MS = 150_000L
 
     /** Phase 2 target: 5–8 minutes of deep investigation work. */
     const val MIN_DEEP_MS = 300_000L
 
-    /** Simple mode: enough time for parallel scrapers without feeling stuck. */
-    const val MIN_DISCOVERY_FAST_MS = 25_000L
-    const val MIN_DEEP_FAST_MS = 45_000L
+    /**
+     * Simple mode still runs a real investigation — a person cannot be found in seconds.
+     * Discovery runs ~2.5 minutes, deep investigation ~5 minutes, regardless of mode.
+     */
+    const val MIN_DISCOVERY_FAST_MS = 150_000L
+    const val MIN_DEEP_FAST_MS = 300_000L
 
     /** Floor before secondary DDG passes kick in. */
-    const val SECONDARY_PASS_THRESHOLD_MS = 180_000L
-    const val SECONDARY_PASS_THRESHOLD_FAST_MS = 35_000L
+    const val SECONDARY_PASS_THRESHOLD_MS = 240_000L
+    const val SECONDARY_PASS_THRESHOLD_FAST_MS = 240_000L
 
     fun resolvePhase(type: String, round: Int, profile: SubjectProfile): SearchPhase {
         val effectiveType = if (type == "scan") "person" else type
@@ -93,7 +96,6 @@ object SubjectSearchOrchestrator {
     }
 
     fun phaseDurationHint(phase: SearchPhase, fastMode: Boolean = false): String = when {
-        fastMode -> "Checking public records…"
         phase == SearchPhase.CANDIDATE_DISCOVERY -> "Discovery — typically 2–3 minutes"
         else -> "Deep investigation — typically 5–10 minutes"
     }
@@ -116,7 +118,7 @@ object SubjectSearchOrchestrator {
     val DISCOVERY_DDG_LABELS = setOf(
         "General", "Phone", "Address", "FPS", "Whitepages", "Spokeo", "Radaris",
         "BeenVerified", "TruePeopleSearch", "PeopleFinder", "LinkedIn", "Facebook",
-        "News", "PhoneCrossRef", "EmailCrossRef", "UsernameCrossRef"
+        "News", "PhoneCrossRef", "EmailCrossRef", "UsernameCrossRef", "AKACrossRef", "DOB"
     )
 
     /** Round-2 DDG labels — courts, family, property, employment, vehicles. */
@@ -143,11 +145,18 @@ object SubjectSearchOrchestrator {
         phone: String,
         email: String,
         phase: SearchPhase,
-        passIndex: Int
+        passIndex: Int,
+        context: String = "",
+        aka: String = ""
     ): List<Pair<String, String>> {
         val loc = listOf(city, state).filter { it.isNotBlank() }.joinToString(" ")
+        val ctx = context.trim().takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
+        val akaQ = aka.trim().takeIf { it.isNotBlank() }?.let { " \"$it\"" }.orEmpty()
         val q = "\"$name\""
         val base = mutableListOf<Pair<String, String>>()
+        if (akaQ.isNotBlank()) {
+            base += "Secondary: AKA${passIndex}" to "\"$name\" \"$aka\"${if (loc.isNotBlank()) " $loc" else ""}"
+        }
         when (passIndex) {
             0 -> {
                 base += "Secondary: Mugshot" to "$q mugshot arrest${if (loc.isNotBlank()) " $loc" else ""}"
@@ -180,7 +189,10 @@ object SubjectSearchOrchestrator {
             base += "Secondary: Dark${passIndex}" to "$q onion darknet mention"
             base += "Secondary: SEC${passIndex}" to "$q site:sec.gov insider filing"
         }
-        return base
+        // Every pass gets the context + aka terms appended so the sweep narrows toward
+        // the person/thing the user actually described.
+        if (ctx.isBlank() && akaQ.isBlank()) return base
+        return base.map { (label, query) -> label to "$query$ctx$akaQ" }
     }
 
     /** Targeted scrapers that only run after the subject is locked or in deep phase. */
@@ -273,6 +285,9 @@ object SubjectSearchOrchestrator {
         if (profile.phone.isNotBlank()) extra += 2
         if (profile.email.isNotBlank()) extra += 2
         if (profile.username.isNotBlank()) extra += 2
+        if (profile.aka.isNotBlank()) extra += 2
+        if (profile.dob.isNotBlank()) extra += 1
+        if (profile.middleName.isNotBlank()) extra += 1
         if (SubjectFilter.hasGeoConstraint(profile.city, profile.state)) extra += 1
         return base + extra
     }

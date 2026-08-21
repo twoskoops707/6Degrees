@@ -193,7 +193,10 @@ class SearchFragment : Fragment() {
             binding.inputFreeform,
             binding.inputPhone,
             binding.inputFirstName,
+            binding.inputMiddleName,
             binding.inputLastName,
+            binding.inputAka,
+            binding.inputDob,
             binding.inputEmail,
             binding.inputUsername,
             binding.inputAddress,
@@ -202,7 +205,8 @@ class SearchFragment : Fragment() {
             binding.inputCompany,
             binding.inputCompanyDomain,
             binding.inputVehicleVin,
-            binding.inputDomainIp
+            binding.inputDomainIp,
+            binding.inputContext
         ).forEach { field ->
             field.doAfterTextChanged { updateQueryCounter() }
         }
@@ -261,7 +265,10 @@ class SearchFragment : Fragment() {
         freeform = binding.inputFreeform.text?.toString()?.trim().orEmpty(),
         phone = binding.inputPhone.text?.toString()?.trim().orEmpty(),
         firstName = binding.inputFirstName.text?.toString()?.trim().orEmpty(),
+        middleName = binding.inputMiddleName.text?.toString()?.trim().orEmpty(),
         lastName = binding.inputLastName.text?.toString()?.trim().orEmpty(),
+        aka = binding.inputAka.text?.toString()?.trim().orEmpty(),
+        dob = binding.inputDob.text?.toString()?.trim().orEmpty(),
         email = binding.inputEmail.text?.toString()?.trim().orEmpty(),
         username = binding.inputUsername.text?.toString()?.trim().orEmpty(),
         city = binding.inputCity.text?.toString()?.trim().orEmpty(),
@@ -272,7 +279,8 @@ class SearchFragment : Fragment() {
         vehicleVin = binding.inputVehicleVin.text?.toString()?.trim().orEmpty(),
         domainIp = binding.inputDomainIp.text?.toString()?.trim().orEmpty(),
         imageUri = attachedImageUri?.toString(),
-        intent = selectedIntent
+        intent = selectedIntent,
+        context = binding.inputContext.text?.toString()?.trim().orEmpty()
     )
 
     private fun updateQueryCounter() {
@@ -320,7 +328,10 @@ class SearchFragment : Fragment() {
         binding.inputFreeform.text?.clear()
         binding.inputPhone.text?.clear()
         binding.inputFirstName.text?.clear()
+        binding.inputMiddleName.text?.clear()
         binding.inputLastName.text?.clear()
+        binding.inputAka.text?.clear()
+        binding.inputDob.text?.clear()
         binding.inputEmail.text?.clear()
         binding.inputUsername.text?.clear()
         binding.inputAddress.text?.clear()
@@ -330,6 +341,7 @@ class SearchFragment : Fragment() {
         binding.inputCompanyDomain.text?.clear()
         binding.inputVehicleVin.text?.clear()
         binding.inputDomainIp.text?.clear()
+        binding.inputContext.text?.clear()
 
         attachedImageUri = null
         binding.tvImageAttached.isVisible = false

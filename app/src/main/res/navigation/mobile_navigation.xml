@@ -52,6 +52,10 @@
             android:name="candidatesJson"
             app:argType="string"
             android:defaultValue="" />
+        <argument
+            android:name="queueIndex"
+            app:argType="integer"
+            android:defaultValue="0" />
         <action
             android:id="@+id/action_progress_to_results"
             app:destination="@id/nav_results"
