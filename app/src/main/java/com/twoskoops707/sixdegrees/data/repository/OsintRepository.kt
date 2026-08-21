@@ -1869,7 +1869,7 @@ class OsintRepository(context: Context) {
             if (count == 0) return ScrapeOut(false, false)
             val malware = mutableSetOf<String>()
             for (i in 0 until minOf(5, count)) {
-                data.optJSONObject(i)?.optString("malware_printable")?.takeIf { it.isNotBlank() }?.let { malware.add(it) }
+                data?.optJSONObject(i)?.optString("malware_printable")?.takeIf { it.isNotBlank() }?.let { malware.add(it) }
             }
             apiKeys.recordUsage("threatfox")
             ScrapeOut(true, false, mapOf(
