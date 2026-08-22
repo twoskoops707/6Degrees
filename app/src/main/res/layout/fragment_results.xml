@@ -13,43 +13,55 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="@drawable/ic_arrow_back"
-        app:title="@string/dossier_title">
+        app:title="@string/dossier_title"
+        app:titleTextAppearance="@style/TextAppearance.SixDegrees.TitleMedium"
+        app:titleMarginStart="4dp"
+        app:titleMarginEnd="8dp">
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:orientation="horizontal"
-            android:layout_marginEnd="4dp">
+            android:gravity="center_vertical">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_back_to_candidates"
                 style="@style/Widget.SixDegrees.Button.Outlined"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginEnd="6dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="4dp"
                 android:text="@string/results_back_to_candidates"
-                android:textSize="11sp"
-                android:visibility="gone" />
+                android:textSize="10sp"
+                android:visibility="gone"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_web_hub"
                 style="@style/Widget.SixDegrees.Button.Outlined"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginEnd="6dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="4dp"
                 android:text="Web Hub"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 app:icon="@drawable/ic_web_hub"
-                app:iconSize="16dp" />
+                app:iconSize="14dp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_export"
                 style="@style/Widget.SixDegrees.Button.Outlined"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="32dp"
                 android:text="Export"
-                android:textSize="12sp" />
+                android:textSize="11sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
 
         </LinearLayout>
 

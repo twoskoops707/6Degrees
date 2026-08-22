@@ -128,6 +128,10 @@ class ResultsFragment : Fragment() {
 
         binding.personCard.visibility = View.VISIBLE
 
+        // Show subject name in the toolbar title
+        val displayTitle = subjectName.ifBlank { getString(R.string.dossier_title) }
+        binding.resultsToolbar.title = displayTitle
+
         if (person != null) {
             binding.fullName.text = person.fullName.ifBlank { "${person.firstName} ${person.lastName}".trim() }
             binding.jobTitle.text = buildString {

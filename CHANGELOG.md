@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Redesigned search progress screen: modern card-based stats grid with hits / sources / elapsed / ETA, pulsing scanning indicator, animated hit counter, phase stepper (investigator mode)
+- Results toolbar: subject name now shown in title, smaller compact action buttons to prevent overlap
 - ETA now shown in both simple and investigator modes (estimated ~2s per remaining source)
 
 ### Added
