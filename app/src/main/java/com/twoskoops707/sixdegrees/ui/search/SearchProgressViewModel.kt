@@ -5,8 +5,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.twoskoops707.sixdegrees.data.repository.OsintRepository
 import com.twoskoops707.sixdegrees.data.repository.SearchProgressEvent
+import com.twoskoops707.sixdegrees.domain.model.CandidateProfile
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,6 +30,26 @@ class SearchProgressViewModel(
 ) : AndroidViewModel(app) {
 
     private val repository = OsintRepository(app)
+
+    /**
+     * Shared Moshi with the Kotlin reflection adapter — required to serialize Kotlin
+     * data classes like [CandidateProfile]. A bare `Moshi.Builder().build()` cannot
+     * and throws "cannot serialize …", which previously aborted the whole search.
+     */
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+
+    /**
+     * Serializes candidates for Bundle handoff. Defensive try/catch so a serialization
+     * hiccup degrades to "no candidates" instead of failing the search.
+     */
+    private fun candidatesToJson(candidates: List<CandidateProfile>): String {
+        return try {
+            val listType = Types.newParameterizedType(List::class.java, CandidateProfile::class.java)
+            moshi.adapter<List<CandidateProfile>>(listType).toJson(candidates)
+        } catch (_: Exception) {
+            "[]"
+        }
+    }
 
     /**
      * Live search events. `replay = 1` so that a fragment re-subscribing after a
@@ -142,10 +166,7 @@ class SearchProgressViewModel(
                 _state.value = current.copy(
                     completedReportId = event.reportId,
                     pendingCandidatesRound = event.round,
-                    pendingCandidatesJson = com.squareup.moshi.Moshi.Builder()
-                        .build()
-                        .adapter(List::class.java)
-                        .toJson(event.candidates)
+                    pendingCandidatesJson = candidatesToJson(event.candidates)
                 )
             }
             is SearchProgressEvent.Complete -> {

@@ -88,12 +88,28 @@ class ResultsFragment : Fragment() {
         val searchType = arguments?.getString("searchType")?.takeIf { it.isNotBlank() }
             ?: meta["search_type"] ?: "person"
 
+        val qFields = report.searchQuery.split("|").mapNotNull {
+            val p = it.split("=", limit = 2); if (p.size == 2) p[0].trim() to p[1].trim() else null
+        }.toMap()
+        // The subject of the report should be the identity the search actually found,
+        // not just the raw query. Platform scrapers store real display names (GitHub,
+        // X/Twitter, GitLab, Mastodon, Bluesky, Keybase…), so prefer those; fall back
+        // to the typed query (name / @username / email / phone).
+        val foundName = listOfNotNull(
+            meta["github_name"], meta["twitter_name"], meta["gitlab_name"],
+            meta["mastodon_name"], meta["bluesky_name"], meta["keybase_name"],
+            meta["devto_name"], meta["comp_name"], meta["pdl_name"], meta["pipl_name"]
+        ).firstOrNull { it.isNotBlank() }
+        val queryLabel = qFields["name"]?.takeIf { it.isNotBlank() }
+            ?: qFields["email"]?.takeIf { it.isNotBlank() }
+            ?: qFields["username"]?.let { "@$it" }
+            ?: qFields["phone"]?.takeIf { it.isNotBlank() }
+            ?: report.searchQuery.split("|").firstOrNull()?.let {
+                if (it.contains("=")) it.substringAfter("=").trim() else it.trim()
+            } ?: report.searchQuery
+
         val subjectName = person?.fullName?.ifBlank { "${person.firstName} ${person.lastName}".trim() }
-            ?: run {
-                report.searchQuery.split("|").mapNotNull {
-                    val p = it.split("=", limit = 2); if (p.size == 2) p[0].trim() to p[1].trim() else null
-                }.toMap()["name"] ?: ""
-            }
+            ?: foundName ?: queryLabel
         val avatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(subjectName.ifBlank { "?" })}&size=200&format=png&bold=true&color=fff&background=1a2744"
         // Company / domain subjects fall back to a keyless favicon service for an
         // identifiable logo when no photo was found anywhere else.
@@ -134,41 +150,48 @@ class ResultsFragment : Fragment() {
 
         if (person != null) {
             binding.fullName.text = person.fullName.ifBlank { "${person.firstName} ${person.lastName}".trim() }
+                .ifBlank { foundName ?: queryLabel }
             binding.jobTitle.text = buildString {
                 val job = parseCurrentJob(person.employmentHistoryJson)
                 if (job.isNotBlank()) append(job)
             }
             binding.location.text = parseFirstAddress(person.addressesJson)
         } else {
-            val qFields = report.searchQuery.split("|").mapNotNull {
-                val p = it.split("=", limit = 2); if (p.size == 2) p[0].trim() to p[1].trim() else null
-            }.toMap()
-            val displayName = qFields["name"]?.takeIf { it.isNotBlank() }
-                ?: qFields["email"]?.takeIf { it.isNotBlank() }
-                ?: qFields["username"]?.let { "@$it" }
-                ?: qFields["phone"]?.takeIf { it.isNotBlank() }
-                ?: meta["comp_name"]?.takeIf { it.isNotBlank() }
-                ?: report.searchQuery.split("|").firstOrNull()?.let {
-                    if (it.contains("=")) it.substringAfter("=").trim() else it.trim()
-                } ?: report.searchQuery
+            val displayName = foundName ?: queryLabel
             binding.fullName.text = displayName
             val bestAge = extractBestAge(meta)
+            val qUsername = qFields["username"]?.takeIf { it.isNotBlank() }
+            // Location found on a platform profile (GitHub etc.) fills the header
+            // when the search itself had no city/state.
+            val foundLocation = listOfNotNull(
+                meta["github_location"], meta["gitlab_location"], meta["twitter_location"],
+                meta["keybase_location"], meta["mastodon_location"]
+            ).firstOrNull { it.isNotBlank() }
             binding.jobTitle.text = buildString {
-                bestAge?.let { append("Age: $it") }
-                qFields["dob"]?.takeIf { it.isNotBlank() }?.let { if (isNotEmpty()) append(" | "); append(it) }
-                meta["demographics_gender"]?.let { g -> if (isNotEmpty()) append(" | "); append(g) }
-                val subFields = listOfNotNull(
-                    qFields["phone"]?.takeIf { it.isNotBlank() && qFields["name"]?.isNotBlank() == true }?.let { "Phone: $it" },
-                    qFields["email"]?.takeIf { it.isNotBlank() && displayName != it }?.let { "Email: $it" },
-                    qFields["username"]?.takeIf { it.isNotBlank() }?.let { "@ $it" }
-                )
-                if (subFields.isNotEmpty() && isEmpty()) append(subFields.joinToString("  |  "))
+                if (foundName != null && qUsername != null) {
+                    // Header shows the real identity — keep the handle that found it.
+                    append("@$qUsername")
+                } else {
+                    bestAge?.let { append("Age: $it") }
+                    qFields["dob"]?.takeIf { it.isNotBlank() }?.let { if (isNotEmpty()) append(" | "); append(it) }
+                    meta["demographics_gender"]?.let { g -> if (isNotEmpty()) append(" | "); append(g) }
+                    val subFields = listOfNotNull(
+                        qFields["phone"]?.takeIf { it.isNotBlank() && qFields["name"]?.isNotBlank() == true }?.let { "Phone: $it" },
+                        qFields["email"]?.takeIf { it.isNotBlank() && displayName != it }?.let { "Email: $it" },
+                        qUsername?.takeIf { displayName != "@$it" }?.let { "@$it" }
+                    )
+                    if (subFields.isNotEmpty() && isEmpty()) append(subFields.joinToString("  |  "))
+                }
+                meta["github_company"]?.takeIf { it.isNotBlank() }?.let { company ->
+                    if (isNotEmpty()) append("  ·  ")
+                    append("Works at $company")
+                }
             }
             val city = qFields["city"] ?: qFields["location"] ?: ""
             val state = qFields["state"] ?: ""
             val address = qFields["address"] ?: meta["person_entered_address"] ?: ""
             val fullLoc = listOf(address, city, state).filter { it.isNotBlank() }.joinToString(", ")
-            binding.location.text = fullLoc.ifBlank { FindingUrlHelper.bestDisplayLocation(meta) }
+            binding.location.text = fullLoc.ifBlank { foundLocation ?: FindingUrlHelper.bestDisplayLocation(meta) }
         }
 
         val sourceCount = try {
@@ -1589,6 +1612,7 @@ class ResultsFragment : Fragment() {
             "Seeking" to "! Sugar dating platform",
             "FurAffinity" to "Furry art & community platform"
         )
+        val profiles = parseSocialProfilesFromMeta(meta).associateBy { it.platform }
         meta["found_urls"]?.takeIf { it.isNotBlank() }?.let {
             it.lines().filter { l -> l.isNotBlank() }.forEach { line ->
                 val isNsfw = line.startsWith("⚠NSFW:")
@@ -1596,16 +1620,54 @@ class ResultsFragment : Fragment() {
                 val parts = cleanLine.split(": ", limit = 2)
                 val siteName = parts.firstOrNull() ?: "Platform"
                 val url = parts.getOrNull(1) ?: cleanLine
+                val profile = profiles[siteName]
+                // Show the information that was extracted from the hit — real name,
+                // handle, and stats — instead of just dumping the profile URL.
+                val displayName = platformDisplayName(siteName, meta)
+                val summary = buildString {
+                    if (displayName.isNotBlank()) append(displayName)
+                    val handle = profile?.username?.takeIf { it.isNotBlank() && !it.equals(displayName, ignoreCase = true) }
+                    if (handle != null) {
+                        if (isNotEmpty()) append("  ·  ")
+                        append("@").append(handle)
+                    }
+                    profile?.statsLabel?.takeIf { it.isNotBlank() }?.let { stats ->
+                        if (isNotEmpty()) append("  ·  ")
+                        append(stats)
+                    }
+                }.ifBlank { "Profile found" }
                 val desc = siteDesc[siteName]?.removePrefix("! ")
                 val label = buildString {
                     append(if (isNsfw) "! NSFW / $siteName" else "$siteName")
                     if (!desc.isNullOrBlank()) append(" | $desc")
                 }
-                rows.add(label to url)
+                rows.add(label to summary)
+                // Keep the actual profile reachable as the row's link.
+                if (url.startsWith("http")) rows.add("Profile" to url)
             }
         }
         if (rows.isEmpty()) rows.add("Status" to "No profiles found on tracked platforms")
         return rows
+    }
+
+    /**
+     * Real display name extracted for a platform hit (GitHub "name", Keybase full name, …).
+     */
+    private fun platformDisplayName(siteName: String, meta: Map<String, String>): String =
+        platformMetaPrefix(siteName)?.let { prefix ->
+            meta["${prefix}_name"]?.takeIf { it.isNotBlank() }
+        }.orEmpty()
+
+    private fun platformMetaPrefix(siteName: String): String? = when (siteName) {
+        "GitHub" -> "github"
+        "GitLab" -> "gitlab"
+        "Mastodon" -> "mastodon"
+        "Bluesky" -> "bluesky"
+        "Twitter/X", "Twitter" -> "twitter"
+        "Keybase" -> "keybase"
+        "HackerNews" -> "hackernews"
+        "Dev.to", "Dev" -> "devto"
+        else -> null
     }
 
     private fun buildUsernameProfiles(meta: Map<String, String>): List<Pair<String, String>> {
@@ -1617,8 +1679,43 @@ class ResultsFragment : Fragment() {
             meta["github_company"]?.takeIf { it.isNotBlank() }?.let { rows.add("Company" to it) }
             meta["github_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
             meta["github_email"]?.takeIf { it.isNotBlank() }?.let { rows.add("Email" to it) }
+            meta["github_bio"]?.takeIf { it.isNotBlank() }?.let { rows.add("Bio" to it) }
             meta["github_stats"]?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
             meta["github_url"]?.takeIf { it.isNotBlank() }?.let { rows.add("Profile" to it) }
+        }
+        val hasGitLab = !meta["gitlab_name"].isNullOrBlank() || !meta["gitlab_stats"].isNullOrBlank()
+        if (hasGitLab) {
+            rows.add(sec("GITLAB"))
+            meta["gitlab_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Name" to it) }
+            meta["gitlab_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
+            meta["gitlab_company"]?.takeIf { it.isNotBlank() }?.let { rows.add("Company" to it) }
+            meta["gitlab_stats"]?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
+            meta["gitlab_url"]?.takeIf { it.isNotBlank() }?.let { rows.add("Profile" to it) }
+        }
+        val hasMastodon = !meta["mastodon_name"].isNullOrBlank() || !meta["mastodon_stats"].isNullOrBlank()
+        if (hasMastodon) {
+            rows.add(sec("MASTODON"))
+            meta["mastodon_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Name" to it) }
+            meta["mastodon_bio"]?.takeIf { it.isNotBlank() }?.let { rows.add("Bio" to it) }
+            meta["mastodon_stats"]?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
+            meta["mastodon_url"]?.takeIf { it.isNotBlank() }?.let { rows.add("Profile" to it) }
+        }
+        val hasBluesky = !meta["bluesky_name"].isNullOrBlank() || !meta["bluesky_stats"].isNullOrBlank()
+        if (hasBluesky) {
+            rows.add(sec("BLUESKY"))
+            meta["bluesky_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Name" to it) }
+            meta["bluesky_bio"]?.takeIf { it.isNotBlank() }?.let { rows.add("Bio" to it) }
+            meta["bluesky_stats"]?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
+            meta["bluesky_url"]?.takeIf { it.isNotBlank() }?.let { rows.add("Profile" to it) }
+        }
+        val hasTwitter = !meta["twitter_name"].isNullOrBlank() || !meta["twitter_stats"].isNullOrBlank()
+        if (hasTwitter) {
+            rows.add(sec("X / TWITTER"))
+            meta["twitter_name"]?.takeIf { it.isNotBlank() }?.let { rows.add("Name" to it) }
+            meta["twitter_bio"]?.takeIf { it.isNotBlank() }?.let { rows.add("Bio" to it) }
+            meta["twitter_location"]?.takeIf { it.isNotBlank() }?.let { rows.add("Location" to it) }
+            meta["twitter_stats"]?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
+            meta["twitter_url"]?.takeIf { it.isNotBlank() }?.let { rows.add("Profile" to it) }
         }
         val hasKeybase = !meta["keybase_name"].isNullOrBlank()
         if (hasKeybase) {
@@ -1660,6 +1757,10 @@ class ResultsFragment : Fragment() {
             .filter { profile ->
                 when (profile.platform) {
                     "GitHub" -> !hasGitHub
+                    "GitLab" -> !hasGitLab
+                    "Mastodon" -> !hasMastodon
+                    "Bluesky" -> !hasBluesky
+                    "Twitter/X", "Twitter" -> !hasTwitter
                     "Keybase" -> !hasKeybase
                     "HackerNews" -> meta["hackernews_karma"].isNullOrBlank()
                     "Dev.to" -> meta["devto_name"].isNullOrBlank()
@@ -1668,6 +1769,7 @@ class ResultsFragment : Fragment() {
             }
             .forEach { profile ->
                 rows.add(sec(profile.platform.uppercase()))
+                profile.username?.takeIf { it.isNotBlank() }?.let { rows.add("Username" to "@$it") }
                 rows.add("Profile" to (profile.url ?: profile.username))
                 profile.statsLabel?.takeIf { it.isNotBlank() }?.let { rows.add("Stats" to it) }
             }
