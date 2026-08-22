@@ -187,9 +187,12 @@
     <string name="wizard_step1_label">Allow external app access in Termux</string>
     <string name="wizard_step1_action">RUN COMMAND</string>
     <string name="wizard_step1_toast">Command copied - open Termux and paste it (long-press -> Paste)</string>
+    <string name="wizard_step1_toast_run">Permission command sent to Termux — it should run automatically</string>
     <string name="wizard_step2_label">Restart Termux to apply the change</string>
     <string name="wizard_step2_action">OPEN TERMUX</string>
     <string name="wizard_step2_error">Termux not found - install it from F-Droid first</string>
+    <string name="wizard_step2_toast_run">Settings reloaded in Termux</string>
+    <string name="wizard_step2_toast_clipboard">Reload command copied — paste in Termux and press Enter</string>
     <string name="wizard_step3_label">Grant RunCommand permission - tap Allow when prompted</string>
     <string name="wizard_step3_action">REQUEST PERMISSION</string>
     <string name="wizard_step3_toast">If prompted, tap Allow - then reopen this wizard to scan your tools</string>
@@ -202,6 +205,7 @@
     <string name="tool_status_scanning">SCANNING...</string>
     <string name="tool_status_unknown">NEEDS SETUP</string>
     <string name="tool_install_toast">Command copied - paste in Termux to install</string>
+    <string name="tool_install_running">Install running in Termux</string>
 
     <!-- Wizard tips -->
     <string name="tip_1">For person investigations, include city and state - narrows 50M+ records to a handful of real matches</string>

@@ -718,8 +718,10 @@ class TermuxToolRunner(private val context: Context) {
 
         val outFile = File(outputDir, "nmap_${System.currentTimeMillis()}.txt")
 
+        // -sT (TCP connect scan) works without root.  -sV (version detection)
+        // requires raw sockets and root — skip it for non-rooted phones.
         val cmd = commandWithSentinel(
-            "nmap -sV --open -oN ${shellQuote(outFile.absolutePath)} ${shellQuote(target.trim())} 2>/dev/null",
+            "nmap -sT --open -oN ${shellQuote(outFile.absolutePath)} ${shellQuote(target.trim())} 2>/dev/null",
             outFile
         )
 

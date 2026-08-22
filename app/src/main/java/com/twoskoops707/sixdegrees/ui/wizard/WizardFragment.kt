@@ -156,26 +156,75 @@ class WizardFragment : Fragment() {
                 "1", getString(R.string.wizard_step1_label), getString(R.string.wizard_step1_action)
             ) {
                 val cmd = "echo 'allow-external-apps = true' >> ~/.termux/termux.properties"
-                val clipboard = ctx.getSystemService(ClipboardManager::class.java)
-                clipboard.setPrimaryClip(ClipData.newPlainText("setup", cmd))
-                try {
-                    ctx.startActivity(Intent().apply {
-                        setClassName("com.termux", "com.termux.app.TermuxActivity")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                } catch (_: Exception) { }
-                Toast.makeText(ctx, getString(R.string.wizard_step1_toast), Toast.LENGTH_LONG).show()
+                // Try RunCommandService first — opens Termux and runs the command
+                // automatically.  This only works if external-apps permission was
+                // previously granted; on a fresh install it falls back to clipboard.
+                val ran = try {
+                    val intent = Intent().apply {
+                        setClassName("com.termux", "com.termux.app.RunCommandService")
+                        action = "com.termux.RUN_COMMAND"
+                        putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                        putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", cmd))
+                        putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                        putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        ctx.startForegroundService(intent)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        ctx.startService(intent)
+                    }
+                    true
+                } catch (_: Exception) { false }
+                if (ran) {
+                    Toast.makeText(ctx, getString(R.string.wizard_step1_toast_run), Toast.LENGTH_LONG).show()
+                } else {
+                    // Fall back: copy to clipboard and open an empty Termux window
+                    val clipboard = ctx.getSystemService(ClipboardManager::class.java)
+                    clipboard.setPrimaryClip(ClipData.newPlainText("setup", cmd))
+                    try {
+                        ctx.startActivity(Intent().apply {
+                            setClassName("com.termux", "com.termux.app.TermuxActivity")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    } catch (_: Exception) { }
+                    Toast.makeText(ctx, getString(R.string.wizard_step1_toast), Toast.LENGTH_LONG).show()
+                }
             },
             StepDef(
                 "2", getString(R.string.wizard_step2_label), getString(R.string.wizard_step2_action)
             ) {
-                try {
-                    ctx.startActivity(Intent().apply {
-                        setClassName("com.termux", "com.termux.app.TermuxActivity")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                } catch (_: Exception) {
-                    Toast.makeText(ctx, getString(R.string.wizard_step2_error), Toast.LENGTH_SHORT).show()
+                // Apply the external-apps change so future RunCommand calls work
+                val reloadCmd = "termux-reload-settings"
+                val ran = try {
+                    val intent = Intent().apply {
+                        setClassName("com.termux", "com.termux.app.RunCommandService")
+                        action = "com.termux.RUN_COMMAND"
+                        putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/sh")
+                        putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", reloadCmd))
+                        putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                        putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        ctx.startForegroundService(intent)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        ctx.startService(intent)
+                    }
+                    true
+                } catch (_: Exception) { false }
+                if (ran) {
+                    Toast.makeText(ctx, getString(R.string.wizard_step2_toast_run), Toast.LENGTH_LONG).show()
+                } else {
+                    val clipboard = ctx.getSystemService(ClipboardManager::class.java)
+                    clipboard.setPrimaryClip(ClipData.newPlainText("setup", reloadCmd))
+                    try {
+                        ctx.startActivity(Intent().apply {
+                            setClassName("com.termux", "com.termux.app.TermuxActivity")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    } catch (_: Exception) { }
+                    Toast.makeText(ctx, getString(R.string.wizard_step2_toast_clipboard), Toast.LENGTH_LONG).show()
                 }
             },
             StepDef(
@@ -398,9 +447,15 @@ class WizardFragment : Fragment() {
         }
     }
 
+    /**
+     * Send an install command to Termux.
+     *
+     * 1. Try RunCommandService with `background=false` — this opens the Termux UI
+     *    and shows the command running so the user can watch progress.
+     * 2. If RunCommandService is unavailable (external-apps not enabled), fall back
+     *    to copying the command to the clipboard and opening an empty Termux window.
+     */
     private fun launchTermuxInstall(cmd: String) {
-        val clipboard = requireContext().getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("install_cmd", cmd))
         try {
             val intent = Intent().apply {
                 setClassName("com.termux", "com.termux.app.RunCommandService")
@@ -416,7 +471,12 @@ class WizardFragment : Fragment() {
                 @Suppress("DEPRECATION")
                 requireContext().startService(intent)
             }
+            // Command sent — Termux will open and show it running.
+            Toast.makeText(requireContext(), getString(R.string.tool_install_running), Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
+            // Fall back: copy to clipboard + open Termux
+            val clipboard = requireContext().getSystemService(ClipboardManager::class.java)
+            clipboard.setPrimaryClip(ClipData.newPlainText("install_cmd", cmd))
             try {
                 requireContext().startActivity(Intent().apply {
                     setClassName("com.termux", "com.termux.app.TermuxActivity")

@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Guard nullable JSONArray receiver in ThreatFox scrape (`data?.optJSONObject(i)`) — removes compiler warning and latent NPE risk
 - Fix "Not allowed to start service" crash / frozen search: `TermuxToolRunner.requestToolStatusRefresh()` now catches foreground-service rejections internally (Android 8+/12+ reject service starts when the app is in the background), and the same call in `searchWithProgress()` is guarded so it can never abort a search
+- Wizard setup steps now try RunCommandService first (opens Termux and runs the command automatically) before falling back to clipboard-paste
+- Wizard install buttons open Termux with the command visible (RunCommandService `background=false`) instead of silently copying to clipboard
+- nmap scan changed from `-sV` (requires root) to `-sT` (TCP connect scan) so it works on non-rooted phones
 
 ### Added
 - ProxyNova COMB breach search — free keyless check against 3.2B leaked credentials
