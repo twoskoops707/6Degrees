@@ -984,6 +984,136 @@ class OsintRepository(context: Context) {
         return ScrapeOut(false, false)
     }
 
+    /** GitLab public API — free, no key required. Returns profile data for a username. */
+    private fun scrapeGitLabPublic(username: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(username, "UTF-8")
+            val req = Request.Builder().url("https://gitlab.com/api/v4/users?username=$encoded")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || resp.code != 200) return ScrapeOut(false, false)
+            val arr = JSONArray(body)
+            if (arr.length() == 0) return ScrapeOut(false, false)
+            val json = arr.getJSONObject(0)
+            val fields = mutableMapOf<String, String>()
+            fields["title"] = "GitLab: ${json.optString("username", username)}"
+            val name = json.optString("name", "")
+            val bio = json.optString("bio", "")
+            val location = json.optString("location", "")
+            val website = json.optString("website_url", "")
+            val org = json.optString("organization", "")
+            val repos = json.optInt("projects_count", 0)
+            val followers = json.optInt("followers", 0)
+            val avatar = json.optString("avatar_url", "")
+            if (name.isNotBlank()) fields["name"] = name
+            if (bio.isNotBlank()) fields["snippet"] = bio.take(300)
+            if (location.isNotBlank()) fields["location"] = location
+            if (website.isNotBlank()) fields["website"] = website
+            if (org.isNotBlank()) fields["company"] = org
+            fields["stats"] = "Repos: $repos  Followers: $followers"
+            if (avatar.isNotBlank()) fields["image_url"] = avatar
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    /** Mastodon public API — free, no key required. Checks mastodon.social for a user. */
+    private fun scrapeMastodonPublic(username: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(username, "UTF-8")
+            val req = Request.Builder().url("https://mastodon.social/api/v1/accounts/lookup?acct=$encoded")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || resp.code != 200) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            if (json.has("error")) return ScrapeOut(false, false)
+            val fields = mutableMapOf<String, String>()
+            fields["title"] = "Mastodon: @${json.optString("username", username)}"
+            val displayName = json.optString("display_name", "")
+            val note = json.optString("note", "")
+            val followers = json.optInt("followers_count", 0)
+            val posts = json.optInt("statuses_count", 0)
+            val avatar = json.optString("avatar", "")
+            val header = json.optString("header", "")
+            if (displayName.isNotBlank()) fields["name"] = displayName
+            // Strip HTML tags from note
+            val cleanNote = note.replace(Regex("<[^>]+>"), "").trim()
+            if (cleanNote.isNotBlank()) fields["snippet"] = cleanNote.take(300)
+            fields["stats"] = "Followers: $followers  Posts: $posts"
+            if (avatar.isNotBlank() && avatar.startsWith("http")) fields["image_url"] = avatar
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    /** Bluesky public API — free, no key required. Checks bsky.app for a user profile. */
+    private fun scrapeBlueskyPublic(username: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(username, "UTF-8")
+            val req = Request.Builder().url("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=$encoded.bsky.social")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Accept", "application/json")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (body.isBlank() || resp.code != 200) return ScrapeOut(false, false)
+            val json = JSONObject(body)
+            val fields = mutableMapOf<String, String>()
+            val displayName = json.optString("displayName", "")
+            val description = json.optString("description", "")
+            val followers = json.optInt("followersCount", 0)
+            val posts = json.optInt("postsCount", 0)
+            val avatar = json.optString("avatar", "")
+            fields["title"] = "Bluesky: @$username"
+            if (displayName.isNotBlank()) fields["name"] = displayName
+            if (description.isNotBlank()) fields["snippet"] = description.replace(Regex("<[^>]+>"), "").take(300)
+            fields["stats"] = "Followers: $followers  Posts: $posts"
+            if (avatar.isNotBlank() && avatar.startsWith("http")) fields["image_url"] = avatar
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
+    /** Nitter public profiles — free, no key required. Checks nitter.net for a Twitter/X user. */
+    private fun scrapeTwitterViaNitter(username: String): ScrapeOut {
+        return try {
+            val encoded = URLEncoder.encode(username, "UTF-8")
+            val req = Request.Builder().url("https://nitter.net/$encoded")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept", "text/html")
+                .build()
+            val resp = fastHttpClient.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            resp.close()
+            if (resp.code == 404 || body.isBlank()) return ScrapeOut(false, false)
+            if (body.contains("This account doesn't exist") || body.contains("Page not found"))
+                return ScrapeOut(false, false)
+            val doc = Jsoup.parse(body)
+            val fields = mutableMapOf<String, String>()
+            fields["title"] = "X/Twitter: @$username"
+            val fullName = doc.selectFirst("a.profile-card-fullname")?.text()?.trim()
+            val bio = doc.selectFirst("div.profile-card-bio")?.text()?.trim()
+            val location = doc.selectFirst("span.profile-card-location")?.text()?.trim()
+            val followers = doc.selectFirst("span.profile-card-stat strong")?.text()?.trim()
+            val avatar = doc.selectFirst("img.profile-card-avatar")?.attr("src")
+            if (!fullName.isNullOrBlank()) fields["name"] = fullName
+            if (!bio.isNullOrBlank()) fields["snippet"] = bio.take(300)
+            if (!location.isNullOrBlank()) fields["location"] = location
+            if (!followers.isNullOrBlank()) fields["stats"] = "Followers: $followers"
+            if (!avatar.isNullOrBlank()) {
+                val avatarUrl = if (avatar.startsWith("http")) avatar else "https://nitter.net$avatar"
+                fields["image_url"] = avatarUrl
+            }
+            ScrapeOut(true, false, fields)
+        } catch (_: Exception) { ScrapeOut(false, false) }
+    }
+
     private suspend fun scrapeProxyNova(email: String): ScrapeOut =
         scrapeResultToOut(scrapeProxyNovaWeb(email, fastHttpClient))
 
@@ -3357,13 +3487,13 @@ class OsintRepository(context: Context) {
                         val deepPhase = SubjectSearchOrchestrator.isDeepPhase(searchPhase)
                         targetedScraperNames += setOf(
                             "Wikipedia", "Google News", "ThatsThem", "FastPeopleSearch",
-                            "USPhoneBook", "Name Demographics", "Pipl", "Clearbit Person"
+                            "USPhoneBook", "Name Demographics", "Pipl", "Clearbit Person",
+                            "CourtListener", "GLEIF", "SEC EDGAR", "Wikidata",
+                            "FBI Wanted", "NPI Registry"
                         )
                         if (deepPhase) {
                             targetedScraperNames += setOf(
-                                "DarkSearch", "Ahmia", "CourtListener", "GLEIF", "SEC EDGAR",
-                                "Wikidata", "OpenSanctions", "OpenCorporates", "FBI Wanted",
-                                "NPI Registry", "OpenFEC"
+                                "DarkSearch", "Ahmia", "OpenSanctions", "OpenCorporates", "OpenFEC"
                             ) + SubjectSearchOrchestrator.extraDeepScrapersForIntent(subjectIntent)
                         }
                         if (SubjectSearchOrchestrator.shouldRunDarkWeb(searchPhase, subjectIntent) &&
@@ -3448,63 +3578,84 @@ class OsintRepository(context: Context) {
                                 runDarkWebSearches(subjectProfile, primaryQuery, sources, metadata, this@channelFlow)
                             }
                         }
-                        if (deepPhase) {
-                            launch {
-                                send(SearchProgressEvent.Checking("CourtListener"))
-                                val out = scrapeCourtListener(primaryQuery)
-                                if (out.found) {
-                                    out.fields["case_count"]?.let {
-                                        metadata["courtlistener_count"] = it
-                                        metadata["court_case_count"] = it
-                                    }
-                                    out.fields["snippet"]?.let { metadata["court_cases"] = it }
-                                    out.fields["case_urls"]?.let { urls ->
-                                        metadata["court_case_urls"] = urls
-                                        urls.lines().firstOrNull { it.startsWith("http") }
-                                            ?.let { metadata["courtlistener_link"] = it }
-                                    }
+                        // Free keyless government/registry APIs — always run (not gated behind deepPhase)
+                        // so even basic non-investigator searches return meaningful data.
+                        launch {
+                            send(SearchProgressEvent.Checking("CourtListener"))
+                            val out = scrapeCourtListener(primaryQuery)
+                            if (out.found) {
+                                out.fields["case_count"]?.let {
+                                    metadata["courtlistener_count"] = it
+                                    metadata["court_case_count"] = it
                                 }
-                                handleScrapeOut("CourtListener", "https://www.courtlistener.com/?q=${encode(primaryQuery)}&type=r", out, sources, metadata, this@channelFlow, 0.75)
-                            }
-                            launch {
-                                send(SearchProgressEvent.Checking("GLEIF"))
-                                val out = scrapeGleif(primaryQuery)
-                                if (out.found) {
-                                    out.fields["legal_entities"]?.let { metadata["gleif_entities"] = it }
+                                out.fields["snippet"]?.let { metadata["court_cases"] = it }
+                                out.fields["case_urls"]?.let { urls ->
+                                    metadata["court_case_urls"] = urls
+                                    urls.lines().firstOrNull { it.startsWith("http") }
+                                        ?.let { metadata["courtlistener_link"] = it }
                                 }
-                                handleScrapeOut("GLEIF", "https://search.gleif.org/#/record/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.7)
                             }
-                            launch {
-                                send(SearchProgressEvent.Checking("SEC EDGAR Form-4"))
-                                val out = scrapeSecEdgar(primaryQuery, forms = "4")
-                                if (out.found) {
-                                    out.fields["total_hits"]?.let { metadata["sec_person_hits"] = it }
-                                    out.fields["entities"]?.let { metadata["sec_person_entities"] = it }
-                                }
-                                handleScrapeOut("SEC EDGAR Form-4", "https://www.sec.gov/edgar/search/#/q=${encode(primaryQuery)}&forms=4", out, sources, metadata, this@channelFlow, 0.8)
+                            handleScrapeOut("CourtListener", "https://www.courtlistener.com/?q=${encode(primaryQuery)}&type=r", out, sources, metadata, this@channelFlow, 0.75)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("GLEIF"))
+                            val out = scrapeGleif(primaryQuery)
+                            if (out.found) {
+                                out.fields["legal_entities"]?.let { metadata["gleif_entities"] = it }
                             }
-                            launch {
-                                send(SearchProgressEvent.Checking("SEC EDGAR"))
-                                val out = scrapeSecEdgar(primaryQuery)
-                                if (out.found) {
-                                    out.fields["total_hits"]?.let { metadata["sec_fulltext_hits"] = it }
-                                    out.fields["form_types"]?.let { metadata["sec_fulltext_forms"] = it }
-                                    out.fields["entities"]?.let { metadata["sec_fulltext_entities"] = it }
-                                }
-                                handleScrapeOut("SEC EDGAR", "https://www.sec.gov/edgar/search/#/q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.8)
+                            handleScrapeOut("GLEIF", "https://search.gleif.org/#/record/${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.7)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("SEC EDGAR Form-4"))
+                            val out = scrapeSecEdgar(primaryQuery, forms = "4")
+                            if (out.found) {
+                                out.fields["total_hits"]?.let { metadata["sec_person_hits"] = it }
+                                out.fields["entities"]?.let { metadata["sec_person_entities"] = it }
                             }
-                            launch {
-                                send(SearchProgressEvent.Checking("Wikidata"))
-                                val out = scrapeWikidataEnriched(primaryQuery)
-                                if (out.found) {
-                                    out.fields["descriptions"]?.let { metadata["wikidata_descriptions"] = it }
-                                    out.fields["link"]?.let { metadata["wikidata_link"] = it }
-                                    out.fields["employers"]?.let { metadata["wikidata_employers"] = it }
-                                    out.fields["organizations"]?.let { metadata["wikidata_organizations"] = it }
-                                    metadata["wikipedia_hits"] = "1"
-                                }
-                                handleScrapeOut("Wikidata", "https://www.wikidata.org/w/index.php?search=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.75)
+                            handleScrapeOut("SEC EDGAR Form-4", "https://www.sec.gov/edgar/search/#/q=${encode(primaryQuery)}&forms=4", out, sources, metadata, this@channelFlow, 0.8)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("SEC EDGAR"))
+                            val out = scrapeSecEdgar(primaryQuery)
+                            if (out.found) {
+                                out.fields["total_hits"]?.let { metadata["sec_fulltext_hits"] = it }
+                                out.fields["form_types"]?.let { metadata["sec_fulltext_forms"] = it }
+                                out.fields["entities"]?.let { metadata["sec_fulltext_entities"] = it }
                             }
+                            handleScrapeOut("SEC EDGAR", "https://www.sec.gov/edgar/search/#/q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.8)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Wikidata"))
+                            val out = scrapeWikidataEnriched(primaryQuery)
+                            if (out.found) {
+                                out.fields["descriptions"]?.let { metadata["wikidata_descriptions"] = it }
+                                out.fields["link"]?.let { metadata["wikidata_link"] = it }
+                                out.fields["employers"]?.let { metadata["wikidata_employers"] = it }
+                                out.fields["organizations"]?.let { metadata["wikidata_organizations"] = it }
+                                metadata["wikipedia_hits"] = "1"
+                            }
+                            handleScrapeOut("Wikidata", "https://www.wikidata.org/w/index.php?search=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.75)
+                        }
+                        // FBI Wanted — free keyless API, always run
+                        launch {
+                            send(SearchProgressEvent.Checking("FBI Wanted"))
+                            val out = scrapeFbiWanted(primaryQuery, state)
+                            if (out.found) {
+                                out.fields["matches"]?.let { metadata["fbi_wanted_matches"] = it }
+                                out.fields["urls"]?.let { metadata["fbi_wanted_urls"] = it }
+                                out.fields["match_count"]?.let { metadata["fbi_wanted_count"] = it }
+                            }
+                            handleScrapeOut("FBI Wanted", "https://api.fbi.gov/wanted/v1/list?title=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.9)
+                        }
+                        // NPI Registry — free keyless healthcare provider lookup
+                        launch {
+                            send(SearchProgressEvent.Checking("NPI Registry"))
+                            val out = scrapeNpiRegistry(primaryQuery, state, city)
+                            if (out.found) {
+                                out.fields["providers"]?.let { metadata["npi_providers"] = it }
+                                out.fields["provider_count"]?.let { metadata["npi_provider_count"] = it }
+                            }
+                            handleScrapeOut("NPI Registry", "https://npiregistry.cms.hhs.gov/", out, sources, metadata, this@channelFlow, 0.8)
                         }
                         launch {
                             send(SearchProgressEvent.Checking("ThatsThem"))
@@ -3617,75 +3768,103 @@ class OsintRepository(context: Context) {
                         // with a valid key). Skip the calls entirely rather than wasting a
                         // round-trip and emitting a misleading "Blocked" event.
                         // launch { semaphore.withPermit { ... RetrofitClient.clearbitPersonService ... } }
-                        if (deepPhase) {
-                            launch {
-                                val key = apiKeys.opensanctionsKey.ifBlank { apiKeys.getKey("opensanctions") ?: "" }
-                                if (!key.isBlank()) {
-                                    send(SearchProgressEvent.Checking("OpenSanctions"))
-                                    val out = scrapeOpenSanctions(primaryQuery, key)
-                                    if (out.found) {
-                                        out.fields["total"]?.let { metadata["opensanctions_total"] = it }
-                                        out.fields["names"]?.let { metadata["opensanctions_names"] = it }
-                                        out.fields["datasets"]?.let { metadata["opensanctions_datasets"] = it }
-                                        out.fields["countries"]?.let { metadata["opensanctions_countries"] = it }
-                                        out.fields["link"]?.let { metadata["opensanctions_link"] = it }
-                                    }
-                                    handleScrapeOut("OpenSanctions", "https://api.opensanctions.org/search/default?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.85)
-                                } else {
-                                    send(SearchProgressEvent.Skipped("OpenSanctions", "free key required — add in Settings"))
-                                }
-                            }
-                            launch {
-                                // OpenCorporates v0.4 now requires a free api_token (anonymous access
-                                // returns 401). Skip with a clear message when none is configured.
-                                val key = apiKeys.opencorporatesKey.ifBlank { apiKeys.getKey("opencorporates") ?: "" }
-                                if (key.isBlank()) {
-                                    send(SearchProgressEvent.Skipped("OpenCorporates", "free token required — add in Settings"))
-                                    return@launch
-                                }
-                                send(SearchProgressEvent.Checking("OpenCorporates Officers"))
-                                val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
+                        // OpenSanctions / OpenCorporates — need free key, run always (not gated)
+                        launch {
+                            val key = apiKeys.opensanctionsKey.ifBlank { apiKeys.getKey("opensanctions") ?: "" }
+                            if (!key.isBlank()) {
+                                send(SearchProgressEvent.Checking("OpenSanctions"))
+                                val out = scrapeOpenSanctions(primaryQuery, key)
                                 if (out.found) {
-                                    out.fields["person_companies"]?.let { metadata["corpwiki_person_companies"] = it }
-                                    out.fields["positions"]?.let { metadata["opencorp_positions"] = it }
-                                    out.fields["person_states"]?.let { metadata["corpwiki_person_states"] = it }
-                                    out.fields["officer_matches"]?.let { metadata["officer_matches"] = it }
+                                    out.fields["total"]?.let { metadata["opensanctions_total"] = it }
+                                    out.fields["names"]?.let { metadata["opensanctions_names"] = it }
+                                    out.fields["datasets"]?.let { metadata["opensanctions_datasets"] = it }
+                                    out.fields["countries"]?.let { metadata["opensanctions_countries"] = it }
+                                    out.fields["link"]?.let { metadata["opensanctions_link"] = it }
                                 }
-                                handleScrapeOut("OpenCorporates", "https://api.opencorporates.com/v0.4/officers/search?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.85)
+                                handleScrapeOut("OpenSanctions", "https://api.opensanctions.org/search/default?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.85)
+                            } else {
+                                send(SearchProgressEvent.Skipped("OpenSanctions", "free key required — add in Settings"))
                             }
+                        }
+                        launch {
+                            // OpenCorporates v0.4 now requires a free api_token (anonymous access
+                            // returns 401). Skip with a clear message when none is configured.
+                            val key = apiKeys.opencorporatesKey.ifBlank { apiKeys.getKey("opencorporates") ?: "" }
+                            if (key.isBlank()) {
+                                send(SearchProgressEvent.Skipped("OpenCorporates", "free token required — add in Settings"))
+                                return@launch
+                            }
+                            send(SearchProgressEvent.Checking("OpenCorporates Officers"))
+                            val out = scrapeOpenCorporatesOfficers(primaryQuery, key)
+                            if (out.found) {
+                                out.fields["person_companies"]?.let { metadata["corpwiki_person_companies"] = it }
+                                out.fields["positions"]?.let { metadata["opencorp_positions"] = it }
+                                out.fields["person_states"]?.let { metadata["corpwiki_person_states"] = it }
+                                out.fields["officer_matches"]?.let { metadata["officer_matches"] = it }
+                            }
+                            handleScrapeOut("OpenCorporates", "https://api.opencorporates.com/v0.4/officers/search?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.85)
+                        }
+                        // OpenFEC — free DEMO_KEY, always run when state is available
+                        if (state.isNotBlank()) {
                             launch {
-                                send(SearchProgressEvent.Checking("FBI Wanted"))
-                                val out = scrapeFbiWanted(primaryQuery, state)
+                                send(SearchProgressEvent.Checking("OpenFEC"))
+                                val fecKey = apiKeys.openFecKey.ifBlank { apiKeys.getKey("openfec") ?: "DEMO_KEY" }
+                                val out = scrapeOpenFec(primaryQuery, state, fecKey)
                                 if (out.found) {
-                                    out.fields["matches"]?.let { metadata["fbi_wanted_matches"] = it }
-                                    out.fields["urls"]?.let { metadata["fbi_wanted_urls"] = it }
-                                    out.fields["match_count"]?.let { metadata["fbi_wanted_count"] = it }
+                                    out.fields["candidates"]?.let { metadata["openfec_candidates"] = it }
+                                    out.fields["candidate_count"]?.let { metadata["openfec_count"] = it }
                                 }
-                                handleScrapeOut("FBI Wanted", "https://api.fbi.gov/wanted/v1/list?title=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.9)
-                            }
-                            launch {
-                                send(SearchProgressEvent.Checking("NPI Registry"))
-                                val out = scrapeNpiRegistry(primaryQuery, state, city)
-                                if (out.found) {
-                                    out.fields["providers"]?.let { metadata["npi_providers"] = it }
-                                    out.fields["provider_count"]?.let { metadata["npi_provider_count"] = it }
-                                }
-                                handleScrapeOut("NPI Registry", "https://npiregistry.cms.hhs.gov/", out, sources, metadata, this@channelFlow, 0.8)
-                            }
-                            if (state.isNotBlank()) {
-                                launch {
-                                    send(SearchProgressEvent.Checking("OpenFEC"))
-                                    val fecKey = apiKeys.openFecKey.ifBlank { apiKeys.getKey("openfec") ?: "DEMO_KEY" }
-                                    val out = scrapeOpenFec(primaryQuery, state, fecKey)
-                                    if (out.found) {
-                                        out.fields["candidates"]?.let { metadata["openfec_candidates"] = it }
-                                        out.fields["candidate_count"]?.let { metadata["openfec_count"] = it }
-                                    }
-                                    handleScrapeOut("OpenFEC", "https://api.open.fec.gov/v1/candidates/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.75)
-                                }
+                                handleScrapeOut("OpenFEC", "https://api.open.fec.gov/v1/candidates/search/?q=${encode(primaryQuery)}", out, sources, metadata, this@channelFlow, 0.75)
                             }
                         }
                         if (personUsername.isNotBlank()) {
+                            // Free keyless social API scrapers — always run when username is available
+                            launch {
+                                send(SearchProgressEvent.Checking("GitLab"))
+                                val out = scrapeGitLabPublic(personUsername)
+                                if (out.found) {
+                                    out.fields["name"]?.let { metadata["gitlab_name"] = it }
+                                    out.fields["location"]?.let { metadata["gitlab_location"] = it }
+                                    out.fields["company"]?.let { metadata["gitlab_company"] = it }
+                                    metadata["gitlab_stats"] = out.fields["stats"] ?: ""
+                                }
+                                handleScrapeOut("GitLab", "https://gitlab.com/$personUsername", out, sources, metadata, this@channelFlow)
+                            }
+                            launch {
+                                send(SearchProgressEvent.Checking("Mastodon"))
+                                val out = scrapeMastodonPublic(personUsername)
+                                if (out.found) {
+                                    out.fields["name"]?.let { metadata["mastodon_name"] = it }
+                                    out.fields["snippet"]?.let { metadata["mastodon_bio"] = it }
+                                    out.fields["stats"]?.let { metadata["mastodon_stats"] = it }
+                                    out.fields["image_url"]?.let { if (metadata["profile_photo_url"].isNullOrBlank()) metadata["profile_photo_url"] = it }
+                                }
+                                handleScrapeOut("Mastodon", "https://mastodon.social/@$personUsername", out, sources, metadata, this@channelFlow)
+                            }
+                            launch {
+                                send(SearchProgressEvent.Checking("Bluesky"))
+                                val out = scrapeBlueskyPublic(personUsername)
+                                if (out.found) {
+                                    out.fields["name"]?.let { metadata["bluesky_name"] = it }
+                                    out.fields["snippet"]?.let { metadata["bluesky_bio"] = it }
+                                    out.fields["stats"]?.let { metadata["bluesky_stats"] = it }
+                                    out.fields["image_url"]?.let { if (metadata["profile_photo_url"].isNullOrBlank()) metadata["profile_photo_url"] = it }
+                                }
+                                handleScrapeOut("Bluesky", "https://bsky.app/profile/$personUsername.bsky.social", out, sources, metadata, this@channelFlow)
+                            }
+                            launch {
+                                send(SearchProgressEvent.Checking("X/Twitter"))
+                                val out = scrapeTwitterViaNitter(personUsername)
+                                if (out.found) {
+                                    out.fields["name"]?.let { metadata["twitter_name"] = it }
+                                    out.fields["snippet"]?.let { metadata["twitter_bio"] = it }
+                                    out.fields["location"]?.let { metadata["twitter_location"] = it }
+                                    out.fields["stats"]?.let { metadata["twitter_stats"] = it }
+                                    out.fields["image_url"]?.let { if (metadata["profile_photo_url"].isNullOrBlank()) metadata["profile_photo_url"] = it }
+                                }
+                                handleScrapeOut("X/Twitter", "https://x.com/$personUsername", out, sources, metadata, this@channelFlow)
+                            }
+                            // Termux tools — require Termux installation
                             if (SubjectSearchOrchestrator.shouldRunScraper("sherlock", searchPhase, subjectIntent, activeCategories)) {
                                 launch {
                                     semaphore.withPermit {
@@ -4549,7 +4728,7 @@ class OsintRepository(context: Context) {
                         }
                     }
                     "username" -> {
-                        targetedScraperNames += setOf("GitHub", "Reddit")
+                        targetedScraperNames += setOf("GitHub", "GitLab", "Mastodon", "Bluesky", "X/Twitter")
                         launch {
                             runUsernameDiscovery(
                                 usernames = listOf(primaryQuery),
@@ -4576,6 +4755,52 @@ class OsintRepository(context: Context) {
                                 }
                             }
                             handleScrapeOut("GitHub", "https://github.com/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        // Free keyless API scrapers — run in parallel for username searches
+                        launch {
+                            send(SearchProgressEvent.Checking("GitLab"))
+                            val out = scrapeGitLabPublic(primaryQuery)
+                            if (out.found) {
+                                out.fields["name"]?.let { if (metadata["github_name"].isNullOrBlank()) metadata["gitlab_name"] = it }
+                                out.fields["location"]?.let { if (metadata["github_location"].isNullOrBlank()) metadata["gitlab_location"] = it }
+                                out.fields["company"]?.let { metadata["gitlab_company"] = it }
+                                metadata["gitlab_stats"] = out.fields["stats"] ?: ""
+                            }
+                            handleScrapeOut("GitLab", "https://gitlab.com/$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Mastodon"))
+                            val out = scrapeMastodonPublic(primaryQuery)
+                            if (out.found) {
+                                out.fields["name"]?.let { metadata["mastodon_name"] = it }
+                                out.fields["snippet"]?.let { metadata["mastodon_bio"] = it }
+                                out.fields["stats"]?.let { metadata["mastodon_stats"] = it }
+                                out.fields["image_url"]?.let { if (metadata["profile_photo_url"].isNullOrBlank()) metadata["profile_photo_url"] = it }
+                            }
+                            handleScrapeOut("Mastodon", "https://mastodon.social/@$primaryQuery", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("Bluesky"))
+                            val out = scrapeBlueskyPublic(primaryQuery)
+                            if (out.found) {
+                                out.fields["name"]?.let { metadata["bluesky_name"] = it }
+                                out.fields["snippet"]?.let { metadata["bluesky_bio"] = it }
+                                out.fields["stats"]?.let { metadata["bluesky_stats"] = it }
+                                out.fields["image_url"]?.let { if (metadata["profile_photo_url"].isNullOrBlank()) metadata["profile_photo_url"] = it }
+                            }
+                            handleScrapeOut("Bluesky", "https://bsky.app/profile/$primaryQuery.bsky.social", out, sources, metadata, this@channelFlow)
+                        }
+                        launch {
+                            send(SearchProgressEvent.Checking("X/Twitter"))
+                            val out = scrapeTwitterViaNitter(primaryQuery)
+                            if (out.found) {
+                                out.fields["name"]?.let { metadata["twitter_name"] = it }
+                                out.fields["snippet"]?.let { metadata["twitter_bio"] = it }
+                                out.fields["location"]?.let { if (metadata["github_location"].isNullOrBlank()) metadata["twitter_location"] = it }
+                                out.fields["stats"]?.let { metadata["twitter_stats"] = it }
+                                out.fields["image_url"]?.let { if (metadata["profile_photo_url"].isNullOrBlank()) metadata["profile_photo_url"] = it }
+                            }
+                            handleScrapeOut("X/Twitter", "https://x.com/$primaryQuery", out, sources, metadata, this@channelFlow)
                         }
                         // Reddit username detection is handled by UsernameDiscoveryService
                         // (which checks the public profile page). The dedicated scrapeReddit()

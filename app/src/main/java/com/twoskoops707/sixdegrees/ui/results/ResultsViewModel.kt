@@ -202,11 +202,19 @@ object DossierBuilder {
         "search" to "Web Search",
         "holehe" to "Holehe",
         "github" to "GitHub",
+        "gitlab" to "GitLab",
+        "mastodon" to "Mastodon",
+        "bluesky" to "Bluesky",
+        "twitter" to "X/Twitter",
+        "gleif" to "GLEIF",
+        "fbi" to "FBI Wanted",
+        "npi" to "NPI Registry",
+        "openfec" to "OpenFEC",
         "found_urls" to "Profile Scan"
     )
 
-    private val HIGH_CONFIDENCE = setOf("pipl", "pdl", "voter", "courtlistener", "judyrecords", "opensanctions", "clearbit")
-    private val MEDIUM_CONFIDENCE = setOf("tps", "zaba", "411", "radaris", "nuwber", "peekyou", "sherlock", "maigret", "hibp", "corpwiki", "sec", "wikipedia", "wikidata", "holehe", "github")
+    private val HIGH_CONFIDENCE = setOf("pipl", "pdl", "voter", "courtlistener", "judyrecords", "opensanctions", "clearbit", "gitlab", "mastodon", "bluesky", "twitter")
+    private val MEDIUM_CONFIDENCE = setOf("tps", "zaba", "411", "radaris", "nuwber", "peekyou", "sherlock", "maigret", "hibp", "corpwiki", "sec", "wikipedia", "wikidata", "holehe", "github", "gleif", "fbi", "npi", "openfec")
 
     fun parseMetadata(companiesJson: String): MutableMap<String, String> {
         return try {
@@ -552,6 +560,70 @@ object DossierBuilder {
             findings.add(finding(line.trim(), "DuckDuckGo", DossierConfidence.LOW, "Profile Detail"))
         }
 
+        // Social platform profiles from free keyless APIs
+        listOf(
+            "github_name" to "GitHub",
+            "gitlab_name" to "GitLab",
+            "mastodon_name" to "Mastodon",
+            "bluesky_name" to "Bluesky",
+            "twitter_name" to "X/Twitter"
+        ).forEach { (key, source) ->
+            meta[key]?.takeIf { it.isNotBlank() }?.let {
+                findings.add(finding(it, source, DossierConfidence.MEDIUM, "Display Name"))
+            }
+        }
+        // Social bios
+        listOf(
+            "mastodon_bio" to "Mastodon",
+            "bluesky_bio" to "Bluesky",
+            "twitter_bio" to "X/Twitter"
+        ).forEach { (key, source) ->
+            meta[key]?.takeIf { it.isNotBlank() }?.take(200)?.let {
+                findings.add(finding(it, source, DossierConfidence.MEDIUM, "Bio"))
+            }
+        }
+        // Social stats
+        listOf(
+            "github_stats" to "GitHub",
+            "gitlab_stats" to "GitLab",
+            "mastodon_stats" to "Mastodon",
+            "bluesky_stats" to "Bluesky",
+            "twitter_stats" to "X/Twitter"
+        ).forEach { (key, source) ->
+            meta[key]?.takeIf { it.isNotBlank() }?.let {
+                findings.add(finding(it, source, DossierConfidence.LOW, "Stats"))
+            }
+        }
+        // Social locations
+        listOf(
+            "github_location" to "GitHub",
+            "gitlab_location" to "GitLab",
+            "twitter_location" to "X/Twitter"
+        ).forEach { (key, source) ->
+            meta[key]?.takeIf { it.isNotBlank() }?.let {
+                findings.add(finding(it, source, DossierConfidence.MEDIUM, "Location"))
+            }
+        }
+        // Government/registry data from free keyless APIs
+        meta["courtlistener_count"]?.takeIf { it.isNotBlank() && it != "0" }?.let {
+            findings.add(finding("$it case(s) found", "CourtListener", DossierConfidence.HIGH, "Court Records"))
+        }
+        meta["sec_person_entities"]?.takeIf { it.isNotBlank() }?.let {
+            findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "Insider Filings"))
+        }
+        meta["gleif_entities"]?.takeIf { it.isNotBlank() }?.let {
+            findings.add(finding(it, "GLEIF", DossierConfidence.MEDIUM, "Legal Entities"))
+        }
+        meta["npi_providers"]?.takeIf { it.isNotBlank() }?.let {
+            findings.add(finding(it, "NPI Registry", DossierConfidence.HIGH, "Healthcare Provider"))
+        }
+        meta["fbi_wanted_matches"]?.takeIf { it.isNotBlank() }?.let {
+            findings.add(finding(it, "FBI Wanted", DossierConfidence.HIGH, "FBI Match", isWarning = true))
+        }
+        meta["opensanctions_total"]?.takeIf { it.isNotBlank() && it != "0" }?.let {
+            findings.add(finding("$it match(es)", "OpenSanctions", DossierConfidence.HIGH, "Sanctions", isWarning = true))
+        }
+
         if (findings.isEmpty()) {
             findings.add(finding("No identity data found for this subject", "SixDegrees", DossierConfidence.LOW))
         }
@@ -737,6 +809,21 @@ object DossierBuilder {
                 ))
             }
         }
+        // FBI Wanted matches
+        meta["fbi_wanted_matches"]?.takeIf { it.isNotBlank() }?.let {
+            findings.add(finding(it, "FBI Wanted", DossierConfidence.HIGH, "FBI Wanted Match", isWarning = true))
+        }
+        meta["fbi_wanted_urls"]?.lines()?.filter { it.isNotBlank() }?.take(3)?.forEach { url ->
+            findings.add(finding(url, "FBI Wanted", DossierConfidence.HIGH, "FBI Profile", isLink = true, sourceUrl = url.trim()))
+        }
+        // SEC EDGAR insider filings
+        meta["sec_person_entities"]?.takeIf { it.isNotBlank() }?.let {
+            findings.add(finding(it, "SEC EDGAR", DossierConfidence.HIGH, "Insider Filings"))
+        }
+        // GLEIF legal entities
+        meta["gleif_entities"]?.takeIf { it.isNotBlank() }?.let {
+            findings.add(finding(it, "GLEIF", DossierConfidence.MEDIUM, "Legal Entity Registration"))
+        }
         meta["dork_criminal_results"]?.split("\n---\n")?.filter { it.isNotBlank() }?.take(8)?.forEach { block ->
             findings.add(finding(
                 block.trim(), "Auto-Dork", DossierConfidence.LOW, "Criminal Intel", isWarning = true,
@@ -830,6 +917,30 @@ object DossierBuilder {
             }
         meta["github_stats"]?.takeIf { it.isNotBlank() }
             ?.let { findings.add(finding(it, "GitHub", DossierConfidence.MEDIUM, "GitHub Activity")) }
+        // GitLab profile
+        meta["gitlab_name"]?.takeIf { it.isNotBlank() }?.let { name ->
+            findings.add(finding(name, "GitLab", DossierConfidence.MEDIUM, "GitLab Profile", isLink = true, sourceUrl = "https://gitlab.com/${meta["field_username"] ?: meta["username"] ?: ""}"))
+        }
+        meta["gitlab_stats"]?.takeIf { it.isNotBlank() }
+            ?.let { findings.add(finding(it, "GitLab", DossierConfidence.MEDIUM, "GitLab Activity")) }
+        // Mastodon profile
+        meta["mastodon_name"]?.takeIf { it.isNotBlank() }?.let { name ->
+            findings.add(finding(name, "Mastodon", DossierConfidence.MEDIUM, "Mastodon Profile", isLink = true, sourceUrl = "https://mastodon.social/@${meta["field_username"] ?: meta["username"] ?: ""}"))
+        }
+        meta["mastodon_stats"]?.takeIf { it.isNotBlank() }
+            ?.let { findings.add(finding(it, "Mastodon", DossierConfidence.MEDIUM, "Mastodon Activity")) }
+        // Bluesky profile
+        meta["bluesky_name"]?.takeIf { it.isNotBlank() }?.let { name ->
+            findings.add(finding(name, "Bluesky", DossierConfidence.MEDIUM, "Bluesky Profile", isLink = true, sourceUrl = "https://bsky.app/profile/${meta["field_username"] ?: meta["username"] ?: ""}.bsky.social"))
+        }
+        meta["bluesky_stats"]?.takeIf { it.isNotBlank() }
+            ?.let { findings.add(finding(it, "Bluesky", DossierConfidence.MEDIUM, "Bluesky Activity")) }
+        // X/Twitter profile
+        meta["twitter_name"]?.takeIf { it.isNotBlank() }?.let { name ->
+            findings.add(finding(name, "X/Twitter", DossierConfidence.MEDIUM, "X/Twitter Profile", isLink = true, sourceUrl = "https://x.com/${meta["field_username"] ?: meta["username"] ?: ""}"))
+        }
+        meta["twitter_stats"]?.takeIf { it.isNotBlank() }
+            ?.let { findings.add(finding(it, "X/Twitter", DossierConfidence.MEDIUM, "X/Twitter Activity")) }
         meta["sites_found"]?.toIntOrNull()?.takeIf { it > 0 }?.let { found ->
             val checked = meta["sites_checked"]?.toIntOrNull() ?: found
             findings.add(finding("$found profiles on $checked platforms", "Username Scan", DossierConfidence.MEDIUM, "Cross-Platform"))

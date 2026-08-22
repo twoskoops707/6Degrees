@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ETA now shown in both simple and investigator modes (estimated ~2s per remaining source)
 
 ### Added
+- Free keyless API scrapers now always run (not gated behind investigator mode): CourtListener, GLEIF, SEC EDGAR, Wikidata, FBI Wanted, NPI Registry, OpenFEC — provides meaningful data even without API keys or Termux
+- GitLab public API scraper — free, no key required, returns profile name, location, company, stats
+- Mastodon public API scraper — free, no key required, returns display name, bio, follower/post counts
+- Bluesky public API scraper — free, no key required, returns display name, description, follower/post counts
+- X/Twitter via Nitter scraper — free, no key required, returns full name, bio, location, follower count
+- These social API scrapers run for both username searches AND person searches (when a username is provided)
 - ProxyNova COMB breach search — free keyless check against 3.2B leaked credentials
 - EVA Email Validator — deliverability, MX record, disposable address, spam trap detection
 - ipwho.is — additional IP geolocation source (org, city, region, timezone)
