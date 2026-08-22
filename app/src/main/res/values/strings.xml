@@ -74,6 +74,10 @@
     <string name="intake_domain_hint">example.com or 203.0.113.42</string>
     <string name="progress_deep_investigation">Deep investigation in progress - typically 5-10 minutes</string>
     <string name="progress_elapsed">Elapsed %1$02d:%2$02d</string>
+    <string name="progress_elapsed_label">Elapsed</string>
+    <string name="progress_eta_label">Remaining</string>
+    <string name="progress_eta_seconds">~%1$ds</string>
+    <string name="progress_eta_minutes">~%1$dm %2$ds</string>
     <string name="progress_phase_discovery">Discovery - people finders &amp; social</string>
     <string name="progress_phase_deep">Deep scan - courts, SEC, breaches</string>
     <string name="progress_phase_dark">Dark web - Tor index sweep</string>

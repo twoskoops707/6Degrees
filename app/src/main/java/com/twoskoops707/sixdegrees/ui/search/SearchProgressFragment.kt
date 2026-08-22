@@ -84,9 +84,13 @@ class SearchProgressFragment : Fragment() {
         investigatorMode = AppSettings.isInvestigatorMode(requireContext())
         if (investigatorMode) {
             InvestigationPipelineView.bind(binding.root, InvestigationStep.COLLECT)
+            binding.layoutPhaseStepper.visibility = View.VISIBLE
+            updatePhaseStepper(1)
         } else {
             binding.root.findViewById<View>(R.id.pipeline_include)?.visibility = View.GONE
+            binding.layoutPhaseStepper.visibility = View.GONE
         }
+        startPulseAnimation()
 
         val rawQuery = arguments?.getString("query") ?: ""
         val type = arguments?.getString("type") ?: "person"
@@ -255,8 +259,11 @@ class SearchProgressFragment : Fragment() {
         searchComplete = true
         binding.progressBar.visibility = View.GONE
         binding.btnPartialResults.visibility = View.GONE
+        binding.pulseRing?.animate()?.cancel()
+        binding.pulseDot?.animate()?.cancel()
+        binding.pulseRing?.alpha = 0f
         val elapsedSec = ((System.currentTimeMillis() - searchStartMs) / 1000).toInt()
-        binding.tvEta.text = ""
+        binding.tvEta.text = "—"
         binding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
         if (investigatorMode) {
             val suffix = if (hitCount != 1) "s" else ""
@@ -349,6 +356,7 @@ class SearchProgressFragment : Fragment() {
         val mins = elapsedSec / 60
         val secs = elapsedSec % 60
         binding.tvElapsed.text = getString(R.string.progress_elapsed, mins, secs)
+        binding.tvElapsedTime.text = String.format("%d:%02d", mins, secs)
     }
 
     private fun navigateToResults(reportId: String?) {
@@ -383,6 +391,13 @@ class SearchProgressFragment : Fragment() {
                         "ai brief" -> getString(R.string.progress_phase_ai)
                         else -> event.detail.ifBlank { getString(R.string.progress_deep_investigation) }
                     }
+                    val phaseNum = when (event.phase.lowercase()) {
+                        "discovery" -> 1
+                        "deep scan", "secondary sweep" -> 2
+                        "dark web", "ai brief" -> 3
+                        else -> 2
+                    }
+                    updatePhaseStepper(phaseNum)
                     if (event.detail.isNotBlank() && event.phase.lowercase() !in setOf("discovery", "deep scan")) {
                         binding.tvStatus.text = event.detail
                     }
@@ -510,12 +525,10 @@ class SearchProgressFragment : Fragment() {
     private fun applySimpleProgressUi() {
         binding.chipSearchType.visibility = View.GONE
         binding.layoutCheckedColumn.visibility = View.VISIBLE
-        binding.statsDivider.visibility = View.VISIBLE
         binding.tvSourceLogHeader.visibility = View.VISIBLE
         binding.tvSourceLogHeader.text = getString(R.string.progress_source_log)
         binding.rvSources.visibility = View.VISIBLE
         binding.tvPhase.visibility = View.GONE
-        binding.tvEta.visibility = View.GONE
         binding.btnPartialResults.visibility = View.GONE
         binding.tvStatus.text = getString(R.string.progress_simple_status)
         binding.searchProgressToolbar.title = getString(R.string.progress_title)
@@ -584,29 +597,86 @@ class SearchProgressFragment : Fragment() {
     }
 
     private fun updateCounts() {
-        if (investigatorMode) {
-            val suffix = if (hitCount != 1) "s" else ""
-            binding.tvFoundCount.text = getString(R.string.progress_findings, hitCount, suffix)
-            val total = maxOf(estimatedTotal, sourceRows.size)
-            binding.tvCheckedCount.text = getString(R.string.progress_sources_checked, checkedCount, total)
-            val elapsedMs = System.currentTimeMillis() - searchStartMs
-            val minMs = SubjectSearchOrchestrator.minimumDurationMs(
-                if (currentRound > 1 || currentType == "comprehensive") SearchPhase.DEEP_INVESTIGATION
-                else SearchPhase.CANDIDATE_DISCOVERY,
-                fastMode = !investigatorMode
-            )
-            if (checkedCount > 0 && checkedCount < total && elapsedMs < minMs) {
-                val remainingMs = (minMs - elapsedMs).coerceAtLeast(0)
-                val etaMin = (remainingMs / 60_000).toInt()
-                val etaSec = ((remainingMs % 60_000) / 1000).toInt()
-                binding.tvEta.text = if (etaMin > 0) "~${etaMin}m ${etaSec}s left" else "~${etaSec}s left"
-            } else if (checkedCount < total) {
-                binding.tvEta.text = "Sweeping sources…"
+        // ── Hit count (animate on change) ──
+        val suffix = if (hitCount != 1) "s" else ""
+        binding.tvFoundCount.text = if (investigatorMode)
+            getString(R.string.progress_findings, hitCount, suffix)
+        else hitCount.toString()
+        if (hitCount > 0) animateHitCount()
+
+        // ── Sources scanned ──
+        val total = maxOf(estimatedTotal, sourceRows.size, 1)
+        binding.tvCheckedCount.text = checkedCount.toString()
+
+        // ── ETA (both modes) ──
+        val elapsedMs = System.currentTimeMillis() - searchStartMs
+        val minMs = SubjectSearchOrchestrator.minimumDurationMs(
+            if (currentRound > 1 || currentType == "comprehensive") SearchPhase.DEEP_INVESTIGATION
+            else SearchPhase.CANDIDATE_DISCOVERY,
+            fastMode = !investigatorMode
+        )
+        if (!searchComplete && !searchFailed) {
+            when {
+                checkedCount > 0 && checkedCount < total && elapsedMs < minMs -> {
+                    val remainingMs = (minMs - elapsedMs).coerceAtLeast(0)
+                    val etaMin = (remainingMs / 60_000).toInt()
+                    val etaSec = ((remainingMs % 60_000) / 1000).toInt()
+                    binding.tvEta.text = if (etaMin > 0)
+                        getString(R.string.progress_eta_minutes, etaMin, etaSec)
+                    else getString(R.string.progress_eta_seconds, etaSec)
+                }
+                checkedCount < total && elapsedMs >= minMs -> {
+                    // Estimate ~2s per remaining source
+                    val remaining = (total - checkedCount) * 2
+                    val rMin = remaining / 60
+                    val rSec = remaining % 60
+                    binding.tvEta.text = if (rMin > 0)
+                        getString(R.string.progress_eta_minutes, rMin, rSec)
+                    else getString(R.string.progress_eta_seconds, rSec)
+                }
+                else -> binding.tvEta.text = "—"
             }
-        } else {
-            binding.tvFoundCount.text = hitCount.toString()
-            val total = maxOf(estimatedTotal, sourceRows.size, 1)
-            binding.tvCheckedCount.text = getString(R.string.progress_sources_checked, checkedCount, total)
+        }
+    }
+
+    private fun animateHitCount() {
+        binding.tvFoundCount.animate()
+            .scaleX(1.15f).scaleY(1.15f)
+            .setDuration(150)
+            .withEndAction {
+                if (_binding != null) {
+                    binding.tvFoundCount.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
+                }
+            }
+            .start()
+    }
+
+    private fun startPulseAnimation() {
+        val ring = binding.pulseRing ?: return
+        val dot = binding.pulseDot ?: return
+        ring.animate().cancel()
+        ring.alpha = 0.8f
+        ring.animate()
+            .scaleX(1.8f).scaleY(1.8f).alpha(0f)
+            .setDuration(1200)
+            .withEndAction {
+                if (_binding != null) {
+                    ring.scaleX = 1f; ring.scaleY = 1f; ring.alpha = 0.8f
+                    startPulseAnimation()
+                }
+            }
+            .start()
+    }
+
+    private fun updatePhaseStepper(activePhase: Int) {
+        val ctx = context ?: return
+        listOf(binding.step1Card, binding.step2Card, binding.step3Card).forEachIndexed { idx, card ->
+            val isActive = idx + 1 <= activePhase
+            card.setCardBackgroundColor(ContextCompat.getColor(ctx,
+                if (isActive) R.color.accent_cyan else R.color.md_surface_variant))
+            (card.getChildAt(0) as? android.widget.TextView)?.setTextColor(
+                ContextCompat.getColor(ctx,
+                    if (isActive) R.color.md_background else R.color.md_on_surface_variant))
         }
     }
 

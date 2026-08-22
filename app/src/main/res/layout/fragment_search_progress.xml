@@ -19,302 +19,423 @@
         app:navigationIcon="@drawable/ic_arrow_back"
         app:title="@string/progress_collect_title" />
 
-    <LinearLayout
+    <!-- ═══════════════════════════════════════════════════════
+         Hero card: target + scanning animation + stats + ETA
+         ═══════════════════════════════════════════════════════ -->
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="@dimen/screen_padding_horizontal"
-        android:paddingTop="16dp"
-        android:paddingBottom="14dp"
-        android:background="?attr/colorSurfaceContainer">
+        android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
+        android:layout_marginTop="12dp"
+        app:cardBackgroundColor="?attr/colorSurfaceContainer"
+        app:cardCornerRadius="@dimen/card_corner_radius"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
 
-        <!-- Target query + type chip -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:orientation="vertical"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="18dp"
+            android:paddingBottom="16dp">
 
-            <TextView
-                android:id="@+id/tv_search_query"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textAppearance="@style/TextAppearance.SixDegrees.TitleLarge"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_search_type"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                app:chipBackgroundColor="?attr/colorSecondaryContainer"
-                android:textColor="?attr/colorOnSecondaryContainer"
-                android:textSize="12sp" />
-
-        </LinearLayout>
-
-        <!-- Phase stepper: DISCOVERY → ANALYSIS → REPORT -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="16dp"
-            android:gravity="center_vertical">
-
-            <!-- Phase 1: DISCOVERY -->
+            <!-- Target query + type chip -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    app:cardBackgroundColor="?attr/colorPrimary"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="1"
-                        android:textColor="?attr/colorOnPrimary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="@string/progress_phase_discovery"
-                    android:textSize="9sp"
-                    android:textAllCaps="true"
-                    android:letterSpacing="0.06"
-                    android:textColor="?attr/colorPrimary"
-                    android:gravity="center" />
-
-            </LinearLayout>
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="2dp"
-                android:layout_weight="0.4"
-                android:layout_marginBottom="22dp"
-                android:background="?attr/colorOutlineVariant" />
-
-            <!-- Phase 2: ANALYSIS -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="2"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="@string/progress_phase_analysis"
-                    android:textSize="9sp"
-                    android:textAllCaps="true"
-                    android:letterSpacing="0.06"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:gravity="center" />
-
-            </LinearLayout>
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="2dp"
-                android:layout_weight="0.4"
-                android:layout_marginBottom="22dp"
-                android:background="?attr/colorOutlineVariant" />
-
-            <!-- Phase 3: REPORT -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="3"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="@string/progress_phase_report"
-                    android:textSize="9sp"
-                    android:textAllCaps="true"
-                    android:letterSpacing="0.06"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:gravity="center" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- Progress bar + current phase label -->
-        <com.google.android.material.progressindicator.LinearProgressIndicator
-            android:id="@+id/progress_bar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:indeterminate="true"
-            app:trackThickness="4dp"
-            app:trackColor="?attr/colorSurfaceVariant"
-            app:indicatorColor="?attr/colorPrimary"
-            app:trackCornerRadius="2dp" />
-
-        <TextView
-            android:id="@+id/tv_phase"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/progress_deep_investigation"
-            android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
-            android:textColor="?attr/colorPrimary" />
-
-        <!-- Stats row: found + checked -->
-        <LinearLayout
-            android:id="@+id/layout_stats_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="12dp"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/tv_found_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textAppearance="@style/TextAppearance.SixDegrees.TitleLarge"
-                android:textColor="?attr/colorPrimary"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tv_found_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:text="@string/progress_hits_label"
-                android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-
-            <View
-                android:id="@+id/stats_divider"
-                android:layout_width="1dp"
-                android:layout_height="16dp"
-                android:layout_marginHorizontal="10dp"
-                android:background="?attr/colorOutlineVariant" />
-
-            <LinearLayout
-                android:id="@+id/layout_checked_column"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
                 <TextView
-                    android:id="@+id/tv_checked_count"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tv_search_query"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="0 / ?"
-                    android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:layout_weight="1"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.TitleLarge"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
-                <TextView
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_search_type"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/progress_sources_label"
-                    android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:layout_marginStart="8dp"
+                    app:chipBackgroundColor="?attr/colorSecondaryContainer"
+                    android:textColor="?attr/colorOnSecondaryContainer"
+                    android:textSize="11sp"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="0dp"
+                    android:minHeight="24dp" />
 
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_elapsed"
-                android:layout_width="wrap_content"
+            <!-- Scanning animation line -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
-                android:textColor="?attr/colorOnSurfaceVariant" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="14dp">
 
-            <TextView
-                android:id="@+id/tv_eta"
-                android:layout_width="wrap_content"
+                <!-- Animated radar pulse -->
+                <FrameLayout
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="10dp">
+
+                    <View
+                        android:id="@+id/pulse_ring"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/bg_pulse_ring" />
+
+                    <View
+                        android:id="@+id/pulse_dot"
+                        android:layout_width="6dp"
+                        android:layout_height="6dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/bg_pulse_dot" />
+
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tv_phase"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/progress_deep_investigation"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                    android:textColor="?attr/colorPrimary"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <!-- Elapsed timer -->
+                <TextView
+                    android:id="@+id/tv_elapsed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:fontFamily="monospace" />
+
+            </LinearLayout>
+
+            <!-- Linear progress bar -->
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/progress_bar"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.SixDegrees.LabelMedium"
-                android:textColor="?attr/colorOnSurfaceVariant" />
+                android:layout_marginTop="12dp"
+                android:indeterminate="true"
+                app:trackThickness="3dp"
+                app:trackColor="?attr/colorSurfaceVariant"
+                app:indicatorColor="?attr/colorPrimary"
+                app:trackCornerRadius="2dp" />
+
+            <!-- ═══ Stats grid: 4 columns ═══ -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="16dp"
+                android:weightSum="4">
+
+                <!-- Hits -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <TextView
+                        android:id="@+id/tv_found_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorPrimary"
+                        android:fontFamily="monospace"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/progress_hits_label"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.08"
+                        android:textAllCaps="true"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
+
+                <!-- Sources scanned -->
+                <LinearLayout
+                    android:id="@+id/layout_checked_column"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <TextView
+                        android:id="@+id/tv_checked_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        android:fontFamily="monospace"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/progress_sources_label"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.08"
+                        android:textAllCaps="true"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
+
+                <!-- Elapsed time -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <TextView
+                        android:id="@+id/tv_elapsed_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0:00"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        android:fontFamily="monospace"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/progress_elapsed_label"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.08"
+                        android:textAllCaps="true"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
+
+                <!-- ETA -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <TextView
+                        android:id="@+id/tv_eta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="~30s"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:fontFamily="monospace"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/progress_eta_label"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.08"
+                        android:textAllCaps="true"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Live status ticker -->
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Initializing…"
+                android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
         </LinearLayout>
 
-        <!-- Live status ticker -->
-        <TextView
-            android:id="@+id/tv_status"
-            android:layout_width="match_parent"
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- ═══════════════════════════════════════════════════════
+         Phase stepper (investigator mode only)
+         ═══════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/layout_phase_stepper"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginHorizontal="@dimen/screen_padding_horizontal"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:visibility="gone">
+
+        <!-- Phase 1 -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Initializing…"
-            android:textAppearance="@style/TextAppearance.SixDegrees.BodyMedium"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/step1_card"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/progress_phase_discovery"
+                android:textSize="9sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.06"
+                android:gravity="center" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="0.3"
+            android:layout_marginBottom="18dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <!-- Phase 2 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/step2_card"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="2"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/progress_phase_analysis"
+                android:textSize="9sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.06"
+                android:gravity="center" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="0.3"
+            android:layout_marginBottom="18dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <!-- Phase 3 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/step3_card"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="3"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/progress_phase_report"
+                android:textSize="9sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.06"
+                android:gravity="center" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
+    <!-- ═══════════════════════════════════════════════════════
+         Source log (scrollable)
+         ═══════════════════════════════════════════════════════ -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:layout_marginTop="12dp">
 
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
@@ -332,7 +453,7 @@
                     android:id="@+id/tv_source_log_header"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="8dp"
                     android:layout_marginBottom="8dp"
                     android:text="@string/progress_source_log"
                     android:textAppearance="@style/TextAppearance.SixDegrees.SectionHeader" />
@@ -354,6 +475,7 @@
 
         </androidx.core.widget.NestedScrollView>
 
+        <!-- FAB + partial results at bottom -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

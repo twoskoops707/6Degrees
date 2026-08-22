@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wizard install buttons open Termux with the command visible (RunCommandService `background=false`) instead of silently copying to clipboard
 - nmap scan changed from `-sV` (requires root) to `-sT` (TCP connect scan) so it works on non-rooted phones
 
+### Changed
+- Redesigned search progress screen: modern card-based stats grid with hits / sources / elapsed / ETA, pulsing scanning indicator, animated hit counter, phase stepper (investigator mode)
+- ETA now shown in both simple and investigator modes (estimated ~2s per remaining source)
+
 ### Added
 - ProxyNova COMB breach search — free keyless check against 3.2B leaked credentials
 - EVA Email Validator — deliverability, MX record, disposable address, spam trap detection
