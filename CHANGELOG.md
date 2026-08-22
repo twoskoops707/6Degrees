@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Guard nullable JSONArray receiver in ThreatFox scrape (`data?.optJSONObject(i)`) — removes compiler warning and latent NPE risk
-- Fix "Not allowed to start service" crash / frozen search: `TermuxToolRunner.fireCommand()` now swallows service-start failures (Android 8+/12+ reject background/fg-service starts when the app is in the background), and the Termux status refresh in `searchWithProgress()` is guarded so it can never abort a search
+- Fix "Not allowed to start service" crash / frozen search: `TermuxToolRunner.requestToolStatusRefresh()` now catches foreground-service rejections internally (Android 8+/12+ reject service starts when the app is in the background), and the same call in `searchWithProgress()` is guarded so it can never abort a search
 
 ### Added
 - ProxyNova COMB breach search — free keyless check against 3.2B leaked credentials

@@ -68,10 +68,14 @@ exception escaped the search flow, and the UI surfaced "Search failed: Not allow
 to start service…".
 
 **Fix:**
-- `fireCommand()` now wraps the service start in try/catch and logs instead of
-  throwing — every caller (9+ sites) is safe regardless of foreground state.
-- The `requestToolStatusRefresh()` call in `searchWithProgress()` is wrapped in
-  try/catch so a rejected service start can never abort a search.
+- `requestToolStatusRefresh()` wraps `fireCommand()` in try/catch internally,
+  protecting both `isToolInstalled` (called from runSherlock etc.) and
+  `searchWithProgress` — the two paths that previously had no guard.
+- `searchWithProgress()` also adds a belt-and-suspenders try/catch around the
+  same call, so a rejected service start can never abort a search.
+- `fireCommand()` itself keeps its throwing behavior — the 9+ callers that
+  already have `try/catch` (runSherlock, runMaigret, etc.) continue to get
+  instant "Could not reach Termux RPC" feedback instead of a 120 s pollFile stall.
 
 ## Build verification summary
 
